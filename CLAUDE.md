@@ -34,9 +34,17 @@ tribal-knowledge/
 
 ## Commands
 ```bash
+# Install all dependencies (runtime + dev)
+cd backend && uv sync --group dev
+
 # Run backend locally
-cd backend && source .venv/bin/activate
-uvicorn app.main:app --reload
+cd backend && uv run python -m uvicorn app.main:app --reload
+
+# Run tests
+cd backend && uv run pytest
+
+# Lint and format
+cd backend && uv run ruff check . && uv run black .
 
 # Push migrations to Supabase Cloud
 supabase db push

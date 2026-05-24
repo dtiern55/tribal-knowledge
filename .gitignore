@@ -2,7 +2,6 @@
 __pycache__/
 *.pyc
 .venv/
-venv/
 supabase/.temp/
 .claude/
 *.Zone.Identifier

@@ -1,0 +1,19 @@
+[project]
+name = "tribal-knowledge-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "psycopg2-binary",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "black",
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "httpx",
+]
