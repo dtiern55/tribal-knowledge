@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 
 from app import database
+from app.routers import seasons
 
 app = FastAPI(title="Tribal Knowledge")
+app.include_router(seasons.router)
 
 
 @app.get("/health")
