@@ -1,0 +1,2 @@
+-- Local dev seed data goes here.
+-- scoring_event_types are seeded via migration; add any local-only test fixtures here.

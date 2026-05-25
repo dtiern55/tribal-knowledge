@@ -40,7 +40,13 @@ cd backend && uv sync --group dev
 # Run backend locally
 cd backend && uv run python -m uvicorn app.main:app --reload
 
-# Run tests
+# Run tests (unit only — no DB required)
+cd backend && uv run pytest -m "not integration"
+
+# Run integration tests (requires local Supabase running)
+cd backend && uv run pytest -m integration
+
+# Run all tests
 cd backend && uv run pytest
 
 # Lint and format
@@ -49,6 +55,26 @@ cd backend && uv run ruff check . && uv run black .
 # Push migrations to Supabase Cloud
 supabase db push
 ```
+
+## Local development (integration tests)
+
+Requires Docker Desktop with WSL integration enabled.
+
+```bash
+# Start local Supabase (runs migrations automatically)
+supabase start
+
+# Reset DB and re-run all migrations
+supabase db reset
+
+# Stop local Supabase
+supabase stop
+```
+
+Local DB credentials (used by `backend/.env.test`):
+- Host: `127.0.0.1`, Port: `5433`, DB/User: `postgres`, Password: `postgres`
+- Studio: http://127.0.0.1:54101
+- API: http://127.0.0.1:54100
 
 ## Do Not
 - Never use supabase-py — psycopg2 only.
