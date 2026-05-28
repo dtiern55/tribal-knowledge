@@ -2,34 +2,8 @@ import uuid
 
 import pytest
 
-
-def _insert_season(conn, name="Survivor: Test Island", season_number=99, **kwargs):
-    params = {
-        "name": name,
-        "season_number": season_number,
-        "roster_size": 5,
-        "status": "upcoming",
-        **kwargs,
-    }
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            insert into seasons (name, season_number, roster_size, status)
-            values (%(name)s, %(season_number)s, %(roster_size)s, %(status)s)
-            returning *
-            """,
-            params,
-        )
-        return cur.fetchone()
-
-
-def _insert_contestant(conn, season_id, name):
-    with conn.cursor() as cur:
-        cur.execute(
-            "insert into contestants (season_id, name) values (%s, %s) returning *",
-            [str(season_id), name],
-        )
-        return cur.fetchone()
+from tests.helpers import insert_contestant as _insert_contestant
+from tests.helpers import insert_season as _insert_season
 
 
 @pytest.mark.integration
