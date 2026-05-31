@@ -30,7 +30,7 @@ def db_conn():
     """Psycopg2 connection to local Supabase. Rolls back after each test."""
     conn = psycopg2.connect(
         host=os.environ["DB_HOST"],
-        port=int(os.environ.get("DB_PORT", "54322")),
+        port=int(os.environ.get("DB_PORT", "5433")),
         dbname=os.environ.get("DB_NAME", "postgres"),
         user=os.environ.get("DB_USER", "postgres"),
         password=os.environ["DB_PASSWORD"],

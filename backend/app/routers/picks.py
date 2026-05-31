@@ -64,7 +64,8 @@ def submit_picks(episode_id: UUID, body: EliminationPickSubmitRequest):
 
             if body.contestant_ids:
                 cur.execute(
-                    "select id from contestants where season_id = %s and id in %s",
+                    "select id::text as id from contestants"
+                    " where season_id = %s and id in %s",
                     [
                         str(episode["season_id"]),
                         tuple(str(c) for c in body.contestant_ids),
@@ -104,7 +105,8 @@ def submit_picks(episode_id: UUID, body: EliminationPickSubmitRequest):
                         ),
                     )
 
-            # Replace existing picks for this user/episode
+            # Replace existing picks for this user/episode. An empty list is
+            # intentionally allowed and clears the user's picks for the episode.
             cur.execute(
                 "delete from elimination_picks where episode_id = %s and user_id = %s",
                 [str(episode_id), str(body.user_id)],

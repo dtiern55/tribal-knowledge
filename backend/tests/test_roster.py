@@ -5,9 +5,12 @@ import pytest
 from tests.helpers import insert_contestant, insert_episode, insert_season, insert_user
 
 
-def _make_season_with_roster(conn, roster_size=3, lock_episode=2):
+def _make_season_with_roster(conn, roster_size=3, lock_episode=2, **season_kwargs):
     season = insert_season(
-        conn, roster_lock_episode=lock_episode, roster_size=roster_size
+        conn,
+        roster_lock_episode=lock_episode,
+        roster_size=roster_size,
+        **season_kwargs,
     )
     contestants = [
         insert_contestant(conn, season["id"], f"Player {i}") for i in range(roster_size)
@@ -120,6 +123,26 @@ def test_submit_roster_duplicate(client, db_conn):
 
 
 @pytest.mark.integration
+def test_submit_roster_duplicate_contestant_ids(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(db_conn, roster_size=3)
+    # Same contestant twice — count matches roster_size but is a duplicate.
+    r = client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [
+                str(contestants[0]["id"]),
+                str(contestants[0]["id"]),
+                str(contestants[1]["id"]),
+            ],
+        },
+    )
+    assert r.status_code == 400
+    assert "Duplicate" in r.json()["detail"]
+
+
+@pytest.mark.integration
 def test_swap_roster_pick(client, db_conn):
     user = insert_user(db_conn)
     season, contestants = _make_season_with_roster(
@@ -153,6 +176,35 @@ def test_swap_roster_pick(client, db_conn):
     old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert old["active_until_episode"] == 2
     assert old["swap_penalty_points"] == -20
+
+
+@pytest.mark.integration
+def test_swap_uses_configured_penalty(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, swap_penalty_points=-10
+    )
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [str(c["id"]) for c in contestants],
+        },
+    )
+    client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "user_id": str(user["id"]),
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    roster = client.get(f"/seasons/{season['id']}/roster/{user['id']}").json()
+    old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
+    assert old["swap_penalty_points"] == -10
 
 
 @pytest.mark.integration

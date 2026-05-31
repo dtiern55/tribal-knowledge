@@ -12,6 +12,7 @@ class Season(BaseModel):
     roster_size: int
     roster_lock_episode: Optional[int]
     merge_episode: Optional[int]
+    swap_penalty_points: int
     status: str
     created_at: datetime
 

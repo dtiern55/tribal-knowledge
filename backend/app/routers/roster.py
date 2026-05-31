@@ -50,6 +50,11 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
                     ),
                 )
 
+            if len(body.contestant_ids) != len(set(body.contestant_ids)):
+                raise HTTPException(
+                    status_code=400, detail="Duplicate contestants in roster"
+                )
+
             cur.execute(
                 "select id from roster_picks"
                 " where user_id = %s and season_id = %s limit 1",
@@ -62,7 +67,8 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
 
             if body.contestant_ids:
                 cur.execute(
-                    "select id from contestants where season_id = %s and id in %s",
+                    "select id::text as id from contestants"
+                    " where season_id = %s and id in %s",
                     [str(season_id), tuple(str(c) for c in body.contestant_ids)],
                 )
                 valid_id_strs = {row["id"] for row in cur.fetchall()}
@@ -99,8 +105,12 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
 def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
+            cur.execute(
+                "select swap_penalty_points from seasons where id = %s",
+                [str(season_id)],
+            )
+            season = cur.fetchone()
+            if not season:
                 raise HTTPException(status_code=404, detail="Season not found")
 
             cur.execute(
@@ -158,10 +168,10 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
             cur.execute(
                 """
                 update roster_picks
-                set active_until_episode = %s, swap_penalty_points = -20
+                set active_until_episode = %s, swap_penalty_points = %s
                 where id = %s
                 """,
-                [swap_episode - 1, str(old_pick["id"])],
+                [swap_episode - 1, season["swap_penalty_points"], str(old_pick["id"])],
             )
 
             cur.execute(
