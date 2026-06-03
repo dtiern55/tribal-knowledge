@@ -46,11 +46,12 @@ def insert_season(conn, name="Survivor: Test Island", season_number=99, **kwargs
         return cur.fetchone()
 
 
-def insert_contestant(conn, season_id, name="Player"):
+def insert_contestant(conn, season_id, name="Player", placement=None):
     with conn.cursor() as cur:
         cur.execute(
-            "insert into contestants (season_id, name) values (%s, %s) returning *",
-            [str(season_id), name],
+            "insert into contestants (season_id, name, placement)"
+            " values (%s, %s, %s) returning *",
+            [str(season_id), name, placement],
         )
         return cur.fetchone()
 
@@ -99,5 +100,114 @@ def insert_elimination(conn, episode_id, contestant_id, elimination_type="voted_
             values (%s, %s, %s) returning *
             """,
             [str(episode_id), str(contestant_id), elimination_type],
+        )
+        return cur.fetchone()
+
+
+def insert_roster_pick(
+    conn,
+    user_id,
+    season_id,
+    contestant_id,
+    active_from_episode=1,
+    active_until_episode=None,
+    swap_penalty_points=0,
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into roster_picks
+                (user_id, season_id, contestant_id, active_from_episode,
+                 active_until_episode, swap_penalty_points)
+            values (%s, %s, %s, %s, %s, %s) returning *
+            """,
+            [
+                str(user_id),
+                str(season_id),
+                str(contestant_id),
+                active_from_episode,
+                active_until_episode,
+                swap_penalty_points,
+            ],
+        )
+        return cur.fetchone()
+
+
+def insert_scoring_event(conn, episode_id, contestant_id, event_type, quantity=1):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into scoring_events
+                (episode_id, contestant_id, event_type, quantity)
+            values (%s, %s, %s, %s) returning *
+            """,
+            [str(episode_id), str(contestant_id), event_type, quantity],
+        )
+        return cur.fetchone()
+
+
+def insert_elimination_pick(conn, user_id, episode_id, contestant_id, is_doubled=False):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into elimination_picks
+                (user_id, episode_id, contestant_id, is_doubled)
+            values (%s, %s, %s, %s) returning *
+            """,
+            [str(user_id), str(episode_id), str(contestant_id), is_doubled],
+        )
+        return cur.fetchone()
+
+
+def insert_finale_prediction(
+    conn,
+    user_id,
+    season_id,
+    early_boot=None,
+    fire_loss=None,
+    winner=None,
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into finale_predictions
+                (user_id, season_id, early_boot_contestant_id,
+                 fire_loss_contestant_id, winner_contestant_id)
+            values (%s, %s, %s, %s, %s) returning *
+            """,
+            [
+                str(user_id),
+                str(season_id),
+                str(early_boot) if early_boot else None,
+                str(fire_loss) if fire_loss else None,
+                str(winner) if winner else None,
+            ],
+        )
+        return cur.fetchone()
+
+
+def insert_winner_pick(
+    conn,
+    user_id,
+    season_id,
+    winner_contestant_id,
+    backup_contestant_id,
+    effective_episode=1,
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into winner_picks
+                (user_id, season_id, winner_contestant_id, backup_contestant_id,
+                 effective_episode)
+            values (%s, %s, %s, %s, %s) returning *
+            """,
+            [
+                str(user_id),
+                str(season_id),
+                str(winner_contestant_id),
+                str(backup_contestant_id),
+                effective_episode,
+            ],
         )
         return cur.fetchone()
