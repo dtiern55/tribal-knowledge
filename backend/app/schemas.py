@@ -57,6 +57,16 @@ class EliminationPick(BaseModel):
     created_at: datetime
 
 
+class StandingEntry(BaseModel):
+    user_id: UUID
+    display_name: str
+    roster_points: int
+    elimination_points: int
+    winner_points: int
+    finale_points: int
+    total_points: int
+
+
 # --- Request bodies ---
 
 

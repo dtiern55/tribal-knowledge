@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 
 from app import database
-from app.routers import episodes, picks, roster, seasons
+from app.routers import episodes, picks, roster, seasons, standings
 
 app = FastAPI(title="Tribal Knowledge")
 app.include_router(seasons.router)
 app.include_router(episodes.router)
 app.include_router(roster.router)
 app.include_router(picks.router)
+app.include_router(standings.router)
 
 
 @app.get("/health")
