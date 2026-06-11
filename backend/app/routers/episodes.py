@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -92,5 +93,27 @@ def update_episode(episode_id: UUID, body: EpisodeUpdateRequest):
             cur.execute(
                 f"update episodes set {set_clause} where id = %(id)s returning *",
                 params,
+            )
+            return cur.fetchone()
+
+
+@router.post("/episodes/{episode_id}/score", response_model=Episode)
+def score_episode(episode_id: UUID):
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("select * from episodes where id = %s", [str(episode_id)])
+            episode = cur.fetchone()
+            if not episode:
+                raise HTTPException(status_code=404, detail="Episode not found")
+            if episode["status"] == "scored":
+                raise HTTPException(status_code=409, detail="Episode already scored")
+            if datetime.now(timezone.utc) < episode["picks_lock_at"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot score episode before picks are locked",
+                )
+            cur.execute(
+                "update episodes set status = 'scored' where id = %s returning *",
+                [str(episode_id)],
             )
             return cur.fetchone()

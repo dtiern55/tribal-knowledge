@@ -17,7 +17,6 @@ def _open_episode(conn, season_id, episode_number=1, max_picks=3):
         conn,
         season_id,
         episode_number=episode_number,
-        status="picks_open",
         picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
         max_elimination_picks=max_picks,
     )
@@ -130,16 +129,21 @@ def test_submit_picks_duplicate_contestant(client, db_conn):
 
 
 @pytest.mark.integration
-def test_submit_picks_not_open(client, db_conn):
+def test_submit_picks_scored_episode(client, db_conn):
     season = insert_season(db_conn)
-    ep = insert_episode(db_conn, season["id"], status="picks_locked")
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        status="scored",
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
     user = insert_user(db_conn)
     r = client.post(
         f"/episodes/{ep['id']}/picks",
         json={"user_id": str(user["id"]), "contestant_ids": []},
     )
     assert r.status_code == 400
-    assert "not open" in r.json()["detail"]
+    assert "scored" in r.json()["detail"]
 
 
 @pytest.mark.integration
@@ -148,7 +152,6 @@ def test_submit_picks_after_lock_time(client, db_conn):
     ep = insert_episode(
         db_conn,
         season["id"],
-        status="picks_open",
         picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
     )
     user = insert_user(db_conn)

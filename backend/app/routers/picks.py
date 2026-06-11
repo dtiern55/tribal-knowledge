@@ -38,10 +38,8 @@ def submit_picks(episode_id: UUID, body: EliminationPickSubmitRequest):
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
-            if episode["status"] != "picks_open":
-                raise HTTPException(
-                    status_code=400, detail="Picks are not open for this episode"
-                )
+            if episode["status"] == "scored":
+                raise HTTPException(status_code=400, detail="Episode is already scored")
 
             if episode["picks_lock_at"] <= datetime.now(timezone.utc):
                 raise HTTPException(
