@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 
 from app import database
-from app.schemas import Contestant, Season
+from app.schemas import Contestant, Season, SeasonCreateRequest, SeasonUpdateRequest
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
 
@@ -39,3 +39,59 @@ def list_contestants(season_id: UUID):
                 [str(season_id)],
             )
             return cur.fetchall()
+
+
+@router.post("", response_model=Season, status_code=201)
+def create_season(body: SeasonCreateRequest):
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "select 1 from seasons where season_number = %s",
+                [body.season_number],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=409, detail="season_number already exists"
+                )
+            cur.execute(
+                """
+                insert into seasons
+                    (name, season_number, roster_size, roster_lock_episode,
+                     merge_episode, swap_penalty_points, status)
+                values
+                    (%(name)s, %(season_number)s, %(roster_size)s,
+                     %(roster_lock_episode)s, %(merge_episode)s,
+                     %(swap_penalty_points)s, %(status)s)
+                returning *
+                """,
+                body.model_dump(),
+            )
+            return cur.fetchone()
+
+
+@router.patch("/{season_id}", response_model=Season)
+def update_season(season_id: UUID, body: SeasonUpdateRequest):
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("select 1 from seasons where id = %s", [str(season_id)])
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Season not found")
+            if "season_number" in fields:
+                cur.execute(
+                    "select 1 from seasons where season_number = %s and id <> %s",
+                    [fields["season_number"], str(season_id)],
+                )
+                if cur.fetchone():
+                    raise HTTPException(
+                        status_code=409, detail="season_number already exists"
+                    )
+            set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
+            params = {**fields, "id": str(season_id)}
+            cur.execute(
+                f"update seasons set {set_clause} where id = %(id)s returning *",
+                params,
+            )
+            return cur.fetchone()

@@ -1,8 +1,8 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Season(BaseModel):
@@ -85,3 +85,51 @@ class RosterSwapRequest(BaseModel):
 class EliminationPickSubmitRequest(BaseModel):
     user_id: UUID
     contestant_ids: list[UUID]
+
+
+# --- Admin write bodies ---
+
+
+class SeasonCreateRequest(BaseModel):
+    name: str
+    season_number: int
+    roster_size: int = Field(default=5, ge=1, le=10)
+    roster_lock_episode: Optional[int] = Field(default=None, gt=0)
+    merge_episode: Optional[int] = Field(default=None, gt=0)
+    swap_penalty_points: int = Field(default=-20, le=0)
+    status: Literal["upcoming", "active", "completed"] = "upcoming"
+
+
+class SeasonUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    season_number: Optional[int] = None
+    roster_size: Optional[int] = Field(default=None, ge=1, le=10)
+    roster_lock_episode: Optional[int] = Field(default=None, gt=0)
+    merge_episode: Optional[int] = Field(default=None, gt=0)
+    swap_penalty_points: Optional[int] = Field(default=None, le=0)
+    status: Optional[Literal["upcoming", "active", "completed"]] = None
+
+
+class ContestantsCreateRequest(BaseModel):
+    names: list[str] = Field(min_length=1)
+
+
+class ContestantUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    placement: Optional[int] = Field(default=None, gt=0)
+
+
+class EpisodeCreateRequest(BaseModel):
+    episode_number: int = Field(gt=0)
+    air_date: date
+    max_elimination_picks: int = Field(ge=1, le=3)
+    is_finale: bool = False
+    picks_lock_at: datetime
+
+
+class EpisodeUpdateRequest(BaseModel):
+    episode_number: Optional[int] = Field(default=None, gt=0)
+    air_date: Optional[date] = None
+    max_elimination_picks: Optional[int] = Field(default=None, ge=1, le=3)
+    is_finale: Optional[bool] = None
+    picks_lock_at: Optional[datetime] = None
