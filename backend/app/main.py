@@ -3,9 +3,11 @@ from fastapi import FastAPI
 from app import database
 from app.routers import (
     contestants,
+    eliminations,
     episodes,
     picks,
     roster,
+    scoring_events,
     seasons,
     standings,
 )
@@ -14,6 +16,8 @@ app = FastAPI(title="Tribal Knowledge")
 app.include_router(seasons.router)
 app.include_router(episodes.router)
 app.include_router(contestants.router)
+app.include_router(eliminations.router)
+app.include_router(scoring_events.router)
 app.include_router(roster.router)
 app.include_router(picks.router)
 app.include_router(standings.router)

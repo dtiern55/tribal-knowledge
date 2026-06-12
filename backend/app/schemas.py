@@ -87,6 +87,24 @@ class EliminationPickSubmitRequest(BaseModel):
     contestant_ids: list[UUID]
 
 
+class Elimination(BaseModel):
+    id: UUID
+    episode_id: UUID
+    contestant_id: UUID
+    elimination_type: str
+    created_at: datetime
+
+
+class ScoringEvent(BaseModel):
+    id: UUID
+    episode_id: UUID
+    contestant_id: UUID
+    event_type: str
+    quantity: int
+    notes: Optional[str]
+    created_at: datetime
+
+
 # --- Admin write bodies ---
 
 
@@ -133,3 +151,17 @@ class EpisodeUpdateRequest(BaseModel):
     max_elimination_picks: Optional[int] = Field(default=None, ge=1, le=3)
     is_finale: Optional[bool] = None
     picks_lock_at: Optional[datetime] = None
+
+
+class EliminationEntry(BaseModel):
+    contestant_id: UUID
+    elimination_type: Literal[
+        "voted_out", "medical_evacuation", "quit", "fire_making_loss"
+    ]
+
+
+class ScoringEventEntry(BaseModel):
+    contestant_id: UUID
+    event_type: str
+    quantity: int = Field(default=1, ge=1)
+    notes: Optional[str] = None
