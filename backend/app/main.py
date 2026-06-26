@@ -5,6 +5,7 @@ from app.routers import (
     contestants,
     eliminations,
     episodes,
+    finale_predictions,
     picks,
     roster,
     scoring_events,
@@ -20,6 +21,7 @@ app.include_router(eliminations.router)
 app.include_router(scoring_events.router)
 app.include_router(roster.router)
 app.include_router(picks.router)
+app.include_router(finale_predictions.router)
 app.include_router(standings.router)
 
 

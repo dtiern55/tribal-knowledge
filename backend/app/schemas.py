@@ -153,6 +153,23 @@ class EpisodeUpdateRequest(BaseModel):
     picks_lock_at: Optional[datetime] = None
 
 
+class FinalePrediction(BaseModel):
+    id: UUID
+    user_id: UUID
+    season_id: UUID
+    early_boot_contestant_id: Optional[UUID]
+    fire_loss_contestant_id: Optional[UUID]
+    winner_contestant_id: Optional[UUID]
+    created_at: datetime
+
+
+class FinalePredictionRequest(BaseModel):
+    user_id: UUID
+    early_boot_contestant_id: Optional[UUID] = None
+    fire_loss_contestant_id: Optional[UUID] = None
+    winner_contestant_id: Optional[UUID] = None
+
+
 class EliminationEntry(BaseModel):
     contestant_id: UUID
     elimination_type: Literal[
