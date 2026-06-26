@@ -1,8 +1,15 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from tests.helpers import insert_contestant, insert_episode, insert_season, insert_user
+from tests.helpers import (
+    insert_contestant,
+    insert_elimination,
+    insert_episode,
+    insert_season,
+    insert_user,
+)
 
 
 def _make_season_with_roster(conn, roster_size=3, lock_episode=2, **season_kwargs):
@@ -268,3 +275,150 @@ def test_swap_re_add_past_contestant(client, db_conn):
         },
     )
     assert r.status_code == 409
+
+
+@pytest.mark.integration
+def test_submit_roster_blocked_on_completed_season(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, status="completed"
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [str(c["id"]) for c in contestants],
+        },
+    )
+    assert r.status_code == 400
+    assert "complete" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_submit_roster_blocked_after_lock(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    # Episode 2 with picks_lock_at in the past — window closed
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [str(c["id"]) for c in contestants],
+        },
+    )
+    assert r.status_code == 400
+    assert "window" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_swap_blocked_on_completed_season(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [str(c["id"]) for c in contestants],
+        },
+    )
+    # Mark season completed
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update seasons set status = 'completed' where id = %s",
+            [str(season["id"])],
+        )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "user_id": str(user["id"]),
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "complete" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_swap_blocked_after_episode_lock(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    # Episode 3 with picks_lock_at in the past
+    ep3 = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=3,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [str(c["id"]) for c in contestants],
+        },
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "user_id": str(user["id"]),
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "window" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_swap_eliminated_contestant_rejected(client, db_conn):
+    user = insert_user(db_conn)
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    new_contestant = insert_contestant(db_conn, season["id"], "Eliminated Player")
+    # Submit roster while ep2 window is still open (no ep2 row yet)
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "user_id": str(user["id"]),
+            "contestant_ids": [str(c["id"]) for c in contestants],
+        },
+    )
+    # Now score ep2, eliminating new_contestant in it
+    ep2 = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        status="scored",
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    insert_elimination(db_conn, ep2["id"], new_contestant["id"])
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "user_id": str(user["id"]),
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "eliminated" in r.json()["detail"]

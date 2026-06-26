@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -35,10 +36,27 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
             if not season:
                 raise HTTPException(status_code=404, detail="Season not found")
 
+            if season["status"] == "completed":
+                raise HTTPException(status_code=400, detail="Season is complete")
+
             if season["roster_lock_episode"] is None:
                 raise HTTPException(
                     status_code=400,
                     detail="Roster lock episode not set for this season",
+                )
+
+            cur.execute(
+                """
+                select id from episodes
+                where season_id = %s and episode_number = %s
+                  and (picks_lock_at <= now() or status = 'scored')
+                """,
+                [str(season_id), season["roster_lock_episode"]],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Roster submission window has closed",
                 )
 
             if len(body.contestant_ids) != season["roster_size"]:
@@ -106,12 +124,15 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "select swap_penalty_points from seasons where id = %s",
+                "select status, swap_penalty_points from seasons where id = %s",
                 [str(season_id)],
             )
             season = cur.fetchone()
             if not season:
                 raise HTTPException(status_code=404, detail="Season not found")
+
+            if season["status"] == "completed":
+                raise HTTPException(status_code=400, detail="Season is complete")
 
             cur.execute(
                 "select * from episodes where id = %s and season_id = %s",
@@ -120,6 +141,14 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
             episode = cur.fetchone()
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
+
+            if (
+                episode["picks_lock_at"] <= datetime.now(timezone.utc)
+                or episode["status"] == "scored"
+            ):
+                raise HTTPException(
+                    status_code=400, detail="Swap window for this episode has closed"
+                )
 
             cur.execute(
                 """
@@ -151,6 +180,16 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
                 raise HTTPException(
                     status_code=400,
                     detail="New contestant not found in this season",
+                )
+
+            cur.execute(
+                "select id from eliminations where contestant_id = %s",
+                [str(body.new_contestant_id)],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Contestant has already been eliminated",
                 )
 
             # Explicit check — unique constraint would fire otherwise

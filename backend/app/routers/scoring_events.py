@@ -38,7 +38,7 @@ def set_scoring_events(episode_id: UUID, body: list[ScoringEventEntry]):
                 contestant_ids = list({str(e.contestant_id) for e in body})
                 cur.execute(
                     "select id::text from contestants"
-                    " where season_id = %s and id = any(%s)",
+                    " where season_id = %s and id::text = any(%s)",
                     [str(episode["season_id"]), contestant_ids],
                 )
                 valid_ids = {row["id"] for row in cur.fetchall()}

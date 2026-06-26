@@ -40,7 +40,7 @@ def set_eliminations(episode_id: UUID, body: list[EliminationEntry]):
                 contestant_ids = [str(e.contestant_id) for e in body]
                 cur.execute(
                     "select id::text from contestants"
-                    " where season_id = %s and id = any(%s)",
+                    " where season_id = %s and id::text = any(%s)",
                     [str(episode["season_id"]), contestant_ids],
                 )
                 valid_ids = {row["id"] for row in cur.fetchall()}
@@ -58,7 +58,7 @@ def set_eliminations(episode_id: UUID, body: list[EliminationEntry]):
                     join episodes ep on e.episode_id = ep.id
                     where ep.season_id = %s
                       and e.episode_id != %s
-                      and e.contestant_id = any(%s)
+                      and e.contestant_id::text = any(%s)
                     """,
                     [str(episode["season_id"]), str(episode_id), contestant_ids],
                 )
