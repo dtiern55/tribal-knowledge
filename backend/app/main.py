@@ -1,6 +1,12 @@
-from fastapi import FastAPI
+import os
 
-from app import database
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+load_dotenv()
+
+from app import database  # noqa: E402 — must follow load_dotenv
 from app.routers import (
     advantage_plays,
     contestants,
@@ -16,6 +22,16 @@ from app.routers import (
 )
 
 app = FastAPI(title="Tribal Knowledge")
+
+_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(advantage_plays.router)
 app.include_router(seasons.router)
 app.include_router(episodes.router)
