@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_admin
 from app.schemas import Contestant, Season, SeasonCreateRequest, SeasonUpdateRequest
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
@@ -42,7 +43,7 @@ def list_contestants(season_id: UUID):
 
 
 @router.post("", response_model=Season, status_code=201)
-def create_season(body: SeasonCreateRequest):
+def create_season(body: SeasonCreateRequest, _: UUID = Depends(get_current_admin)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -70,7 +71,9 @@ def create_season(body: SeasonCreateRequest):
 
 
 @router.patch("/{season_id}", response_model=Season)
-def update_season(season_id: UUID, body: SeasonUpdateRequest):
+def update_season(
+    season_id: UUID, body: SeasonUpdateRequest, _: UUID = Depends(get_current_admin)
+):
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")

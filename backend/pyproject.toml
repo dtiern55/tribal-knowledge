@@ -7,6 +7,7 @@ dependencies = [
     "uvicorn[standard]",
     "psycopg2-binary",
     "python-dotenv",
+    "pyjwt",
 ]
 
 [dependency-groups]

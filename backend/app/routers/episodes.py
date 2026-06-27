@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_admin
 from app.schemas import Episode, EpisodeCreateRequest, EpisodeUpdateRequest
 
 router = APIRouter(tags=["episodes"])
@@ -35,7 +36,9 @@ def get_episode(episode_id: UUID):
 
 
 @router.post("/seasons/{season_id}/episodes", response_model=Episode, status_code=201)
-def create_episode(season_id: UUID, body: EpisodeCreateRequest):
+def create_episode(
+    season_id: UUID, body: EpisodeCreateRequest, _: UUID = Depends(get_current_admin)
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select 1 from seasons where id = %s", [str(season_id)])
@@ -66,7 +69,9 @@ def create_episode(season_id: UUID, body: EpisodeCreateRequest):
 
 
 @router.patch("/episodes/{episode_id}", response_model=Episode)
-def update_episode(episode_id: UUID, body: EpisodeUpdateRequest):
+def update_episode(
+    episode_id: UUID, body: EpisodeUpdateRequest, _: UUID = Depends(get_current_admin)
+):
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -98,7 +103,7 @@ def update_episode(episode_id: UUID, body: EpisodeUpdateRequest):
 
 
 @router.post("/episodes/{episode_id}/score", response_model=Episode)
-def score_episode(episode_id: UUID):
+def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from episodes where id = %s", [str(episode_id)])

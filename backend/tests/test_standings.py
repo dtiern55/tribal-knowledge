@@ -23,14 +23,13 @@ def test_standings_season_not_found(client):
 
 
 @pytest.mark.integration
-def test_standings_lists_members_at_zero(client, db_conn):
+def test_standings_lists_members_at_zero(client, db_conn, current_user):
     season = insert_season(db_conn)
-    insert_user(db_conn, display_name="Solo")
     r = client.get(f"/seasons/{season['id']}/standings")
     assert r.status_code == 200
     data = r.json()
     assert len(data) == 1
-    assert data[0]["display_name"] == "Solo"
+    assert data[0]["display_name"] == current_user["display_name"]
     assert data[0]["total_points"] == 0
     assert data[0]["roster_points"] == 0
 
@@ -82,6 +81,9 @@ def test_standings_sorted_by_total_desc(client, db_conn):
 
     r = client.get(f"/seasons/{season['id']}/standings")
     data = r.json()
-    assert [d["display_name"] for d in data] == ["High", "Low"]
+    # High is first; the remaining users (Low + current_user) are both at 0
+    assert data[0]["display_name"] == "High"
     assert data[0]["total_points"] == 15
-    assert data[1]["total_points"] == 0
+    zero_names = {d["display_name"] for d in data[1:]}
+    assert "Low" in zero_names
+    assert all(d["total_points"] == 0 for d in data[1:])

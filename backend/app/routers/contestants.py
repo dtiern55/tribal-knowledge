@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_admin
 from app.schemas import Contestant, ContestantsCreateRequest, ContestantUpdateRequest
 
 router = APIRouter(tags=["contestants"])
@@ -13,7 +14,11 @@ router = APIRouter(tags=["contestants"])
     response_model=list[Contestant],
     status_code=201,
 )
-def create_contestants(season_id: UUID, body: ContestantsCreateRequest):
+def create_contestants(
+    season_id: UUID,
+    body: ContestantsCreateRequest,
+    _: UUID = Depends(get_current_admin),
+):
     if len(body.names) != len(set(body.names)):
         raise HTTPException(status_code=400, detail="Duplicate names in request")
     with database.get_db() as conn:
@@ -42,7 +47,11 @@ def create_contestants(season_id: UUID, body: ContestantsCreateRequest):
 
 
 @router.patch("/contestants/{contestant_id}", response_model=Contestant)
-def update_contestant(contestant_id: UUID, body: ContestantUpdateRequest):
+def update_contestant(
+    contestant_id: UUID,
+    body: ContestantUpdateRequest,
+    _: UUID = Depends(get_current_admin),
+):
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")

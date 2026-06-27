@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_user
 from app.schemas import FinalePrediction, FinalePredictionRequest
 
 router = APIRouter(tags=["finale_predictions"])
@@ -34,7 +35,11 @@ def get_finale_prediction(season_id: UUID, user_id: UUID):
     "/seasons/{season_id}/finale-predictions",
     response_model=FinalePrediction,
 )
-def submit_finale_prediction(season_id: UUID, body: FinalePredictionRequest):
+def submit_finale_prediction(
+    season_id: UUID,
+    body: FinalePredictionRequest,
+    user_id: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select status from seasons where id = %s", [str(season_id)])
@@ -102,7 +107,7 @@ def submit_finale_prediction(season_id: UUID, body: FinalePredictionRequest):
                 returning *
                 """,
                 [
-                    str(body.user_id),
+                    str(user_id),
                     str(season_id),
                     (
                         str(body.early_boot_contestant_id)

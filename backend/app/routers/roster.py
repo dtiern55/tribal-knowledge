@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_user
 from app.schemas import RosterPick, RosterSubmitRequest, RosterSwapRequest
 
 router = APIRouter(tags=["roster"])
@@ -28,7 +29,11 @@ def get_roster(season_id: UUID, user_id: UUID):
 
 
 @router.post("/seasons/{season_id}/roster", response_model=list[RosterPick])
-def submit_roster(season_id: UUID, body: RosterSubmitRequest):
+def submit_roster(
+    season_id: UUID,
+    body: RosterSubmitRequest,
+    user_id: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from seasons where id = %s", [str(season_id)])
@@ -76,7 +81,7 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
             cur.execute(
                 "select id from roster_picks"
                 " where user_id = %s and season_id = %s limit 1",
-                [str(body.user_id), str(season_id)],
+                [str(user_id), str(season_id)],
             )
             if cur.fetchone():
                 raise HTTPException(
@@ -109,7 +114,7 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
                     returning *
                     """,
                     [
-                        str(body.user_id),
+                        str(user_id),
                         str(season_id),
                         str(cid),
                         season["roster_lock_episode"],
@@ -120,7 +125,11 @@ def submit_roster(season_id: UUID, body: RosterSubmitRequest):
 
 
 @router.post("/seasons/{season_id}/roster/swap", response_model=RosterPick)
-def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
+def swap_roster_pick(
+    season_id: UUID,
+    body: RosterSwapRequest,
+    user_id: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -156,7 +165,7 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
                 where user_id = %s and season_id = %s
                   and contestant_id = %s and active_until_episode is null
                 """,
-                [str(body.user_id), str(season_id), str(body.old_contestant_id)],
+                [str(user_id), str(season_id), str(body.old_contestant_id)],
             )
             old_pick = cur.fetchone()
             if not old_pick:
@@ -196,7 +205,7 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
             cur.execute(
                 "select id from roster_picks"
                 " where user_id = %s and season_id = %s and contestant_id = %s",
-                [str(body.user_id), str(season_id), str(body.new_contestant_id)],
+                [str(user_id), str(season_id), str(body.new_contestant_id)],
             )
             if cur.fetchone():
                 raise HTTPException(
@@ -221,7 +230,7 @@ def swap_roster_pick(season_id: UUID, body: RosterSwapRequest):
                 returning *
                 """,
                 [
-                    str(body.user_id),
+                    str(user_id),
                     str(season_id),
                     str(body.new_contestant_id),
                     swap_episode,

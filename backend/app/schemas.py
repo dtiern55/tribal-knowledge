@@ -71,19 +71,16 @@ class StandingEntry(BaseModel):
 
 
 class RosterSubmitRequest(BaseModel):
-    user_id: UUID
     contestant_ids: list[UUID]
 
 
 class RosterSwapRequest(BaseModel):
-    user_id: UUID
     old_contestant_id: UUID
     new_contestant_id: UUID
     episode_id: UUID
 
 
 class EliminationPickSubmitRequest(BaseModel):
-    user_id: UUID
     contestant_ids: list[UUID]
 
 
@@ -153,6 +150,58 @@ class EpisodeUpdateRequest(BaseModel):
     picks_lock_at: Optional[datetime] = None
 
 
+class AdvantagePlay(BaseModel):
+    id: UUID
+    user_id: UUID
+    episode_id: UUID
+    advantage_type: str
+    target_user_id: Optional[UUID]
+    target_contestant_id: Optional[UUID]
+    episode_affected_id: Optional[UUID]
+    status: str
+    token_cost: int
+    created_at: datetime
+
+
+class AdvantagePlayRequest(BaseModel):
+    user_id: UUID
+    episode_id: UUID
+    advantage_type: str
+    target_user_id: Optional[UUID] = None
+    target_contestant_id: Optional[UUID] = None
+    episode_affected_id: Optional[UUID] = None
+    token_cost: int = Field(ge=0)
+
+
+class TokenTransaction(BaseModel):
+    id: UUID
+    user_id: UUID
+    season_id: UUID
+    episode_id: Optional[UUID]
+    transaction_type: str
+    amount: int
+    scoring_event_id: Optional[UUID]
+    advantage_play_id: Optional[UUID]
+    notes: Optional[str]
+    created_at: datetime
+
+
+class TokenBalance(BaseModel):
+    user_id: UUID
+    season_id: UUID
+    balance: int
+
+
+class StartingAllocationRequest(BaseModel):
+    amount: int = Field(gt=0)
+    user_id: Optional[UUID] = None
+
+
+class WeeklyAllocationRequest(BaseModel):
+    episode_id: UUID
+    amount: int = Field(gt=0)
+
+
 class FinalePrediction(BaseModel):
     id: UUID
     user_id: UUID
@@ -164,7 +213,6 @@ class FinalePrediction(BaseModel):
 
 
 class FinalePredictionRequest(BaseModel):
-    user_id: UUID
     early_boot_contestant_id: Optional[UUID] = None
     fire_loss_contestant_id: Optional[UUID] = None
     winner_contestant_id: Optional[UUID] = None

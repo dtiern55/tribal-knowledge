@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_user
 from app.schemas import EliminationPick, EliminationPickSubmitRequest
 
 router = APIRouter(tags=["picks"])
@@ -30,7 +31,11 @@ def get_picks(episode_id: UUID, user_id: UUID):
 
 
 @router.post("/episodes/{episode_id}/picks", response_model=list[EliminationPick])
-def submit_picks(episode_id: UUID, body: EliminationPickSubmitRequest):
+def submit_picks(
+    episode_id: UUID,
+    body: EliminationPickSubmitRequest,
+    user_id: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from episodes where id = %s", [str(episode_id)])
@@ -107,7 +112,7 @@ def submit_picks(episode_id: UUID, body: EliminationPickSubmitRequest):
             # intentionally allowed and clears the user's picks for the episode.
             cur.execute(
                 "delete from elimination_picks where episode_id = %s and user_id = %s",
-                [str(episode_id), str(body.user_id)],
+                [str(episode_id), str(user_id)],
             )
 
             rows = []
@@ -118,7 +123,7 @@ def submit_picks(episode_id: UUID, body: EliminationPickSubmitRequest):
                     values (%s, %s, %s)
                     returning *
                     """,
-                    [str(body.user_id), str(episode_id), str(cid)],
+                    [str(user_id), str(episode_id), str(cid)],
                 )
                 rows.append(cur.fetchone())
             return rows

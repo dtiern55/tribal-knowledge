@@ -22,7 +22,9 @@ from psycopg2.extras import RealDictCursor
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env.test", override=True)
 
 import app.database as database_module  # noqa: E402 — must follow dotenv load
+from app.auth import get_current_admin, get_current_user  # noqa: E402
 from app.main import app  # noqa: E402
+from tests.helpers import insert_user  # noqa: E402
 
 
 @pytest.fixture(scope="function")
@@ -45,13 +47,26 @@ def db_conn():
 
 
 @pytest.fixture(scope="function")
-def client(monkeypatch, db_conn):
-    """FastAPI TestClient wired to the test DB connection."""
+def current_user(db_conn):
+    """Inserts the authenticated test user and returns their profile row."""
+    return insert_user(db_conn, display_name="Auth Test User")
+
+
+@pytest.fixture(scope="function")
+def client(monkeypatch, db_conn, current_user):
+    """FastAPI TestClient wired to the test DB connection with auth bypassed."""
 
     @contextmanager
     def _get_db():
         yield db_conn
 
     monkeypatch.setattr(database_module, "get_db", _get_db)
+
+    user_id = current_user["id"]
+    app.dependency_overrides[get_current_user] = lambda: user_id
+    app.dependency_overrides[get_current_admin] = lambda: user_id
+
     with TestClient(app) as c:
         yield c
+
+    app.dependency_overrides.clear()

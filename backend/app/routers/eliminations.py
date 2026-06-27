@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_admin
 from app.schemas import Elimination, EliminationEntry
 
 router = APIRouter(tags=["eliminations"])
@@ -23,7 +24,9 @@ def list_eliminations(episode_id: UUID):
 
 
 @router.post("/episodes/{episode_id}/eliminations", response_model=list[Elimination])
-def set_eliminations(episode_id: UUID, body: list[EliminationEntry]):
+def set_eliminations(
+    episode_id: UUID, body: list[EliminationEntry], _: UUID = Depends(get_current_admin)
+):
     if len({e.contestant_id for e in body}) != len(body):
         raise HTTPException(status_code=400, detail="Duplicate contestants in request")
 

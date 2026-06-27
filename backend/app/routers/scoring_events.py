@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
+from app.auth import get_current_admin
 from app.schemas import ScoringEvent, ScoringEventEntry
 
 router = APIRouter(tags=["scoring_events"])
@@ -24,16 +25,22 @@ def list_scoring_events(episode_id: UUID):
 
 
 @router.post("/episodes/{episode_id}/scoring-events", response_model=list[ScoringEvent])
-def set_scoring_events(episode_id: UUID, body: list[ScoringEventEntry]):
+def set_scoring_events(
+    episode_id: UUID,
+    body: list[ScoringEventEntry],
+    _: UUID = Depends(get_current_admin),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "select season_id from episodes where id = %s", [str(episode_id)]
+                "select season_id, episode_number from episodes where id = %s",
+                [str(episode_id)],
             )
             episode = cur.fetchone()
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
+            event_type_info: dict[str, dict] = {}
             if body:
                 contestant_ids = list({str(e.contestant_id) for e in body})
                 cur.execute(
@@ -51,18 +58,25 @@ def set_scoring_events(episode_id: UUID, body: list[ScoringEventEntry]):
 
                 event_types = list({e.event_type for e in body})
                 cur.execute(
-                    "select event_type from scoring_event_types"
-                    " where event_type = any(%s)",
+                    "select event_type, token_value, is_per_unit"
+                    " from scoring_event_types where event_type = any(%s)",
                     [event_types],
                 )
-                valid_types = {row["event_type"] for row in cur.fetchall()}
-                invalid_types = [t for t in event_types if t not in valid_types]
+                for row in cur.fetchall():
+                    event_type_info[row["event_type"]] = row
+                invalid_types = [t for t in event_types if t not in event_type_info]
                 if invalid_types:
                     raise HTTPException(
                         status_code=400,
                         detail=f"Unknown event types: {invalid_types}",
                     )
 
+            # Delete token transactions before scoring events (FK dependency)
+            cur.execute(
+                "delete from token_transactions"
+                " where episode_id = %s and transaction_type = 'gameplay_event'",
+                [str(episode_id)],
+            )
             cur.execute(
                 "delete from scoring_events where episode_id = %s", [str(episode_id)]
             )
@@ -83,5 +97,46 @@ def set_scoring_events(episode_id: UUID, body: list[ScoringEventEntry]):
                         entry.notes,
                     ],
                 )
-                rows.append(cur.fetchone())
+                se = cur.fetchone()
+                rows.append(se)
+
+                info = event_type_info.get(entry.event_type, {})
+                token_value = info.get("token_value", 0)
+                if token_value and token_value > 0:
+                    amount = (
+                        token_value * entry.quantity
+                        if info.get("is_per_unit")
+                        else token_value
+                    )
+                    cur.execute(
+                        """
+                        select user_id::text from roster_picks
+                        where season_id = %s and contestant_id = %s
+                          and active_from_episode <= %s
+                          and (active_until_episode is null
+                               or active_until_episode >= %s)
+                        """,
+                        [
+                            str(episode["season_id"]),
+                            str(entry.contestant_id),
+                            episode["episode_number"],
+                            episode["episode_number"],
+                        ],
+                    )
+                    for owner in cur.fetchall():
+                        cur.execute(
+                            """
+                            insert into token_transactions
+                                (user_id, season_id, episode_id, transaction_type,
+                                 amount, scoring_event_id)
+                            values (%s, %s, %s, 'gameplay_event', %s, %s)
+                            """,
+                            [
+                                owner["user_id"],
+                                str(episode["season_id"]),
+                                str(episode_id),
+                                amount,
+                                str(se["id"]),
+                            ],
+                        )
             return rows
