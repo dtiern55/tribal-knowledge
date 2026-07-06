@@ -7,23 +7,28 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from app import database  # noqa: E402 — must follow load_dotenv
-from app.routers import (
+from app.routers import (  # noqa: E402
     advantage_plays,
     contestants,
     eliminations,
     episodes,
     finale_predictions,
+    me,
     picks,
     roster,
     scoring_events,
     seasons,
     standings,
     tokens,
+    winner_picks,
 )
 
 app = FastAPI(title="Tribal Knowledge")
 
-_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")]
+_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
@@ -32,6 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(me.router)
 app.include_router(advantage_plays.router)
 app.include_router(seasons.router)
 app.include_router(episodes.router)
@@ -42,6 +48,7 @@ app.include_router(roster.router)
 app.include_router(picks.router)
 app.include_router(finale_predictions.router)
 app.include_router(tokens.router)
+app.include_router(winner_picks.router)
 app.include_router(standings.router)
 
 

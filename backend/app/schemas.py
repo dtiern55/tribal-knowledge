@@ -202,6 +202,27 @@ class WeeklyAllocationRequest(BaseModel):
     amount: int = Field(gt=0)
 
 
+class UserProfile(BaseModel):
+    id: UUID
+    display_name: str
+    is_admin: bool
+
+
+class WinnerPick(BaseModel):
+    id: UUID
+    user_id: UUID
+    season_id: UUID
+    winner_contestant_id: UUID
+    backup_contestant_id: UUID
+    effective_episode: int
+    created_at: datetime
+
+
+class WinnerPickSubmitRequest(BaseModel):
+    winner_contestant_id: UUID
+    backup_contestant_id: UUID
+
+
 class FinalePrediction(BaseModel):
     id: UUID
     user_id: UUID
