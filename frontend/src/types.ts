@@ -1,3 +1,9 @@
+export interface UserProfile {
+  id: string
+  display_name: string
+  is_admin: boolean
+}
+
 export interface Season {
   id: string
   name: string
@@ -67,6 +73,16 @@ export interface FinalePrediction {
   early_boot_contestant_id: string | null
   fire_loss_contestant_id: string | null
   winner_contestant_id: string | null
+  created_at: string
+}
+
+export interface WinnerPick {
+  id: string
+  user_id: string
+  season_id: string
+  winner_contestant_id: string
+  backup_contestant_id: string
+  effective_episode: number
   created_at: string
 }
 

@@ -1,33 +1,53 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 
-const navItems = [
-  { to: '/', label: 'Standings' },
-  { to: '/roster', label: 'My Roster' },
-  { to: '/picks', label: 'Picks' },
-  { to: '/finale', label: 'Finale' },
-]
-
 export function Layout() {
-  const { session, signOut } = useAuth()
+  const { session, profile, signOut } = useAuth()
 
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 flex items-center h-14 gap-6">
           <span className="font-semibold text-gray-900 mr-2">Tribal Knowledge</span>
-          {navItems.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
+            }
+          >
+            Standings
+          </NavLink>
+          {session && (
+            <>
+              {[
+                { to: '/roster', label: 'My Roster' },
+                { to: '/picks', label: 'Picks' },
+                { to: '/winner-pick', label: 'Winner Pick' },
+                { to: '/finale', label: 'Finale' },
+              ].map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
+              {profile?.is_admin && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
+                  }
+                >
+                  Admin
+                </NavLink>
+              )}
+            </>
+          )}
           <div className="ml-auto">
             {session ? (
               <button
