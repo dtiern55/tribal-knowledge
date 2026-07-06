@@ -1,5 +1,6 @@
 """Shared test data helpers. Each function inserts one row and returns it."""
 
+import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -20,7 +21,9 @@ def insert_user(conn, display_name="Test User", is_admin=False):
         return cur.fetchone()
 
 
-def insert_season(conn, name="Survivor: Test Island", season_number=99, **kwargs):
+def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwargs):
+    if season_number is None:
+        season_number = random.randint(1000, 9999)
     params = {
         "name": name,
         "season_number": season_number,
