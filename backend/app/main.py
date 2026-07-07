@@ -1,13 +1,11 @@
 import os
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-load_dotenv()
-
-from app import database  # noqa: E402 — must follow load_dotenv
-from app.routers import (  # noqa: E402
+# app.database calls load_dotenv() at import, before CORS_ORIGINS is read below
+from app import database
+from app.routers import (
     advantage_plays,
     contestants,
     eliminations,

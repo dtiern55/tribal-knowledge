@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import { api, getActiveSeason } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, Episode, RosterPick, Season } from '../types'
 
@@ -26,8 +26,7 @@ export function RosterPage() {
     if (!userId) return
     async function load() {
       try {
-        const seasons = await api.get<Season[]>('/seasons')
-        const active = seasons.find((s) => s.status === 'active') ?? seasons.at(-1)
+        const active = await getActiveSeason()
         if (!active) return
         setSeason(active)
 

@@ -11,24 +11,17 @@ export function Layout() {
           <span className="font-semibold text-gray-900 mr-2">Tribal Knowledge</span>
           {session && (
             <>
-              <NavLink
-                to="/"
-                end
-                className={({ isActive }) =>
-                  `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
-                }
-              >
-                Standings
-              </NavLink>
               {[
+                { to: '/', label: 'Standings', end: true },
                 { to: '/roster', label: 'My Roster' },
                 { to: '/picks', label: 'Picks' },
                 { to: '/winner-pick', label: 'Winner Pick' },
                 { to: '/finale', label: 'Finale' },
-              ].map(({ to, label }) => (
+              ].map(({ to, label, end }) => (
                 <NavLink
                   key={to}
                   to={to}
+                  end={end}
                   className={({ isActive }) =>
                     `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
                   }

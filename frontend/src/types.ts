@@ -87,34 +87,3 @@ export interface WinnerPick {
   created_at: string
 }
 
-export interface TokenBalance {
-  user_id: string
-  season_id: string
-  balance: number
-}
-
-export interface TokenTransaction {
-  id: string
-  user_id: string
-  season_id: string
-  episode_id: string | null
-  transaction_type: string
-  amount: number
-  scoring_event_id: string | null
-  advantage_play_id: string | null
-  notes: string | null
-  created_at: string
-}
-
-export interface AdvantagePlay {
-  id: string
-  user_id: string
-  episode_id: string
-  advantage_type: string
-  target_user_id: string | null
-  target_contestant_id: string | null
-  episode_affected_id: string | null
-  status: string
-  token_cost: number
-  created_at: string
-}

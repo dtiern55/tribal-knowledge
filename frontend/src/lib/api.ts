@@ -1,3 +1,4 @@
+import type { Season } from '../types'
 import { supabase } from './supabase'
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -28,4 +29,10 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+}
+
+/** The season every page operates on: the active one, else the most recent. */
+export async function getActiveSeason(): Promise<Season | null> {
+  const seasons = await api.get<Season[]>('/seasons')
+  return seasons.find((s) => s.status === 'active') ?? seasons.at(-1) ?? null
 }

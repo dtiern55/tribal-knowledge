@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import { api, getActiveSeason } from '../lib/api'
 import type { Season, StandingEntry } from '../types'
 
 export function StandingsPage() {
@@ -11,8 +11,7 @@ export function StandingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const seasons = await api.get<Season[]>('/seasons')
-        const active = seasons.find((s) => s.status === 'active') ?? seasons.at(-1) ?? null
+        const active = await getActiveSeason()
         setSeason(active)
         if (active) {
           const data = await api.get<StandingEntry[]>(`/seasons/${active.id}/standings`)

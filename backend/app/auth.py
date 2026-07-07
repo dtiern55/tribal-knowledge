@@ -10,7 +10,9 @@ from app import database
 _bearer = HTTPBearer()
 
 
-def _decode_token(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) -> UUID:
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+) -> UUID:
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -21,10 +23,6 @@ def _decode_token(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) 
     except jwt.InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     return UUID(payload["sub"])
-
-
-def get_current_user(user_id: UUID = Depends(_decode_token)) -> UUID:
-    return user_id
 
 
 def get_current_admin(user_id: UUID = Depends(get_current_user)) -> UUID:

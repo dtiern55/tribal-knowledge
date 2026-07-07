@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_user
+from app.locking import EPISODE_LOCKED_SQL, episode_locked
 from app.schemas import FinalePrediction, FinalePredictionRequest
 
 router = APIRouter(tags=["finale_predictions"])
@@ -28,10 +28,10 @@ def get_finale_prediction(
             # Other players' ballots stay hidden until the finale locks
             if str(user_id) != str(current_user):
                 cur.execute(
-                    """
+                    f"""
                     select 1 from episodes
                     where season_id = %s and is_finale = true
-                      and (picks_lock_at <= now() or status = 'scored')
+                      and {EPISODE_LOCKED_SQL}
                     """,
                     [str(season_id)],
                 )
@@ -81,10 +81,7 @@ def submit_finale_prediction(
                     status_code=400, detail="Finale episode not yet scheduled"
                 )
 
-            if (
-                finale_ep["picks_lock_at"] <= datetime.now(timezone.utc)
-                or finale_ep["status"] == "scored"
-            ):
+            if episode_locked(finale_ep):
                 raise HTTPException(
                     status_code=400, detail="Finale prediction window has closed"
                 )

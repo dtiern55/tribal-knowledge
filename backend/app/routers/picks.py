@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_user
+from app.locking import episode_locked
 from app.schemas import EliminationPick, EliminationPickSubmitRequest
 
 router = APIRouter(tags=["picks"])
@@ -29,11 +30,7 @@ def get_picks(
                 raise HTTPException(status_code=404, detail="Episode not found")
 
             # Other players' picks stay hidden until the episode locks
-            locked = (
-                episode["picks_lock_at"] <= datetime.now(timezone.utc)
-                or episode["status"] == "scored"
-            )
-            if str(user_id) != str(current_user) and not locked:
+            if str(user_id) != str(current_user) and not episode_locked(episode):
                 raise HTTPException(
                     status_code=403, detail="Picks are hidden until they lock"
                 )
@@ -104,48 +101,37 @@ def submit_picks(
                     status_code=400, detail="Duplicate contestants in picks"
                 )
 
-            if body.contestant_ids:
-                cur.execute(
-                    "select id::text as id from contestants"
-                    " where season_id = %s and id in %s",
-                    [
-                        str(episode["season_id"]),
-                        tuple(str(c) for c in body.contestant_ids),
-                    ],
+            ids = [str(c) for c in body.contestant_ids]
+            cur.execute(
+                "select id::text as id from contestants"
+                " where season_id = %s and id::text = any(%s)",
+                [str(episode["season_id"]), ids],
+            )
+            valid_id_strs = {row["id"] for row in cur.fetchall()}
+            invalid = [c for c in ids if c not in valid_id_strs]
+            if invalid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Contestants not in this season: {invalid}",
                 )
-                valid_id_strs = {row["id"] for row in cur.fetchall()}
-                invalid = [
-                    c for c in body.contestant_ids if str(c) not in valid_id_strs
-                ]
-                if invalid:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Contestants not in this season: {invalid}",
-                    )
 
-                cur.execute(
-                    """
-                    select e.contestant_id::text
-                    from eliminations e
-                    join episodes ep on e.episode_id = ep.id
-                    where ep.season_id = %s
-                      and ep.episode_number < %s
-                      and e.contestant_id in %s
-                    """,
-                    [
-                        str(episode["season_id"]),
-                        episode["episode_number"],
-                        tuple(str(c) for c in body.contestant_ids),
-                    ],
+            cur.execute(
+                """
+                select e.contestant_id::text
+                from eliminations e
+                join episodes ep on e.episode_id = ep.id
+                where ep.season_id = %s
+                  and ep.episode_number < %s
+                  and e.contestant_id::text = any(%s)
+                """,
+                [str(episode["season_id"]), episode["episode_number"], ids],
+            )
+            already_eliminated = [row["contestant_id"] for row in cur.fetchall()]
+            if already_eliminated:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(f"Contestant(s) already eliminated: {already_eliminated}"),
                 )
-                already_eliminated = [row["contestant_id"] for row in cur.fetchall()]
-                if already_eliminated:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Contestant(s) already eliminated: {already_eliminated}"
-                        ),
-                    )
 
             # Replace existing picks for this user/episode. An empty list is
             # intentionally allowed and clears the user's picks for the episode.

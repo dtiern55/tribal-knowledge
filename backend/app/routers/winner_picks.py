@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
+from app.locking import EPISODE_LOCKED_SQL, episode_locked
 from app.schemas import WinnerPick, WinnerPickSubmitRequest
 
 router = APIRouter(tags=["winner_picks"])
@@ -31,10 +31,10 @@ def get_winner_pick(
                 locked = False
                 if season["merge_episode"] is not None:
                     cur.execute(
-                        """
+                        f"""
                         select 1 from episodes
                         where season_id = %s and episode_number = %s
-                          and (picks_lock_at <= now() or status = 'scored')
+                          and {EPISODE_LOCKED_SQL}
                         """,
                         [str(season_id), season["merge_episode"]],
                     )
@@ -100,10 +100,7 @@ def submit_winner_pick(
                     status_code=400, detail="Merge episode not yet scheduled"
                 )
 
-            if (
-                merge_ep["picks_lock_at"] <= datetime.now(timezone.utc)
-                or merge_ep["status"] == "scored"
-            ):
+            if episode_locked(merge_ep):
                 raise HTTPException(
                     status_code=400, detail="Winner pick window has closed"
                 )

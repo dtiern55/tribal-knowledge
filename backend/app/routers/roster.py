@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
+from app.locking import EPISODE_LOCKED_SQL, episode_locked
 from app.schemas import RosterPick, RosterSubmitRequest, RosterSwapRequest
 
 router = APIRouter(tags=["roster"])
@@ -32,10 +32,10 @@ def get_roster(
                 locked = False
                 if season["roster_lock_episode"] is not None:
                     cur.execute(
-                        """
+                        f"""
                         select 1 from episodes
                         where season_id = %s and episode_number = %s
-                          and (picks_lock_at <= now() or status = 'scored')
+                          and {EPISODE_LOCKED_SQL}
                         """,
                         [str(season_id), season["roster_lock_episode"]],
                     )
@@ -79,10 +79,10 @@ def submit_roster(
                 )
 
             cur.execute(
-                """
+                f"""
                 select id from episodes
                 where season_id = %s and episode_number = %s
-                  and (picks_lock_at <= now() or status = 'scored')
+                  and {EPISODE_LOCKED_SQL}
                 """,
                 [str(season_id), season["roster_lock_episode"]],
             )
@@ -116,21 +116,19 @@ def submit_roster(
                     status_code=409, detail="Roster already submitted for this season"
                 )
 
-            if body.contestant_ids:
-                cur.execute(
-                    "select id::text as id from contestants"
-                    " where season_id = %s and id in %s",
-                    [str(season_id), tuple(str(c) for c in body.contestant_ids)],
+            ids = [str(c) for c in body.contestant_ids]
+            cur.execute(
+                "select id::text as id from contestants"
+                " where season_id = %s and id::text = any(%s)",
+                [str(season_id), ids],
+            )
+            valid_id_strs = {row["id"] for row in cur.fetchall()}
+            invalid = [c for c in ids if c not in valid_id_strs]
+            if invalid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Contestants not in this season: {invalid}",
                 )
-                valid_id_strs = {row["id"] for row in cur.fetchall()}
-                invalid = [
-                    c for c in body.contestant_ids if str(c) not in valid_id_strs
-                ]
-                if invalid:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Contestants not in this season: {invalid}",
-                    )
 
             rows = []
             try:
@@ -185,10 +183,7 @@ def swap_roster_pick(
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
-            if (
-                episode["picks_lock_at"] <= datetime.now(timezone.utc)
-                or episode["status"] == "scored"
-            ):
+            if episode_locked(episode):
                 raise HTTPException(
                     status_code=400, detail="Swap window for this episode has closed"
                 )

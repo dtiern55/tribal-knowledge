@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import { api, getActiveSeason } from '../lib/api'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, Episode, Season } from '../types'
@@ -1027,8 +1027,7 @@ export function AdminPage() {
   useEffect(() => {
     async function load() {
       try {
-        const seasons = await api.get<Season[]>('/seasons')
-        const active = seasons.find((s) => s.status === 'active') ?? seasons.at(-1)
+        const active = await getActiveSeason()
         if (!active) return
         setSeason(active)
         const [cs, eps] = await Promise.all([
