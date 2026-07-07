@@ -9,18 +9,23 @@ from app import database
 
 _bearer = HTTPBearer()
 
+_jwks_client = jwt.PyJWKClient(
+    f"{os.environ['SUPABASE_URL']}/auth/v1/.well-known/jwks.json"
+)
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
 ) -> UUID:
     try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(credentials.credentials)
         payload = jwt.decode(
             credentials.credentials,
-            os.environ["SUPABASE_JWT_SECRET"],
-            algorithms=["HS256"],
+            signing_key.key,
+            algorithms=["ES256"],
             audience="authenticated",
         )
-    except jwt.InvalidTokenError as exc:
+    except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     return UUID(payload["sub"])
 
