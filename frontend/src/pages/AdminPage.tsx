@@ -116,6 +116,7 @@ function SeasonSection({
   const [name, setName] = useState(season.name)
   const [mergeEp, setMergeEp] = useState(String(season.merge_episode ?? ''))
   const [lockEp, setLockEp] = useState(String(season.roster_lock_episode ?? ''))
+  const [winnerLockEp, setWinnerLockEp] = useState(String(season.winner_lock_episode ?? ''))
   const [penalty, setPenalty] = useState(String(season.swap_penalty_points))
   const [status, setStatus] = useState(season.status)
   const [saving, setSaving] = useState(false)
@@ -127,6 +128,7 @@ function SeasonSection({
         name,
         merge_episode: mergeEp ? Number(mergeEp) : null,
         roster_lock_episode: lockEp ? Number(lockEp) : null,
+        winner_lock_episode: winnerLockEp ? Number(winnerLockEp) : null,
         swap_penalty_points: Number(penalty),
         status,
       })
@@ -143,8 +145,9 @@ function SeasonSection({
             <p className="font-semibold text-gray-900">{season.name}</p>
             <p className="text-sm text-gray-500 mt-1">
               Season #{season.season_number} · {season.status} · roster locks ep{' '}
-              {season.roster_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} · swap
-              penalty {season.swap_penalty_points} pts
+              {season.roster_lock_episode ?? '—'} · winner locks ep{' '}
+              {season.winner_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} ·
+              swap penalty {season.swap_penalty_points} pts
             </p>
           </div>
           <ActionBtn variant="secondary" onClick={() => setEditing(true)}>
@@ -193,6 +196,15 @@ function SeasonSection({
             type="number"
             value={lockEp}
             onChange={(e) => setLockEp(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Winner lock episode</label>
+          <input
+            type="number"
+            value={winnerLockEp}
+            onChange={(e) => setWinnerLockEp(e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>

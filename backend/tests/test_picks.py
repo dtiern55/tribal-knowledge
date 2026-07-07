@@ -100,6 +100,31 @@ def test_submit_picks_too_many(client, db_conn):
 
 
 @pytest.mark.integration
+def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"], max_picks=1)
+    c1 = insert_contestant(db_conn, season["id"], "Player A")
+    c2 = insert_contestant(db_conn, season["id"], "Player B")
+
+    client.post(
+        f"/seasons/{season['id']}/tokens/starting-allocation",
+        json={"amount": 20, "user_id": str(current_user["id"])},
+    )
+    play = client.post(
+        f"/seasons/{season['id']}/advantage-plays",
+        json={"advantage_type": "extra_vote"},
+    )
+    assert play.status_code == 201
+
+    r = client.post(
+        f"/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
+    )
+    assert r.status_code == 200
+    assert len(r.json()) == 2
+
+
+@pytest.mark.integration
 def test_submit_picks_duplicate_contestant(client, db_conn):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"], max_picks=3)

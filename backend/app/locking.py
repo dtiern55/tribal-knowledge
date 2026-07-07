@@ -16,3 +16,20 @@ def episode_locked(episode: dict) -> bool:
         episode["picks_lock_at"] <= datetime.now(timezone.utc)
         or episode["status"] == "scored"
     )
+
+
+def next_open_episode(cur, season_id: str) -> dict | None:
+    """The one episode currently open for picks (decision #38, week-by-week):
+    the lowest-numbered episode that hasn't locked or been scored yet.
+    """
+    cur.execute(
+        """
+        select id, episode_number from episodes
+        where season_id = %s and picks_lock_at > now()
+          and status != 'scored'
+        order by episode_number
+        limit 1
+        """,
+        [season_id],
+    )
+    return cur.fetchone()

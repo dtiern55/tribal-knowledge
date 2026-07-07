@@ -12,6 +12,7 @@ class Season(BaseModel):
     roster_size: int
     roster_lock_episode: Optional[int]
     merge_episode: Optional[int]
+    winner_lock_episode: Optional[int]
     swap_penalty_points: int
     status: str
     created_at: datetime
@@ -113,6 +114,7 @@ class SeasonCreateRequest(BaseModel):
     roster_size: int = Field(default=5, ge=1, le=10)
     roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
+    winner_lock_episode: Optional[int] = Field(default=3, gt=0)
     swap_penalty_points: int = Field(default=-20, le=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
@@ -123,6 +125,7 @@ class SeasonUpdateRequest(BaseModel):
     roster_size: Optional[int] = Field(default=None, ge=1, le=10)
     roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
+    winner_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_penalty_points: Optional[int] = Field(default=None, le=0)
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 
@@ -157,22 +160,21 @@ class AdvantagePlay(BaseModel):
     user_id: UUID
     episode_id: UUID
     advantage_type: str
-    target_user_id: Optional[UUID]
     target_contestant_id: Optional[UUID]
-    episode_affected_id: Optional[UUID]
-    status: str
     token_cost: int
     created_at: datetime
 
 
 class AdvantagePlayRequest(BaseModel):
-    user_id: UUID
-    episode_id: UUID
     advantage_type: str
-    target_user_id: Optional[UUID] = None
     target_contestant_id: Optional[UUID] = None
-    episode_affected_id: Optional[UUID] = None
-    token_cost: int = Field(ge=0)
+
+
+class AdvantageType(BaseModel):
+    advantage_type: str
+    label: str
+    token_cost: int
+    enabled: bool
 
 
 class TokenTransaction(BaseModel):
@@ -215,14 +217,12 @@ class WinnerPick(BaseModel):
     user_id: UUID
     season_id: UUID
     winner_contestant_id: UUID
-    backup_contestant_id: UUID
     effective_episode: int
     created_at: datetime
 
 
 class WinnerPickSubmitRequest(BaseModel):
     winner_contestant_id: UUID
-    backup_contestant_id: UUID
 
 
 class FinalePrediction(BaseModel):

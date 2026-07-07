@@ -16,6 +16,7 @@ export function Layout() {
                 { to: '/roster', label: 'My Roster' },
                 { to: '/picks', label: 'Picks' },
                 { to: '/winner-pick', label: 'Winner Pick' },
+                { to: '/advantages', label: 'Advantages' },
                 { to: '/finale', label: 'Finale' },
               ].map(({ to, label, end }) => (
                 <NavLink

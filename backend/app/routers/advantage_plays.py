@@ -1,40 +1,49 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from psycopg2 import errors as pg_errors
 
 from app import database
-from app.auth import get_current_admin, get_current_user
-from app.schemas import AdvantagePlay, AdvantagePlayRequest
+from app.auth import get_current_user
+from app.locking import EPISODE_LOCKED_SQL, next_open_episode
+from app.schemas import AdvantagePlay, AdvantagePlayRequest, AdvantageType
 
 router = APIRouter(tags=["advantage_plays"])
 
-_VALID_TYPES = {
-    "double_roster_points",
-    "double_vote_points",
-    "extra_vote",
-    "swap_a_pick",
-    "change_backup_pick",
-    "change_winner_pick",
-    "steal_a_vote",
-    "immunity_idol",
-}
+# Advantages that double a named contestant's points for the episode they're
+# played in; extra_vote raises the pick limit instead and takes no target.
+_DOUBLE_TYPES = {"double_roster_points", "double_vote_points"}
+
+
+@router.get("/advantage-types", response_model=list[AdvantageType])
+def list_advantage_types(_: UUID = Depends(get_current_user)):
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "select * from advantage_types where enabled = true order by token_cost"
+            )
+            return cur.fetchall()
 
 
 @router.get("/seasons/{season_id}/advantage-plays", response_model=list[AdvantagePlay])
-def list_advantage_plays(season_id: UUID, _: UUID = Depends(get_current_user)):
+def list_advantage_plays(
+    season_id: UUID, current_user: UUID = Depends(get_current_user)
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Season not found")
+            # Other players' plays stay hidden until the episode they affect locks
             cur.execute(
-                """
+                f"""
                 select ap.* from advantage_plays ap
                 join episodes ep on ep.id = ap.episode_id
                 where ep.season_id = %s
+                  and (ap.user_id = %s or {EPISODE_LOCKED_SQL})
                 order by ap.created_at
                 """,
-                [str(season_id)],
+                [str(season_id), str(current_user)],
             )
             return cur.fetchall()
 
@@ -44,22 +53,34 @@ def list_advantage_plays(season_id: UUID, _: UUID = Depends(get_current_user)):
     response_model=list[AdvantagePlay],
 )
 def list_user_advantage_plays(
-    season_id: UUID, user_id: UUID, _: UUID = Depends(get_current_user)
+    season_id: UUID, user_id: UUID, current_user: UUID = Depends(get_current_user)
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Season not found")
-            cur.execute(
-                """
-                select ap.* from advantage_plays ap
-                join episodes ep on ep.id = ap.episode_id
-                where ep.season_id = %s and ap.user_id = %s
-                order by ap.created_at
-                """,
-                [str(season_id), str(user_id)],
-            )
+            if str(user_id) == str(current_user):
+                cur.execute(
+                    """
+                    select ap.* from advantage_plays ap
+                    join episodes ep on ep.id = ap.episode_id
+                    where ep.season_id = %s and ap.user_id = %s
+                    order by ap.created_at
+                    """,
+                    [str(season_id), str(user_id)],
+                )
+            else:
+                cur.execute(
+                    f"""
+                    select ap.* from advantage_plays ap
+                    join episodes ep on ep.id = ap.episode_id
+                    where ep.season_id = %s and ap.user_id = %s
+                      and {EPISODE_LOCKED_SQL}
+                    order by ap.created_at
+                    """,
+                    [str(season_id), str(user_id)],
+                )
             return cur.fetchall()
 
 
@@ -71,100 +92,119 @@ def list_user_advantage_plays(
 def record_advantage_play(
     season_id: UUID,
     body: AdvantagePlayRequest,
-    _: UUID = Depends(get_current_admin),
+    user_id: UUID = Depends(get_current_user),
 ):
-    if body.advantage_type not in _VALID_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown advantage type: {body.advantage_type}",
-        )
-
+    """Self-serve: a player spends tokens to play an advantage in the next
+    open episode (decision #12, 2026-07-06). Steal a Vote and Immunity Idol
+    were dropped as PvP mechanics that weren't fun; only three remain.
+    """
     with database.get_db() as conn:
         with conn.cursor() as cur:
+            cur.execute("select id from seasons where id = %s", [str(season_id)])
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Season not found")
+
             cur.execute(
-                "select id from episodes where id = %s and season_id = %s",
-                [str(body.episode_id), str(season_id)],
+                "select token_cost from advantage_types"
+                " where advantage_type = %s and enabled = true",
+                [body.advantage_type],
             )
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Episode not found")
-
-            cur.execute("select id from profiles where id = %s", [str(body.user_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="User not found")
-
-            if body.target_user_id is not None:
-                cur.execute(
-                    "select id from profiles where id = %s",
-                    [str(body.target_user_id)],
+            advantage = cur.fetchone()
+            if not advantage:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown advantage type: {body.advantage_type}",
                 )
-                if not cur.fetchone():
-                    raise HTTPException(status_code=404, detail="Target user not found")
+            cost = advantage["token_cost"]
 
-            if body.target_contestant_id is not None:
-                cur.execute(
-                    "select id from contestants where id = %s and season_id = %s",
-                    [str(body.target_contestant_id), str(season_id)],
+            episode = next_open_episode(cur, str(season_id))
+            if not episode:
+                raise HTTPException(
+                    status_code=400, detail="No open episode to play this advantage in"
                 )
-                if not cur.fetchone():
-                    raise HTTPException(
-                        status_code=404, detail="Target contestant not found"
-                    )
 
-            if body.episode_affected_id is not None:
-                cur.execute(
-                    "select id from episodes where id = %s and season_id = %s",
-                    [str(body.episode_affected_id), str(season_id)],
-                )
-                if not cur.fetchone():
-                    raise HTTPException(
-                        status_code=404, detail="Affected episode not found"
-                    )
-
-            # Negative balances are never allowed (decision 2026-07-06, #39)
-            if body.token_cost > 0:
-                cur.execute(
-                    """
-                    select coalesce(sum(amount), 0) as balance
-                    from token_transactions
-                    where user_id = %s and season_id = %s
-                    """,
-                    [str(body.user_id), str(season_id)],
-                )
-                balance = cur.fetchone()["balance"]
-                if balance < body.token_cost:
+            if body.advantage_type in _DOUBLE_TYPES:
+                if body.target_contestant_id is None:
                     raise HTTPException(
                         status_code=400,
-                        detail=(
-                            f"Insufficient tokens: balance {balance},"
-                            f" cost {body.token_cost}"
-                        ),
+                        detail=f"{body.advantage_type} requires a target_contestant_id",
                     )
+                if body.advantage_type == "double_roster_points":
+                    cur.execute(
+                        """
+                        select 1 from roster_picks
+                        where user_id = %s and season_id = %s and contestant_id = %s
+                          and active_until_episode is null
+                        """,
+                        [str(user_id), str(season_id), str(body.target_contestant_id)],
+                    )
+                    if not cur.fetchone():
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Target contestant is not on your active roster",
+                        )
+                else:
+                    cur.execute(
+                        "select 1 from contestants where id = %s and season_id = %s",
+                        [str(body.target_contestant_id), str(season_id)],
+                    )
+                    if not cur.fetchone():
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Target contestant not in this season",
+                        )
+            elif body.target_contestant_id is not None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"{body.advantage_type} does not take a target_contestant_id"
+                    ),
+                )
 
             cur.execute(
                 """
-                insert into advantage_plays
-                    (user_id, episode_id, advantage_type, target_user_id,
-                     target_contestant_id, episode_affected_id, token_cost)
-                values (%s, %s, %s, %s, %s, %s, %s)
-                returning *
+                select coalesce(sum(amount), 0) as balance
+                from token_transactions
+                where user_id = %s and season_id = %s
                 """,
-                [
-                    str(body.user_id),
-                    str(body.episode_id),
-                    body.advantage_type,
-                    str(body.target_user_id) if body.target_user_id else None,
-                    (
-                        str(body.target_contestant_id)
-                        if body.target_contestant_id
-                        else None
-                    ),
-                    str(body.episode_affected_id) if body.episode_affected_id else None,
-                    body.token_cost,
-                ],
+                [str(user_id), str(season_id)],
             )
+            balance = cur.fetchone()["balance"]
+            if balance < cost:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient tokens: balance {balance}, cost {cost}",
+                )
+
+            try:
+                cur.execute(
+                    """
+                    insert into advantage_plays
+                        (user_id, episode_id, advantage_type,
+                         target_contestant_id, token_cost)
+                    values (%s, %s, %s, %s, %s)
+                    returning *
+                    """,
+                    [
+                        str(user_id),
+                        episode["id"],
+                        body.advantage_type,
+                        (
+                            str(body.target_contestant_id)
+                            if body.target_contestant_id
+                            else None
+                        ),
+                        cost,
+                    ],
+                )
+            except pg_errors.UniqueViolation:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"{body.advantage_type} already played for this episode",
+                )
             play = cur.fetchone()
 
-            if body.token_cost > 0:
+            if cost > 0:
                 cur.execute(
                     """
                     insert into token_transactions
@@ -172,13 +212,7 @@ def record_advantage_play(
                          amount, advantage_play_id)
                     values (%s, %s, %s, 'advantage_spend', %s, %s)
                     """,
-                    [
-                        str(body.user_id),
-                        str(season_id),
-                        str(body.episode_id),
-                        -body.token_cost,
-                        str(play["id"]),
-                    ],
+                    [str(user_id), str(season_id), episode["id"], -cost, play["id"]],
                 )
 
             return play

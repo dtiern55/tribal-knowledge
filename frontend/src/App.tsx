@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AdminPage } from './pages/AdminPage'
+import { AdvantagesPage } from './pages/AdvantagesPage'
 import { FinalePage } from './pages/FinalePage'
 import { LoginPage } from './pages/LoginPage'
 import { PicksPage } from './pages/PicksPage'
@@ -29,6 +30,10 @@ export default function App() {
             <Route
               path="winner-pick"
               element={<ProtectedRoute><WinnerPickPage /></ProtectedRoute>}
+            />
+            <Route
+              path="advantages"
+              element={<ProtectedRoute><AdvantagesPage /></ProtectedRoute>}
             />
             <Route
               path="finale"

@@ -53,8 +53,7 @@ def test_standings_aggregates_components(client, db_conn):
 
     # winner pick: contestant wins +100
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    backup = insert_contestant(db_conn, season["id"], "Backup", placement=6)
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"], backup["id"])
+    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
 
     # finale ballot: winner vote correct +30
     insert_finale_prediction(db_conn, user["id"], season["id"], winner=winner["id"])

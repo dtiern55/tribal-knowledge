@@ -11,6 +11,7 @@ export interface Season {
   roster_size: number
   roster_lock_episode: number | null
   merge_episode: number | null
+  winner_lock_episode: number | null
   swap_penalty_points: number
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
@@ -82,8 +83,30 @@ export interface WinnerPick {
   user_id: string
   season_id: string
   winner_contestant_id: string
-  backup_contestant_id: string
   effective_episode: number
   created_at: string
+}
+
+export interface AdvantageType {
+  advantage_type: string
+  label: string
+  token_cost: number
+  enabled: boolean
+}
+
+export interface AdvantagePlay {
+  id: string
+  user_id: string
+  episode_id: string
+  advantage_type: string
+  target_contestant_id: string | null
+  token_cost: number
+  created_at: string
+}
+
+export interface TokenBalance {
+  user_id: string
+  season_id: string
+  balance: number
 }
 

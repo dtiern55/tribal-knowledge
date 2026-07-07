@@ -31,6 +31,7 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "status": kwargs.pop("status", "upcoming"),
         "roster_lock_episode": kwargs.pop("roster_lock_episode", None),
         "merge_episode": kwargs.pop("merge_episode", None),
+        "winner_lock_episode": kwargs.pop("winner_lock_episode", None),
         "swap_penalty_points": kwargs.pop("swap_penalty_points", -20),
     }
     with conn.cursor() as cur:
@@ -38,10 +39,12 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
             """
             insert into seasons
                 (name, season_number, roster_size, status,
-                 roster_lock_episode, merge_episode, swap_penalty_points)
+                 roster_lock_episode, merge_episode, winner_lock_episode,
+                 swap_penalty_points)
             values
                 (%(name)s, %(season_number)s, %(roster_size)s, %(status)s,
-                 %(roster_lock_episode)s, %(merge_episode)s, %(swap_penalty_points)s)
+                 %(roster_lock_episode)s, %(merge_episode)s,
+                 %(winner_lock_episode)s, %(swap_penalty_points)s)
             returning *
             """,
             params,
@@ -136,6 +139,27 @@ def insert_roster_pick(
         return cur.fetchone()
 
 
+def insert_advantage_play(
+    conn, user_id, episode_id, advantage_type, target_contestant_id=None, token_cost=0
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into advantage_plays
+                (user_id, episode_id, advantage_type, target_contestant_id, token_cost)
+            values (%s, %s, %s, %s, %s) returning *
+            """,
+            [
+                str(user_id),
+                str(episode_id),
+                advantage_type,
+                str(target_contestant_id) if target_contestant_id else None,
+                token_cost,
+            ],
+        )
+        return cur.fetchone()
+
+
 def insert_scoring_event(conn, episode_id, contestant_id, event_type, quantity=1):
     with conn.cursor() as cur:
         cur.execute(
@@ -194,22 +218,19 @@ def insert_winner_pick(
     user_id,
     season_id,
     winner_contestant_id,
-    backup_contestant_id,
     effective_episode=1,
 ):
     with conn.cursor() as cur:
         cur.execute(
             """
             insert into winner_picks
-                (user_id, season_id, winner_contestant_id, backup_contestant_id,
-                 effective_episode)
-            values (%s, %s, %s, %s, %s) returning *
+                (user_id, season_id, winner_contestant_id, effective_episode)
+            values (%s, %s, %s, %s) returning *
             """,
             [
                 str(user_id),
                 str(season_id),
                 str(winner_contestant_id),
-                str(backup_contestant_id),
                 effective_episode,
             ],
         )

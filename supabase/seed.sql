@@ -24,9 +24,9 @@ begin
   -- ----------------------------------------------------------------
   insert into seasons
     (id, name, season_number, roster_size, roster_lock_episode,
-     merge_episode, swap_penalty_points, status)
+     merge_episode, winner_lock_episode, swap_penalty_points, status)
   values
-    (v_season_id, 'Survivor: Practice Island', 99, 5, 2, 9, -20, 'active');
+    (v_season_id, 'Survivor: Practice Island', 99, 5, 2, 9, 3, -20, 'active');
 
   -- ----------------------------------------------------------------
   -- Episodes: 1-3 scored (past), 4-5 open (future picks window)

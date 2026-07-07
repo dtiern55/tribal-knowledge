@@ -2,6 +2,7 @@ import pytest
 
 from app import scoring
 from tests.helpers import (
+    insert_advantage_play,
     insert_contestant,
     insert_elimination,
     insert_elimination_pick,
@@ -94,6 +95,40 @@ def test_roster_points_same_contestant_two_users(db_conn):
     assert result == {str(u1["id"]): 15, str(u2["id"]): 15}
 
 
+@pytest.mark.integration
+def test_roster_points_doubled_by_advantage(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
+    insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
+    insert_advantage_play(
+        db_conn, user["id"], ep["id"], "double_roster_points", c["id"]
+    )
+
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 30}
+
+
+@pytest.mark.integration
+def test_roster_points_double_only_matching_episode(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
+    insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")
+    insert_scoring_event(db_conn, ep3["id"], c["id"], "win_individual_immunity")
+    # Double only applies to ep3
+    insert_advantage_play(
+        db_conn, user["id"], ep3["id"], "double_roster_points", c["id"]
+    )
+
+    # ep2: 15, ep3: 30 -> 45
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 45}
+
+
 # --- elimination_points ---
 
 
@@ -150,6 +185,37 @@ def test_elimination_points_excludes_finale(db_conn):
     assert scoring.elimination_points(db_conn, season["id"]) == {}
 
 
+@pytest.mark.integration
+def test_elimination_points_doubled_by_advantage(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
+    insert_elimination(db_conn, ep["id"], c["id"])
+    insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points", c["id"])
+
+    # pre-merge correct pick 15 -> doubled to 30
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 30}
+
+
+@pytest.mark.integration
+def test_elimination_points_double_wrong_target_no_effect(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    picked = insert_contestant(db_conn, season["id"], "Picked")
+    other = insert_contestant(db_conn, season["id"], "Other")
+    insert_elimination_pick(db_conn, user["id"], ep["id"], picked["id"])
+    insert_elimination(db_conn, ep["id"], picked["id"])
+    # Double was played on a different contestant than the actual pick
+    insert_advantage_play(
+        db_conn, user["id"], ep["id"], "double_vote_points", other["id"]
+    )
+
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 15}
+
+
 # --- winner_points ---
 
 
@@ -158,51 +224,19 @@ def test_winner_points_sole_survivor(db_conn):
     season = insert_season(db_conn)
     user = insert_user(db_conn)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    backup = insert_contestant(db_conn, season["id"], "Backup", placement=5)
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"], backup["id"])
+    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
 
     assert scoring.winner_points(db_conn, season["id"]) == {str(user["id"]): 100}
 
 
 @pytest.mark.integration
-def test_winner_points_runner_up_and_backup_wins(db_conn):
+def test_winner_points_runner_up(db_conn):
     season = insert_season(db_conn)
     user = insert_user(db_conn)
-    # winner pick came 2nd (+60), backup pick won (+50)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=2)
-    backup = insert_contestant(db_conn, season["id"], "Backup", placement=1)
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"], backup["id"])
+    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
 
-    assert scoring.winner_points(db_conn, season["id"]) == {str(user["id"]): 110}
-
-
-@pytest.mark.integration
-def test_winner_points_uses_latest_pick(db_conn):
-    season = insert_season(db_conn)
-    user = insert_user(db_conn)
-    first = insert_contestant(db_conn, season["id"], "First", placement=5)
-    second = insert_contestant(db_conn, season["id"], "Second", placement=1)
-    backup = insert_contestant(db_conn, season["id"], "Backup", placement=8)
-    # earlier pick (effective ep 2) then a changed pick (effective ep 4)
-    insert_winner_pick(
-        db_conn,
-        user["id"],
-        season["id"],
-        first["id"],
-        backup["id"],
-        effective_episode=2,
-    )
-    insert_winner_pick(
-        db_conn,
-        user["id"],
-        season["id"],
-        second["id"],
-        backup["id"],
-        effective_episode=4,
-    )
-
-    # latest pick's winner placed 1st -> +100
-    assert scoring.winner_points(db_conn, season["id"]) == {str(user["id"]): 100}
+    assert scoring.winner_points(db_conn, season["id"]) == {str(user["id"]): 60}
 
 
 @pytest.mark.integration
@@ -210,8 +244,7 @@ def test_winner_points_no_placement_scores_nothing(db_conn):
     season = insert_season(db_conn)
     user = insert_user(db_conn)
     winner = insert_contestant(db_conn, season["id"], "Winner")  # placement None
-    backup = insert_contestant(db_conn, season["id"], "Backup")
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"], backup["id"])
+    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
 
     assert scoring.winner_points(db_conn, season["id"]) == {}
 

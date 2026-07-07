@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_user
-from app.locking import episode_locked
+from app.locking import episode_locked, next_open_episode
 from app.schemas import EliminationPick, EliminationPickSubmitRequest
 
 router = APIRouter(tags=["picks"])
@@ -63,17 +63,7 @@ def submit_picks(
                 )
 
             # Week-by-week rule: only the next unlocked episode accepts picks
-            cur.execute(
-                """
-                select id, episode_number from episodes
-                where season_id = %s and picks_lock_at > now()
-                  and status != 'scored'
-                order by episode_number
-                limit 1
-                """,
-                [str(episode["season_id"])],
-            )
-            next_open = cur.fetchone()
+            next_open = next_open_episode(cur, str(episode["season_id"]))
             if next_open["id"] != episode["id"]:
                 raise HTTPException(
                     status_code=400,
@@ -83,11 +73,22 @@ def submit_picks(
                     ),
                 )
 
-            if len(body.contestant_ids) > episode["max_elimination_picks"]:
+            # Extra Vote advantage raises this episode's pick limit by one
+            cur.execute(
+                """
+                select count(*) as n from advantage_plays
+                where user_id = %s and episode_id = %s
+                  and advantage_type = 'extra_vote'
+                """,
+                [str(user_id), str(episode_id)],
+            )
+            max_picks = episode["max_elimination_picks"] + cur.fetchone()["n"]
+
+            if len(body.contestant_ids) > max_picks:
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"Too many picks: max is {episode['max_elimination_picks']},"
+                        f"Too many picks: max is {max_picks},"
                         f" got {len(body.contestant_ids)}"
                     ),
                 )

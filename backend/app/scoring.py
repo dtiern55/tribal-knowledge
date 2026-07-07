@@ -9,10 +9,13 @@ merge_episode (decision #10). When merge_episode is NULL, everything is pre-merg
 A scoring/prediction value uses postmerge_point_value when it is set and the
 episode is post-merge, otherwise point_value.
 
-Not yet handled here:
-- is_doubled on elimination_picks (Double Vote Points advantage) — waits on the
-  advantage system (#12).
-- The standings endpoint that aggregates these (#21).
+Double Roster Points / Double Vote Points (decision #12, 2026-07-06): a player
+spends tokens to double one contestant's roster-event or elimination-pick
+points for one episode. The play names the target contestant and episode
+directly (app/routers/advantage_plays.py), so roster_points/elimination_points
+just check for a matching advantage_plays row rather than reading a stored
+flag — this survives elimination_picks being deleted and reinserted on every
+resubmission (decision #38).
 """
 
 from uuid import UUID
@@ -23,7 +26,8 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
 
     A scoring_event scores for every user who had that contestant rostered in
     the event's episode (effective-episode ranges), plus each user's swap
-    penalties. Per-unit events multiply by quantity.
+    penalties. Per-unit events multiply by quantity, then double if the user
+    played Double Roster Points on that contestant for that episode.
     """
     points: dict[str, int] = {}
     with conn.cursor() as cur:
@@ -39,6 +43,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
                         else et.point_value
                       end)
                      * (case when et.is_per_unit then se.quantity else 1 end)
+                     * (case when dbl.id is not null then 2 else 1 end)
                    ) as points
             from scoring_events se
             join episodes ep on se.episode_id = ep.id
@@ -50,6 +55,11 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
              and rp.active_from_episode <= ep.episode_number
              and (rp.active_until_episode is null
                   or rp.active_until_episode >= ep.episode_number)
+            left join advantage_plays dbl
+              on dbl.advantage_type = 'double_roster_points'
+             and dbl.user_id = rp.user_id
+             and dbl.episode_id = se.episode_id
+             and dbl.target_contestant_id = se.contestant_id
             where s.id = %s
             group by rp.user_id
             """,
@@ -77,8 +87,10 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
     """Points each user earns from correct weekly elimination predictions.
 
     A pick scores when the predicted contestant appears in that episode's
-    eliminations; pre/post-merge rate comes from prediction_score_types. Finale
-    episodes are excluded — there picks are scored as a winner vote instead (#19).
+    eliminations; pre/post-merge rate comes from prediction_score_types, then
+    doubles if the user played Double Vote Points on that pick's contestant
+    for that episode. Finale episodes are excluded — there picks are scored
+    as a winner vote instead (#19).
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -91,16 +103,24 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
         cur.execute(
             """
             select pick.user_id::text as user_id,
-                   sum(case
-                         when s.merge_episode is not null
-                          and ep.episode_number >= s.merge_episode
-                         then %s else %s
-                       end) as points
+                   sum(
+                     (case
+                        when s.merge_episode is not null
+                         and ep.episode_number >= s.merge_episode
+                        then %s else %s
+                      end)
+                     * (case when dbl.id is not null then 2 else 1 end)
+                   ) as points
             from elimination_picks pick
             join episodes ep on pick.episode_id = ep.id
             join seasons s on ep.season_id = s.id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
+            left join advantage_plays dbl
+              on dbl.advantage_type = 'double_vote_points'
+             and dbl.user_id = pick.user_id
+             and dbl.episode_id = pick.episode_id
+             and dbl.target_contestant_id = pick.contestant_id
             where s.id = %s and ep.is_finale = false
             group by pick.user_id
             """,
@@ -110,33 +130,26 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
 
 
 def winner_points(conn, season_id: UUID) -> dict[str, int]:
-    """Points from each user's locked winner/backup pick vs final placements.
+    """Points from each user's locked winner pick vs final placement.
 
-    Uses the user's current winner_picks row (latest effective_episode, then
-    created_at). Winner pick placing 1st/2nd/3rd -> +100/+60/+25; backup placing
-    1st -> +50.
-
-    The +30 finale 'correct winner vote' is scored separately in finale_points().
+    Winner pick placing 1st/2nd/3rd -> +100/+60/+25 (decision #12, 2026-07-06:
+    no backup pick). The +30 finale 'correct winner vote' is scored separately
+    in finale_points().
     """
     with conn.cursor() as cur:
         cur.execute("""
             select key, point_value from prediction_score_types
             where key in ('winner_sole_survivor', 'winner_runner_up',
-                          'winner_2nd_runner_up', 'backup_sole_survivor')
+                          'winner_2nd_runner_up')
             """)
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
 
         cur.execute(
             """
-            select distinct on (wp.user_id)
-                   wp.user_id::text as user_id,
-                   wc.placement as winner_placement,
-                   bc.placement as backup_placement
+            select wp.user_id::text as user_id, wc.placement as winner_placement
             from winner_picks wp
             join contestants wc on wc.id = wp.winner_contestant_id
-            join contestants bc on bc.id = wp.backup_contestant_id
             where wp.season_id = %s
-            order by wp.user_id, wp.effective_episode desc, wp.created_at desc
             """,
             [str(season_id)],
         )
@@ -149,8 +162,6 @@ def winner_points(conn, season_id: UUID) -> dict[str, int]:
         points: dict[str, int] = {}
         for row in cur.fetchall():
             total = winner_value.get(row["winner_placement"], 0)
-            if row["backup_placement"] == 1:
-                total += v["backup_sole_survivor"]
             if total:
                 points[row["user_id"]] = total
         return points
