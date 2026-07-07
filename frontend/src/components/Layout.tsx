@@ -9,17 +9,17 @@ export function Layout() {
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 flex items-center h-14 gap-6">
           <span className="font-semibold text-gray-900 mr-2">Tribal Knowledge</span>
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
-            }
-          >
-            Standings
-          </NavLink>
           {session && (
             <>
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) =>
+                  `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
+                }
+              >
+                Standings
+              </NavLink>
               {[
                 { to: '/roster', label: 'My Roster' },
                 { to: '/picks', label: 'Picks' },

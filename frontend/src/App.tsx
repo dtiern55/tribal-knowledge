@@ -16,7 +16,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<StandingsPage />} />
+            <Route index element={<ProtectedRoute><StandingsPage /></ProtectedRoute>} />
             <Route path="login" element={<LoginPage />} />
             <Route
               path="roster"

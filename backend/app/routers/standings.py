@@ -1,15 +1,16 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database, scoring
+from app.auth import get_current_user
 from app.schemas import StandingEntry
 
 router = APIRouter(tags=["standings"])
 
 
 @router.get("/seasons/{season_id}/standings", response_model=list[StandingEntry])
-def get_standings(season_id: UUID):
+def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
     """Live leaderboard: every league member's points for the season.
 
     Sums the four scoring components per user. Computed live, never cached.

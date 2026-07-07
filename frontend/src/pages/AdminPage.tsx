@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, Episode, Season } from '../types'
 
@@ -361,7 +362,7 @@ function EpisodePanel({
   // Edit fields
   const [epNum, setEpNum] = useState(String(episode.episode_number))
   const [airDate, setAirDate] = useState(episode.air_date)
-  const [locksAt, setLocksAt] = useState(episode.picks_lock_at.slice(0, 16))
+  const [locksAt, setLocksAt] = useState(utcToCentralLocal(episode.picks_lock_at))
   const [maxPicks, setMaxPicks] = useState(String(episode.max_elimination_picks))
   const [isFinale, setIsFinale] = useState(episode.is_finale)
   const [editSaving, setEditSaving] = useState(false)
@@ -429,7 +430,7 @@ function EpisodePanel({
       const updated = await api.patch<Episode>(`/episodes/${episode.id}`, {
         episode_number: Number(epNum),
         air_date: airDate,
-        picks_lock_at: locksAt,
+        picks_lock_at: centralLocalToUtc(locksAt),
         max_elimination_picks: Number(maxPicks),
         is_finale: isFinale,
       })
@@ -547,7 +548,7 @@ function EpisodePanel({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Picks lock at</label>
+            <label className="block text-xs text-gray-400 mb-1">Picks lock at (CT)</label>
             <input
               type="datetime-local"
               value={locksAt}
@@ -711,18 +712,24 @@ function EpisodePanel({
 
       {/* Score episode */}
       <div className="pt-4 border-t border-gray-100">
-        <p className="text-xs text-gray-500 mb-2">
-          Scoring computes all user points from eliminations + roster events for this episode.
-        </p>
-        <ErrorMsg msg={scoreError} />
-        <SuccessMsg msg={scoreSuccess} />
-        <ActionBtn
-          variant={episode.status === 'scored' ? 'secondary' : 'primary'}
-          onClick={scoreEpisode}
-          disabled={scoring}
-        >
-          {scoring ? 'Scoring…' : episode.status === 'scored' ? 'Re-score episode' : 'Score episode'}
-        </ActionBtn>
+        {episode.status === 'scored' ? (
+          <p className="text-xs text-gray-500">
+            Episode scored. Scores compute live — re-saving eliminations or scoring events
+            updates standings automatically.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-gray-500 mb-2">
+              Marks the episode complete. Scores compute live from eliminations + scoring
+              events, so they can still be corrected afterwards.
+            </p>
+            <ErrorMsg msg={scoreError} />
+            <SuccessMsg msg={scoreSuccess} />
+            <ActionBtn onClick={scoreEpisode} disabled={scoring}>
+              {scoring ? 'Scoring…' : 'Score episode'}
+            </ActionBtn>
+          </>
+        )}
       </div>
     </div>
   )
@@ -758,7 +765,7 @@ function EpisodesSection({
       const ep = await api.post<Episode>(`/seasons/${season.id}/episodes`, {
         episode_number: Number(epNum),
         air_date: airDate,
-        picks_lock_at: locksAt,
+        picks_lock_at: centralLocalToUtc(locksAt),
         max_elimination_picks: Number(maxPicks),
         is_finale: isFinale,
       })
@@ -851,7 +858,7 @@ function EpisodesSection({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Picks lock at</label>
+              <label className="block text-xs text-gray-400 mb-1">Picks lock at (CT)</label>
               <input
                 type="datetime-local"
                 value={locksAt}

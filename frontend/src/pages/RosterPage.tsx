@@ -52,10 +52,12 @@ export function RosterPage() {
     season?.roster_lock_episode != null
       ? episodes.find((e) => e.episode_number === season.roster_lock_episode)
       : undefined
+  // Matches the backend: open until the lock episode exists and has locked
   const windowOpen =
-    lockEpisode != null
-      ? lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()
-      : false
+    season?.roster_lock_episode != null &&
+    season.status !== 'completed' &&
+    (lockEpisode == null ||
+      (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
 
   const hasRoster = roster.length > 0
   const activeRoster = roster.filter((r) => r.active_until_episode === null)
@@ -66,7 +68,9 @@ export function RosterPage() {
     (e) => e.status !== 'scored' && new Date(e.picks_lock_at) > new Date(),
   )
   const rosterContestantIds = new Set(roster.map((r) => r.contestant_id))
-  const swapCandidates = contestants.filter((c) => !rosterContestantIds.has(c.id))
+  const swapCandidates = contestants.filter(
+    (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
+  )
 
   function toggleSelect(id: string) {
     if (!season) return

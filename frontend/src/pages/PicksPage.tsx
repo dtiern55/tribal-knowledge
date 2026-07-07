@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, EliminationPick, Episode, Season } from '../types'
 
@@ -117,7 +118,8 @@ export function PicksPage() {
   if (error) return <p className="text-red-600">{error}</p>
   if (!season) return <p className="text-gray-500">No active season.</p>
 
-  const openEpisodes = episodes.filter(isOpen)
+  // Week-by-week: only the next unlocked episode accepts picks
+  const nextOpen = episodes.find(isOpen)
   const closedEpisodes = episodes.filter((ep) => !isOpen(ep)).reverse()
 
   return (
@@ -125,11 +127,12 @@ export function PicksPage() {
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">{season.name}</h1>
       <p className="text-sm text-gray-500 mb-6">Elimination Picks</p>
 
-      {openEpisodes.length === 0 && closedEpisodes.length === 0 && (
+      {!nextOpen && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
 
-      {openEpisodes.map((ep) => {
+      {nextOpen && (() => {
+        const ep = nextOpen
         const epPending = pending.get(ep.id) ?? new Set<string>()
         const episodeError = errors.get(ep.id)
         const hasSavedPicks = (picksByEpisode.get(ep.id) ?? []).length > 0
@@ -139,7 +142,7 @@ export function PicksPage() {
             <div className="flex items-center justify-between mb-1">
               <h2 className="font-semibold text-gray-900">Episode {ep.episode_number}</h2>
               <span className="text-xs text-gray-400">
-                Locks {new Date(ep.picks_lock_at).toLocaleDateString()}
+                Locks {formatCentral(ep.picks_lock_at)}
               </span>
             </div>
             <p className="text-xs text-gray-500 mb-4">
@@ -149,20 +152,23 @@ export function PicksPage() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
               {contestants.map((c) => {
+                const isOut = c.eliminated_in_episode != null
                 const isSelected = epPending.has(c.id)
                 const maxed = !isSelected && epPending.size >= ep.max_elimination_picks
                 return (
                   <button
                     key={c.id}
                     onClick={() => togglePick(ep.id, c.id, ep.max_elimination_picks)}
-                    disabled={maxed}
+                    disabled={maxed || isOut}
                     className={[
                       'p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
-                      isSelected
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
-                        : maxed
-                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                      isOut
+                        ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
+                        : isSelected
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                          : maxed
+                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
                     ].join(' ')}
                   >
                     {c.name}
@@ -180,11 +186,11 @@ export function PicksPage() {
             </button>
           </div>
         )
-      })}
+      })()}
 
       {closedEpisodes.length > 0 && (
         <div>
-          {openEpisodes.length > 0 && (
+          {nextOpen && (
             <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-4">
               Past Episodes
             </h2>

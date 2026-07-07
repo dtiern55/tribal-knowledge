@@ -13,6 +13,11 @@ Survivor airs twice a year; the league plays along every season.
 - No ORM — raw SQL with psycopg2 via the `get_db()` context manager in `app/database.py`.
 - No computed score caching — scores calculated live from `scoring_events` + picks.
 - RLS enabled on all tables (deny-all). FastAPI's service role key bypasses it.
+- Every endpoint requires a Supabase JWT except `/health`. Other players'
+  picks/rosters/ballots are 403 until their lock passes; token balances are
+  owner-only.
+- All league times are Central (America/Chicago) in the UI; API/DB are UTC.
+  Conversion happens in `frontend/src/lib/time.ts`.
 - Database connects via Supabase transaction pooler (port 6543), not direct Postgres.
 - See `../fantasy-survivor-design.md` for full scoring system and game mechanics.
 

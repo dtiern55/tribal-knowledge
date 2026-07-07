@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_user
 from app.schemas import (
     StartingAllocationRequest,
     TokenBalance,
@@ -15,7 +15,13 @@ router = APIRouter(tags=["tokens"])
 
 
 @router.get("/seasons/{season_id}/tokens/{user_id}", response_model=TokenBalance)
-def get_token_balance(season_id: UUID, user_id: UUID):
+def get_token_balance(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
+    if str(user_id) != str(current_user):
+        raise HTTPException(status_code=403, detail="Token balances are private")
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])

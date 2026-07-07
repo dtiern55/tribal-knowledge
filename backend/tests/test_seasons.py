@@ -86,3 +86,19 @@ def test_list_contestants_only_returns_own_season(client, db_conn):
     assert r.status_code == 200
     assert len(r.json()) == 1
     assert r.json()[0]["name"] == "Player A"
+
+
+@pytest.mark.integration
+def test_list_contestants_includes_eliminated_in_episode(client, db_conn):
+    from tests.helpers import insert_elimination, insert_episode
+
+    season = _insert_season(db_conn)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    out = _insert_contestant(db_conn, season["id"], "Booted")
+    _insert_contestant(db_conn, season["id"], "Safe")
+    insert_elimination(db_conn, ep["id"], out["id"])
+    r = client.get(f"/seasons/{season['id']}/contestants")
+    assert r.status_code == 200
+    by_name = {c["name"]: c for c in r.json()}
+    assert by_name["Booted"]["eliminated_in_episode"] == 3
+    assert by_name["Safe"]["eliminated_in_episode"] is None

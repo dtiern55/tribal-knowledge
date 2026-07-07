@@ -22,6 +22,8 @@ class Contestant(BaseModel):
     season_id: UUID
     name: str
     placement: Optional[int]
+    # Only populated by the season contestants list; None elsewhere
+    eliminated_in_episode: Optional[int] = None
     created_at: datetime
 
 

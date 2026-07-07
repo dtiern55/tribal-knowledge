@@ -14,12 +14,32 @@ router = APIRouter(tags=["finale_predictions"])
     "/seasons/{season_id}/finale-predictions/{user_id}",
     response_model=FinalePrediction,
 )
-def get_finale_prediction(season_id: UUID, user_id: UUID):
+def get_finale_prediction(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Season not found")
+
+            # Other players' ballots stay hidden until the finale locks
+            if str(user_id) != str(current_user):
+                cur.execute(
+                    """
+                    select 1 from episodes
+                    where season_id = %s and is_finale = true
+                      and (picks_lock_at <= now() or status = 'scored')
+                    """,
+                    [str(season_id)],
+                )
+                if not cur.fetchone():
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Finale predictions are hidden until they lock",
+                    )
             cur.execute(
                 "select * from finale_predictions"
                 " where season_id = %s and user_id = %s",

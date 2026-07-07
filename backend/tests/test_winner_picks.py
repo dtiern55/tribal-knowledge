@@ -59,10 +59,38 @@ def test_submit_and_get_winner_pick(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_get_not_found(client, db_conn):
+def test_get_not_found(client, db_conn, current_user):
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/winner-picks/{uuid.uuid4()}")
+    r = client.get(f"/seasons/{season['id']}/winner-picks/{current_user['id']}")
     assert r.status_code == 404
+
+
+@pytest.mark.integration
+def test_other_users_pick_hidden_until_merge_lock(client, db_conn):
+    season = insert_season(db_conn, merge_episode=9)
+    _open_merge_episode(db_conn, season["id"])
+    r = client.get(f"/seasons/{season['id']}/winner-picks/{uuid.uuid4()}")
+    assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_other_users_pick_visible_after_merge_lock(client, db_conn):
+    from tests.helpers import insert_user
+
+    season = insert_season(db_conn, merge_episode=9)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=9,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    other = insert_user(db_conn, display_name="Other")
+    c1 = insert_contestant(db_conn, season["id"], "Alice")
+    c2 = insert_contestant(db_conn, season["id"], "Bob")
+    insert_winner_pick(db_conn, other["id"], season["id"], c1["id"], c2["id"])
+    r = client.get(f"/seasons/{season['id']}/winner-picks/{other['id']}")
+    assert r.status_code == 200
+    assert r.json()["user_id"] == str(other["id"])
 
 
 @pytest.mark.integration

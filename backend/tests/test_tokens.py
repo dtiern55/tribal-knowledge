@@ -190,3 +190,11 @@ def test_scoring_events_replace_clears_old_tokens(client, db_conn, current_user)
         "balance"
     ]
     assert balance == 0
+
+
+@pytest.mark.integration
+def test_other_users_balance_is_private(client, db_conn):
+    season = insert_season(db_conn)
+    other = insert_user(db_conn, display_name="Other")
+    r = client.get(f"/seasons/{season['id']}/tokens/{other['id']}")
+    assert r.status_code == 403

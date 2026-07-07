@@ -3,10 +3,20 @@ import pytest
 from tests.helpers import insert_contestant, insert_episode, insert_season, insert_user
 
 
+def _fund(client, season_id, user_id, amount=50):
+    """Grant starting tokens so plays with a cost pass the balance check."""
+    r = client.post(
+        f"/seasons/{season_id}/tokens/starting-allocation",
+        json={"amount": amount, "user_id": str(user_id)},
+    )
+    assert r.status_code == 200
+
+
 @pytest.mark.integration
 def test_record_advantage_play(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
+    _fund(client, season["id"], current_user["id"])
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={
@@ -71,6 +81,7 @@ def test_advantage_with_target_contestant(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"], "Target")
+    _fund(client, season["id"], current_user["id"])
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={
@@ -90,6 +101,7 @@ def test_advantage_with_target_user(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     target = insert_user(db_conn, display_name="Target")
+    _fund(client, season["id"], current_user["id"])
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={
@@ -108,6 +120,7 @@ def test_advantage_with_target_user(client, db_conn, current_user):
 def test_list_season_advantage_plays(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
+    _fund(client, season["id"], current_user["id"])
     client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={
@@ -127,6 +140,7 @@ def test_list_user_advantage_plays(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     other = insert_user(db_conn, display_name="Other")
+    _fund(client, season["id"], current_user["id"])
     client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={
@@ -148,6 +162,29 @@ def test_list_user_advantage_plays(client, db_conn, current_user):
     assert r.status_code == 200
     assert len(r.json()) == 1
     assert r.json()[0]["user_id"] == str(current_user["id"])
+
+
+@pytest.mark.integration
+def test_advantage_insufficient_tokens(client, db_conn, current_user):
+    season = insert_season(db_conn)
+    ep = insert_episode(db_conn, season["id"])
+    _fund(client, season["id"], current_user["id"], amount=10)
+    r = client.post(
+        f"/seasons/{season['id']}/advantage-plays",
+        json={
+            "user_id": str(current_user["id"]),
+            "episode_id": str(ep["id"]),
+            "advantage_type": "extra_vote",
+            "token_cost": 15,
+        },
+    )
+    assert r.status_code == 400
+    assert "Insufficient tokens" in r.json()["detail"]
+    # No play or debit recorded
+    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
+        "balance"
+    ]
+    assert balance == 10
 
 
 @pytest.mark.integration

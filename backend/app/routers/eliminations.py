@@ -3,14 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_user
 from app.schemas import Elimination, EliminationEntry
 
 router = APIRouter(tags=["eliminations"])
 
 
 @router.get("/episodes/{episode_id}/eliminations", response_model=list[Elimination])
-def list_eliminations(episode_id: UUID):
+def list_eliminations(episode_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from episodes where id = %s", [str(episode_id)])

@@ -3,14 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_user
 from app.schemas import Contestant, Season, SeasonCreateRequest, SeasonUpdateRequest
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
 
 
 @router.get("", response_model=list[Season])
-def list_seasons():
+def list_seasons(_: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from seasons order by season_number")
@@ -18,7 +18,7 @@ def list_seasons():
 
 
 @router.get("/{season_id}", response_model=Season)
-def get_season(season_id: UUID):
+def get_season(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from seasons where id = %s", [str(season_id)])
@@ -29,14 +29,21 @@ def get_season(season_id: UUID):
 
 
 @router.get("/{season_id}/contestants", response_model=list[Contestant])
-def list_contestants(season_id: UUID):
+def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Season not found")
             cur.execute(
-                "select * from contestants where season_id = %s order by name",
+                """
+                select c.*, ep.episode_number as eliminated_in_episode
+                from contestants c
+                left join eliminations e on e.contestant_id = c.id
+                left join episodes ep on ep.id = e.episode_id
+                where c.season_id = %s
+                order by c.name
+                """,
                 [str(season_id)],
             )
             return cur.fetchall()

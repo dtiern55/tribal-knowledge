@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
@@ -11,12 +12,38 @@ router = APIRouter(tags=["winner_picks"])
 
 
 @router.get("/seasons/{season_id}/winner-picks/{user_id}", response_model=WinnerPick)
-def get_winner_pick(season_id: UUID, user_id: UUID):
+def get_winner_pick(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
+            cur.execute(
+                "select merge_episode from seasons where id = %s", [str(season_id)]
+            )
+            season = cur.fetchone()
+            if not season:
                 raise HTTPException(status_code=404, detail="Season not found")
+
+            # Other players' winner picks stay hidden until the merge lock passes
+            if str(user_id) != str(current_user):
+                locked = False
+                if season["merge_episode"] is not None:
+                    cur.execute(
+                        """
+                        select 1 from episodes
+                        where season_id = %s and episode_number = %s
+                          and (picks_lock_at <= now() or status = 'scored')
+                        """,
+                        [str(season_id), season["merge_episode"]],
+                    )
+                    locked = cur.fetchone() is not None
+                if not locked:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Winner picks are hidden until they lock",
+                    )
             cur.execute(
                 """
                 select * from winner_picks
@@ -112,19 +139,26 @@ def submit_winner_pick(
                     detail="Winner pick already submitted; changes require tokens",
                 )
 
-            cur.execute(
-                """
-                insert into winner_picks
-                    (user_id, season_id, winner_contestant_id,
-                     backup_contestant_id, effective_episode)
-                values (%s, %s, %s, %s, 1)
-                returning *
-                """,
-                [
-                    str(user_id),
-                    str(season_id),
-                    str(body.winner_contestant_id),
-                    str(body.backup_contestant_id),
-                ],
-            )
+            try:
+                cur.execute(
+                    """
+                    insert into winner_picks
+                        (user_id, season_id, winner_contestant_id,
+                         backup_contestant_id, effective_episode)
+                    values (%s, %s, %s, %s, 1)
+                    returning *
+                    """,
+                    [
+                        str(user_id),
+                        str(season_id),
+                        str(body.winner_contestant_id),
+                        str(body.backup_contestant_id),
+                    ],
+                )
+            except pg_errors.UniqueViolation:
+                # Concurrent double-submit raced past the check above
+                raise HTTPException(
+                    status_code=409,
+                    detail="Winner pick already submitted; changes require tokens",
+                )
             return cur.fetchone()

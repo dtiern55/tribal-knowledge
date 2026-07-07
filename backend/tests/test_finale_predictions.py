@@ -90,10 +90,37 @@ def test_upsert_updates_existing(client, db_conn):
 
 
 @pytest.mark.integration
-def test_get_prediction_not_found(client, db_conn):
+def test_get_prediction_not_found(client, db_conn, current_user):
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/finale-predictions/{uuid.uuid4()}")
+    r = client.get(f"/seasons/{season['id']}/finale-predictions/{current_user['id']}")
     assert r.status_code == 404
+
+
+@pytest.mark.integration
+def test_other_users_prediction_hidden_until_lock(client, db_conn):
+    season = insert_season(db_conn)
+    _open_finale_episode(db_conn, season["id"])
+    r = client.get(f"/seasons/{season['id']}/finale-predictions/{uuid.uuid4()}")
+    assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_other_users_prediction_visible_after_lock(client, db_conn):
+    from tests.helpers import insert_finale_prediction, insert_user
+
+    season = insert_season(db_conn)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=13,
+        is_finale=True,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    other = insert_user(db_conn, display_name="Other")
+    insert_finale_prediction(db_conn, other["id"], season["id"])
+    r = client.get(f"/seasons/{season['id']}/finale-predictions/{other['id']}")
+    assert r.status_code == 200
+    assert r.json()["user_id"] == str(other["id"])
 
 
 @pytest.mark.integration

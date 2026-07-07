@@ -159,7 +159,12 @@ def test_submit_picks_invalid_contestant(client, db_conn):
 @pytest.mark.integration
 def test_submit_picks_already_eliminated(client, db_conn):
     season = insert_season(db_conn)
-    ep1 = insert_episode(db_conn, season["id"], episode_number=1)
+    ep1 = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
     ep2 = _open_episode(db_conn, season["id"], episode_number=2)
     contestant = insert_contestant(db_conn, season["id"])
     insert_elimination(db_conn, ep1["id"], contestant["id"])
@@ -181,3 +186,43 @@ def test_submit_empty_picks(client, db_conn):
     )
     assert r.status_code == 200
     assert r.json() == []
+
+
+@pytest.mark.integration
+def test_other_users_picks_hidden_until_lock(client, db_conn):
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"])
+    r = client.get(f"/episodes/{ep['id']}/picks/{uuid.uuid4()}")
+    assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_other_users_picks_visible_after_lock(client, db_conn):
+    from tests.helpers import insert_elimination_pick, insert_user
+
+    season = insert_season(db_conn)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    contestant = insert_contestant(db_conn, season["id"])
+    other = insert_user(db_conn, display_name="Other")
+    insert_elimination_pick(db_conn, other["id"], ep["id"], contestant["id"])
+    r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+@pytest.mark.integration
+def test_picks_only_open_for_next_episode(client, db_conn):
+    season = insert_season(db_conn)
+    _open_episode(db_conn, season["id"], episode_number=1)
+    ep2 = _open_episode(db_conn, season["id"], episode_number=2)
+    contestant = insert_contestant(db_conn, season["id"])
+    r = client.post(
+        f"/episodes/{ep2['id']}/picks",
+        json={"contestant_ids": [str(contestant["id"])]},
+    )
+    assert r.status_code == 400
+    assert "only open for episode 1" in r.json()["detail"]

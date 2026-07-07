@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, Episode, FinalePrediction, Season } from '../types'
 
@@ -136,7 +137,7 @@ export function FinalePage() {
         All fields are optional. Submit as many or as few as you like.
       </p>
       <p className="text-xs text-gray-400 mb-6">
-        Locks {new Date(finaleEp.picks_lock_at).toLocaleDateString()} · you can update until then
+        Locks {formatCentral(finaleEp.picks_lock_at)} · you can update until then
       </p>
 
       <div className="space-y-5 mb-6">
@@ -155,11 +156,13 @@ export function FinalePage() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">No pick</option>
-              {contestants.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {contestants
+                .filter((c) => c.eliminated_in_episode == null)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
           </div>
         ))}

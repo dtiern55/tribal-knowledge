@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_user
 from app.schemas import AdvantagePlay, AdvantagePlayRequest
 
 router = APIRouter(tags=["advantage_plays"])
@@ -21,7 +21,7 @@ _VALID_TYPES = {
 
 
 @router.get("/seasons/{season_id}/advantage-plays", response_model=list[AdvantagePlay])
-def list_advantage_plays(season_id: UUID):
+def list_advantage_plays(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
@@ -43,7 +43,9 @@ def list_advantage_plays(season_id: UUID):
     "/seasons/{season_id}/advantage-plays/{user_id}",
     response_model=list[AdvantagePlay],
 )
-def list_user_advantage_plays(season_id: UUID, user_id: UUID):
+def list_user_advantage_plays(
+    season_id: UUID, user_id: UUID, _: UUID = Depends(get_current_user)
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
@@ -116,6 +118,26 @@ def record_advantage_play(
                 if not cur.fetchone():
                     raise HTTPException(
                         status_code=404, detail="Affected episode not found"
+                    )
+
+            # Negative balances are never allowed (decision 2026-07-06, #39)
+            if body.token_cost > 0:
+                cur.execute(
+                    """
+                    select coalesce(sum(amount), 0) as balance
+                    from token_transactions
+                    where user_id = %s and season_id = %s
+                    """,
+                    [str(body.user_id), str(season_id)],
+                )
+                balance = cur.fetchone()["balance"]
+                if balance < body.token_cost:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Insufficient tokens: balance {balance},"
+                            f" cost {body.token_cost}"
+                        ),
                     )
 
             cur.execute(

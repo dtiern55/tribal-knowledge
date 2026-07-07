@@ -13,12 +13,30 @@ router = APIRouter(tags=["picks"])
 @router.get(
     "/episodes/{episode_id}/picks/{user_id}", response_model=list[EliminationPick]
 )
-def get_picks(episode_id: UUID, user_id: UUID):
+def get_picks(
+    episode_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from episodes where id = %s", [str(episode_id)])
-            if not cur.fetchone():
+            cur.execute(
+                "select picks_lock_at, status from episodes where id = %s",
+                [str(episode_id)],
+            )
+            episode = cur.fetchone()
+            if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
+
+            # Other players' picks stay hidden until the episode locks
+            locked = (
+                episode["picks_lock_at"] <= datetime.now(timezone.utc)
+                or episode["status"] == "scored"
+            )
+            if str(user_id) != str(current_user) and not locked:
+                raise HTTPException(
+                    status_code=403, detail="Picks are hidden until they lock"
+                )
             cur.execute(
                 """
                 select * from elimination_picks
@@ -49,6 +67,27 @@ def submit_picks(
             if episode["picks_lock_at"] <= datetime.now(timezone.utc):
                 raise HTTPException(
                     status_code=400, detail="Picks are locked for this episode"
+                )
+
+            # Week-by-week rule: only the next unlocked episode accepts picks
+            cur.execute(
+                """
+                select id, episode_number from episodes
+                where season_id = %s and picks_lock_at > now()
+                  and status != 'scored'
+                order by episode_number
+                limit 1
+                """,
+                [str(episode["season_id"])],
+            )
+            next_open = cur.fetchone()
+            if next_open["id"] != episode["id"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Picks are only open for episode"
+                        f" {next_open['episode_number']}"
+                    ),
                 )
 
             if len(body.contestant_ids) > episode["max_elimination_picks"]:

@@ -347,3 +347,34 @@ def test_swap_eliminated_contestant_rejected(client, db_conn):
     )
     assert r.status_code == 400
     assert "eliminated" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_other_users_roster_hidden_until_lock(client, db_conn):
+    season, _ = _make_season_with_roster(db_conn)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    r = client.get(f"/seasons/{season['id']}/roster/{uuid.uuid4()}")
+    assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_other_users_roster_visible_after_lock(client, db_conn):
+    from tests.helpers import insert_roster_pick, insert_user
+
+    season, contestants = _make_season_with_roster(db_conn)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    other = insert_user(db_conn, display_name="Other")
+    insert_roster_pick(db_conn, other["id"], season["id"], contestants[0]["id"])
+    r = client.get(f"/seasons/{season['id']}/roster/{other['id']}")
+    assert r.status_code == 200
+    assert len(r.json()) == 1

@@ -70,3 +70,17 @@ def client(monkeypatch, db_conn, current_user):
         yield c
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def unauth_client(monkeypatch, db_conn):
+    """TestClient with real auth in place — requests carry no credentials."""
+
+    @contextmanager
+    def _get_db():
+        yield db_conn
+
+    monkeypatch.setattr(database_module, "get_db", _get_db)
+
+    with TestClient(app) as c:
+        yield c

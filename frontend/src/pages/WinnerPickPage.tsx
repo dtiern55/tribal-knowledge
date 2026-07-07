@@ -62,6 +62,7 @@ export function WinnerPickPage() {
       : false
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const alive = contestants.filter((c) => c.eliminated_in_episode == null)
 
   async function submitPick() {
     if (!season || !winner || !backup) return
@@ -136,7 +137,7 @@ export function WinnerPickPage() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">Select a winner…</option>
-                {contestants.map((c) => (
+                {alive.map((c) => (
                   <option key={c.id} value={c.id} disabled={c.id === backup}>
                     {c.name}
                   </option>
@@ -153,7 +154,7 @@ export function WinnerPickPage() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">Select a backup…</option>
-                {contestants.map((c) => (
+                {alive.map((c) => (
                   <option key={c.id} value={c.id} disabled={c.id === winner}>
                     {c.name}
                   </option>

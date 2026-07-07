@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
@@ -11,12 +12,39 @@ router = APIRouter(tags=["roster"])
 
 
 @router.get("/seasons/{season_id}/roster/{user_id}", response_model=list[RosterPick])
-def get_roster(season_id: UUID, user_id: UUID):
+def get_roster(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
+            cur.execute(
+                "select roster_lock_episode from seasons where id = %s",
+                [str(season_id)],
+            )
+            season = cur.fetchone()
+            if not season:
                 raise HTTPException(status_code=404, detail="Season not found")
+
+            # Other players' rosters stay hidden until the roster lock passes
+            if str(user_id) != str(current_user):
+                locked = False
+                if season["roster_lock_episode"] is not None:
+                    cur.execute(
+                        """
+                        select 1 from episodes
+                        where season_id = %s and episode_number = %s
+                          and (picks_lock_at <= now() or status = 'scored')
+                        """,
+                        [str(season_id), season["roster_lock_episode"]],
+                    )
+                    locked = cur.fetchone() is not None
+                if not locked:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Rosters are hidden until they lock",
+                    )
             cur.execute(
                 """
                 select * from roster_picks
@@ -105,22 +133,28 @@ def submit_roster(
                     )
 
             rows = []
-            for cid in body.contestant_ids:
-                cur.execute(
-                    """
-                    insert into roster_picks
-                        (user_id, season_id, contestant_id, active_from_episode)
-                    values (%s, %s, %s, %s)
-                    returning *
-                    """,
-                    [
-                        str(user_id),
-                        str(season_id),
-                        str(cid),
-                        season["roster_lock_episode"],
-                    ],
+            try:
+                for cid in body.contestant_ids:
+                    cur.execute(
+                        """
+                        insert into roster_picks
+                            (user_id, season_id, contestant_id, active_from_episode)
+                        values (%s, %s, %s, %s)
+                        returning *
+                        """,
+                        [
+                            str(user_id),
+                            str(season_id),
+                            str(cid),
+                            season["roster_lock_episode"],
+                        ],
+                    )
+                    rows.append(cur.fetchone())
+            except pg_errors.UniqueViolation:
+                # Concurrent double-submit raced past the check above
+                raise HTTPException(
+                    status_code=409, detail="Roster already submitted for this season"
                 )
-                rows.append(cur.fetchone())
             return rows
 
 

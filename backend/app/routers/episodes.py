@@ -4,14 +4,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_user
 from app.schemas import Episode, EpisodeCreateRequest, EpisodeUpdateRequest
 
 router = APIRouter(tags=["episodes"])
 
 
 @router.get("/seasons/{season_id}/episodes", response_model=list[Episode])
-def list_episodes(season_id: UUID):
+def list_episodes(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select id from seasons where id = %s", [str(season_id)])
@@ -25,7 +25,7 @@ def list_episodes(season_id: UUID):
 
 
 @router.get("/episodes/{episode_id}", response_model=Episode)
-def get_episode(episode_id: UUID):
+def get_episode(episode_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from episodes where id = %s", [str(episode_id)])
