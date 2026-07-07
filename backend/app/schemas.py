@@ -177,6 +177,16 @@ class AdvantageType(BaseModel):
     enabled: bool
 
 
+class LeagueSettings(BaseModel):
+    id: UUID
+    join_code: str
+    updated_at: datetime
+
+
+class LeagueSettingsUpdateRequest(BaseModel):
+    join_code: str = Field(min_length=1)
+
+
 class TokenTransaction(BaseModel):
     id: UUID
     user_id: UUID
@@ -210,6 +220,11 @@ class UserProfile(BaseModel):
     id: UUID
     display_name: str
     is_admin: bool
+
+
+class JoinRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=100)
+    join_code: str = Field(min_length=1)
 
 
 class WinnerPick(BaseModel):

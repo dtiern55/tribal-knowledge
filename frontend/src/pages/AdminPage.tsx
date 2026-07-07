@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
-import type { Contestant, Episode, Season } from '../types'
+import type { Contestant, Episode, LeagueSettings, Season } from '../types'
 
 // ─── Scoring event types (from migrations) ───────────────────────────────────
 
@@ -983,6 +983,51 @@ function TokensSection({ season, episodes }: { season: Season; episodes: Episode
   )
 }
 
+// ─── League settings section ───────────────────────────────────────────────────
+
+function LeagueSettingsSection({
+  settings,
+  onUpdated,
+}: {
+  settings: LeagueSettings
+  onUpdated: (s: LeagueSettings) => void
+}) {
+  const [joinCode, setJoinCode] = useState(settings.join_code)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  function save() {
+    setSuccess(null)
+    void run(setSaving, setError, async () => {
+      const updated = await api.patch<LeagueSettings>('/league-settings', {
+        join_code: joinCode,
+      })
+      onUpdated(updated)
+      setSuccess('Join code updated.')
+    })
+  }
+
+  return (
+    <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3 max-w-sm">
+      <p className="text-xs text-gray-500">
+        Share this code with new members — they enter it at /join to create their
+        profile.
+      </p>
+      <input
+        value={joinCode}
+        onChange={(e) => setJoinCode(e.target.value)}
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+      />
+      <ErrorMsg msg={error} />
+      <SuccessMsg msg={success} />
+      <ActionBtn onClick={save} disabled={saving || !joinCode.trim()}>
+        {saving ? 'Saving…' : 'Save'}
+      </ActionBtn>
+    </div>
+  )
+}
+
 // ─── Admin page ───────────────────────────────────────────────────────────────
 
 export function AdminPage() {
@@ -990,6 +1035,7 @@ export function AdminPage() {
   const [season, setSeason] = useState<Season | null>(null)
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [leagueSettings, setLeagueSettings] = useState<LeagueSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -999,12 +1045,14 @@ export function AdminPage() {
         const active = await getActiveSeason()
         if (!active) return
         setSeason(active)
-        const [cs, eps] = await Promise.all([
+        const [cs, eps, settings] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
+          api.get<LeagueSettings>('/league-settings'),
         ])
         setContestants(cs)
         setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
+        setLeagueSettings(settings)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
       } finally {
@@ -1050,6 +1098,13 @@ export function AdminPage() {
 
       <SectionHeader title="Tokens" />
       <TokensSection season={season} episodes={episodes} />
+
+      {leagueSettings && (
+        <>
+          <SectionHeader title="League Settings" />
+          <LeagueSettingsSection settings={leagueSettings} onUpdated={setLeagueSettings} />
+        </>
+      )}
     </div>
   )
 }

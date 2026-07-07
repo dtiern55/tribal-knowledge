@@ -4,6 +4,12 @@ export interface UserProfile {
   is_admin: boolean
 }
 
+export interface LeagueSettings {
+  id: string
+  join_code: string
+  updated_at: string
+}
+
 export interface Season {
   id: string
   name: string

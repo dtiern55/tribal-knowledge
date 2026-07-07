@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { AdminPage } from './pages/AdminPage'
 import { AdvantagesPage } from './pages/AdvantagesPage'
 import { FinalePage } from './pages/FinalePage'
+import { JoinPage } from './pages/JoinPage'
 import { LoginPage } from './pages/LoginPage'
 import { PicksPage } from './pages/PicksPage'
 import { RosterPage } from './pages/RosterPage'
@@ -19,6 +20,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<ProtectedRoute><StandingsPage /></ProtectedRoute>} />
             <Route path="login" element={<LoginPage />} />
+            <Route path="join" element={<JoinPage />} />
             <Route
               path="roster"
               element={<ProtectedRoute><RosterPage /></ProtectedRoute>}

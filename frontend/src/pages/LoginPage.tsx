@@ -6,9 +6,11 @@ import { useAuth } from '../auth/useAuth'
 export function LoginPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   if (session) return <Navigate to="/" replace />
@@ -17,18 +19,41 @@ export function LoginPage() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setInfo(null)
+
+    if (mode === 'signin') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError(error.message)
+        setSubmitting(false)
+      } else {
+        void navigate('/')
+      }
+      return
+    }
+
+    const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
       setError(error.message)
       setSubmitting(false)
-    } else {
+      return
+    }
+    if (data.session) {
+      // Local dev / email confirmation disabled: already signed in.
       void navigate('/')
+    } else {
+      // Email confirmation required before a session exists.
+      setInfo('Check your email to confirm your account, then sign in.')
+      setMode('signin')
+      setSubmitting(false)
     }
   }
 
   return (
     <div className="max-w-sm mx-auto mt-16">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-6">Sign in</h1>
+      <h1 className="text-2xl font-semibold text-gray-900 mb-6">
+        {mode === 'signin' ? 'Sign in' : 'Sign up'}
+      </h1>
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -55,14 +80,31 @@ export function LoginPage() {
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
+        {info && <p className="text-sm text-green-600">{info}</p>}
         <button
           type="submit"
           disabled={submitting}
           className="w-full bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
         >
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting
+            ? mode === 'signin'
+              ? 'Signing in…'
+              : 'Signing up…'
+            : mode === 'signin'
+              ? 'Sign in'
+              : 'Sign up'}
         </button>
       </form>
+      <button
+        onClick={() => {
+          setMode(mode === 'signin' ? 'signup' : 'signin')
+          setError(null)
+          setInfo(null)
+        }}
+        className="mt-4 text-sm text-indigo-600 hover:text-indigo-700 cursor-pointer"
+      >
+        {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+      </button>
     </div>
   )
 }

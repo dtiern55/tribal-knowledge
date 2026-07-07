@@ -9,7 +9,7 @@ export function Layout() {
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 flex items-center h-14 gap-6">
           <span className="font-semibold text-gray-900 mr-2">Tribal Knowledge</span>
-          {session && (
+          {session && profile && (
             <>
               {[
                 { to: '/', label: 'Standings', end: true },
