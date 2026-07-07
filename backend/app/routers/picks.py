@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -58,10 +57,7 @@ def submit_picks(
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
-            if episode["status"] == "scored":
-                raise HTTPException(status_code=400, detail="Episode is already scored")
-
-            if episode["picks_lock_at"] <= datetime.now(timezone.utc):
+            if episode_locked(episode):
                 raise HTTPException(
                     status_code=400, detail="Picks are locked for this episode"
                 )

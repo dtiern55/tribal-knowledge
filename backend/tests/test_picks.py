@@ -126,7 +126,7 @@ def test_submit_picks_scored_episode(client, db_conn):
         json={"contestant_ids": []},
     )
     assert r.status_code == 400
-    assert "scored" in r.json()["detail"]
+    assert "locked" in r.json()["detail"]
 
 
 @pytest.mark.integration

@@ -58,6 +58,23 @@ function SuccessMsg({ msg }: { msg: string | null }) {
   return <p className="text-green-600 text-sm mt-2">{msg}</p>
 }
 
+/** Standard async-action wrapper: toggles a busy flag and captures the error. */
+async function run(
+  setBusy: (b: boolean) => void,
+  setError: (msg: string | null) => void,
+  fn: () => Promise<void>,
+) {
+  setBusy(true)
+  setError(null)
+  try {
+    await fn()
+  } catch (e) {
+    setError(e instanceof Error ? e.message : 'Request failed')
+  } finally {
+    setBusy(false)
+  }
+}
+
 function ActionBtn({
   onClick,
   disabled,
@@ -104,10 +121,8 @@ function SeasonSection({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function save() {
-    setSaving(true)
-    setError(null)
-    try {
+  function save() {
+    void run(setSaving, setError, async () => {
       const updated = await api.patch<Season>(`/seasons/${season.id}`, {
         name,
         merge_episode: mergeEp ? Number(mergeEp) : null,
@@ -117,11 +132,7 @@ function SeasonSection({
       })
       onUpdated(updated)
       setEditing(false)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
   if (!editing) {
@@ -235,40 +246,28 @@ function ContestantsSection({
     setEditError(null)
   }
 
-  async function saveEdit(id: string) {
-    setSaving(true)
-    setEditError(null)
-    try {
+  function saveEdit(id: string) {
+    void run(setSaving, setEditError, async () => {
       const updated = await api.patch<Contestant>(`/contestants/${id}`, {
         name: editName,
         placement: editPlacement ? Number(editPlacement) : null,
       })
       onUpdated(contestants.map((c) => (c.id === id ? updated : c)))
       setEditingId(null)
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
-  async function addContestants() {
+  function addContestants() {
     const names = addText
       .split('\n')
       .map((n) => n.trim())
       .filter(Boolean)
     if (!names.length) return
-    setAdding(true)
-    setAddError(null)
-    try {
+    void run(setAdding, setAddError, async () => {
       const added = await api.post<Contestant[]>(`/seasons/${seasonId}/contestants`, { names })
       onUpdated([...contestants, ...added])
       setAddText('')
-    } catch (e) {
-      setAddError(e instanceof Error ? e.message : 'Add failed')
-    } finally {
-      setAdding(false)
-    }
+    })
   }
 
   return (
@@ -423,10 +422,8 @@ function EpisodePanel({
     void loadData()
   }, [episode.id])
 
-  async function saveEpisode() {
-    setEditSaving(true)
-    setEditError(null)
-    try {
+  function saveEpisode() {
+    void run(setEditSaving, setEditError, async () => {
       const updated = await api.patch<Episode>(`/episodes/${episode.id}`, {
         episode_number: Number(epNum),
         air_date: airDate,
@@ -435,11 +432,7 @@ function EpisodePanel({
         is_finale: isFinale,
       })
       onUpdated(updated)
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setEditSaving(false)
-    }
+    })
   }
 
   function toggleElim(contestantId: string) {
@@ -456,18 +449,12 @@ function EpisodePanel({
     )
   }
 
-  async function saveEliminations() {
-    setElimSaving(true)
-    setElimError(null)
+  function saveEliminations() {
     setElimSuccess(null)
-    try {
+    void run(setElimSaving, setElimError, async () => {
       await api.post(`/episodes/${episode.id}/eliminations`, elimDrafts)
       setElimSuccess('Eliminations saved.')
-    } catch (e) {
-      setElimError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setElimSaving(false)
-    }
+    })
   }
 
   function addEventDraft() {
@@ -484,11 +471,9 @@ function EpisodePanel({
     setEventDrafts((prev) => prev.filter((e) => e.key !== key))
   }
 
-  async function saveScoringEvents() {
-    setEventsSaving(true)
-    setEventsError(null)
+  function saveScoringEvents() {
     setEventsSuccess(null)
-    try {
+    void run(setEventsSaving, setEventsError, async () => {
       await api.post(
         `/episodes/${episode.id}/scoring-events`,
         eventDrafts.map(({ contestant_id, event_type, quantity }) => ({
@@ -498,26 +483,16 @@ function EpisodePanel({
         })),
       )
       setEventsSuccess('Scoring events saved.')
-    } catch (e) {
-      setEventsError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setEventsSaving(false)
-    }
+    })
   }
 
-  async function scoreEpisode() {
-    setScoring(true)
-    setScoreError(null)
+  function scoreEpisode() {
     setScoreSuccess(null)
-    try {
+    void run(setScoring, setScoreError, async () => {
       const updated = await api.post<Episode>(`/episodes/${episode.id}/score`, {})
       onUpdated(updated)
       setScoreSuccess('Episode scored.')
-    } catch (e) {
-      setScoreError(e instanceof Error ? e.message : 'Score failed')
-    } finally {
-      setScoring(false)
-    }
+    })
   }
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
@@ -758,10 +733,8 @@ function EpisodesSection({
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
-  async function addEpisode() {
-    setAdding(true)
-    setAddError(null)
-    try {
+  function addEpisode() {
+    void run(setAdding, setAddError, async () => {
       const ep = await api.post<Episode>(`/seasons/${season.id}/episodes`, {
         episode_number: Number(epNum),
         air_date: airDate,
@@ -776,11 +749,7 @@ function EpisodesSection({
       setLocksAt('')
       setMaxPicks('3')
       setIsFinale(false)
-    } catch (e) {
-      setAddError(e instanceof Error ? e.message : 'Add failed')
-    } finally {
-      setAdding(false)
-    }
+    })
   }
 
   function handleEpisodeUpdated(updated: Episode) {
@@ -923,38 +892,26 @@ function TokensSection({ season, episodes }: { season: Season; episodes: Episode
   const [weeklyMsg, setWeeklyMsg] = useState<string | null>(null)
   const [weeklyError, setWeeklyError] = useState<string | null>(null)
 
-  async function grantStarting() {
-    setStartSaving(true)
+  function grantStarting() {
     setStartMsg(null)
-    setStartError(null)
-    try {
+    void run(setStartSaving, setStartError, async () => {
       const rows = await api.post<unknown[]>(
         `/seasons/${season.id}/tokens/starting-allocation`,
         { amount: Number(startAmount) },
       )
       setStartMsg(`Granted to ${rows.length} player(s).`)
-    } catch (e) {
-      setStartError(e instanceof Error ? e.message : 'Failed')
-    } finally {
-      setStartSaving(false)
-    }
+    })
   }
 
-  async function grantWeekly() {
-    setWeeklySaving(true)
+  function grantWeekly() {
     setWeeklyMsg(null)
-    setWeeklyError(null)
-    try {
+    void run(setWeeklySaving, setWeeklyError, async () => {
       const rows = await api.post<unknown[]>(
         `/seasons/${season.id}/tokens/weekly-allocation`,
         { episode_id: weeklyEp, amount: Number(weeklyAmount) },
       )
       setWeeklyMsg(`Granted to ${rows.length} player(s).`)
-    } catch (e) {
-      setWeeklyError(e instanceof Error ? e.message : 'Failed')
-    } finally {
-      setWeeklySaving(false)
-    }
+    })
   }
 
   return (
