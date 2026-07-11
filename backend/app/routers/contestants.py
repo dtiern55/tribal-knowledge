@@ -23,9 +23,7 @@ def create_contestants(
         raise HTTPException(status_code=400, detail="Duplicate names in request")
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select 1 from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             cur.execute(
                 "select name from contestants where season_id = %s and name = any(%s)",
                 [str(season_id), body.names],

@@ -15,7 +15,6 @@ dev = [
     "black",
     "ruff",
     "pytest",
-    "pytest-cov",
     "httpx",
 ]
 

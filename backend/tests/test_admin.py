@@ -184,3 +184,15 @@ def test_update_league_settings(client):
 
     r2 = client.get("/league-settings")
     assert r2.json()["join_code"] == "new-code-2026"
+
+
+# --- scoring event types ---
+
+
+@pytest.mark.integration
+def test_list_scoring_event_types(client):
+    r = client.get("/scoring-event-types")
+    assert r.status_code == 200
+    by_type = {t["event_type"]: t["label"] for t in r.json()}
+    assert by_type["win_individual_immunity"] == "Win individual immunity"
+    assert "votes_received" in by_type

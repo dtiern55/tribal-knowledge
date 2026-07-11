@@ -18,13 +18,7 @@ def get_winner_pick(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "select winner_lock_episode from seasons where id = %s",
-                [str(season_id)],
-            )
-            season = cur.fetchone()
-            if not season:
-                raise HTTPException(status_code=404, detail="Season not found")
+            season = database.require_season(cur, season_id)
 
             # Other players' winner picks stay hidden until the lock episode locks
             if str(user_id) != str(current_user):
@@ -67,13 +61,7 @@ def submit_winner_pick(
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "select status, winner_lock_episode from seasons where id = %s",
-                [str(season_id)],
-            )
-            season = cur.fetchone()
-            if not season:
-                raise HTTPException(status_code=404, detail="Season not found")
+            season = database.require_season(cur, season_id)
 
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
@@ -109,10 +97,9 @@ def submit_winner_pick(
 
             cur.execute(
                 """
-                insert into winner_picks
-                    (user_id, season_id, winner_contestant_id, effective_episode)
-                values (%s, %s, %s, 1)
-                on conflict (user_id, season_id, effective_episode)
+                insert into winner_picks (user_id, season_id, winner_contestant_id)
+                values (%s, %s, %s)
+                on conflict (user_id, season_id)
                 do update set winner_contestant_id = excluded.winner_contestant_id
                 returning *
                 """,

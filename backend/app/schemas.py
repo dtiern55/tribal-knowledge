@@ -56,7 +56,6 @@ class EliminationPick(BaseModel):
     user_id: UUID
     episode_id: UUID
     contestant_id: UUID
-    is_doubled: bool
     created_at: datetime
 
 
@@ -103,6 +102,11 @@ class ScoringEvent(BaseModel):
     quantity: int
     notes: Optional[str]
     created_at: datetime
+
+
+class ScoringEventType(BaseModel):
+    event_type: str
+    label: str
 
 
 # --- Admin write bodies ---
@@ -232,7 +236,6 @@ class WinnerPick(BaseModel):
     user_id: UUID
     season_id: UUID
     winner_contestant_id: UUID
-    effective_episode: int
     created_at: datetime
 
 

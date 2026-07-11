@@ -4,9 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
-from app.schemas import ScoringEvent, ScoringEventEntry
+from app.schemas import ScoringEvent, ScoringEventEntry, ScoringEventType
 
 router = APIRouter(tags=["scoring_events"])
+
+
+@router.get("/scoring-event-types", response_model=list[ScoringEventType])
+def list_scoring_event_types(_: UUID = Depends(get_current_user)):
+    """Event types and their display labels — the DB is the source of truth."""
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "select event_type, label from scoring_event_types order by label"
+            )
+            return cur.fetchall()
 
 
 @router.get("/episodes/{episode_id}/scoring-events", response_model=list[ScoringEvent])

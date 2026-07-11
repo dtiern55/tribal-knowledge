@@ -24,9 +24,7 @@ def get_token_balance(
         raise HTTPException(status_code=403, detail="Token balances are private")
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             cur.execute(
                 """
                 select coalesce(sum(amount), 0) as balance
@@ -50,9 +48,7 @@ def allocate_starting_tokens(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
 
             if body.user_id is not None:
                 cur.execute(

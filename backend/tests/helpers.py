@@ -173,15 +173,14 @@ def insert_scoring_event(conn, episode_id, contestant_id, event_type, quantity=1
         return cur.fetchone()
 
 
-def insert_elimination_pick(conn, user_id, episode_id, contestant_id, is_doubled=False):
+def insert_elimination_pick(conn, user_id, episode_id, contestant_id):
     with conn.cursor() as cur:
         cur.execute(
             """
-            insert into elimination_picks
-                (user_id, episode_id, contestant_id, is_doubled)
-            values (%s, %s, %s, %s) returning *
+            insert into elimination_picks (user_id, episode_id, contestant_id)
+            values (%s, %s, %s) returning *
             """,
-            [str(user_id), str(episode_id), str(contestant_id), is_doubled],
+            [str(user_id), str(episode_id), str(contestant_id)],
         )
         return cur.fetchone()
 
@@ -213,25 +212,13 @@ def insert_finale_prediction(
         return cur.fetchone()
 
 
-def insert_winner_pick(
-    conn,
-    user_id,
-    season_id,
-    winner_contestant_id,
-    effective_episode=1,
-):
+def insert_winner_pick(conn, user_id, season_id, winner_contestant_id):
     with conn.cursor() as cur:
         cur.execute(
             """
-            insert into winner_picks
-                (user_id, season_id, winner_contestant_id, effective_episode)
-            values (%s, %s, %s, %s) returning *
+            insert into winner_picks (user_id, season_id, winner_contestant_id)
+            values (%s, %s, %s) returning *
             """,
-            [
-                str(user_id),
-                str(season_id),
-                str(winner_contestant_id),
-                effective_episode,
-            ],
+            [str(user_id), str(season_id), str(winner_contestant_id)],
         )
         return cur.fetchone()

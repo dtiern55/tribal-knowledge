@@ -21,9 +21,7 @@ def get_finale_prediction(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
 
             # Other players' ballots stay hidden until the finale locks
             if str(user_id) != str(current_user):
@@ -62,10 +60,7 @@ def submit_finale_prediction(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select status from seasons where id = %s", [str(season_id)])
-            season = cur.fetchone()
-            if not season:
-                raise HTTPException(status_code=404, detail="Season not found")
+            season = database.require_season(cur, season_id)
 
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")

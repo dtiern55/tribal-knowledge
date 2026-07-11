@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from app import database, scoring
 from app.auth import get_current_user
@@ -18,9 +18,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             cur.execute("select id::text as id, display_name from profiles")
             profiles = cur.fetchall()
 

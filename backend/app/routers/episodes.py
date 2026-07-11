@@ -14,25 +14,12 @@ router = APIRouter(tags=["episodes"])
 def list_episodes(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             cur.execute(
                 "select * from episodes where season_id = %s order by episode_number",
                 [str(season_id)],
             )
             return cur.fetchall()
-
-
-@router.get("/episodes/{episode_id}", response_model=Episode)
-def get_episode(episode_id: UUID, _: UUID = Depends(get_current_user)):
-    with database.get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("select * from episodes where id = %s", [str(episode_id)])
-            row = cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Episode not found")
-    return row
 
 
 @router.post("/seasons/{season_id}/episodes", response_model=Episode, status_code=201)
@@ -41,9 +28,7 @@ def create_episode(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select 1 from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             cur.execute(
                 "select 1 from episodes where season_id = %s and episode_number = %s",
                 [str(season_id), body.episode_number],

@@ -38,20 +38,6 @@ def test_list_seasons_ordered(client, db_conn):
 
 
 @pytest.mark.integration
-def test_get_season(client, db_conn):
-    season = _insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}")
-    assert r.status_code == 200
-    assert r.json()["season_number"] == season["season_number"]
-
-
-@pytest.mark.integration
-def test_get_season_not_found(client):
-    r = client.get(f"/seasons/{uuid.uuid4()}")
-    assert r.status_code == 404
-
-
-@pytest.mark.integration
 def test_list_contestants(client, db_conn):
     season = _insert_season(db_conn)
     _insert_contestant(db_conn, season["id"], "Tony Vlachos")

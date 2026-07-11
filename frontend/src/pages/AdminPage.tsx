@@ -2,34 +2,13 @@ import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
-import type { Contestant, Episode, LeagueSettings, Season } from '../types'
-
-// ─── Scoring event types (from migrations) ───────────────────────────────────
-
-const SCORING_EVENT_TYPES: { value: string; label: string; perUnit?: boolean }[] = [
-  { value: 'idol_played_successfully', label: 'Save with idol (successfully played)' },
-  { value: 'shot_in_the_dark_success', label: 'Shot in the dark (success)' },
-  { value: 'win_individual_immunity', label: 'Win individual immunity' },
-  { value: 'win_individual_reward', label: 'Win individual reward' },
-  { value: 'win_fire_making_challenge', label: 'Win fire-making challenge' },
-  { value: 'blindside_with_active_idol', label: 'Blindside with active idol' },
-  { value: 'join_jury', label: 'Join the jury' },
-  { value: 'acquire_active_idol', label: 'Acquire active idol' },
-  { value: 'acquire_extra_vote', label: 'Acquire extra vote' },
-  { value: 'win_team_immunity', label: 'Win team immunity' },
-  { value: 'acquire_inactive_idol', label: 'Acquire inactive idol' },
-  { value: 'activate_inactive_idol', label: 'Activate inactive idol' },
-  { value: 'win_team_reward', label: 'Win team reward' },
-  { value: 'acquire_other_advantage', label: 'Acquire other advantage' },
-  { value: 'vote_correctly_at_tribal', label: 'Vote correctly at tribal' },
-  { value: 'votes_received', label: 'Votes received at tribal', perUnit: true },
-  { value: 'eliminated_holding_idol', label: 'Eliminated holding idol' },
-  { value: 'steal_immunity_idol', label: 'Steal immunity idol (token)' },
-  { value: 'play_idol_nullifier', label: 'Play idol nullifier (token)' },
-  { value: 'use_steal_a_vote', label: 'Use steal-a-vote (token)' },
-  { value: 'use_extra_vote', label: 'Use extra vote (token)' },
-  { value: 'fake_idol_played', label: 'Fake idol gets played (token)' },
-]
+import type {
+  Contestant,
+  Episode,
+  LeagueSettings,
+  ScoringEventType,
+  Season,
+} from '../types'
 
 const ELIMINATION_TYPES = [
   { value: 'voted_out', label: 'Voted out' },
@@ -364,10 +343,12 @@ interface EliminationDraft {
 function EpisodePanel({
   episode,
   contestants,
+  eventTypes,
   onUpdated,
 }: {
   episode: Episode
   contestants: Contestant[]
+  eventTypes: ScoringEventType[]
   onUpdated: (ep: Episode) => void
 }) {
   // Edit fields
@@ -391,7 +372,7 @@ function EpisodePanel({
   const [eventsLoaded, setEventsLoaded] = useState(false)
   const [nextKey, setNextKey] = useState(0)
   const [newContestant, setNewContestant] = useState('')
-  const [newEventType, setNewEventType] = useState(SCORING_EVENT_TYPES[0].value)
+  const [newEventType, setNewEventType] = useState(eventTypes[0]?.event_type ?? '')
   const [newQty, setNewQty] = useState(1)
   const [eventsSaving, setEventsSaving] = useState(false)
   const [eventsError, setEventsError] = useState<string | null>(null)
@@ -639,7 +620,7 @@ function EpisodePanel({
                   >
                     <span className="flex-1">
                       {contestantMap.get(ev.contestant_id)?.name ?? '?'} —{' '}
-                      {SCORING_EVENT_TYPES.find((t) => t.value === ev.event_type)?.label ??
+                      {eventTypes.find((t) => t.event_type === ev.event_type)?.label ??
                         ev.event_type}
                       {ev.quantity !== 1 && ` ×${ev.quantity}`}
                     </span>
@@ -671,8 +652,8 @@ function EpisodePanel({
                 onChange={(e) => setNewEventType(e.target.value)}
                 className="border border-gray-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
               >
-                {SCORING_EVENT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
+                {eventTypes.map((t) => (
+                  <option key={t.event_type} value={t.event_type}>
                     {t.label}
                   </option>
                 ))}
@@ -728,11 +709,13 @@ function EpisodesSection({
   season,
   episodes,
   contestants,
+  eventTypes,
   onUpdated,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
+  eventTypes: ScoringEventType[]
   onUpdated: (eps: Episode[]) => void
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -810,6 +793,7 @@ function EpisodesSection({
             <EpisodePanel
               episode={ep}
               contestants={contestants}
+              eventTypes={eventTypes}
               onUpdated={handleEpisodeUpdated}
             />
           )}
@@ -1035,6 +1019,7 @@ export function AdminPage() {
   const [season, setSeason] = useState<Season | null>(null)
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [eventTypes, setEventTypes] = useState<ScoringEventType[]>([])
   const [leagueSettings, setLeagueSettings] = useState<LeagueSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1045,13 +1030,15 @@ export function AdminPage() {
         const active = await getActiveSeason()
         if (!active) return
         setSeason(active)
-        const [cs, eps, settings] = await Promise.all([
+        const [cs, eps, types, settings] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
+          api.get<ScoringEventType[]>('/scoring-event-types'),
           api.get<LeagueSettings>('/league-settings'),
         ])
         setContestants(cs)
         setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
+        setEventTypes(types)
         setLeagueSettings(settings)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
@@ -1093,6 +1080,7 @@ export function AdminPage() {
         season={season}
         episodes={episodes}
         contestants={contestants}
+        eventTypes={eventTypes}
         onUpdated={setEpisodes}
       />
 

@@ -242,7 +242,7 @@ def test_duplicate_play_same_type_same_episode_rejected(client, db_conn, current
 
 
 @pytest.mark.integration
-def test_list_season_advantage_plays(client, db_conn, current_user):
+def test_list_own_advantage_plays(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     _fund(client, season["id"], current_user["id"])
@@ -250,7 +250,7 @@ def test_list_season_advantage_plays(client, db_conn, current_user):
         f"/seasons/{season['id']}/advantage-plays",
         json={"advantage_type": "extra_vote"},
     )
-    r = client.get(f"/seasons/{season['id']}/advantage-plays")
+    r = client.get(f"/seasons/{season['id']}/advantage-plays/{current_user['id']}")
     assert r.status_code == 200
     assert len(r.json()) == 1
 
@@ -262,13 +262,9 @@ def test_other_users_play_hidden_until_episode_locks(client, db_conn, current_us
     other = insert_user(db_conn, display_name="Other")
     insert_advantage_play(db_conn, other["id"], ep["id"], "extra_vote", token_cost=20)
 
-    r = client.get(f"/seasons/{season['id']}/advantage-plays")
+    r = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}")
     assert r.status_code == 200
     assert r.json() == []
-
-    r2 = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}")
-    assert r2.status_code == 200
-    assert r2.json() == []
 
 
 @pytest.mark.integration
@@ -282,8 +278,5 @@ def test_other_users_play_visible_after_episode_locks(client, db_conn, current_u
     other = insert_user(db_conn, display_name="Other")
     insert_advantage_play(db_conn, other["id"], ep["id"], "extra_vote", token_cost=20)
 
-    r = client.get(f"/seasons/{season['id']}/advantage-plays")
+    r = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}")
     assert len(r.json()) == 1
-
-    r2 = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}")
-    assert len(r2.json()) == 1

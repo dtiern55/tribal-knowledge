@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import psycopg2
 from dotenv import load_dotenv
+from fastapi import HTTPException
 from psycopg2.extras import RealDictCursor
 
 load_dotenv()
@@ -28,3 +29,12 @@ def get_db():
         raise
     finally:
         conn.close()
+
+
+def require_season(cur, season_id) -> dict:
+    """Fetch the season row or raise 404 — the shared handler preamble."""
+    cur.execute("select * from seasons where id = %s", [str(season_id)])
+    season = cur.fetchone()
+    if not season:
+        raise HTTPException(status_code=404, detail="Season not found")
+    return season

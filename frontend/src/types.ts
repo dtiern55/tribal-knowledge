@@ -70,7 +70,6 @@ export interface EliminationPick {
   user_id: string
   episode_id: string
   contestant_id: string
-  is_doubled: boolean
   created_at: string
 }
 
@@ -89,7 +88,6 @@ export interface WinnerPick {
   user_id: string
   season_id: string
   winner_contestant_id: string
-  effective_episode: number
   created_at: string
 }
 
@@ -110,9 +108,8 @@ export interface AdvantagePlay {
   created_at: string
 }
 
-export interface TokenBalance {
-  user_id: string
-  season_id: string
-  balance: number
+export interface ScoringEventType {
+  event_type: string
+  label: string
 }
 

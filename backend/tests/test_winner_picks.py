@@ -46,7 +46,6 @@ def test_submit_and_get_winner_pick(client, db_conn, current_user):
     assert r.status_code == 200
     data = r.json()
     assert data["winner_contestant_id"] == str(c1["id"])
-    assert data["effective_episode"] == 1
     assert "backup_contestant_id" not in data
 
     r2 = client.get(f"/seasons/{season['id']}/winner-picks/{current_user['id']}")

@@ -17,24 +17,11 @@ def list_seasons(_: UUID = Depends(get_current_user)):
             return cur.fetchall()
 
 
-@router.get("/{season_id}", response_model=Season)
-def get_season(season_id: UUID, _: UUID = Depends(get_current_user)):
-    with database.get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("select * from seasons where id = %s", [str(season_id)])
-            row = cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Season not found")
-    return row
-
-
 @router.get("/{season_id}/contestants", response_model=list[Contestant])
 def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select id from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             cur.execute(
                 """
                 select c.*, ep.episode_number as eliminated_in_episode
@@ -86,9 +73,7 @@ def update_season(
         raise HTTPException(status_code=400, detail="No fields to update")
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select 1 from seasons where id = %s", [str(season_id)])
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Season not found")
+            database.require_season(cur, season_id)
             if "season_number" in fields:
                 cur.execute(
                     "select 1 from seasons where season_number = %s and id <> %s",

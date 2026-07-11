@@ -19,13 +19,7 @@ def get_roster(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "select roster_lock_episode from seasons where id = %s",
-                [str(season_id)],
-            )
-            season = cur.fetchone()
-            if not season:
-                raise HTTPException(status_code=404, detail="Season not found")
+            season = database.require_season(cur, season_id)
 
             # Other players' rosters stay hidden until the roster lock passes
             if str(user_id) != str(current_user):
@@ -64,10 +58,7 @@ def submit_roster(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select * from seasons where id = %s", [str(season_id)])
-            season = cur.fetchone()
-            if not season:
-                raise HTTPException(status_code=404, detail="Season not found")
+            season = database.require_season(cur, season_id)
 
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
@@ -164,13 +155,7 @@ def swap_roster_pick(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "select status, swap_penalty_points from seasons where id = %s",
-                [str(season_id)],
-            )
-            season = cur.fetchone()
-            if not season:
-                raise HTTPException(status_code=404, detail="Season not found")
+            season = database.require_season(cur, season_id)
 
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
