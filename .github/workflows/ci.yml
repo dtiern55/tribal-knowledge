@@ -27,5 +27,5 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run tests (unit only — integration needs local Supabase)
+        run: uv run pytest -m "not integration" -q --tb=short
