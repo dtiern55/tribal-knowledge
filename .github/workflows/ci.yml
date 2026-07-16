@@ -27,5 +27,13 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
-      - name: Run tests (unit only — integration needs local Supabase)
-        run: uv run pytest -m "not integration" -q --tb=short
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        working-directory: .
+        run: supabase start
+
+      - name: Run tests (full suite against local Supabase)
+        run: uv run pytest -q --tb=short
