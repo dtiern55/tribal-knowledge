@@ -24,6 +24,7 @@ class Contestant(BaseModel):
     season_id: UUID
     name: str
     placement: Optional[int]
+    image_url: Optional[str] = None
     # Only populated by the season contestants list; None elsewhere
     eliminated_in_episode: Optional[int] = None
     created_at: datetime
@@ -144,6 +145,7 @@ class ContestantsCreateRequest(BaseModel):
 class ContestantUpdateRequest(BaseModel):
     name: Optional[str] = None
     placement: Optional[int] = Field(default=None, gt=0)
+    image_url: Optional[str] = None
 
 
 class EpisodeCreateRequest(BaseModel):

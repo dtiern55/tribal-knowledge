@@ -116,6 +116,19 @@ def test_update_contestant_placement(client, db_conn):
     assert r.json()["placement"] == 1
 
 
+@pytest.mark.integration
+def test_update_contestant_image_url(client, db_conn):
+    season = insert_season(db_conn)
+    c = insert_contestant(db_conn, season["id"], "Alice")
+    url = "https://example.com/alice.jpg"
+    r = client.patch(f"/contestants/{c['id']}", json={"image_url": url})
+    assert r.status_code == 200
+    assert r.json()["image_url"] == url
+    # Clearable back to null
+    r2 = client.patch(f"/contestants/{c['id']}", json={"image_url": None})
+    assert r2.json()["image_url"] is None
+
+
 # --- episodes ---
 
 

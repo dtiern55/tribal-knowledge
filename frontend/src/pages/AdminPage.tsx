@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
+import { ContestantAvatar } from '../components/ContestantAvatar'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -224,6 +225,7 @@ function ContestantsSection({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editPlacement, setEditPlacement] = useState('')
+  const [editImageUrl, setEditImageUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [addText, setAddText] = useState('')
   const [adding, setAdding] = useState(false)
@@ -234,6 +236,7 @@ function ContestantsSection({
     setEditingId(c.id)
     setEditName(c.name)
     setEditPlacement(c.placement != null ? String(c.placement) : '')
+    setEditImageUrl(c.image_url ?? '')
     setEditError(null)
   }
 
@@ -242,6 +245,7 @@ function ContestantsSection({
       const updated = await api.patch<Contestant>(`/contestants/${id}`, {
         name: editName,
         placement: editPlacement ? Number(editPlacement) : null,
+        image_url: editImageUrl.trim() || null,
       })
       onUpdated(contestants.map((c) => (c.id === id ? updated : c)))
       setEditingId(null)
@@ -267,27 +271,38 @@ function ContestantsSection({
         editingId === c.id ? (
           <div
             key={c.id}
-            className="flex items-center gap-2 p-3 bg-white border border-indigo-200 rounded-lg"
+            className="p-3 bg-white border border-indigo-200 rounded-lg space-y-2"
           >
-            <input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
-              placeholder="Name"
-            />
-            <input
-              type="number"
-              value={editPlacement}
-              onChange={(e) => setEditPlacement(e.target.value)}
-              className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
-              placeholder="Place"
-            />
-            <ActionBtn onClick={() => saveEdit(c.id)} disabled={saving}>
-              {saving ? '…' : 'Save'}
-            </ActionBtn>
-            <ActionBtn variant="secondary" onClick={() => setEditingId(null)}>
-              ✕
-            </ActionBtn>
+            <div className="flex items-center gap-2">
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
+                placeholder="Name"
+              />
+              <input
+                type="number"
+                value={editPlacement}
+                onChange={(e) => setEditPlacement(e.target.value)}
+                className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
+                placeholder="Place"
+              />
+              <ActionBtn onClick={() => saveEdit(c.id)} disabled={saving}>
+                {saving ? '…' : 'Save'}
+              </ActionBtn>
+              <ActionBtn variant="secondary" onClick={() => setEditingId(null)}>
+                ✕
+              </ActionBtn>
+            </div>
+            <div className="flex items-center gap-2">
+              <ContestantAvatar name={editName} imageUrl={editImageUrl.trim() || null} />
+              <input
+                value={editImageUrl}
+                onChange={(e) => setEditImageUrl(e.target.value)}
+                className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
+                placeholder="Photo URL (upload in Supabase Studio, paste the public link)"
+              />
+            </div>
             <ErrorMsg msg={editError} />
           </div>
         ) : (
@@ -295,10 +310,11 @@ function ContestantsSection({
             key={c.id}
             className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg"
           >
-            <span className="text-sm text-gray-900">
+            <span className="flex items-center gap-2 text-sm text-gray-900">
+              <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
               {c.name}
               {c.placement != null && (
-                <span className="ml-2 text-xs text-gray-400">#{c.placement}</span>
+                <span className="text-xs text-gray-400">#{c.placement}</span>
               )}
             </span>
             <ActionBtn variant="secondary" onClick={() => startEdit(c)}>
@@ -573,8 +589,9 @@ function EpisodePanel({
                   />
                   <label
                     htmlFor={`elim-${episode.id}-${c.id}`}
-                    className="text-sm text-gray-700 flex-1"
+                    className="text-sm text-gray-700 flex-1 flex items-center gap-2"
                   >
+                    <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
                     {c.name}
                   </label>
                   {isSelected && draft && (
