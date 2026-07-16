@@ -117,3 +117,26 @@ export interface ScoringEventType {
   label: string
 }
 
+export interface TokenBalance {
+  user_id: string
+  season_id: string
+  balance: number
+}
+
+export interface ContestantPoints {
+  contestant_id: string
+  points: number
+}
+
+export interface PickResult {
+  episode_id: string
+  contestant_id: string
+  correct: boolean
+  points: number
+}
+
+export interface ScoringBreakdown {
+  roster: ContestantPoints[]
+  picks: PickResult[]
+}
+

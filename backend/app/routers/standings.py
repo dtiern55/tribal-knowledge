@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app import database, scoring
 from app.auth import get_current_user
-from app.schemas import StandingEntry
+from app.schemas import ScoringBreakdown, StandingEntry
 
 router = APIRouter(tags=["standings"])
 
@@ -51,3 +51,32 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
         )
     entries.sort(key=lambda s: (-s.total_points, s.display_name))
     return entries
+
+
+@router.get(
+    "/seasons/{season_id}/scoring-breakdown/{user_id}",
+    response_model=ScoringBreakdown,
+)
+def get_scoring_breakdown(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
+    """Per-contestant roster points and per-pick results for one user (#52).
+
+    Owner-only: the granular breakdown behind the My Season expanders is
+    yours alone. High-level totals stay in /standings, which is public.
+    """
+    if str(user_id) != str(current_user):
+        raise HTTPException(status_code=403, detail="Breakdown is owner-only")
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            database.require_season(cur, season_id)
+        roster = scoring.roster_points_by_contestant(conn, season_id, user_id)
+        picks = scoring.elimination_pick_results(conn, season_id, user_id)
+    return {
+        "roster": [
+            {"contestant_id": cid, "points": pts} for cid, pts in roster.items()
+        ],
+        "picks": picks,
+    }

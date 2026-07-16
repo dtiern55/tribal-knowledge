@@ -13,9 +13,7 @@ export function Layout() {
             <>
               {[
                 { to: '/', label: 'Standings', end: true },
-                { to: '/roster', label: 'My Roster' },
-                { to: '/picks', label: 'Picks' },
-                { to: '/winner-pick', label: 'Winner Pick' },
+                { to: '/my-season', label: 'My Season' },
                 { to: '/advantages', label: 'Advantages' },
                 { to: '/finale', label: 'Finale' },
               ].map(({ to, label, end }) => (

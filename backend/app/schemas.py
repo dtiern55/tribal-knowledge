@@ -71,6 +71,23 @@ class StandingEntry(BaseModel):
     total_points: int
 
 
+class ContestantPoints(BaseModel):
+    contestant_id: UUID
+    points: int
+
+
+class PickResult(BaseModel):
+    episode_id: UUID
+    contestant_id: UUID
+    correct: bool
+    points: int
+
+
+class ScoringBreakdown(BaseModel):
+    roster: list[ContestantPoints]
+    picks: list[PickResult]
+
+
 # --- Request bodies ---
 
 

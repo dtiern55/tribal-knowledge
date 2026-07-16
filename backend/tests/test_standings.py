@@ -46,6 +46,39 @@ def test_standings_excludes_admin_accounts(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_scoring_breakdown_owner_only(client, db_conn, current_user):
+    """The granular breakdown is owner-only (#52)."""
+    season = insert_season(db_conn)
+    other = insert_user(db_conn, display_name="Other")
+    r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{other['id']}")
+    assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_scoring_breakdown_shape(client, db_conn, current_user):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    c = insert_contestant(db_conn, season["id"], "Rostered")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], c["id"])
+    insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
+    insert_elimination_pick(db_conn, current_user["id"], ep["id"], c["id"])
+    insert_elimination(db_conn, ep["id"], c["id"])
+
+    r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{current_user['id']}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["roster"] == [{"contestant_id": str(c["id"]), "points": 15}]
+    assert data["picks"] == [
+        {
+            "episode_id": str(ep["id"]),
+            "contestant_id": str(c["id"]),
+            "correct": True,
+            "points": 15,
+        }
+    ]
+
+
+@pytest.mark.integration
 def test_standings_aggregates_components(client, db_conn):
     season = insert_season(db_conn, merge_episode=7)
     ep = insert_episode(db_conn, season["id"], episode_number=3)

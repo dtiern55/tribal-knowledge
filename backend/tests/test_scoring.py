@@ -329,3 +329,54 @@ def test_finale_points_all_wrong_scores_nothing(db_conn):
     )
 
     assert scoring.finale_points(db_conn, season["id"]) == {}
+
+
+# --- per-user breakdown (My Season, #52) ---
+
+
+@pytest.mark.integration
+def test_roster_points_by_contestant_splits_and_sums(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    user = insert_user(db_conn)
+    a = insert_contestant(db_conn, season["id"], "A")
+    b = insert_contestant(db_conn, season["id"], "B")
+    insert_roster_pick(db_conn, user["id"], season["id"], a["id"])
+    # B was swapped out with a penalty and earns nothing
+    insert_roster_pick(
+        db_conn,
+        user["id"],
+        season["id"],
+        b["id"],
+        active_from_episode=1,
+        active_until_episode=1,
+        swap_penalty_points=-20,
+    )
+    insert_scoring_event(db_conn, ep["id"], a["id"], "win_individual_immunity")  # 15
+
+    by_c = scoring.roster_points_by_contestant(db_conn, season["id"], user["id"])
+    assert by_c == {str(a["id"]): 15, str(b["id"]): -20}
+    # Per-contestant sum matches the season-level total
+    assert (
+        sum(by_c.values())
+        == scoring.roster_points(db_conn, season["id"])[str(user["id"])]
+    )
+
+
+@pytest.mark.integration
+def test_elimination_pick_results_hit_and_miss(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    hit = insert_contestant(db_conn, season["id"], "Hit")
+    miss = insert_contestant(db_conn, season["id"], "Miss")
+    insert_elimination_pick(db_conn, user["id"], ep["id"], hit["id"])
+    insert_elimination_pick(db_conn, user["id"], ep["id"], miss["id"])
+    insert_elimination(db_conn, ep["id"], hit["id"])
+
+    results = scoring.elimination_pick_results(db_conn, season["id"], user["id"])
+    by_c = {r["contestant_id"]: r for r in results}
+    assert by_c[str(hit["id"])]["correct"] is True
+    assert by_c[str(hit["id"])]["points"] == 15  # premerge correct_elimination
+    assert by_c[str(miss["id"])]["correct"] is False
+    assert by_c[str(miss["id"])]["points"] == 0
