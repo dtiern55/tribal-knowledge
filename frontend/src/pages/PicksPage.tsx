@@ -22,6 +22,8 @@ export function PicksPage() {
   const [doubleTarget, setDoubleTarget] = useState('')
   const [advBusy, setAdvBusy] = useState(false)
   const [advError, setAdvError] = useState<string | null>(null)
+  // Saved picks show as a locked-in confirmation until the user asks to edit
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     if (!userId) return
@@ -113,6 +115,14 @@ export function PicksPage() {
     }
   }
 
+  function cancelEdit(episodeId: string) {
+    const saved = picksByEpisode.get(episodeId) ?? []
+    setPending((prev) =>
+      new Map(prev).set(episodeId, new Set(saved.map((p) => p.contestant_id))),
+    )
+    setEditing(false)
+  }
+
   async function takeBackPlay(play: AdvantagePlay) {
     setAdvBusy(true)
     setAdvError(null)
@@ -141,6 +151,7 @@ export function PicksPage() {
         m.set(episodeId, picks)
         return m
       })
+      setEditing(false)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Submit failed'
       setErrors((prev) => {
@@ -174,7 +185,9 @@ export function PicksPage() {
         const ep = nextOpen
         const epPending = pending.get(ep.id) ?? new Set<string>()
         const episodeError = errors.get(ep.id)
-        const hasSavedPicks = (picksByEpisode.get(ep.id) ?? []).length > 0
+        const savedPicks = picksByEpisode.get(ep.id) ?? []
+        const hasSavedPicks = savedPicks.length > 0
+        const confirmed = hasSavedPicks && !editing
 
         const ownedExtra = plays.find(
           (p) => p.episode_id === null && p.advantage_type === 'extra_vote',
@@ -198,40 +211,63 @@ export function PicksPage() {
                 Locks {formatCentral(ep.picks_lock_at)}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Pick up to {maxPicks} to be eliminated · {epPending.size} /{' '}
-              {maxPicks} selected
-              {activeExtra && ' · Extra Vote active'}
-              {hasSavedPicks && ' · picks saved'}
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-              {contestants.map((c) => {
-                const isOut = c.eliminated_in_episode != null
-                const isSelected = epPending.has(c.id)
-                const isDoubled = activeDouble?.target_contestant_id === c.id
-                const maxed = !isSelected && epPending.size >= maxPicks
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => togglePick(ep.id, c.id, maxPicks)}
-                    disabled={maxed || isOut}
-                    className={[
-                      'p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
-                      isOut
-                        ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
-                        : isSelected
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
-                          : maxed
-                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
-                    ].join(' ')}
-                  >
-                    {c.name}
-                    {isDoubled && <span className="text-indigo-600 font-semibold"> ×2</span>}
-                  </button>
-                )
-              })}
-            </div>
+            {confirmed ? (
+              <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
+                <p className="text-3xl mb-1">🔥</p>
+                <p className="font-semibold text-green-800 mb-3">
+                  Picks locked in for Episode {ep.episode_number}
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {savedPicks.map((p) => (
+                    <span
+                      key={p.id}
+                      className="text-sm px-3 py-1.5 bg-white border border-green-200 rounded-lg font-medium text-gray-800"
+                    >
+                      {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                      {activeDouble?.target_contestant_id === p.contestant_id && (
+                        <span className="text-indigo-600 font-semibold"> ×2</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 mb-4">
+                  Pick up to {maxPicks} to be eliminated · {epPending.size} /{' '}
+                  {maxPicks} selected
+                  {activeExtra && ' · Extra Vote active'}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                  {contestants.map((c) => {
+                    const isOut = c.eliminated_in_episode != null
+                    const isSelected = epPending.has(c.id)
+                    const isDoubled = activeDouble?.target_contestant_id === c.id
+                    const maxed = !isSelected && epPending.size >= maxPicks
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => togglePick(ep.id, c.id, maxPicks)}
+                        disabled={maxed || isOut}
+                        className={[
+                          'p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
+                          isOut
+                            ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
+                            : isSelected
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                              : maxed
+                                ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                        ].join(' ')}
+                      >
+                        {c.name}
+                        {isDoubled && <span className="text-indigo-600 font-semibold"> ×2</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
 
             {(ownedExtra || activeExtra || ownedDouble || activeDouble) && (
               <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
@@ -315,13 +351,37 @@ export function PicksPage() {
             )}
 
             {episodeError && <p className="text-red-600 text-sm mb-3">{episodeError}</p>}
-            <button
-              onClick={() => submitPicks(ep.id)}
-              disabled={submitting === ep.id}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
-            >
-              {submitting === ep.id ? 'Saving…' : hasSavedPicks ? 'Update Picks' : 'Save Picks'}
-            </button>
+            {confirmed ? (
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
+                >
+                  Edit Picks
+                </button>
+                <span className="text-xs text-gray-400">
+                  Editable until {formatCentral(ep.picks_lock_at)}
+                </span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => submitPicks(ep.id)}
+                  disabled={submitting === ep.id || epPending.size === 0}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                >
+                  {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Picks'}
+                </button>
+                {hasSavedPicks && (
+                  <button
+                    onClick={() => cancelEdit(ep.id)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )
       })()}
