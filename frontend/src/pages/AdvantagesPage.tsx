@@ -10,9 +10,7 @@ import type {
   Season,
 } from '../types'
 
-function isOpen(ep: Episode) {
-  return ep.status !== 'scored' && new Date(ep.picks_lock_at) > new Date()
-}
+import { isEpisodeOpen } from '../lib/episodes'
 
 export function AdvantagesPage() {
   const { session } = useAuth()
@@ -53,7 +51,7 @@ export function AdvantagesPage() {
         setBalance(tokenBalance.balance)
         setContestants(cs)
         setRoster(rosterData)
-        setNextOpen(eps.find(isOpen) ?? null)
+        setNextOpen(eps.find((ep) => isEpisodeOpen(ep, active)) ?? null)
         setOwnPlays(plays)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')

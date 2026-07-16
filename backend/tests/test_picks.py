@@ -251,3 +251,38 @@ def test_picks_only_open_for_next_episode(client, db_conn):
     )
     assert r.status_code == 400
     assert "only open for episode 1" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_watch_only_premiere_rejects_picks(client, db_conn, current_user):
+    """Episodes before roster_lock_episode never open for picks (decision #51)."""
+    season = insert_season(db_conn, roster_lock_episode=2)
+    ep1 = _open_episode(db_conn, season["id"], episode_number=1)
+    ep2 = _open_episode(db_conn, season["id"], episode_number=2)
+    contestant = insert_contestant(db_conn, season["id"])
+
+    r = client.post(
+        f"/episodes/{ep1['id']}/picks",
+        json={"contestant_ids": [str(contestant["id"])]},
+    )
+    assert r.status_code == 400
+    assert "only open for episode 2" in r.json()["detail"]
+
+    r = client.post(
+        f"/episodes/{ep2['id']}/picks",
+        json={"contestant_ids": [str(contestant["id"])]},
+    )
+    assert r.status_code == 200
+
+
+@pytest.mark.integration
+def test_watch_only_premiere_with_no_later_episode(client, db_conn, current_user):
+    season = insert_season(db_conn, roster_lock_episode=2)
+    ep1 = _open_episode(db_conn, season["id"], episode_number=1)
+    contestant = insert_contestant(db_conn, season["id"])
+    r = client.post(
+        f"/episodes/{ep1['id']}/picks",
+        json={"contestant_ids": [str(contestant["id"])]},
+    )
+    assert r.status_code == 400
+    assert "No episode is currently open" in r.json()["detail"]

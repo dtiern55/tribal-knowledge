@@ -21,13 +21,19 @@ def episode_locked(episode: dict) -> bool:
 def next_open_episode(cur, season_id: str) -> dict | None:
     """The one episode currently open for picks (decision #38, week-by-week):
     the lowest-numbered episode that hasn't locked or been scored yet.
+
+    Episodes before the season's roster_lock_episode are watch-only and never
+    open (decision #51): players watch the premiere before anything is
+    pickable. Mirrored in frontend/src/lib/episodes.ts.
     """
     cur.execute(
         """
-        select id, episode_number from episodes
-        where season_id = %s and picks_lock_at > now()
-          and status != 'scored'
-        order by episode_number
+        select e.id, e.episode_number from episodes e
+        join seasons s on s.id = e.season_id
+        where e.season_id = %s and e.picks_lock_at > now()
+          and e.status != 'scored'
+          and e.episode_number >= coalesce(s.roster_lock_episode, 1)
+        order by e.episode_number
         limit 1
         """,
         [season_id],

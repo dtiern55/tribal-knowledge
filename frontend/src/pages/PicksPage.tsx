@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
+import { isEpisodeOpen } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, EliminationPick, Episode, Season } from '../types'
@@ -50,7 +51,7 @@ export function PicksPage() {
         // Pre-fill pending picks from any already-saved picks on open episodes
         const pendingMap = new Map<string, Set<string>>()
         for (const ep of eps) {
-          if (ep.status !== 'scored' && new Date(ep.picks_lock_at) > new Date()) {
+          if (isEpisodeOpen(ep, active)) {
             const saved = picksMap.get(ep.id) ?? []
             pendingMap.set(ep.id, new Set(saved.map((p) => p.contestant_id)))
           }
@@ -68,7 +69,7 @@ export function PicksPage() {
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
 
   function isOpen(ep: Episode) {
-    return ep.status !== 'scored' && new Date(ep.picks_lock_at) > new Date()
+    return season != null && isEpisodeOpen(ep, season)
   }
 
   function togglePick(episodeId: string, contestantId: string, maxPicks: number) {
