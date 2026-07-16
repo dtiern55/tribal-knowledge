@@ -64,6 +64,10 @@ def submit_picks(
 
             # Week-by-week rule: only the next unlocked episode accepts picks
             next_open = next_open_episode(cur, str(episode["season_id"]))
+            if next_open is None:
+                raise HTTPException(
+                    status_code=400, detail="No episode is currently open for picks"
+                )
             if next_open["id"] != episode["id"]:
                 raise HTTPException(
                     status_code=400,
