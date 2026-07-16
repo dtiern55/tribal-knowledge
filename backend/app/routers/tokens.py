@@ -87,7 +87,8 @@ def allocate_starting_tokens(
                         (user_id, season_id, transaction_type, amount)
                     select p.id, %(season)s, 'starting_allocation', %(amount)s
                     from profiles p
-                    where not exists (
+                    where not p.is_admin
+                      and not exists (
                         select 1 from token_transactions tt
                         where tt.user_id = p.id
                           and tt.season_id = %(season)s
@@ -125,7 +126,8 @@ def allocate_weekly_tokens(
                     (user_id, season_id, episode_id, transaction_type, amount)
                 select p.id, %(season)s, %(episode)s, 'weekly_allocation', %(amount)s
                 from profiles p
-                where not exists (
+                where not p.is_admin
+                  and not exists (
                     select 1 from token_transactions tt
                     where tt.user_id = p.id
                       and tt.season_id = %(season)s

@@ -19,7 +19,11 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
-            cur.execute("select id::text as id, display_name from profiles")
+            # Admin/service accounts (e.g. Producer) never compete — issue #50.
+            cur.execute(
+                "select id::text as id, display_name from profiles"
+                " where not is_admin"
+            )
             profiles = cur.fetchall()
 
         roster = scoring.roster_points(conn, season_id)

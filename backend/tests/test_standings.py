@@ -35,6 +35,17 @@ def test_standings_lists_members_at_zero(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_standings_excludes_admin_accounts(client, db_conn, current_user):
+    """Producer/service accounts stay out of the leaderboard (#50)."""
+    season = insert_season(db_conn)
+    insert_user(db_conn, display_name="Producer", is_admin=True)
+    r = client.get(f"/seasons/{season['id']}/standings")
+    assert r.status_code == 200
+    names = [row["display_name"] for row in r.json()]
+    assert names == [current_user["display_name"]]
+
+
+@pytest.mark.integration
 def test_standings_aggregates_components(client, db_conn):
     season = insert_season(db_conn, merge_episode=7)
     ep = insert_episode(db_conn, season["id"], episode_number=3)
