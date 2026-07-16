@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
+import { ContestantAvatar } from '../components/ContestantAvatar'
 import { isEpisodeOpen } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
@@ -250,7 +251,7 @@ export function PicksPage() {
                         onClick={() => togglePick(ep.id, c.id, maxPicks)}
                         disabled={maxed || isOut}
                         className={[
-                          'p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
+                          'flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
                           isOut
                             ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
                             : isSelected
@@ -260,6 +261,7 @@ export function PicksPage() {
                                 : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
                         ].join(' ')}
                       >
+                        <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
                         {c.name}
                         {isDoubled && <span className="text-indigo-600 font-semibold"> ×2</span>}
                       </button>

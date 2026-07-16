@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
+import { ContestantAvatar } from '../components/ContestantAvatar'
 import { useAuth } from '../auth/useAuth'
 import type { Contestant, Episode, RosterPick, Season } from '../types'
 
@@ -260,7 +261,7 @@ export function RosterPage() {
                   onClick={() => toggleSelect(c.id)}
                   disabled={maxed}
                   className={[
-                    'p-3 rounded-lg border text-left text-sm font-medium transition-colors',
+                    'flex items-center gap-2 p-3 rounded-lg border text-left text-sm font-medium transition-colors',
                     isSelected
                       ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
                       : maxed
@@ -268,6 +269,7 @@ export function RosterPage() {
                         : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
                   ].join(' ')}
                 >
+                  <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
                   {c.name}
                 </button>
               )
