@@ -688,8 +688,9 @@ function EpisodePanel({
         ) : (
           <>
             <p className="text-xs text-gray-500 mb-2">
-              Marks the episode complete. Scores compute live from eliminations + scoring
-              events, so they can still be corrected afterwards.
+              Marks the episode complete and grants every player the weekly token
+              allocation. Scores compute live from eliminations + scoring events,
+              so they can still be corrected afterwards.
             </p>
             <ErrorMsg msg={scoreError} />
             <SuccessMsg msg={scoreSuccess} />
@@ -876,17 +877,11 @@ function EpisodesSection({
 
 // ─── Tokens section ───────────────────────────────────────────────────────────
 
-function TokensSection({ season, episodes }: { season: Season; episodes: Episode[] }) {
+function TokensSection({ season }: { season: Season }) {
   const [startAmount, setStartAmount] = useState('10')
   const [startSaving, setStartSaving] = useState(false)
   const [startMsg, setStartMsg] = useState<string | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
-
-  const [weeklyEp, setWeeklyEp] = useState('')
-  const [weeklyAmount, setWeeklyAmount] = useState('5')
-  const [weeklySaving, setWeeklySaving] = useState(false)
-  const [weeklyMsg, setWeeklyMsg] = useState<string | null>(null)
-  const [weeklyError, setWeeklyError] = useState<string | null>(null)
 
   function grantStarting() {
     setStartMsg(null)
@@ -896,17 +891,6 @@ function TokensSection({ season, episodes }: { season: Season; episodes: Episode
         { amount: Number(startAmount) },
       )
       setStartMsg(`Granted to ${rows.length} player(s).`)
-    })
-  }
-
-  function grantWeekly() {
-    setWeeklyMsg(null)
-    void run(setWeeklySaving, setWeeklyError, async () => {
-      const rows = await api.post<unknown[]>(
-        `/seasons/${season.id}/tokens/weekly-allocation`,
-        { episode_id: weeklyEp, amount: Number(weeklyAmount) },
-      )
-      setWeeklyMsg(`Granted to ${rows.length} player(s).`)
     })
   }
 
@@ -931,37 +915,13 @@ function TokensSection({ season, episodes }: { season: Season; episodes: Episode
         </ActionBtn>
       </div>
 
-      <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
+      <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
         <p className="text-sm font-medium text-gray-700">Weekly allocation</p>
-        <p className="text-xs text-gray-500">Idempotent — skips players who already received one for this episode.</p>
-        <div className="space-y-2">
-          <select
-            value={weeklyEp}
-            onChange={(e) => setWeeklyEp(e.target.value)}
-            className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
-          >
-            <option value="">Episode…</option>
-            {episodes.map((ep) => (
-              <option key={ep.id} value={ep.id}>
-                Ep {ep.episode_number}
-              </option>
-            ))}
-          </select>
-          <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              value={weeklyAmount}
-              onChange={(e) => setWeeklyAmount(e.target.value)}
-              className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
-            />
-            <span className="text-sm text-gray-500">tokens</span>
-          </div>
-        </div>
-        <ErrorMsg msg={weeklyError} />
-        <SuccessMsg msg={weeklyMsg} />
-        <ActionBtn onClick={grantWeekly} disabled={weeklySaving || !weeklyEp}>
-          {weeklySaving ? 'Granting…' : 'Grant'}
-        </ActionBtn>
+        <p className="text-xs text-gray-500">
+          Granted automatically when an episode is scored:{' '}
+          {season.weekly_token_allocation} tokens per player. Tune it on the
+          season (weekly_token_allocation).
+        </p>
       </div>
     </div>
   )
@@ -1085,7 +1045,7 @@ export function AdminPage() {
       />
 
       <SectionHeader title="Tokens" />
-      <TokensSection season={season} episodes={episodes} />
+      <TokensSection season={season} />
 
       {leagueSettings && (
         <>
