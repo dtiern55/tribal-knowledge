@@ -3,7 +3,7 @@ import { api, getActiveSeason } from '../lib/api'
 import { isEpisodeOpen } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
-import type { Contestant, EliminationPick, Episode, Season } from '../types'
+import type { AdvantagePlay, Contestant, EliminationPick, Episode, Season } from '../types'
 
 export function PicksPage() {
   const { session } = useAuth()
@@ -18,6 +18,10 @@ export function PicksPage() {
   const [errors, setErrors] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [plays, setPlays] = useState<AdvantagePlay[]>([])
+  const [doubleTarget, setDoubleTarget] = useState('')
+  const [advBusy, setAdvBusy] = useState(false)
+  const [advError, setAdvError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -30,12 +34,14 @@ export function PicksPage() {
         }
         setSeason(active)
 
-        const [cs, eps] = await Promise.all([
+        const [cs, eps, ownPlays] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
+          api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
         ])
         setContestants(cs)
         setEpisodes(eps)
+        setPlays(ownPlays)
 
         const results = await Promise.all(
           eps.map((ep) =>
@@ -84,6 +90,39 @@ export function PicksPage() {
       next.set(episodeId, set)
       return next
     })
+  }
+
+  function replacePlay(updated: AdvantagePlay) {
+    setPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+  }
+
+  async function applyPlay(play: AdvantagePlay, targetContestantId?: string) {
+    setAdvBusy(true)
+    setAdvError(null)
+    try {
+      replacePlay(
+        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
+          target_contestant_id: targetContestantId ?? null,
+        }),
+      )
+      setDoubleTarget('')
+    } catch (e) {
+      setAdvError(e instanceof Error ? e.message : 'Advantage failed')
+    } finally {
+      setAdvBusy(false)
+    }
+  }
+
+  async function takeBackPlay(play: AdvantagePlay) {
+    setAdvBusy(true)
+    setAdvError(null)
+    try {
+      replacePlay(await api.delete<AdvantagePlay>(`/advantage-plays/${play.id}/use`))
+    } catch (e) {
+      setAdvError(e instanceof Error ? e.message : 'Take back failed')
+    } finally {
+      setAdvBusy(false)
+    }
   }
 
   async function submitPicks(episodeId: string) {
@@ -137,6 +176,20 @@ export function PicksPage() {
         const episodeError = errors.get(ep.id)
         const hasSavedPicks = (picksByEpisode.get(ep.id) ?? []).length > 0
 
+        const ownedExtra = plays.find(
+          (p) => p.episode_id === null && p.advantage_type === 'extra_vote',
+        )
+        const activeExtra = plays.find(
+          (p) => p.episode_id === ep.id && p.advantage_type === 'extra_vote',
+        )
+        const ownedDouble = plays.find(
+          (p) => p.episode_id === null && p.advantage_type === 'double_vote_points',
+        )
+        const activeDouble = plays.find(
+          (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
+        )
+        const maxPicks = ep.max_elimination_picks + (activeExtra ? 1 : 0)
+
         return (
           <div key={ep.id} className="mb-8 p-4 bg-white border border-gray-200 rounded-xl">
             <div className="flex items-center justify-between mb-1">
@@ -146,19 +199,21 @@ export function PicksPage() {
               </span>
             </div>
             <p className="text-xs text-gray-500 mb-4">
-              Pick up to {ep.max_elimination_picks} to be eliminated · {epPending.size} /{' '}
-              {ep.max_elimination_picks} selected
+              Pick up to {maxPicks} to be eliminated · {epPending.size} /{' '}
+              {maxPicks} selected
+              {activeExtra && ' · Extra Vote active'}
               {hasSavedPicks && ' · picks saved'}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
               {contestants.map((c) => {
                 const isOut = c.eliminated_in_episode != null
                 const isSelected = epPending.has(c.id)
-                const maxed = !isSelected && epPending.size >= ep.max_elimination_picks
+                const isDoubled = activeDouble?.target_contestant_id === c.id
+                const maxed = !isSelected && epPending.size >= maxPicks
                 return (
                   <button
                     key={c.id}
-                    onClick={() => togglePick(ep.id, c.id, ep.max_elimination_picks)}
+                    onClick={() => togglePick(ep.id, c.id, maxPicks)}
                     disabled={maxed || isOut}
                     className={[
                       'p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
@@ -172,10 +227,93 @@ export function PicksPage() {
                     ].join(' ')}
                   >
                     {c.name}
+                    {isDoubled && <span className="text-indigo-600 font-semibold"> ×2</span>}
                   </button>
                 )
               })}
             </div>
+
+            {(ownedExtra || activeExtra || ownedDouble || activeDouble) && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  Advantages
+                </p>
+                {activeExtra ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">Extra Vote active — +1 pick this episode</span>
+                    <button
+                      onClick={() => void takeBackPlay(activeExtra)}
+                      disabled={advBusy}
+                      className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                    >
+                      Take back
+                    </button>
+                  </div>
+                ) : (
+                  ownedExtra && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">You own an Extra Vote</span>
+                      <button
+                        onClick={() => void applyPlay(ownedExtra)}
+                        disabled={advBusy}
+                        className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-700 transition-colors"
+                      >
+                        Play it (+1 pick)
+                      </button>
+                    </div>
+                  )
+                )}
+                {activeDouble ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">
+                      Double Vote Points on{' '}
+                      <span className="font-medium">
+                        {contestantMap.get(activeDouble.target_contestant_id ?? '')?.name ?? '—'}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => void takeBackPlay(activeDouble)}
+                      disabled={advBusy}
+                      className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                    >
+                      Take back
+                    </button>
+                  </div>
+                ) : (
+                  ownedDouble &&
+                  (epPending.size > 0 ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-700 shrink-0">Double a pick:</span>
+                      <select
+                        value={doubleTarget}
+                        onChange={(e) => setDoubleTarget(e.target.value)}
+                        className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
+                      >
+                        <option value="">Choose…</option>
+                        {[...epPending].map((cid) => (
+                          <option key={cid} value={cid}>
+                            {contestantMap.get(cid)?.name ?? '—'}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => void applyPlay(ownedDouble, doubleTarget)}
+                        disabled={advBusy || !doubleTarget}
+                        className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-700 transition-colors"
+                      >
+                        Double ×2
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      You own Double Vote Points — select picks first, then double one.
+                    </p>
+                  ))
+                )}
+                {advError && <p className="text-red-600 text-xs">{advError}</p>}
+              </div>
+            )}
+
             {episodeError && <p className="text-red-600 text-sm mb-3">{episodeError}</p>}
             <button
               onClick={() => submitPicks(ep.id)}

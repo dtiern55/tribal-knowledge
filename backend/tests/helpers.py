@@ -140,18 +140,32 @@ def insert_roster_pick(
 
 
 def insert_advantage_play(
-    conn, user_id, episode_id, advantage_type, target_contestant_id=None, token_cost=0
+    conn,
+    user_id,
+    episode_id,
+    advantage_type,
+    target_contestant_id=None,
+    token_cost=0,
+    season_id=None,
 ):
+    """episode_id=None inserts an unused inventory row (season_id required)."""
     with conn.cursor() as cur:
+        if season_id is None:
+            cur.execute(
+                "select season_id from episodes where id = %s", [str(episode_id)]
+            )
+            season_id = cur.fetchone()["season_id"]
         cur.execute(
             """
             insert into advantage_plays
-                (user_id, episode_id, advantage_type, target_contestant_id, token_cost)
-            values (%s, %s, %s, %s, %s) returning *
+                (user_id, season_id, episode_id, advantage_type,
+                 target_contestant_id, token_cost)
+            values (%s, %s, %s, %s, %s, %s) returning *
             """,
             [
                 str(user_id),
-                str(episode_id),
+                str(season_id),
+                str(episode_id) if episode_id else None,
                 advantage_type,
                 str(target_contestant_id) if target_contestant_id else None,
                 token_cost,
