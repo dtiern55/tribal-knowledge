@@ -101,7 +101,9 @@ export interface AdvantageType {
 export interface AdvantagePlay {
   id: string
   user_id: string
-  episode_id: string
+  season_id: string
+  // null while the advantage sits unused in the owner's inventory
+  episode_id: string | null
   advantage_type: string
   target_contestant_id: string | null
   token_cost: number

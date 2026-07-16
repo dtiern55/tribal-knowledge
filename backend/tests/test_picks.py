@@ -115,6 +115,8 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
         json={"advantage_type": "extra_vote"},
     )
     assert play.status_code == 201
+    used = client.post(f"/advantage-plays/{play.json()['id']}/use", json={})
+    assert used.status_code == 200
 
     r = client.post(
         f"/episodes/{ep['id']}/picks",

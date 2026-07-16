@@ -162,15 +162,20 @@ class EpisodeUpdateRequest(BaseModel):
 class AdvantagePlay(BaseModel):
     id: UUID
     user_id: UUID
-    episode_id: UUID
+    season_id: UUID
+    # None while the advantage sits unused in the owner's inventory
+    episode_id: Optional[UUID]
     advantage_type: str
     target_contestant_id: Optional[UUID]
     token_cost: int
     created_at: datetime
 
 
-class AdvantagePlayRequest(BaseModel):
+class AdvantageBuyRequest(BaseModel):
     advantage_type: str
+
+
+class AdvantageUseRequest(BaseModel):
     target_contestant_id: Optional[UUID] = None
 
 

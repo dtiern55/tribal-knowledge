@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
+import { isEpisodeOpen } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
@@ -10,7 +11,11 @@ import type {
   Season,
 } from '../types'
 
-import { isEpisodeOpen } from '../lib/episodes'
+const DESCRIPTIONS: Record<string, string> = {
+  double_roster_points: "Double one roster contestant's points for an episode.",
+  double_vote_points: "Double one elimination pick's points for an episode.",
+  extra_vote: 'Make one additional elimination pick in an episode.',
+}
 
 export function AdvantagesPage() {
   const { session } = useAuth()
@@ -21,15 +26,14 @@ export function AdvantagesPage() {
   const [balance, setBalance] = useState(0)
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [roster, setRoster] = useState<RosterPick[]>([])
-  const [nextOpen, setNextOpen] = useState<Episode | null>(null)
+  const [episodes, setEpisodes] = useState<Episode[]>([])
   const [ownPlays, setOwnPlays] = useState<AdvantagePlay[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [rosterTarget, setRosterTarget] = useState('')
-  const [voteTarget, setVoteTarget] = useState('')
-  const [playing, setPlaying] = useState<string | null>(null)
-  const [playError, setPlayError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -50,8 +54,8 @@ export function AdvantagesPage() {
         setTypes(advTypes)
         setBalance(tokenBalance.balance)
         setContestants(cs)
+        setEpisodes(eps)
         setRoster(rosterData)
-        setNextOpen(eps.find((ep) => isEpisodeOpen(ep, active)) ?? null)
         setOwnPlays(plays)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
@@ -63,36 +67,60 @@ export function AdvantagesPage() {
   }, [userId])
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
   const alive = contestants.filter((c) => c.eliminated_in_episode == null)
   const activeRosterIds = new Set(
     roster.filter((r) => r.active_until_episode === null).map((r) => r.contestant_id),
   )
   const rosterOptions = alive.filter((c) => activeRosterIds.has(c.id))
 
-  function alreadyPlayed(advantageType: string) {
-    return (
-      nextOpen != null &&
-      ownPlays.some((p) => p.episode_id === nextOpen.id && p.advantage_type === advantageType)
-    )
+  function replacePlay(updated: AdvantagePlay) {
+    setOwnPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
   }
 
-  async function play(advantageType: string, targetContestantId?: string) {
+  async function buy(advantageType: string, cost: number) {
     if (!season) return
-    setPlaying(advantageType)
-    setPlayError(null)
+    setBusy(`buy:${advantageType}`)
+    setActionError(null)
     try {
       const created = await api.post<AdvantagePlay>(`/seasons/${season.id}/advantage-plays`, {
         advantage_type: advantageType,
-        target_contestant_id: targetContestantId ?? null,
       })
       setOwnPlays((prev) => [...prev, created])
-      setBalance((prev) => prev - created.token_cost)
-      setRosterTarget('')
-      setVoteTarget('')
+      setBalance((prev) => prev - cost)
     } catch (e) {
-      setPlayError(e instanceof Error ? e.message : 'Play failed')
+      setActionError(e instanceof Error ? e.message : 'Buy failed')
     } finally {
-      setPlaying(null)
+      setBusy(null)
+    }
+  }
+
+  async function applyDoubleRoster(play: AdvantagePlay) {
+    setBusy(`use:${play.id}`)
+    setActionError(null)
+    try {
+      replacePlay(
+        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
+          target_contestant_id: rosterTarget,
+        }),
+      )
+      setRosterTarget('')
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Use failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function takeBack(play: AdvantagePlay) {
+    setBusy(`unuse:${play.id}`)
+    setActionError(null)
+    try {
+      replacePlay(await api.delete<AdvantagePlay>(`/advantage-plays/${play.id}/use`))
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Take back failed')
+    } finally {
+      setBusy(null)
     }
   }
 
@@ -101,9 +129,17 @@ export function AdvantagesPage() {
   if (!season) return <p className="text-gray-500">No active season.</p>
 
   const byType = new Map(types.map((t) => [t.advantage_type, t]))
-  const extraVote = byType.get('extra_vote')
-  const doubleRoster = byType.get('double_roster_points')
-  const doubleVote = byType.get('double_vote_points')
+  const label = (t: string) => byType.get(t)?.label ?? t
+
+  const inventory = ownPlays.filter((p) => p.episode_id === null)
+  const used = ownPlays.filter((p) => p.episode_id !== null)
+  const playEpisode = (p: AdvantagePlay) =>
+    p.episode_id ? episodeMap.get(p.episode_id) : undefined
+  const inPlay = used.filter((p) => {
+    const ep = playEpisode(p)
+    return ep != null && isEpisodeOpen(ep, season)
+  })
+  const spent = used.filter((p) => !inPlay.includes(p))
 
   return (
     <div>
@@ -115,146 +151,127 @@ export function AdvantagesPage() {
         <span className="text-xl font-semibold text-gray-900">{balance}</span>
       </div>
 
-      {!nextOpen && (
-        <p className="text-sm text-gray-500 mb-6">
-          No open episode right now — advantages can't be played until the next episode opens.
-        </p>
-      )}
+      {actionError && <p className="text-red-600 text-sm mb-4">{actionError}</p>}
 
-      {playError && <p className="text-red-600 text-sm mb-4">{playError}</p>}
-
-      <div className="space-y-4">
-        {doubleRoster && (
-          <div className="p-4 bg-white border border-gray-200 rounded-xl">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Shop</h2>
+      <div className="space-y-4 mb-8">
+        {types.map((t) => (
+          <div key={t.advantage_type} className="p-4 bg-white border border-gray-200 rounded-xl">
             <div className="flex items-center justify-between mb-1">
-              <p className="font-semibold text-gray-900">{doubleRoster.label}</p>
-              <span className="text-xs text-gray-400">{doubleRoster.token_cost} tokens</span>
+              <p className="font-semibold text-gray-900">{t.label}</p>
+              <span className="text-xs text-gray-400">{t.token_cost} tokens</span>
             </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Double this episode's points from one contestant on your roster.
-            </p>
-            <div className="flex gap-2">
-              <select
-                value={rosterTarget}
-                onChange={(e) => setRosterTarget(e.target.value)}
-                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="">Select a roster contestant…</option>
-                {rosterOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => play('double_roster_points', rosterTarget)}
-                disabled={
-                  !nextOpen ||
-                  !rosterTarget ||
-                  balance < doubleRoster.token_cost ||
-                  alreadyPlayed('double_roster_points') ||
-                  playing === 'double_roster_points'
-                }
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
-              >
-                {playing === 'double_roster_points' ? 'Playing…' : 'Play'}
-              </button>
-            </div>
-            {alreadyPlayed('double_roster_points') && (
-              <p className="text-xs text-gray-400 mt-2">Already played for this episode.</p>
-            )}
-          </div>
-        )}
-
-        {doubleVote && (
-          <div className="p-4 bg-white border border-gray-200 rounded-xl">
-            <div className="flex items-center justify-between mb-1">
-              <p className="font-semibold text-gray-900">{doubleVote.label}</p>
-              <span className="text-xs text-gray-400">{doubleVote.token_cost} tokens</span>
-            </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Double this episode's points from one elimination pick.
-            </p>
-            <div className="flex gap-2">
-              <select
-                value={voteTarget}
-                onChange={(e) => setVoteTarget(e.target.value)}
-                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="">Select a contestant…</option>
-                {alive.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => play('double_vote_points', voteTarget)}
-                disabled={
-                  !nextOpen ||
-                  !voteTarget ||
-                  balance < doubleVote.token_cost ||
-                  alreadyPlayed('double_vote_points') ||
-                  playing === 'double_vote_points'
-                }
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
-              >
-                {playing === 'double_vote_points' ? 'Playing…' : 'Play'}
-              </button>
-            </div>
-            {alreadyPlayed('double_vote_points') && (
-              <p className="text-xs text-gray-400 mt-2">Already played for this episode.</p>
-            )}
-          </div>
-        )}
-
-        {extraVote && (
-          <div className="p-4 bg-white border border-gray-200 rounded-xl">
-            <div className="flex items-center justify-between mb-1">
-              <p className="font-semibold text-gray-900">{extraVote.label}</p>
-              <span className="text-xs text-gray-400">{extraVote.token_cost} tokens</span>
-            </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Make one additional elimination pick this episode.
-            </p>
+            <p className="text-xs text-gray-500 mb-3">{DESCRIPTIONS[t.advantage_type] ?? ''}</p>
             <button
-              onClick={() => play('extra_vote')}
-              disabled={
-                !nextOpen ||
-                balance < extraVote.token_cost ||
-                alreadyPlayed('extra_vote') ||
-                playing === 'extra_vote'
-              }
+              onClick={() => void buy(t.advantage_type, t.token_cost)}
+              disabled={balance < t.token_cost || busy === `buy:${t.advantage_type}`}
               className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
             >
-              {playing === 'extra_vote' ? 'Playing…' : 'Play'}
+              {busy === `buy:${t.advantage_type}` ? 'Buying…' : 'Buy'}
             </button>
-            {alreadyPlayed('extra_vote') && (
-              <p className="text-xs text-gray-400 mt-2">Already played for this episode.</p>
-            )}
           </div>
-        )}
+        ))}
       </div>
 
-      {ownPlays.length > 0 && (
-        <div className="mt-8">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        Your Advantages
+      </h2>
+      {inventory.length === 0 && inPlay.length === 0 && (
+        <p className="text-sm text-gray-400 mb-8">
+          Nothing owned yet — buy an advantage above and it'll wait here until you use it.
+        </p>
+      )}
+      <div className="space-y-2 mb-8">
+        {inventory.map((p) => (
+          <div
+            key={p.id}
+            className="p-3 bg-white border border-gray-200 rounded-lg text-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-gray-900">{label(p.advantage_type)}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                owned
+              </span>
+            </div>
+            {p.advantage_type === 'double_roster_points' ? (
+              <div className="flex gap-2 mt-2">
+                <select
+                  value={rosterTarget}
+                  onChange={(e) => setRosterTarget(e.target.value)}
+                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">Use on which roster contestant…</option>
+                  {rosterOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => void applyDoubleRoster(p)}
+                  disabled={!rosterTarget || busy === `use:${p.id}`}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                >
+                  {busy === `use:${p.id}` ? 'Using…' : 'Use'}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">Use it on the Picks page.</p>
+            )}
+          </div>
+        ))}
+
+        {inPlay.map((p) => (
+          <div
+            key={p.id}
+            className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-indigo-900">
+                {label(p.advantage_type)}
+                {p.target_contestant_id && (
+                  <span className="text-indigo-600">
+                    {' '}
+                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                  </span>
+                )}
+                <span className="text-indigo-400">
+                  {' '}
+                  · Episode {playEpisode(p)?.episode_number}
+                </span>
+              </span>
+              <button
+                onClick={() => void takeBack(p)}
+                disabled={busy === `unuse:${p.id}`}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+              >
+                {busy === `unuse:${p.id}` ? 'Taking back…' : 'Take back'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {spent.length > 0 && (
+        <div>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-            Your Plays
+            Play History
           </h2>
           <ul className="space-y-2">
-            {[...ownPlays].reverse().map((p) => (
+            {[...spent].reverse().map((p) => (
               <li
                 key={p.id}
                 className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
               >
                 <span className="text-gray-700">
-                  {byType.get(p.advantage_type)?.label ?? p.advantage_type}
+                  {label(p.advantage_type)}
                   {p.target_contestant_id && (
                     <span className="text-gray-400">
                       {' '}
                       → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
                     </span>
                   )}
+                  <span className="text-gray-400"> · Episode {playEpisode(p)?.episode_number}</span>
                 </span>
                 <span className="text-xs text-gray-400">{p.token_cost} tokens</span>
               </li>
