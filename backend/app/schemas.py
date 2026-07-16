@@ -14,6 +14,7 @@ class Season(BaseModel):
     merge_episode: Optional[int]
     winner_lock_episode: Optional[int]
     swap_penalty_points: int
+    weekly_token_allocation: int
     status: str
     created_at: datetime
 
@@ -120,6 +121,7 @@ class SeasonCreateRequest(BaseModel):
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=3, gt=0)
     swap_penalty_points: int = Field(default=-20, le=0)
+    weekly_token_allocation: int = Field(default=10, ge=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
 
@@ -131,6 +133,7 @@ class SeasonUpdateRequest(BaseModel):
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_penalty_points: Optional[int] = Field(default=None, le=0)
+    weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 
 

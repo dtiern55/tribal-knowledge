@@ -89,6 +89,9 @@ def update_episode(
 
 @router.post("/episodes/{episode_id}/score", response_model=Episode)
 def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
+    """Mark the episode scored and grant every player the season's weekly
+    token allocation (issue #49) — one admin action ends the Friday ritual.
+    """
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from episodes where id = %s", [str(episode_id)])
@@ -106,4 +109,35 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                 "update episodes set status = 'scored' where id = %s returning *",
                 [str(episode_id)],
             )
-            return cur.fetchone()
+            scored = cur.fetchone()
+
+            cur.execute(
+                "select weekly_token_allocation from seasons where id = %s",
+                [episode["season_id"]],
+            )
+            amount = cur.fetchone()["weekly_token_allocation"]
+            if amount > 0:
+                # Idempotent against manual weekly-allocation grants for the
+                # same episode (the corrections endpoint in tokens.py).
+                cur.execute(
+                    """
+                    insert into token_transactions
+                        (user_id, season_id, episode_id, transaction_type, amount)
+                    select p.id, %(season)s, %(episode)s, 'weekly_allocation',
+                           %(amount)s
+                    from profiles p
+                    where not exists (
+                        select 1 from token_transactions tt
+                        where tt.user_id = p.id
+                          and tt.season_id = %(season)s
+                          and tt.episode_id = %(episode)s
+                          and tt.transaction_type = 'weekly_allocation'
+                    )
+                    """,
+                    {
+                        "season": episode["season_id"],
+                        "episode": str(episode_id),
+                        "amount": amount,
+                    },
+                )
+            return scored

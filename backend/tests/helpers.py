@@ -33,6 +33,7 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "merge_episode": kwargs.pop("merge_episode", None),
         "winner_lock_episode": kwargs.pop("winner_lock_episode", None),
         "swap_penalty_points": kwargs.pop("swap_penalty_points", -20),
+        "weekly_token_allocation": kwargs.pop("weekly_token_allocation", 10),
     }
     with conn.cursor() as cur:
         cur.execute(
@@ -40,11 +41,12 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
             insert into seasons
                 (name, season_number, roster_size, status,
                  roster_lock_episode, merge_episode, winner_lock_episode,
-                 swap_penalty_points)
+                 swap_penalty_points, weekly_token_allocation)
             values
                 (%(name)s, %(season_number)s, %(roster_size)s, %(status)s,
                  %(roster_lock_episode)s, %(merge_episode)s,
-                 %(winner_lock_episode)s, %(swap_penalty_points)s)
+                 %(winner_lock_episode)s, %(swap_penalty_points)s,
+                 %(weekly_token_allocation)s)
             returning *
             """,
             params,

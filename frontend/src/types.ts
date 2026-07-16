@@ -19,6 +19,7 @@ export interface Season {
   merge_episode: number | null
   winner_lock_episode: number | null
   swap_penalty_points: number
+  weekly_token_allocation: number
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
 }
