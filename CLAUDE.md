@@ -56,10 +56,17 @@ cd backend && uv run pytest
 
 # Lint and format
 cd backend && uv run ruff check . && uv run black .
-
-# Push migrations to Supabase Cloud
-supabase db push
 ```
+
+## Deployment
+Everything ships from GitHub on merge to main — no manual deploy steps:
+- `.github/workflows/deploy.yml` pushes migrations (`supabase db push`) then
+  deploys the backend to Fly, in that order, when `backend/**` or
+  `supabase/migrations/**` change. Secrets: `SUPABASE_DB_URL` (session
+  pooler, port 5432), `FLY_API_TOKEN`.
+- Frontend deploys via Vercel's GitHub integration on every merge.
+- `supabase db push` / `fly deploy` remain available for emergencies, but
+  the workflow is the normal path.
 
 ## Local development (integration tests)
 
