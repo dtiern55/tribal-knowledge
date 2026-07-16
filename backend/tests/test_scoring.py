@@ -240,6 +240,20 @@ def test_winner_points_runner_up(db_conn):
 
 
 @pytest.mark.integration
+def test_winner_points_missing_pick_scores_nothing(db_conn):
+    """A user who never made a winner pick is simply absent — no crash (#58)."""
+    season = insert_season(db_conn)
+    picker = insert_user(db_conn, display_name="Picker")
+    no_pick = insert_user(db_conn, display_name="No Pick")
+    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
+    insert_winner_pick(db_conn, picker["id"], season["id"], winner["id"])
+
+    points = scoring.winner_points(db_conn, season["id"])
+    assert points == {str(picker["id"]): 100}
+    assert str(no_pick["id"]) not in points
+
+
+@pytest.mark.integration
 def test_winner_points_no_placement_scores_nothing(db_conn):
     season = insert_season(db_conn)
     user = insert_user(db_conn)
