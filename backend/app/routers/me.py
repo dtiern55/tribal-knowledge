@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_user
-from app.schemas import JoinRequest, UserProfile
+from app.schemas import JoinRequest, ProfileUpdateRequest, UserProfile
 
 router = APIRouter(tags=["me"])
 
@@ -16,6 +16,22 @@ def get_me(user_id: UUID = Depends(get_current_user)):
             cur.execute(
                 "select id, display_name, is_admin from profiles where id = %s",
                 [str(user_id)],
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Profile not found")
+            return row
+
+
+@router.patch("/me", response_model=UserProfile)
+def update_me(body: ProfileUpdateRequest, user_id: UUID = Depends(get_current_user)):
+    """Let a member edit their own display name (issue #55)."""
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "update profiles set display_name = %s where id = %s"
+                " returning id, display_name, is_admin",
+                [body.display_name.strip(), str(user_id)],
             )
             row = cur.fetchone()
             if not row:
