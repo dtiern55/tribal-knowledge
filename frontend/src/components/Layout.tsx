@@ -42,7 +42,17 @@ export function Layout() {
               )}
             </>
           )}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-4">
+            {session && profile && (
+              <NavLink
+                to="/profile"
+                className={({ isActive }) =>
+                  `text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`
+                }
+              >
+                {profile.display_name}
+              </NavLink>
+            )}
             {session ? (
               <button
                 onClick={() => void signOut()}

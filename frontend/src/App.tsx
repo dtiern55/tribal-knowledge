@@ -8,6 +8,7 @@ import { FinalePage } from './pages/FinalePage'
 import { JoinPage } from './pages/JoinPage'
 import { LoginPage } from './pages/LoginPage'
 import { PicksPage } from './pages/PicksPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { RosterPage } from './pages/RosterPage'
 import { StandingsPage } from './pages/StandingsPage'
 import { WinnerPickPage } from './pages/WinnerPickPage'
@@ -40,6 +41,10 @@ export default function App() {
             <Route
               path="finale"
               element={<ProtectedRoute><FinalePage /></ProtectedRoute>}
+            />
+            <Route
+              path="profile"
+              element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
             />
             <Route
               path="admin"

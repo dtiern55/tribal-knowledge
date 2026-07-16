@@ -239,6 +239,10 @@ class JoinRequest(BaseModel):
     join_code: str = Field(min_length=1)
 
 
+class ProfileUpdateRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=100)
+
+
 class WinnerPick(BaseModel):
     id: UUID
     user_id: UUID
