@@ -70,6 +70,19 @@ def test_score_episode_grants_weekly_tokens(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_score_episode_skips_admin_accounts(client, db_conn, current_user):
+    """Service accounts (Producer) don't receive weekly tokens (#50)."""
+    season = insert_season(db_conn, weekly_token_allocation=7)
+    producer = insert_user(db_conn, display_name="Producer", is_admin=True)
+    ep = _locked_episode(db_conn, season["id"])
+
+    client.post(f"/episodes/{ep['id']}/score")
+    grants = _weekly_grants(db_conn, ep["id"])
+    assert str(current_user["id"]) in grants
+    assert str(producer["id"]) not in grants
+
+
+@pytest.mark.integration
 def test_score_episode_skips_already_granted(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _locked_episode(db_conn, season["id"])
