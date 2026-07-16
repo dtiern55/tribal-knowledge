@@ -1,0 +1,1000 @@
+import { useEffect, useState } from 'react'
+import { api, getActiveSeason } from '../lib/api'
+import { ContestantAvatar } from '../components/ContestantAvatar'
+import { isEpisodeOpen } from '../lib/episodes'
+import { formatCentral } from '../lib/time'
+import { useAuth } from '../auth/useAuth'
+import type {
+  AdvantagePlay,
+  Contestant,
+  EliminationPick,
+  Episode,
+  PickResult,
+  RosterPick,
+  ScoringBreakdown,
+  Season,
+  StandingEntry,
+  WinnerPick,
+} from '../types'
+
+export function MySeasonPage() {
+  const { session } = useAuth()
+  const userId = session?.user?.id
+
+  const [season, setSeason] = useState<Season | null>(null)
+  const [contestants, setContestants] = useState<Contestant[]>([])
+  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [standing, setStanding] = useState<StandingEntry | null>(null)
+  const [breakdown, setBreakdown] = useState<ScoringBreakdown>({ roster: [], picks: [] })
+  const [plays, setPlays] = useState<AdvantagePlay[]>([])
+  const [balance, setBalance] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    async function load() {
+      try {
+        const active = await getActiveSeason()
+        if (!active) {
+          setLoading(false)
+          return
+        }
+        setSeason(active)
+
+        const [cs, eps, standings, bd, ownPlays, bal] = await Promise.all([
+          api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
+          api.get<Episode[]>(`/seasons/${active.id}/episodes`),
+          api.get<StandingEntry[]>(`/seasons/${active.id}/standings`),
+          api.get<ScoringBreakdown>(`/seasons/${active.id}/scoring-breakdown/${userId}`),
+          api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
+          api
+            .get<{ balance: number }>(`/seasons/${active.id}/tokens/${userId}`)
+            .then((t) => t.balance)
+            .catch(() => null),
+        ])
+        setContestants(cs)
+        setEpisodes(eps)
+        setStanding(standings.find((s) => s.user_id === userId) ?? null)
+        setBreakdown(bd)
+        setPlays(ownPlays)
+        setBalance(bal)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
+  }, [userId])
+
+  if (loading) return <p className="text-gray-500">Loading…</p>
+  if (error) return <p className="text-red-600">{error}</p>
+  if (!season || !userId) return <p className="text-gray-500">No active season.</p>
+
+  const rosterPoints = new Map(breakdown.roster.map((r) => [r.contestant_id, r.points]))
+  const pickResults = new Map(
+    breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
+  )
+
+  return (
+    <div className="space-y-10">
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">{season.name}</h1>
+        <p className="text-sm text-gray-500">My Season</p>
+      </div>
+
+      <PointsHeader standing={standing} season={season} />
+      <RosterSection
+        season={season}
+        contestants={contestants}
+        episodes={episodes}
+        userId={userId}
+        rosterPoints={rosterPoints}
+      />
+      <PicksSection
+        season={season}
+        contestants={contestants}
+        episodes={episodes}
+        userId={userId}
+        plays={plays}
+        setPlays={setPlays}
+        pickResults={pickResults}
+      />
+      <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
+      <TokensSection balance={balance} plays={plays} contestants={contestants} />
+    </div>
+  )
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+      {children}
+    </h2>
+  )
+}
+
+// ─── Points header ──────────────────────────────────────────────────────────
+
+function PointsHeader({
+  standing,
+  season,
+}: {
+  standing: StandingEntry | null
+  season: Season
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const total = standing?.total_points ?? 0
+
+  const components = [
+    { label: 'Roster', value: standing?.roster_points ?? 0 },
+    { label: 'Eliminations', value: standing?.elimination_points ?? 0 },
+    {
+      label: 'Winner',
+      value: standing?.winner_points ?? 0,
+      note: season.winner_lock_episode ? `locks ep ${season.winner_lock_episode}` : undefined,
+    },
+    { label: 'Finale', value: standing?.finale_points ?? 0 },
+  ]
+
+  return (
+    <div className="p-5 bg-white border border-gray-200 rounded-xl">
+      <div className="flex items-baseline justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            My Points
+          </p>
+          <p className="text-4xl font-bold text-gray-900">{total}</p>
+        </div>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          {expanded ? 'Hide breakdown' : 'Show breakdown'}
+        </button>
+      </div>
+      {expanded && (
+        <ul className="mt-4 space-y-1 border-t border-gray-100 pt-3">
+          {components.map((c) => (
+            <li key={c.label} className="flex justify-between text-sm">
+              <span className="text-gray-600">
+                {c.label}
+                {c.note && <span className="text-gray-400"> · {c.note}</span>}
+              </span>
+              <span className="font-medium text-gray-900">{c.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ─── Roster section ─────────────────────────────────────────────────────────
+
+function Points({ value }: { value: number | undefined }) {
+  if (value == null) return null
+  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-400'
+  return (
+    <span className={`text-xs font-medium ${color}`}>
+      {value > 0 ? '+' : ''}
+      {value} pts
+    </span>
+  )
+}
+
+function RosterSection({
+  season,
+  contestants,
+  episodes,
+  userId,
+  rosterPoints,
+}: {
+  season: Season
+  contestants: Contestant[]
+  episodes: Episode[]
+  userId: string
+  rosterPoints: Map<string, number>
+}) {
+  const [roster, setRoster] = useState<RosterPick[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [swapOld, setSwapOld] = useState('')
+  const [swapNew, setSwapNew] = useState('')
+  const [swapEpisode, setSwapEpisode] = useState('')
+  const [swapping, setSwapping] = useState(false)
+  const [swapError, setSwapError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .then(setRoster)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
+  }, [season.id, userId])
+
+  const lockEpisode =
+    season.roster_lock_episode != null
+      ? episodes.find((e) => e.episode_number === season.roster_lock_episode)
+      : undefined
+  const windowOpen =
+    season.roster_lock_episode != null &&
+    season.status !== 'completed' &&
+    (lockEpisode == null ||
+      (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
+
+  const hasRoster = roster.length > 0
+  const activeRoster = roster.filter((r) => r.active_until_episode === null)
+  const swappedRoster = roster.filter((r) => r.active_until_episode !== null)
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+
+  const upcomingEpisodes = episodes.filter(
+    (e) => e.status !== 'scored' && new Date(e.picks_lock_at) > new Date(),
+  )
+  const rosterContestantIds = new Set(roster.map((r) => r.contestant_id))
+  const swapCandidates = contestants.filter(
+    (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
+  )
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else if (next.size < season.roster_size) next.add(id)
+      return next
+    })
+  }
+
+  async function submitRoster() {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const picks = await api.post<RosterPick[]>(`/seasons/${season.id}/roster`, {
+        contestant_ids: [...selected],
+      })
+      setRoster(picks)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Submit failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function submitSwap() {
+    if (!swapOld || !swapNew || !swapEpisode) return
+    setSwapping(true)
+    setSwapError(null)
+    try {
+      await api.post<RosterPick>(`/seasons/${season.id}/roster/swap`, {
+        old_contestant_id: swapOld,
+        new_contestant_id: swapNew,
+        episode_id: swapEpisode,
+      })
+      setRoster(await api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`))
+      setSwapOld('')
+      setSwapNew('')
+      setSwapEpisode('')
+    } catch (e) {
+      setSwapError(e instanceof Error ? e.message : 'Swap failed')
+    } finally {
+      setSwapping(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionTitle>My Roster</SectionTitle>
+      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+
+      {hasRoster ? (
+        <div className="space-y-6">
+          <ul className="space-y-2">
+            {activeRoster.map((pick) => {
+              const c = contestantMap.get(pick.contestant_id)
+              return (
+                <li
+                  key={pick.id}
+                  className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+                >
+                  <span className="flex items-center gap-2 font-medium text-gray-900">
+                    <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
+                    {c?.name ?? '—'}
+                  </span>
+                  <Points value={rosterPoints.get(pick.contestant_id)} />
+                </li>
+              )
+            })}
+          </ul>
+
+          {swappedRoster.length > 0 && (
+            <div>
+              <SectionTitle>Swapped Out</SectionTitle>
+              <ul className="space-y-2">
+                {swappedRoster.map((pick) => {
+                  const c = contestantMap.get(pick.contestant_id)
+                  return (
+                    <li
+                      key={pick.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-400"
+                    >
+                      <span className="line-through">{c?.name ?? '—'}</span>
+                      <span className="text-xs">
+                        ep {pick.active_from_episode}–{pick.active_until_episode}
+                        {pick.swap_penalty_points !== 0 && (
+                          <span className="ml-2 text-red-400">{pick.swap_penalty_points} pts</span>
+                        )}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {season.status !== 'completed' &&
+            upcomingEpisodes.length > 0 &&
+            swapCandidates.length > 0 && (
+              <div className="pt-4 border-t border-gray-100">
+                <SectionTitle>Swap a Pick ({season.swap_penalty_points} pts penalty)</SectionTitle>
+                <div className="space-y-3">
+                  <div className="flex gap-3 flex-wrap">
+                    <select
+                      value={swapOld}
+                      onChange={(e) => setSwapOld(e.target.value)}
+                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">Drop contestant…</option>
+                      {activeRoster.map((pick) => (
+                        <option key={pick.id} value={pick.contestant_id}>
+                          {contestantMap.get(pick.contestant_id)?.name ?? pick.contestant_id}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={swapNew}
+                      onChange={(e) => setSwapNew(e.target.value)}
+                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">Add contestant…</option>
+                      {swapCandidates.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={swapEpisode}
+                      onChange={(e) => setSwapEpisode(e.target.value)}
+                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">Episode…</option>
+                      {upcomingEpisodes.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          Ep {e.episode_number}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {swapError && <p className="text-red-600 text-sm">{swapError}</p>}
+                  <button
+                    onClick={submitSwap}
+                    disabled={!swapOld || !swapNew || !swapEpisode || swapping}
+                    className="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-gray-900 transition-colors"
+                  >
+                    {swapping ? 'Swapping…' : 'Confirm Swap'}
+                  </button>
+                </div>
+              </div>
+            )}
+        </div>
+      ) : windowOpen ? (
+        <div>
+          <p className="text-sm text-gray-600 mb-1">
+            Pick {season.roster_size} castaways for your season roster.
+          </p>
+          <p className="text-xs text-gray-400 mb-4">
+            Lock-in before episode {season.roster_lock_episode} · {selected.size} /{' '}
+            {season.roster_size} selected
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            {contestants.map((c) => {
+              const isSelected = selected.has(c.id)
+              const maxed = !isSelected && selected.size >= season.roster_size
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => toggleSelect(c.id)}
+                  disabled={maxed}
+                  className={[
+                    'flex items-center gap-2 p-3 rounded-lg border text-left text-sm font-medium transition-colors',
+                    isSelected
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                      : maxed
+                        ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                  ].join(' ')}
+                >
+                  <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
+                  {c.name}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={submitRoster}
+            disabled={selected.size !== season.roster_size || submitting}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+          >
+            {submitting ? 'Submitting…' : 'Lock In Roster'}
+          </button>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500">Roster submission window has closed.</p>
+      )}
+    </div>
+  )
+}
+
+// ─── Picks section ──────────────────────────────────────────────────────────
+
+function PicksSection({
+  season,
+  contestants,
+  episodes,
+  userId,
+  plays,
+  setPlays,
+  pickResults,
+}: {
+  season: Season
+  contestants: Contestant[]
+  episodes: Episode[]
+  userId: string
+  plays: AdvantagePlay[]
+  setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
+  pickResults: Map<string, PickResult>
+}) {
+  const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
+  const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
+  const [submitting, setSubmitting] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Map<string, string>>(new Map())
+  const [doubleTarget, setDoubleTarget] = useState('')
+  const [advBusy, setAdvBusy] = useState(false)
+  const [advError, setAdvError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const results = await Promise.all(
+        episodes.map((ep) =>
+          api
+            .get<EliminationPick[]>(`/episodes/${ep.id}/picks/${userId}`)
+            .then((picks): [string, EliminationPick[]] => [ep.id, picks])
+            .catch((): [string, EliminationPick[]] => [ep.id, []]),
+        ),
+      )
+      const picksMap = new Map(results)
+      setPicksByEpisode(picksMap)
+      const pendingMap = new Map<string, Set<string>>()
+      for (const ep of episodes) {
+        if (isEpisodeOpen(ep, season)) {
+          const saved = picksMap.get(ep.id) ?? []
+          pendingMap.set(ep.id, new Set(saved.map((p) => p.contestant_id)))
+        }
+      }
+      setPending(pendingMap)
+    }
+    void load()
+  }, [episodes, season, userId])
+
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const isOpen = (ep: Episode) => isEpisodeOpen(ep, season)
+
+  function togglePick(episodeId: string, contestantId: string, maxPicks: number) {
+    setPending((prev) => {
+      const next = new Map(prev)
+      const set = new Set(next.get(episodeId) ?? [])
+      if (set.has(contestantId)) set.delete(contestantId)
+      else if (set.size < maxPicks) set.add(contestantId)
+      next.set(episodeId, set)
+      return next
+    })
+  }
+
+  function replacePlay(updated: AdvantagePlay) {
+    setPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+  }
+
+  async function applyPlay(play: AdvantagePlay, targetContestantId?: string) {
+    setAdvBusy(true)
+    setAdvError(null)
+    try {
+      replacePlay(
+        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
+          target_contestant_id: targetContestantId ?? null,
+        }),
+      )
+      setDoubleTarget('')
+    } catch (e) {
+      setAdvError(e instanceof Error ? e.message : 'Advantage failed')
+    } finally {
+      setAdvBusy(false)
+    }
+  }
+
+  async function takeBackPlay(play: AdvantagePlay) {
+    setAdvBusy(true)
+    setAdvError(null)
+    try {
+      replacePlay(await api.delete<AdvantagePlay>(`/advantage-plays/${play.id}/use`))
+    } catch (e) {
+      setAdvError(e instanceof Error ? e.message : 'Take back failed')
+    } finally {
+      setAdvBusy(false)
+    }
+  }
+
+  function cancelEdit(episodeId: string) {
+    const saved = picksByEpisode.get(episodeId) ?? []
+    setPending((prev) => new Map(prev).set(episodeId, new Set(saved.map((p) => p.contestant_id))))
+    setEditing(false)
+  }
+
+  async function submitPicks(episodeId: string) {
+    setSubmitting(episodeId)
+    setErrors((prev) => {
+      const m = new Map(prev)
+      m.delete(episodeId)
+      return m
+    })
+    try {
+      const picks = await api.post<EliminationPick[]>(`/episodes/${episodeId}/picks`, {
+        contestant_ids: [...(pending.get(episodeId) ?? [])],
+      })
+      setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
+      setEditing(false)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Submit failed'
+      setErrors((prev) => new Map(prev).set(episodeId, msg))
+    } finally {
+      setSubmitting(null)
+    }
+  }
+
+  const nextOpen = episodes.find(isOpen)
+  const closedEpisodes = episodes.filter((ep) => !isOpen(ep)).reverse()
+
+  return (
+    <div>
+      <SectionTitle>Elimination Picks</SectionTitle>
+
+      {!nextOpen && closedEpisodes.length === 0 && (
+        <p className="text-gray-500 text-sm">No episodes yet.</p>
+      )}
+
+      {nextOpen &&
+        (() => {
+          const ep = nextOpen
+          const epPending = pending.get(ep.id) ?? new Set<string>()
+          const episodeError = errors.get(ep.id)
+          const savedPicks = picksByEpisode.get(ep.id) ?? []
+          const hasSavedPicks = savedPicks.length > 0
+          const confirmed = hasSavedPicks && !editing
+
+          const ownedExtra = plays.find(
+            (p) => p.episode_id === null && p.advantage_type === 'extra_vote',
+          )
+          const activeExtra = plays.find(
+            (p) => p.episode_id === ep.id && p.advantage_type === 'extra_vote',
+          )
+          const ownedDouble = plays.find(
+            (p) => p.episode_id === null && p.advantage_type === 'double_vote_points',
+          )
+          const activeDouble = plays.find(
+            (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
+          )
+          const maxPicks = ep.max_elimination_picks + (activeExtra ? 1 : 0)
+
+          return (
+            <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-semibold text-gray-900">Episode {ep.episode_number}</h3>
+                <span className="text-xs text-gray-400">Locks {formatCentral(ep.picks_lock_at)}</span>
+              </div>
+              {confirmed ? (
+                <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
+                  <p className="text-3xl mb-1">🔥</p>
+                  <p className="font-semibold text-green-800 mb-3">
+                    Picks locked in for Episode {ep.episode_number}
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {savedPicks.map((p) => (
+                      <span
+                        key={p.id}
+                        className="text-sm px-3 py-1.5 bg-white border border-green-200 rounded-lg font-medium text-gray-800"
+                      >
+                        {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                        {activeDouble?.target_contestant_id === p.contestant_id && (
+                          <span className="text-indigo-600 font-semibold"> ×2</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Pick up to {maxPicks} to be eliminated · {epPending.size} / {maxPicks} selected
+                    {activeExtra && ' · Extra Vote active'}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                    {contestants.map((c) => {
+                      const isOut = c.eliminated_in_episode != null
+                      const isSelected = epPending.has(c.id)
+                      const isDoubled = activeDouble?.target_contestant_id === c.id
+                      const maxed = !isSelected && epPending.size >= maxPicks
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => togglePick(ep.id, c.id, maxPicks)}
+                          disabled={maxed || isOut}
+                          className={[
+                            'flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
+                            isOut
+                              ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
+                              : isSelected
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                                : maxed
+                                  ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                          ].join(' ')}
+                        >
+                          <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
+                          {c.name}
+                          {isDoubled && <span className="text-indigo-600 font-semibold"> ×2</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {(ownedExtra || activeExtra || ownedDouble || activeDouble) && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                    Advantages
+                  </p>
+                  {activeExtra ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">Extra Vote active — +1 pick this episode</span>
+                      <button
+                        onClick={() => void takeBackPlay(activeExtra)}
+                        disabled={advBusy}
+                        className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                      >
+                        Take back
+                      </button>
+                    </div>
+                  ) : (
+                    ownedExtra && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">You own an Extra Vote</span>
+                        <button
+                          onClick={() => void applyPlay(ownedExtra)}
+                          disabled={advBusy}
+                          className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-700 transition-colors"
+                        >
+                          Play it (+1 pick)
+                        </button>
+                      </div>
+                    )
+                  )}
+                  {activeDouble ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">
+                        Double Vote Points on{' '}
+                        <span className="font-medium">
+                          {contestantMap.get(activeDouble.target_contestant_id ?? '')?.name ?? '—'}
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => void takeBackPlay(activeDouble)}
+                        disabled={advBusy}
+                        className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                      >
+                        Take back
+                      </button>
+                    </div>
+                  ) : (
+                    ownedDouble &&
+                    (epPending.size > 0 ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-700 shrink-0">Double a pick:</span>
+                        <select
+                          value={doubleTarget}
+                          onChange={(e) => setDoubleTarget(e.target.value)}
+                          className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
+                        >
+                          <option value="">Choose…</option>
+                          {[...epPending].map((cid) => (
+                            <option key={cid} value={cid}>
+                              {contestantMap.get(cid)?.name ?? '—'}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => void applyPlay(ownedDouble, doubleTarget)}
+                          disabled={advBusy || !doubleTarget}
+                          className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-700 transition-colors"
+                        >
+                          Double ×2
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        You own Double Vote Points — select picks first, then double one.
+                      </p>
+                    ))
+                  )}
+                  {advError && <p className="text-red-600 text-xs">{advError}</p>}
+                </div>
+              )}
+
+              {episodeError && <p className="text-red-600 text-sm mb-3">{episodeError}</p>}
+              {confirmed ? (
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
+                  >
+                    Edit Picks
+                  </button>
+                  <span className="text-xs text-gray-400">
+                    Editable until {formatCentral(ep.picks_lock_at)}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => submitPicks(ep.id)}
+                    disabled={submitting === ep.id || epPending.size === 0}
+                    className="flex-1 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                  >
+                    {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Picks'}
+                  </button>
+                  {hasSavedPicks && (
+                    <button
+                      onClick={() => cancelEdit(ep.id)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
+      {closedEpisodes.length > 0 && (
+        <div>
+          {nextOpen && (
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+              Past Episodes
+            </h3>
+          )}
+          <div className="space-y-3">
+            {closedEpisodes.map((ep) => {
+              const picks = picksByEpisode.get(ep.id) ?? []
+              const scored = ep.status === 'scored'
+              return (
+                <div key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-700">Episode {ep.episode_number}</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        scored ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {ep.status}
+                    </span>
+                  </div>
+                  {picks.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {picks.map((p) => {
+                        const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
+                        const name = contestantMap.get(p.contestant_id)?.name ?? '—'
+                        // Only scored episodes have a settled result to color (#53)
+                        const cls = !scored
+                          ? 'bg-white border-gray-200 text-gray-700'
+                          : result?.correct
+                            ? 'bg-green-50 border-green-300 text-green-800'
+                            : 'bg-red-50 border-red-200 text-red-700 line-through'
+                        return (
+                          <span
+                            key={p.id}
+                            className={`text-sm px-2 py-1 border rounded-md ${cls}`}
+                          >
+                            {scored && (result?.correct ? '✓ ' : '✗ ')}
+                            {name}
+                            {scored && result?.correct && result.points > 0 && (
+                              <span className="ml-1 font-semibold no-underline">
+                                +{result.points}
+                              </span>
+                            )}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">No picks submitted</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Winner section ─────────────────────────────────────────────────────────
+
+function WinnerSection({
+  season,
+  contestants,
+  episodes,
+  userId,
+}: {
+  season: Season
+  contestants: Contestant[]
+  episodes: Episode[]
+  userId: string
+}) {
+  const [winner, setWinner] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api
+      .get<WinnerPick>(`/seasons/${season.id}/winner-picks/${userId}`)
+      .then((p) => setWinner(p.winner_contestant_id))
+      .catch(() => {
+        // No pick yet — form starts empty
+      })
+  }, [season.id, userId])
+
+  const lockEpisode =
+    season.winner_lock_episode != null
+      ? (episodes.find((e) => e.episode_number === season.winner_lock_episode) ?? null)
+      : null
+  const windowOpen =
+    season.winner_lock_episode != null &&
+    season.status !== 'completed' &&
+    (lockEpisode == null ||
+      (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
+
+  const alive = contestants.filter((c) => c.eliminated_in_episode == null)
+  const pickedName = contestants.find((c) => c.id === winner)?.name
+
+  async function submitPick() {
+    if (!winner) return
+    setSubmitting(true)
+    setSubmitError(null)
+    setSaved(false)
+    try {
+      await api.post<WinnerPick>(`/seasons/${season.id}/winner-picks`, {
+        winner_contestant_id: winner,
+      })
+      setSaved(true)
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Submit failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionTitle>Winner Pick</SectionTitle>
+      {!windowOpen ? (
+        <p className="text-sm text-gray-600">
+          {winner ? (
+            <>
+              Your winner pick: <span className="font-medium text-gray-900">{pickedName}</span>
+            </>
+          ) : season.winner_lock_episode ? (
+            'Winner pick window has closed.'
+          ) : (
+            'Winner pick window has not opened yet.'
+          )}
+        </p>
+      ) : (
+        <>
+          <p className="text-xs text-gray-400 mb-3">
+            Locks before episode {season.winner_lock_episode}
+            {lockEpisode && <> ({formatCentral(lockEpisode.picks_lock_at)})</>} · changeable until
+            then
+          </p>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select
+              value={winner}
+              onChange={(e) => {
+                setWinner(e.target.value)
+                setSaved(false)
+              }}
+              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Select a winner…</option>
+              {alive.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={submitPick}
+              disabled={!winner || submitting}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+            >
+              {submitting ? 'Saving…' : 'Save Pick'}
+            </button>
+          </div>
+          {submitError && <p className="text-red-600 text-sm mt-2">{submitError}</p>}
+          {saved && <p className="text-green-600 text-sm mt-2">Pick saved.</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Tokens section ─────────────────────────────────────────────────────────
+
+function TokensSection({
+  balance,
+  plays,
+  contestants,
+}: {
+  balance: number | null
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
+}) {
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const active = plays.filter((p) => p.episode_id !== null)
+  const owned = plays.filter((p) => p.episode_id === null)
+
+  function label(p: AdvantagePlay) {
+    const name = p.target_contestant_id
+      ? contestantMap.get(p.target_contestant_id)?.name
+      : undefined
+    return p.advantage_type.replace(/_/g, ' ') + (name ? ` · ${name}` : '')
+  }
+
+  return (
+    <div>
+      <SectionTitle>Tokens & Advantages</SectionTitle>
+      <div className="flex items-baseline gap-2 mb-3">
+        <span className="text-2xl font-bold text-gray-900">{balance ?? '—'}</span>
+        <span className="text-sm text-gray-500">tokens</span>
+      </div>
+      {(active.length > 0 || owned.length > 0) && (
+        <ul className="space-y-1 text-sm">
+          {active.map((p) => (
+            <li key={p.id} className="text-gray-700">
+              <span className="text-green-600 font-medium">Active</span> — {label(p)}
+            </li>
+          ))}
+          {owned.map((p) => (
+            <li key={p.id} className="text-gray-500">
+              Owned — {label(p)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}

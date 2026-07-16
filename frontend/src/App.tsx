@@ -7,11 +7,9 @@ import { AdvantagesPage } from './pages/AdvantagesPage'
 import { FinalePage } from './pages/FinalePage'
 import { JoinPage } from './pages/JoinPage'
 import { LoginPage } from './pages/LoginPage'
-import { PicksPage } from './pages/PicksPage'
+import { MySeasonPage } from './pages/MySeasonPage'
 import { ProfilePage } from './pages/ProfilePage'
-import { RosterPage } from './pages/RosterPage'
 import { StandingsPage } from './pages/StandingsPage'
-import { WinnerPickPage } from './pages/WinnerPickPage'
 
 export default function App() {
   return (
@@ -23,16 +21,8 @@ export default function App() {
             <Route path="login" element={<LoginPage />} />
             <Route path="join" element={<JoinPage />} />
             <Route
-              path="roster"
-              element={<ProtectedRoute><RosterPage /></ProtectedRoute>}
-            />
-            <Route
-              path="picks"
-              element={<ProtectedRoute><PicksPage /></ProtectedRoute>}
-            />
-            <Route
-              path="winner-pick"
-              element={<ProtectedRoute><WinnerPickPage /></ProtectedRoute>}
+              path="my-season"
+              element={<ProtectedRoute><MySeasonPage /></ProtectedRoute>}
             />
             <Route
               path="advantages"
