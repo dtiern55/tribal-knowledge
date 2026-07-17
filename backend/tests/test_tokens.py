@@ -168,7 +168,8 @@ def test_scoring_events_no_tokens_for_zero_value_event(client, db_conn, current_
 
 
 @pytest.mark.integration
-def test_scoring_events_replace_clears_old_tokens(client, db_conn, current_user):
+def test_deleting_scoring_event_clears_its_tokens(client, db_conn, current_user):
+    """Additive (#71): token grants are reversed by DELETE, not by re-POST."""
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"], episode_number=1)
     c = insert_contestant(db_conn, season["id"], "Token Earner")
@@ -176,20 +177,15 @@ def test_scoring_events_replace_clears_old_tokens(client, db_conn, current_user)
         db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
     )
 
-    # First post: earns 20 tokens
-    client.post(
+    created = client.post(
         f"/episodes/{ep['id']}/scoring-events",
         json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
-    )
-    # Replace with a zero-token event — old tokens should be cleared
-    client.post(
-        f"/episodes/{ep['id']}/scoring-events",
-        json=[{"contestant_id": str(c["id"]), "event_type": "win_individual_immunity"}],
-    )
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
-        "balance"
-    ]
-    assert balance == 0
+    ).json()
+    url = f"/seasons/{season['id']}/tokens/{current_user['id']}"
+    assert client.get(url).json()["balance"] == 20  # steal_immunity_idol grants 20
+
+    client.delete(f"/scoring-events/{created[0]['id']}")
+    assert client.get(url).json()["balance"] == 0
 
 
 @pytest.mark.integration

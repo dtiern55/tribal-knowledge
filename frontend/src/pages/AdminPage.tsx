@@ -344,14 +344,15 @@ function ContestantsSection({
 
 // ─── Episode panel (expanded) ─────────────────────────────────────────────────
 
-interface ScoringEventDraft {
-  key: number
+interface ScoringEventRow {
+  id: string
   contestant_id: string
   event_type: string
   quantity: number
 }
 
-interface EliminationDraft {
+interface EliminationRow {
+  id: string
   contestant_id: string
   elimination_type: string
 }
@@ -376,23 +377,20 @@ function EpisodePanel({
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
-  // Eliminations
-  const [elimDrafts, setElimDrafts] = useState<EliminationDraft[]>([])
+  // Eliminations — live: each add/remove persists immediately (issue #71)
+  const [elims, setElims] = useState<EliminationRow[]>([])
   const [elimLoaded, setElimLoaded] = useState(false)
-  const [elimSaving, setElimSaving] = useState(false)
+  const [elimBusy, setElimBusy] = useState<string | null>(null)
   const [elimError, setElimError] = useState<string | null>(null)
-  const [elimSuccess, setElimSuccess] = useState<string | null>(null)
 
-  // Scoring events
-  const [eventDrafts, setEventDrafts] = useState<ScoringEventDraft[]>([])
+  // Scoring events — live: each add/remove persists immediately (issue #71)
+  const [events, setEvents] = useState<ScoringEventRow[]>([])
   const [eventsLoaded, setEventsLoaded] = useState(false)
-  const [nextKey, setNextKey] = useState(0)
   const [newContestant, setNewContestant] = useState('')
   const [newEventType, setNewEventType] = useState(eventTypes[0]?.event_type ?? '')
   const [newQty, setNewQty] = useState(1)
-  const [eventsSaving, setEventsSaving] = useState(false)
+  const [eventsBusy, setEventsBusy] = useState(false)
   const [eventsError, setEventsError] = useState<string | null>(null)
-  const [eventsSuccess, setEventsSuccess] = useState<string | null>(null)
 
   // Score episode
   const [scoring, setScoring] = useState(false)
@@ -402,30 +400,13 @@ function EpisodePanel({
   useEffect(() => {
     // Load eliminations and scoring events when panel opens
     async function loadData() {
-      const [elims, events] = await Promise.all([
-        api
-          .get<{ contestant_id: string; elimination_type: string }[]>(
-            `/episodes/${episode.id}/eliminations`,
-          )
-          .catch(() => []),
-        api
-          .get<{ contestant_id: string; event_type: string; quantity: number }[]>(
-            `/episodes/${episode.id}/scoring-events`,
-          )
-          .catch(() => []),
+      const [elimRows, eventRows] = await Promise.all([
+        api.get<EliminationRow[]>(`/episodes/${episode.id}/eliminations`).catch(() => []),
+        api.get<ScoringEventRow[]>(`/episodes/${episode.id}/scoring-events`).catch(() => []),
       ])
-      setElimDrafts(elims.map((e) => ({ contestant_id: e.contestant_id, elimination_type: e.elimination_type })))
+      setElims(elimRows)
       setElimLoaded(true)
-      let k = 0
-      setEventDrafts(
-        events.map((e) => ({
-          key: k++,
-          contestant_id: e.contestant_id,
-          event_type: e.event_type,
-          quantity: e.quantity,
-        })),
-      )
-      setNextKey(k)
+      setEvents(eventRows)
       setEventsLoaded(true)
     }
     void loadData()
@@ -445,53 +426,61 @@ function EpisodePanel({
   }
 
   function toggleElim(contestantId: string) {
-    setElimDrafts((prev) => {
-      const exists = prev.some((e) => e.contestant_id === contestantId)
-      if (exists) return prev.filter((e) => e.contestant_id !== contestantId)
-      return [...prev, { contestant_id: contestantId, elimination_type: 'voted_out' }]
-    })
-  }
-
-  function setElimType(contestantId: string, type: string) {
-    setElimDrafts((prev) =>
-      prev.map((e) => (e.contestant_id === contestantId ? { ...e, elimination_type: type } : e)),
+    const existing = elims.find((e) => e.contestant_id === contestantId)
+    setElimBusy(contestantId)
+    void run(
+      (b) => setElimBusy(b ? contestantId : null),
+      setElimError,
+      async () => {
+        if (existing) {
+          await api.delete(`/eliminations/${existing.id}`)
+          setElims((prev) => prev.filter((e) => e.id !== existing.id))
+        } else {
+          const [row] = await api.post<EliminationRow[]>(
+            `/episodes/${episode.id}/eliminations`,
+            [{ contestant_id: contestantId, elimination_type: 'voted_out' }],
+          )
+          setElims((prev) => [...prev, row])
+        }
+      },
     )
   }
 
-  function saveEliminations() {
-    setElimSuccess(null)
-    void run(setElimSaving, setElimError, async () => {
-      await api.post(`/episodes/${episode.id}/eliminations`, elimDrafts)
-      setElimSuccess('Eliminations saved.')
+  function setElimType(contestantId: string, type: string) {
+    const existing = elims.find((e) => e.contestant_id === contestantId)
+    if (!existing) return
+    setElimBusy(contestantId)
+    // No PATCH endpoint — replace the row (delete + re-add with the new type)
+    void run(
+      (b) => setElimBusy(b ? contestantId : null),
+      setElimError,
+      async () => {
+        await api.delete(`/eliminations/${existing.id}`)
+        const [row] = await api.post<EliminationRow[]>(
+          `/episodes/${episode.id}/eliminations`,
+          [{ contestant_id: contestantId, elimination_type: type }],
+        )
+        setElims((prev) => prev.map((e) => (e.id === existing.id ? row : e)))
+      },
+    )
+  }
+
+  function addEvent() {
+    if (!newContestant) return
+    void run(setEventsBusy, setEventsError, async () => {
+      const [row] = await api.post<ScoringEventRow[]>(
+        `/episodes/${episode.id}/scoring-events`,
+        [{ contestant_id: newContestant, event_type: newEventType, quantity: newQty }],
+      )
+      setEvents((prev) => [...prev, row])
+      setNewQty(1)
     })
   }
 
-  function addEventDraft() {
-    if (!newContestant) return
-    setEventDrafts((prev) => [
-      ...prev,
-      { key: nextKey, contestant_id: newContestant, event_type: newEventType, quantity: newQty },
-    ])
-    setNextKey((k) => k + 1)
-    setNewQty(1)
-  }
-
-  function removeEventDraft(key: number) {
-    setEventDrafts((prev) => prev.filter((e) => e.key !== key))
-  }
-
-  function saveScoringEvents() {
-    setEventsSuccess(null)
-    void run(setEventsSaving, setEventsError, async () => {
-      await api.post(
-        `/episodes/${episode.id}/scoring-events`,
-        eventDrafts.map(({ contestant_id, event_type, quantity }) => ({
-          contestant_id,
-          event_type,
-          quantity,
-        })),
-      )
-      setEventsSuccess('Scoring events saved.')
+  function removeEvent(id: string) {
+    void run(setEventsBusy, setEventsError, async () => {
+      await api.delete(`/scoring-events/${id}`)
+      setEvents((prev) => prev.filter((e) => e.id !== id))
     })
   }
 
@@ -505,7 +494,7 @@ function EpisodePanel({
   }
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const selectedElimIds = new Set(elimDrafts.map((e) => e.contestant_id))
+  const selectedElimIds = new Set(elims.map((e) => e.contestant_id))
 
   return (
     <div className="mt-3 space-y-6 pt-4 border-t border-gray-100">
@@ -578,12 +567,13 @@ function EpisodePanel({
           <div className="space-y-2">
             {contestants.map((c) => {
               const isSelected = selectedElimIds.has(c.id)
-              const draft = elimDrafts.find((e) => e.contestant_id === c.id)
+              const draft = elims.find((e) => e.contestant_id === c.id)
               return (
                 <div key={c.id} className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    disabled={elimBusy === c.id}
                     onChange={() => toggleElim(c.id)}
                     id={`elim-${episode.id}-${c.id}`}
                   />
@@ -597,6 +587,7 @@ function EpisodePanel({
                   {isSelected && draft && (
                     <select
                       value={draft.elimination_type}
+                      disabled={elimBusy === c.id}
                       onChange={(e) => setElimType(c.id, e.target.value)}
                       className="border border-gray-200 rounded px-2 py-1 text-xs"
                     >
@@ -613,12 +604,7 @@ function EpisodePanel({
           </div>
         )}
         <ErrorMsg msg={elimError} />
-        <SuccessMsg msg={elimSuccess} />
-        <div className="mt-3">
-          <ActionBtn onClick={saveEliminations} disabled={elimSaving || !elimLoaded}>
-            {elimSaving ? 'Saving…' : 'Save eliminations'}
-          </ActionBtn>
-        </div>
+        <p className="text-xs text-gray-400 mt-2">Changes save automatically.</p>
       </div>
 
       {/* Scoring events */}
@@ -628,11 +614,11 @@ function EpisodePanel({
           <p className="text-xs text-gray-400">Loading…</p>
         ) : (
           <>
-            {eventDrafts.length > 0 && (
+            {events.length > 0 && (
               <div className="space-y-1 mb-3">
-                {eventDrafts.map((ev) => (
+                {events.map((ev) => (
                   <div
-                    key={ev.key}
+                    key={ev.id}
                     className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 rounded px-3 py-1.5"
                   >
                     <span className="flex-1">
@@ -642,8 +628,9 @@ function EpisodePanel({
                       {ev.quantity !== 1 && ` ×${ev.quantity}`}
                     </span>
                     <button
-                      onClick={() => removeEventDraft(ev.key)}
-                      className="text-gray-400 hover:text-red-500 text-xs"
+                      onClick={() => removeEvent(ev.id)}
+                      disabled={eventsBusy}
+                      className="text-gray-400 hover:text-red-500 text-xs disabled:opacity-40"
                     >
                       ✕
                     </button>
@@ -682,17 +669,17 @@ function EpisodePanel({
                 min={1}
                 className="w-16 border border-gray-200 rounded px-2 py-1 text-sm"
               />
-              <ActionBtn variant="secondary" onClick={addEventDraft} disabled={!newContestant}>
-                + Add
+              <ActionBtn
+                variant="secondary"
+                onClick={addEvent}
+                disabled={!newContestant || eventsBusy}
+              >
+                {eventsBusy ? 'Saving…' : '+ Add'}
               </ActionBtn>
             </div>
           </>
         )}
         <ErrorMsg msg={eventsError} />
-        <SuccessMsg msg={eventsSuccess} />
-        <ActionBtn onClick={saveScoringEvents} disabled={eventsSaving || !eventsLoaded}>
-          {eventsSaving ? 'Saving…' : 'Save scoring events'}
-        </ActionBtn>
       </div>
 
       {/* Score episode */}

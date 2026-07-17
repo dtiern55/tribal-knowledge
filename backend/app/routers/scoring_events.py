@@ -82,16 +82,8 @@ def set_scoring_events(
                         detail=f"Unknown event types: {invalid_types}",
                     )
 
-            # Delete token transactions before scoring events (FK dependency)
-            cur.execute(
-                "delete from token_transactions"
-                " where episode_id = %s and transaction_type = 'gameplay_event'",
-                [str(episode_id)],
-            )
-            cur.execute(
-                "delete from scoring_events where episode_id = %s", [str(episode_id)]
-            )
-
+            # Additive: append the submitted events, never wipe existing ones
+            # (issue #71). Remove individual events via DELETE /scoring-events/{id}.
             rows = []
             for entry in body:
                 cur.execute(
@@ -151,3 +143,19 @@ def set_scoring_events(
                             ],
                         )
             return rows
+
+
+@router.delete("/scoring-events/{event_id}", status_code=204)
+def delete_scoring_event(event_id: UUID, _: UUID = Depends(get_current_admin)):
+    """Remove one scoring event and reverse its token grants (issue #71)."""
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("select id from scoring_events where id = %s", [str(event_id)])
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Scoring event not found")
+            # token_transactions.scoring_event_id has no cascade — clear first
+            cur.execute(
+                "delete from token_transactions where scoring_event_id = %s",
+                [str(event_id)],
+            )
+            cur.execute("delete from scoring_events where id = %s", [str(event_id)])
