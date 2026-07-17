@@ -47,7 +47,9 @@ def test_cast_lists_base_scores(client, db_conn):
     ep = insert_episode(db_conn, season["id"], episode_number=2)
     star = insert_contestant(db_conn, season["id"], "Star")
     dud = insert_contestant(db_conn, season["id"], "Dud")
-    insert_scoring_event(db_conn, ep["id"], star["id"], "win_individual_immunity")  # +15
+    insert_scoring_event(
+        db_conn, ep["id"], star["id"], "win_individual_immunity"
+    )  # +15
     insert_scoring_event(db_conn, ep["id"], star["id"], "use_extra_vote")  # +10 tkn
     insert_elimination(db_conn, ep["id"], dud["id"])
 
