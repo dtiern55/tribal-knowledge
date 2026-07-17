@@ -148,3 +148,19 @@ export interface ScoringBreakdown {
   picks: PickResult[]
 }
 
+export interface ContestantEpisodeStat {
+  episode_number: number
+  points: number
+  events: string[]
+  eliminated_type: string | null
+}
+
+export interface ContestantPerformance {
+  name: string
+  image_url: string | null
+  placement: number | null
+  eliminated_in_episode: number | null
+  total_points: number
+  episodes: ContestantEpisodeStat[]
+}
+
