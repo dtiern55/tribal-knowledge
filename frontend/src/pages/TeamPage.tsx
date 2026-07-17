@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import type { Contestant, RosterPick, StandingEntry } from '../types'
@@ -8,6 +8,7 @@ import type { Contestant, RosterPick, StandingEntry } from '../types'
 // The roster endpoint 403s until rosters lock, so hidden teams show a note.
 export function TeamPage() {
   const { seasonId, userId } = useParams()
+  const navigate = useNavigate()
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [name, setName] = useState<string>('')
@@ -47,9 +48,12 @@ export function TeamPage() {
 
   return (
     <div>
-      <Link to="/standings" className="text-sm text-indigo-600 hover:text-indigo-800">
-        ← Standings
-      </Link>
+      <button
+        onClick={() => navigate(-1)}
+        className="text-sm text-indigo-600 hover:text-indigo-800"
+      >
+        ← Back
+      </button>
       <h1 className="text-2xl font-semibold text-gray-900 mt-3 mb-1">{name}</h1>
       <p className="text-sm text-gray-500 mb-6">Roster</p>
 

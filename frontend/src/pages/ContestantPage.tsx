@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import type { ContestantPerformance } from '../types'
 
 export function ContestantPage() {
   const { contestantId } = useParams()
+  const navigate = useNavigate()
   const [perf, setPerf] = useState<ContestantPerformance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,9 +26,12 @@ export function ContestantPage() {
 
   return (
     <div>
-      <Link to="/my-season" className="text-sm text-indigo-600 hover:text-indigo-800">
+      <button
+        onClick={() => navigate(-1)}
+        className="text-sm text-indigo-600 hover:text-indigo-800"
+      >
         ← Back
-      </Link>
+      </button>
       <div className="flex items-center gap-3 mt-3 mb-1">
         <ContestantAvatar name={perf.name} imageUrl={perf.image_url} size="md" />
         <h1 className="text-2xl font-semibold text-gray-900">{perf.name}</h1>
