@@ -7,11 +7,47 @@ from app.auth import get_current_admin, get_current_user
 from app.schemas import (
     StartingAllocationRequest,
     TokenBalance,
+    TokenLedgerEntry,
     TokenTransaction,
     WeeklyAllocationRequest,
 )
 
 router = APIRouter(tags=["tokens"])
+
+
+@router.get(
+    "/seasons/{season_id}/tokens/{user_id}/history",
+    response_model=list[TokenLedgerEntry],
+)
+def get_token_history(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
+    """Owner-only ledger of where a user's tokens came from and went (#74)."""
+    if str(user_id) != str(current_user):
+        raise HTTPException(status_code=403, detail="Token history is private")
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            database.require_season(cur, season_id)
+            cur.execute(
+                """
+                select tt.created_at, tt.transaction_type, tt.amount,
+                       e.episode_number,
+                       coalesce(c.name || ' — ' || et.label, ap.advantage_type)
+                         as description
+                from token_transactions tt
+                left join episodes e on e.id = tt.episode_id
+                left join scoring_events se on se.id = tt.scoring_event_id
+                left join contestants c on c.id = se.contestant_id
+                left join scoring_event_types et on et.event_type = se.event_type
+                left join advantage_plays ap on ap.id = tt.advantage_play_id
+                where tt.user_id = %s and tt.season_id = %s
+                order by tt.created_at desc
+                """,
+                [str(user_id), str(season_id)],
+            )
+            return cur.fetchall()
 
 
 @router.get("/seasons/{season_id}/tokens/{user_id}", response_model=TokenBalance)

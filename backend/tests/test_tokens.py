@@ -194,3 +194,31 @@ def test_other_users_balance_is_private(client, db_conn):
     other = insert_user(db_conn, display_name="Other")
     r = client.get(f"/seasons/{season['id']}/tokens/{other['id']}")
     assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_token_history_owner_only(client, db_conn, current_user):
+    season = insert_season(db_conn)
+    other = insert_user(db_conn, display_name="Other")
+    r = client.get(f"/seasons/{season['id']}/tokens/{other['id']}/history")
+    assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_token_history_describes_gameplay_event(client, db_conn, current_user):
+    season = insert_season(db_conn)
+    ep = insert_episode(db_conn, season["id"], episode_number=1)
+    c = insert_contestant(db_conn, season["id"], "Earner")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], c["id"])
+    client.post(
+        f"/episodes/{ep['id']}/scoring-events",
+        json=[{"contestant_id": str(c["id"]), "event_type": "survivor_moment"}],
+    )
+    r = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}/history")
+    assert r.status_code == 200
+    entries = r.json()
+    assert len(entries) == 1
+    assert entries[0]["transaction_type"] == "gameplay_event"
+    assert entries[0]["amount"] == 5
+    assert entries[0]["episode_number"] == 1
+    assert "Earner" in entries[0]["description"]
