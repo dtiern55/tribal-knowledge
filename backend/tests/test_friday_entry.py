@@ -52,7 +52,8 @@ def test_set_eliminations_appears_in_get(client, db_conn):
 
 
 @pytest.mark.integration
-def test_set_eliminations_replaces_existing(client, db_conn):
+def test_set_eliminations_appends(client, db_conn):
+    """Additive (#71): a second POST adds, it does not replace."""
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     c1 = insert_contestant(db_conn, season["id"], "Player A")
@@ -67,12 +68,12 @@ def test_set_eliminations_replaces_existing(client, db_conn):
     )
     assert r.status_code == 200
     result = client.get(f"/episodes/{ep['id']}/eliminations").json()
-    assert len(result) == 1
-    assert result[0]["contestant_id"] == str(c2["id"])
+    assert {row["contestant_id"] for row in result} == {str(c1["id"]), str(c2["id"])}
 
 
 @pytest.mark.integration
-def test_set_eliminations_empty_clears(client, db_conn):
+def test_set_eliminations_rejects_duplicate(client, db_conn):
+    """Additive (#71): can't eliminate the same contestant twice."""
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"])
@@ -80,9 +81,26 @@ def test_set_eliminations_empty_clears(client, db_conn):
         f"/episodes/{ep['id']}/eliminations",
         json=[{"contestant_id": str(c["id"]), "elimination_type": "voted_out"}],
     )
-    r = client.post(f"/episodes/{ep['id']}/eliminations", json=[])
-    assert r.status_code == 200
-    assert r.json() == []
+    r = client.post(
+        f"/episodes/{ep['id']}/eliminations",
+        json=[{"contestant_id": str(c["id"]), "elimination_type": "voted_out"}],
+    )
+    assert r.status_code == 400
+    assert "already eliminated" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_delete_elimination(client, db_conn):
+    season = insert_season(db_conn)
+    ep = insert_episode(db_conn, season["id"])
+    c = insert_contestant(db_conn, season["id"])
+    created = client.post(
+        f"/episodes/{ep['id']}/eliminations",
+        json=[{"contestant_id": str(c["id"]), "elimination_type": "voted_out"}],
+    ).json()
+    r = client.delete(f"/eliminations/{created[0]['id']}")
+    assert r.status_code == 204
+    assert client.get(f"/episodes/{ep['id']}/eliminations").json() == []
 
 
 @pytest.mark.integration
@@ -137,7 +155,7 @@ def test_set_eliminations_already_eliminated_prior_episode(client, db_conn):
         json=[{"contestant_id": str(c["id"]), "elimination_type": "voted_out"}],
     )
     assert r.status_code == 400
-    assert "prior episode" in r.json()["detail"]
+    assert "already eliminated" in r.json()["detail"]
 
 
 # --- Scoring events ---
@@ -196,7 +214,12 @@ def test_set_scoring_events_with_quantity_and_notes(client, db_conn):
 
 
 @pytest.mark.integration
-def test_set_scoring_events_replaces_existing(client, db_conn):
+def test_set_scoring_events_appends(client, db_conn):
+    """Additive (#71): a second POST adds — it does NOT wipe the first.
+
+    This is the exact practice-season-2 bug: recording points then tokens in
+    two calls used to erase the points.
+    """
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"])
@@ -210,22 +233,25 @@ def test_set_scoring_events_replaces_existing(client, db_conn):
     )
     assert r.status_code == 200
     result = client.get(f"/episodes/{ep['id']}/scoring-events").json()
-    assert len(result) == 1
-    assert result[0]["event_type"] == "win_individual_reward"
+    assert {row["event_type"] for row in result} == {
+        "win_individual_immunity",
+        "win_individual_reward",
+    }
 
 
 @pytest.mark.integration
-def test_set_scoring_events_empty_clears(client, db_conn):
+def test_delete_scoring_event(client, db_conn):
+    """DELETE removes one event (token reversal covered in test_tokens)."""
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"])
-    client.post(
+    created = client.post(
         f"/episodes/{ep['id']}/scoring-events",
         json=[{"contestant_id": str(c["id"]), "event_type": "win_individual_immunity"}],
-    )
-    r = client.post(f"/episodes/{ep['id']}/scoring-events", json=[])
-    assert r.status_code == 200
-    assert r.json() == []
+    ).json()
+    r = client.delete(f"/scoring-events/{created[0]['id']}")
+    assert r.status_code == 204
+    assert client.get(f"/episodes/{ep['id']}/scoring-events").json() == []
 
 
 @pytest.mark.integration
