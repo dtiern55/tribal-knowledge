@@ -6,6 +6,7 @@ import { AdminPage } from './pages/AdminPage'
 import { AdvantagesPage } from './pages/AdvantagesPage'
 import { FinalePage } from './pages/FinalePage'
 import { JoinPage } from './pages/JoinPage'
+import { ContestantPage } from './pages/ContestantPage'
 import { LoginPage } from './pages/LoginPage'
 import { MySeasonPage } from './pages/MySeasonPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -23,6 +24,10 @@ export default function App() {
             <Route
               path="my-season"
               element={<ProtectedRoute><MySeasonPage /></ProtectedRoute>}
+            />
+            <Route
+              path="contestants/:contestantId"
+              element={<ProtectedRoute><ContestantPage /></ProtectedRoute>}
             />
             <Route
               path="advantages"

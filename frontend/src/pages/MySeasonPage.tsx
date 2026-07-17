@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { isEpisodeOpen } from '../lib/episodes'
@@ -304,7 +305,10 @@ function RosterSection({
                   key={pick.id}
                   className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
                 >
-                  <span className="flex items-center gap-2 font-medium text-gray-900">
+                  <Link
+                    to={`/contestants/${pick.contestant_id}`}
+                    className="flex items-center gap-2 font-medium text-gray-900 hover:text-indigo-700"
+                  >
                     <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                     {c?.name ?? '—'}
                     {c?.eliminated_in_episode != null && (
@@ -312,7 +316,7 @@ function RosterSection({
                         Out ep {c.eliminated_in_episode}
                       </span>
                     )}
-                  </span>
+                  </Link>
                   <Points value={rosterPoints.get(pick.contestant_id)} />
                 </li>
               )

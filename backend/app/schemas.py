@@ -154,6 +154,22 @@ class SeasonUpdateRequest(BaseModel):
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 
 
+class ContestantEpisodeStat(BaseModel):
+    episode_number: int
+    points: int
+    events: list[str]
+    eliminated_type: Optional[str] = None
+
+
+class ContestantPerformance(BaseModel):
+    name: str
+    image_url: Optional[str] = None
+    placement: Optional[int] = None
+    eliminated_in_episode: Optional[int] = None
+    total_points: int
+    episodes: list[ContestantEpisodeStat]
+
+
 class ContestantsCreateRequest(BaseModel):
     names: list[str] = Field(min_length=1)
 
