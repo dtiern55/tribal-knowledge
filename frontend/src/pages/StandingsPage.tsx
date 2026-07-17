@@ -41,8 +41,8 @@ export function StandingsPage() {
             <th className="pb-2 font-medium">Player</th>
             <th className="pb-2 font-medium text-right">Roster</th>
             <th className="pb-2 font-medium text-right">Elim</th>
-            <th className="pb-2 font-medium text-right">Winner</th>
             <th className="pb-2 font-medium text-right">Finale</th>
+            <th className="pb-2 font-medium text-right">Winner</th>
             <th className="pb-2 font-medium text-right">Total</th>
           </tr>
         </thead>
@@ -53,8 +53,8 @@ export function StandingsPage() {
               <td className="py-3 font-medium text-gray-900">{entry.display_name}</td>
               <td className="py-3 text-right text-gray-700">{entry.roster_points}</td>
               <td className="py-3 text-right text-gray-700">{entry.elimination_points}</td>
-              <td className="py-3 text-right text-gray-700">{entry.winner_points}</td>
               <td className="py-3 text-right text-gray-700">{entry.finale_points}</td>
+              <td className="py-3 text-right text-gray-700">{entry.winner_points}</td>
               <td className="py-3 text-right font-semibold text-gray-900">
                 {entry.total_points}
               </td>
