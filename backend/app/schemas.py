@@ -71,6 +71,9 @@ class StandingEntry(BaseModel):
     winner_points: int
     finale_points: int
     total_points: int
+    # Rank change vs the previous scored episode: "up" | "down" | "same".
+    # None until at least one episode has been scored.
+    trend: Optional[str] = None
 
 
 class ContestantPoints(BaseModel):

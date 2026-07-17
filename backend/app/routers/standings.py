@@ -31,6 +31,21 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
         winner = scoring.winner_points(conn, season_id)
         finale = scoring.finale_points(conn, season_id)
 
+        # Trend arrow: rank now vs rank as of the previous scored episode
+        # (current total minus the latest scored episode's contribution).
+        with conn.cursor() as cur:
+            cur.execute(
+                "select max(episode_number) as n from episodes"
+                " where season_id = %s and status = 'scored'",
+                [str(season_id)],
+            )
+            last_scored = cur.fetchone()["n"]
+        last_delta = (
+            scoring.episode_points(conn, season_id, last_scored)
+            if last_scored is not None
+            else {}
+        )
+
     entries = []
     for p in profiles:
         uid = p["id"]
@@ -50,6 +65,23 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
             )
         )
     entries.sort(key=lambda s: (-s.total_points, s.display_name))
+
+    if last_scored is not None:
+        prev_rank = {
+            s.user_id: i
+            for i, s in enumerate(
+                sorted(
+                    entries,
+                    key=lambda s: (
+                        -(s.total_points - last_delta.get(str(s.user_id), 0)),
+                        s.display_name,
+                    ),
+                )
+            )
+        }
+        for now_rank, s in enumerate(entries):
+            was = prev_rank[s.user_id]
+            s.trend = "up" if was > now_rank else "down" if was < now_rank else "same"
     return entries
 
 
