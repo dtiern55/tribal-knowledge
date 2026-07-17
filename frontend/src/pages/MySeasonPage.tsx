@@ -14,6 +14,7 @@ import type {
   ScoringBreakdown,
   Season,
   StandingEntry,
+  TokenLedgerEntry,
   WinnerPick,
 } from '../types'
 
@@ -107,6 +108,8 @@ export function MySeasonPage() {
         plays={plays}
         contestants={contestants}
         episodes={episodes}
+        seasonId={season.id}
+        userId={userId}
       />
     </div>
   )
@@ -995,12 +998,37 @@ function TokensSection({
   plays,
   contestants,
   episodes,
+  seasonId,
+  userId,
 }: {
   balance: number | null
   plays: AdvantagePlay[]
   contestants: Contestant[]
   episodes: Episode[]
+  seasonId: string
+  userId: string
 }) {
+  const [history, setHistory] = useState<TokenLedgerEntry[] | null>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  function toggleHistory() {
+    if (history) {
+      setHistory(null)
+      return
+    }
+    setLoadingHistory(true)
+    void api
+      .get<TokenLedgerEntry[]>(`/seasons/${seasonId}/tokens/${userId}/history`)
+      .then(setHistory)
+      .finally(() => setLoadingHistory(false))
+  }
+
+  function txnLabel(t: string) {
+    return t
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (m) => m.toUpperCase())
+  }
+
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const scoredIds = new Set(episodes.filter((e) => e.status === 'scored').map((e) => e.id))
   const epNum = new Map(episodes.map((e) => [e.id, e.episode_number]))
@@ -1035,10 +1063,40 @@ function TokensSection({
   return (
     <div>
       <SectionTitle>Tokens & Advantages</SectionTitle>
-      <div className="flex items-baseline gap-2 mb-3">
+      <div className="flex items-baseline gap-3 mb-3">
         <span className="text-2xl font-bold text-gray-900">{balance ?? '—'}</span>
         <span className="text-sm text-gray-500">tokens</span>
+        <button
+          onClick={toggleHistory}
+          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          {history ? 'Hide history' : loadingHistory ? 'Loading…' : 'Where from?'}
+        </button>
       </div>
+      {history && (
+        <ul className="mb-4 space-y-1 text-sm border border-gray-100 rounded-lg p-3 bg-gray-50">
+          {history.length === 0 && <li className="text-gray-400">No token activity yet.</li>}
+          {history.map((h, i) => (
+            <li key={i} className="flex justify-between gap-3">
+              <span className="text-gray-600">
+                {txnLabel(h.transaction_type)}
+                {h.episode_number != null && (
+                  <span className="text-gray-400"> · ep {h.episode_number}</span>
+                )}
+                {h.description && <span className="text-gray-400"> · {h.description}</span>}
+              </span>
+              <span
+                className={`font-medium shrink-0 ${
+                  h.amount >= 0 ? 'text-green-600' : 'text-red-500'
+                }`}
+              >
+                {h.amount >= 0 ? '+' : ''}
+                {h.amount}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {(active.length > 0 || owned.length > 0 || used.length > 0) && (
         <ul className="space-y-1 text-sm">
           {active.map((p) => (

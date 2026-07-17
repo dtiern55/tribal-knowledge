@@ -123,6 +123,14 @@ export interface TokenBalance {
   balance: number
 }
 
+export interface TokenLedgerEntry {
+  created_at: string
+  transaction_type: string
+  amount: number
+  episode_number: number | null
+  description: string | null
+}
+
 export interface ContestantPoints {
   contestant_id: string
   points: number

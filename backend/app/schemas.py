@@ -236,6 +236,14 @@ class TokenBalance(BaseModel):
     balance: int
 
 
+class TokenLedgerEntry(BaseModel):
+    created_at: datetime
+    transaction_type: str
+    amount: int
+    episode_number: Optional[int] = None
+    description: Optional[str] = None
+
+
 class StartingAllocationRequest(BaseModel):
     amount: int = Field(gt=0)
     user_id: Optional[UUID] = None
