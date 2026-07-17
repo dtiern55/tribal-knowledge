@@ -165,7 +165,7 @@ export function AdvantagesPage() {
             <button
               onClick={() => void buy(t.advantage_type, t.token_cost)}
               disabled={balance < t.token_cost || busy === `buy:${t.advantage_type}`}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
             >
               {busy === `buy:${t.advantage_type}` ? 'Buying…' : 'Buy'}
             </button>
@@ -210,7 +210,7 @@ export function AdvantagesPage() {
                 <button
                   onClick={() => void applyDoubleRoster(p)}
                   disabled={!rosterTarget || busy === `use:${p.id}`}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
                 >
                   {busy === `use:${p.id}` ? 'Using…' : 'Use'}
                 </button>
@@ -224,18 +224,18 @@ export function AdvantagesPage() {
         {inPlay.map((p) => (
           <div
             key={p.id}
-            className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm"
+            className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
           >
             <div className="flex items-center justify-between">
-              <span className="font-medium text-indigo-900">
+              <span className="font-medium text-ocean-900">
                 {label(p.advantage_type)}
                 {p.target_contestant_id && (
-                  <span className="text-indigo-600">
+                  <span className="text-ocean-600">
                     {' '}
                     → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
                   </span>
                 )}
-                <span className="text-indigo-400">
+                <span className="text-ocean-400">
                   {' '}
                   · Episode {playEpisode(p)?.episode_number}
                 </span>
@@ -243,12 +243,12 @@ export function AdvantagesPage() {
               <button
                 onClick={() => void takeBack(p)}
                 disabled={busy === `unuse:${p.id}`}
-                className="shrink-0 px-2.5 py-1 border border-indigo-300 text-xs text-indigo-700 hover:bg-indigo-100 font-medium rounded-lg transition-colors"
+                className="shrink-0 px-2.5 py-1 border border-ocean-300 text-xs text-ocean-700 hover:bg-ocean-100 font-medium rounded-lg transition-colors"
               >
                 {busy === `unuse:${p.id}` ? 'Taking back…' : '↩ Take back'}
               </button>
             </div>
-            <p className="text-xs text-indigo-500 mt-1">
+            <p className="text-xs text-ocean-500 mt-1">
               Changed your mind? Take it back into inventory any time before
               Episode {playEpisode(p)?.episode_number} locks — no tokens lost.
             </p>

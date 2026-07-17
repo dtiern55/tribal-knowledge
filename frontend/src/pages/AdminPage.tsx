@@ -68,7 +68,7 @@ function ActionBtn({
 }) {
   const cls =
     variant === 'primary'
-      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+      ? 'bg-ocean-600 text-white hover:bg-ocean-700'
       : variant === 'danger'
         ? 'bg-red-600 text-white hover:bg-red-700'
         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -271,7 +271,7 @@ function ContestantsSection({
         editingId === c.id ? (
           <div
             key={c.id}
-            className="p-3 bg-white border border-indigo-200 rounded-lg space-y-2"
+            className="p-3 bg-white border border-ocean-200 rounded-lg space-y-2"
           >
             <div className="flex items-center gap-2">
               <input

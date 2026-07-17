@@ -161,7 +161,7 @@ function PointsHeader({
         </div>
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+          className="text-sm text-ocean-600 hover:text-ocean-800 font-medium"
         >
           {expanded ? 'Hide breakdown' : 'Show breakdown'}
         </button>
@@ -385,7 +385,7 @@ function RosterSection({
                 >
                   <Link
                     to={`/contestants/${pick.contestant_id}`}
-                    className="flex items-center gap-2 font-medium text-gray-900 hover:text-indigo-700"
+                    className="flex items-center gap-2 font-medium text-gray-900 hover:text-ocean-700"
                   >
                     <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                     {c?.name ?? '—'}
@@ -395,7 +395,7 @@ function RosterSection({
                       </span>
                     )}
                     {doubledRosterIds.has(pick.contestant_id) && (
-                      <span className="text-indigo-600 font-semibold">×2</span>
+                      <span className="text-ocean-600 font-semibold">×2</span>
                     )}
                   </Link>
                   <Points value={rosterPoints.get(pick.contestant_id)} />
@@ -586,7 +586,7 @@ function RosterSection({
                   className={[
                     'flex items-center gap-2 p-3 rounded-lg border text-left text-sm font-medium transition-colors',
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                      ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
                       : maxed
                         ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                         : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
@@ -601,7 +601,7 @@ function RosterSection({
           <button
             onClick={submitRoster}
             disabled={selected.size !== season.roster_size || submitting}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+            className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
           >
             {submitting ? 'Saving…' : hasRoster ? 'Update Roster' : 'Lock In Roster'}
           </button>
@@ -833,7 +833,7 @@ function PicksSection({
                         >
                           {sc?.name ?? '—'}
                           {doubledIds.has(p.contestant_id) && (
-                            <span className="text-indigo-600 font-semibold no-underline"> ×2</span>
+                            <span className="text-ocean-600 font-semibold no-underline"> ×2</span>
                           )}
                           {stale && (
                             <span className="ml-1 text-[10px] no-underline">(out)</span>
@@ -865,7 +865,7 @@ function PicksSection({
                             isOut
                               ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
                               : isSelected
-                                ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                                ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
                                 : maxed
                                   ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                                   : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
@@ -873,7 +873,7 @@ function PicksSection({
                         >
                           <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
                           {c.name}
-                          {isDoubled && <span className="text-indigo-600 font-semibold"> ×2</span>}
+                          {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
                         </button>
                       )
                     })}
@@ -989,7 +989,7 @@ function PicksSection({
                   <button
                     onClick={() => submitPicks(ep.id)}
                     disabled={submitting === ep.id || epPending.size === 0}
-                    className="flex-1 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                    className="flex-1 px-4 py-2.5 bg-ocean-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
                   >
                     {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Votes'}
                   </button>
@@ -1055,7 +1055,7 @@ function PicksSection({
                             {scored && (result?.correct ? '✓ ' : '✗ ')}
                             {name}
                             {doubled && (
-                              <span className="text-indigo-600 font-semibold no-underline"> ×2</span>
+                              <span className="text-ocean-600 font-semibold no-underline"> ×2</span>
                             )}
                             {scored && result?.correct && result.points > 0 && (
                               <span className="ml-1 font-semibold no-underline">
@@ -1197,7 +1197,7 @@ function FinaleBallot({
       <button
         onClick={() => void submitBallot()}
         disabled={submitting}
-        className="w-full px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+        className="w-full px-4 py-2.5 bg-ocean-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
       >
         {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
       </button>
@@ -1303,7 +1303,7 @@ function WinnerSection({
             <button
               onClick={submitPick}
               disabled={!winner || submitting}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
             >
               {submitting ? 'Saving…' : 'Save Pick'}
             </button>
@@ -1393,7 +1393,7 @@ function TokensSection({
         <span className="text-sm text-gray-500">tokens</span>
         <button
           onClick={toggleHistory}
-          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+          className="text-sm text-ocean-600 hover:text-ocean-800 font-medium"
         >
           {history ? 'Hide history' : loadingHistory ? 'Loading…' : 'Where from?'}
         </button>
