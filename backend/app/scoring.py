@@ -80,7 +80,35 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
         for row in cur.fetchall():
             points[row["user_id"]] = points.get(row["user_id"], 0) + row["penalty"]
 
+        # Placement points: rostering a 1st/2nd/3rd finisher at the finale
+        # earns the rosterer +30/+20/+10 (issue #87).
+        cur.execute(
+            _PLACEMENT_SQL.format(group="rp.user_id", user_filter=""),
+            [str(season_id)],
+        )
+        for row in cur.fetchall():
+            points[row["key"]] = points.get(row["key"], 0) + row["points"]
+
     return points
+
+
+# Rostering a contestant who finished 1st/2nd/3rd, active at the finale.
+# {group} is the grouping column (user or contestant); its value comes back
+# aliased as "key" so callers can merge it either way.
+_PLACEMENT_SQL = """
+    select {group}::text as key, sum(pst.point_value) as points
+    from roster_picks rp
+    join contestants c on c.id = rp.contestant_id and c.placement in (1, 2, 3)
+    join episodes fin on fin.season_id = rp.season_id and fin.is_finale = true
+    join prediction_score_types pst
+      on pst.key = 'roster_placement_' || c.placement
+    where rp.season_id = %s
+      and rp.active_from_episode <= fin.episode_number
+      and (rp.active_until_episode is null
+           or rp.active_until_episode >= fin.episode_number)
+    {user_filter}
+    group by {group}
+"""
 
 
 def elimination_points(conn, season_id: UUID) -> dict[str, int]:
@@ -275,7 +303,88 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
             cid = row["contestant_id"]
             points[cid] = points.get(cid, 0) + row["penalty"]
 
+        # Placement points per contestant (issue #87), scoped to this user.
+        cur.execute(
+            _PLACEMENT_SQL.format(
+                group="rp.contestant_id", user_filter="and rp.user_id = %s"
+            ),
+            [str(season_id), str(user_id)],
+        )
+        for row in cur.fetchall():
+            points[row["key"]] = points.get(row["key"], 0) + row["points"]
+
     return points
+
+
+def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, int]:
+    """Bonus points each played double actually earned (issue #85).
+
+    A double adds one extra copy of the target's points for that episode, so
+    the bonus equals the un-doubled base: roster-event points for
+    double_roster_points, the elimination-pick value for double_vote_points.
+    extra_vote isn't included — there's no single pick to attribute. Keyed by
+    stringified advantage_plays.id.
+    """
+    bonus: dict[str, int] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select ap.id::text as play_id, coalesce(sum(
+                (case
+                   when s.merge_episode is not null
+                    and ep.episode_number >= s.merge_episode
+                    and et.postmerge_point_value is not null
+                   then et.postmerge_point_value else et.point_value
+                 end)
+                * (case when et.is_per_unit then se.quantity else 1 end)
+            ), 0) as bonus
+            from advantage_plays ap
+            join episodes ep on ep.id = ap.episode_id
+            join seasons s on s.id = ep.season_id
+            join scoring_events se
+              on se.episode_id = ap.episode_id
+             and se.contestant_id = ap.target_contestant_id
+            join scoring_event_types et on et.event_type = se.event_type
+            where ap.season_id = %s and ap.user_id = %s
+              and ap.advantage_type = 'double_roster_points'
+              and ap.episode_id is not null
+            group by ap.id
+            """,
+            [str(season_id), str(user_id)],
+        )
+        for row in cur.fetchall():
+            bonus[row["play_id"]] = row["bonus"]
+
+        cur.execute(
+            "select point_value, postmerge_point_value"
+            " from prediction_score_types where key = 'correct_elimination'"
+        )
+        cfg = cur.fetchone()
+        pre, post = cfg["point_value"], cfg["postmerge_point_value"]
+
+        cur.execute(
+            """
+            select ap.id::text as play_id,
+                   (case when el.contestant_id is null then 0
+                     when s.merge_episode is not null
+                      and ep.episode_number >= s.merge_episode
+                     then %s else %s end) as bonus
+            from advantage_plays ap
+            join episodes ep on ep.id = ap.episode_id
+            join seasons s on s.id = ep.season_id
+            left join eliminations el
+              on el.episode_id = ap.episode_id
+             and el.contestant_id = ap.target_contestant_id
+            where ap.season_id = %s and ap.user_id = %s
+              and ap.advantage_type = 'double_vote_points'
+              and ap.episode_id is not null
+            """,
+            [post, pre, str(season_id), str(user_id)],
+        )
+        for row in cur.fetchall():
+            bonus[row["play_id"]] = row["bonus"]
+
+    return bonus
 
 
 def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]:

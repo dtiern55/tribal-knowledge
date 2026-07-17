@@ -5,6 +5,7 @@ import pytest
 from tests.helpers import (
     insert_advantage_play,
     insert_contestant,
+    insert_elimination,
     insert_episode,
     insert_roster_pick,
     insert_season,
@@ -153,6 +154,47 @@ def test_use_binds_open_episode(client, db_conn, current_user):
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 200
     assert r.json()["episode_id"] == str(ep["id"])
+
+
+@pytest.mark.integration
+def test_use_blocked_in_finale(client, db_conn, current_user):
+    """Advantages can't be played in the finale (#85)."""
+    season = insert_season(db_conn)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        is_finale=True,
+        picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    _fund(client, season["id"], current_user["id"])
+    play = _buy(client, season["id"], "extra_vote")
+
+    r = client.post(f"/advantage-plays/{play['id']}/use", json={})
+    assert r.status_code == 400
+    assert "finale" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_played_double_vote_reports_points_earned(client, db_conn, current_user):
+    """Play history shows the bonus a played double actually earned (#85)."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = _open_episode(db_conn, season["id"], episode_number=2)
+    c = insert_contestant(db_conn, season["id"])
+    _fund(client, season["id"], current_user["id"])
+    play = _buy(client, season["id"], "double_vote_points")
+    r = client.post(
+        f"/advantage-plays/{play['id']}/use",
+        json={"target_contestant_id": str(c["id"])},
+    )
+    assert r.status_code == 200
+    insert_elimination(db_conn, ep["id"], c["id"])  # the pick came true
+
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    played = next(p for p in plays if p["id"] == play["id"])
+    assert played["points_earned"] == 15  # pre-merge correct_elimination value
 
 
 @pytest.mark.integration

@@ -97,15 +97,13 @@ def submit_roster(
                     status_code=400, detail="Duplicate contestants in roster"
                 )
 
+            # Free rearranging before the roster locks (issue #84): the window
+            # is still open (checked above), rosters haven't scored yet, so a
+            # re-submit simply replaces the previous picks — no swap penalty.
             cur.execute(
-                "select id from roster_picks"
-                " where user_id = %s and season_id = %s limit 1",
+                "delete from roster_picks where user_id = %s and season_id = %s",
                 [str(user_id), str(season_id)],
             )
-            if cur.fetchone():
-                raise HTTPException(
-                    status_code=409, detail="Roster already submitted for this season"
-                )
 
             ids = [str(c) for c in body.contestant_ids]
             cur.execute(
@@ -187,6 +185,30 @@ def swap_roster_pick(
                 raise HTTPException(
                     status_code=400,
                     detail="Swap episode must be after the contestant was added",
+                )
+
+            # Swaps lock late-game (issue #84): none from swap_lock_episode on.
+            if (
+                season["swap_lock_episode"] is not None
+                and swap_episode >= season["swap_lock_episode"]
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Roster swaps are locked for the rest of the season",
+                )
+
+            # Cap on true mid-season swaps (issue #84). A swapped-out pick is the
+            # only thing that closes an active range, so counting them = swaps used.
+            cur.execute(
+                "select count(*) as n from roster_picks"
+                " where user_id = %s and season_id = %s"
+                " and active_until_episode is not null",
+                [str(user_id), str(season_id)],
+            )
+            if cur.fetchone()["n"] >= season["max_swaps"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Swap limit reached ({season['max_swaps']} per season)",
                 )
 
             cur.execute(

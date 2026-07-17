@@ -101,12 +101,35 @@ def test_submit_roster_no_lock_episode(client, db_conn):
 
 
 @pytest.mark.integration
-def test_submit_roster_duplicate(client, db_conn):
-    season, contestants = _make_season_with_roster(db_conn)
-    payload = {"contestant_ids": [str(c["id"]) for c in contestants]}
-    client.post(f"/seasons/{season['id']}/roster", json=payload)
-    r = client.post(f"/seasons/{season['id']}/roster", json=payload)
-    assert r.status_code == 409
+def test_resubmit_before_lock_replaces_free(client, db_conn, current_user):
+    # Free rearranging before the roster locks (issue #84): re-submitting a
+    # different roster replaces the old one with no swap penalty.
+    season, contestants = _make_season_with_roster(db_conn, roster_size=3)
+    other = insert_contestant(db_conn, season["id"], "Swapped In")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster",
+        json={
+            "contestant_ids": [
+                str(contestants[0]["id"]),
+                str(contestants[1]["id"]),
+                str(other["id"]),
+            ]
+        },
+    )
+    assert r.status_code == 200
+    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    assert len(roster) == 3
+    assert all(p["swap_penalty_points"] == 0 for p in roster)
+    assert all(p["active_until_episode"] is None for p in roster)
+    assert {p["contestant_id"] for p in roster} == {
+        str(contestants[0]["id"]),
+        str(contestants[1]["id"]),
+        str(other["id"]),
+    }
 
 
 @pytest.mark.integration
@@ -178,6 +201,64 @@ def test_swap_uses_configured_penalty(client, db_conn, current_user):
     roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
     old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert old["swap_penalty_points"] == -10
+
+
+@pytest.mark.integration
+def test_swap_cap_reached(client, db_conn):
+    # max_swaps=1: the second real swap is rejected (issue #84).
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, max_swaps=1
+    )
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    new1 = insert_contestant(db_conn, season["id"], "New 1")
+    new2 = insert_contestant(db_conn, season["id"], "New 2")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    first = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new1["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    assert first.status_code == 200
+    second = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[1]["id"]),
+            "new_contestant_id": str(new2["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    assert second.status_code == 400
+    assert "Swap limit" in second.json()["detail"]
+
+
+@pytest.mark.integration
+def test_swaps_locked_after_swap_lock_episode(client, db_conn):
+    # swap_lock_episode=3: swaps into ep3+ are disabled (issue #84).
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, swap_lock_episode=3
+    )
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    new = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new["id"]),
+            "episode_id": str(ep3["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "locked" in r.json()["detail"]
 
 
 @pytest.mark.integration

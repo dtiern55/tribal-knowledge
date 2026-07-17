@@ -12,10 +12,10 @@ export function Layout() {
           {session && profile && (
             <>
               {[
-                { to: '/', label: 'Standings', end: true },
-                { to: '/my-season', label: 'My Season' },
+                { to: '/', label: 'My Season', end: true },
+                { to: '/standings', label: 'Standings' },
+                { to: '/cast', label: 'Cast' },
                 { to: '/advantages', label: 'Advantages' },
-                { to: '/finale', label: 'Finale' },
               ].map(({ to, label, end }) => (
                 <NavLink
                   key={to}

@@ -14,6 +14,8 @@ class Season(BaseModel):
     merge_episode: Optional[int]
     winner_lock_episode: Optional[int]
     swap_penalty_points: int
+    max_swaps: int
+    swap_lock_episode: Optional[int]
     weekly_token_allocation: int
     status: str
     created_at: datetime
@@ -150,14 +152,22 @@ class SeasonUpdateRequest(BaseModel):
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_penalty_points: Optional[int] = Field(default=None, le=0)
+    max_swaps: Optional[int] = Field(default=None, ge=0)
+    swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
     status: Optional[Literal["upcoming", "active", "completed"]] = None
+
+
+class ContestantEventStat(BaseModel):
+    label: str
+    points: int
+    token_value: int
 
 
 class ContestantEpisodeStat(BaseModel):
     episode_number: int
     points: int
-    events: list[str]
+    events: list[ContestantEventStat]
     eliminated_type: Optional[str] = None
 
 
@@ -168,6 +178,18 @@ class ContestantPerformance(BaseModel):
     eliminated_in_episode: Optional[int] = None
     total_points: int
     episodes: list[ContestantEpisodeStat]
+
+
+class CastMember(BaseModel):
+    id: UUID
+    name: str
+    image_url: Optional[str] = None
+    placement: Optional[int] = None
+    eliminated_in_episode: Optional[int] = None
+    # Base gameplay score: raw scoring events only, no per-user advantage
+    # doubling and no swap penalties (issue: full cast list).
+    total_points: int
+    total_tokens: int
 
 
 class ContestantsCreateRequest(BaseModel):
@@ -205,6 +227,9 @@ class AdvantagePlay(BaseModel):
     advantage_type: str
     target_contestant_id: Optional[UUID]
     token_cost: int
+    # Bonus points a played double actually earned (issue #85); None until
+    # played, and always None for extra_vote (no single pick to attribute).
+    points_earned: Optional[int] = None
     created_at: datetime
 
 
