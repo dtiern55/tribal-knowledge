@@ -43,7 +43,7 @@ export function CastPage() {
           >
             <Link
               to={`/contestants/${c.id}`}
-              className="flex items-center gap-2 font-medium text-gray-900 hover:text-indigo-700"
+              className="flex items-center gap-2 font-medium text-gray-900 hover:text-ocean-700"
             >
               <ContestantAvatar name={c.name} imageUrl={c.image_url} />
               {c.name}

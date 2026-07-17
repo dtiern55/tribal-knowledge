@@ -44,7 +44,7 @@ export function ProfilePage() {
             }}
             required
             maxLength={100}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -52,7 +52,7 @@ export function ProfilePage() {
         <button
           type="submit"
           disabled={saving || unchanged || !displayName.trim()}
-          className="w-full bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+          className="w-full bg-ocean-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-ocean-700 disabled:opacity-50 cursor-pointer"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>

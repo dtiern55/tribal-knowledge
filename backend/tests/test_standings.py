@@ -35,6 +35,31 @@ def test_standings_lists_members_at_zero(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_standings_trend_reflects_last_episode(client, db_conn, current_user):
+    """A overtakes B in the latest scored episode -> A up, B down."""
+    season = insert_season(db_conn, merge_episode=7)
+    a = current_user
+    b = insert_user(db_conn, display_name="B")
+    ca = insert_contestant(db_conn, season["id"], "CA")
+    cb = insert_contestant(db_conn, season["id"], "CB")
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    insert_roster_pick(db_conn, a["id"], season["id"], ca["id"])
+    insert_roster_pick(db_conn, b["id"], season["id"], cb["id"])
+    insert_scoring_event(db_conn, ep1["id"], cb["id"], "acquire_active_idol")  # B +10
+    insert_scoring_event(
+        db_conn, ep2["id"], ca["id"], "win_individual_immunity"
+    )  # A +15
+
+    data = {
+        e["display_name"]: e
+        for e in client.get(f"/seasons/{season['id']}/standings").json()
+    }
+    assert data[a["display_name"]]["trend"] == "up"
+    assert data["B"]["trend"] == "down"
+
+
+@pytest.mark.integration
 def test_standings_excludes_admin_accounts(client, db_conn, current_user):
     """Producer/service accounts stay out of the leaderboard (#50)."""
     season = insert_season(db_conn)

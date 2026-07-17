@@ -28,7 +28,7 @@ export function ContestantPage() {
     <div>
       <button
         onClick={() => navigate(-1)}
-        className="text-sm text-indigo-600 hover:text-indigo-800"
+        className="text-sm text-ocean-600 hover:text-ocean-800"
       >
         ← Back
       </button>

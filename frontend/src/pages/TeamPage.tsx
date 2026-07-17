@@ -50,7 +50,7 @@ export function TeamPage() {
     <div>
       <button
         onClick={() => navigate(-1)}
-        className="text-sm text-indigo-600 hover:text-indigo-800"
+        className="text-sm text-ocean-600 hover:text-ocean-800"
       >
         ← Back
       </button>
@@ -72,7 +72,7 @@ export function TeamPage() {
               >
                 <Link
                   to={`/contestants/${pick.contestant_id}`}
-                  className="flex items-center gap-2 font-medium text-gray-900 hover:text-indigo-700"
+                  className="flex items-center gap-2 font-medium text-gray-900 hover:text-ocean-700"
                 >
                   <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                   {c?.name ?? '—'}

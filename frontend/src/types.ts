@@ -56,6 +56,7 @@ export interface StandingEntry {
   winner_points: number
   finale_points: number
   total_points: number
+  trend: 'up' | 'down' | 'same' | null
 }
 
 export interface RosterPick {

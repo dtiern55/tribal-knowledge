@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+/* Survivor: Borneo-inspired palette — ocean blue + jungle green on a warm
+   cream ground, black used sparingly. `ocean` replaces the old generic indigo
+   accent; green/red/amber keep their semantic meaning (good/bad/advantages). */
+@theme {
+  --color-ocean-50: #eef6fb;
+  --color-ocean-100: #d4e8f4;
+  --color-ocean-200: #a9d1e9;
+  --color-ocean-300: #72b2d6;
+  --color-ocean-400: #3d92c1;
+  --color-ocean-500: #1f7aa8;
+  --color-ocean-600: #14628c;
+  --color-ocean-700: #124f70;
+  --color-ocean-800: #143f59;
+  --color-ocean-900: #12344a;
+
+  --color-jungle-50: #eef7ee;
+  --color-jungle-100: #d4ecd3;
+  --color-jungle-500: #3f9142;
+  --color-jungle-600: #2f7a34;
+  --color-jungle-700: #27612b;
+
+  --color-sand-50: #faf8f2;
+  --color-sand-100: #f2ece0;
+  --color-sand-200: #e6dcc7;
+
+  --font-display: "Anton", "Arial Narrow", system-ui, sans-serif;
+}

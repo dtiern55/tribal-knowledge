@@ -156,6 +156,46 @@ def test_placement_points_only_if_active_at_finale(db_conn):
     assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 0}
 
 
+@pytest.mark.integration
+def test_episode_points_reconciles_with_standings(db_conn):
+    # Summing episode_points over every episode equals the standings total —
+    # the invariant the trend arrow relies on.
+    season = insert_season(db_conn, merge_episode=7)
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    other = insert_contestant(db_conn, season["id"], "Other")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
+    insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")  # +15
+    insert_scoring_event(db_conn, ep3["id"], c["id"], "win_individual_reward")  # +12
+    insert_elimination_pick(db_conn, user["id"], ep3["id"], other["id"])
+    insert_elimination(db_conn, ep3["id"], other["id"])  # correct -> +15
+
+    uid = str(user["id"])
+    total = scoring.roster_points(db_conn, season["id"]).get(
+        uid, 0
+    ) + scoring.elimination_points(db_conn, season["id"]).get(uid, 0)
+    summed = sum(
+        scoring.episode_points(db_conn, season["id"], n).get(uid, 0) for n in (2, 3)
+    )
+    assert summed == total == 42
+
+
+@pytest.mark.integration
+def test_episode_points_finale_includes_outcomes(db_conn):
+    # The finale delta folds in winner-pick + placement points (they resolve then).
+    season = insert_season(db_conn, merge_episode=3)
+    user = insert_user(db_conn)
+    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
+    insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
+    insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
+    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
+
+    # winner pick Sole Survivor +100, plus roster placement +30.
+    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 130}
+
+
 # --- elimination_points ---
 
 

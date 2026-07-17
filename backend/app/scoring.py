@@ -432,3 +432,120 @@ def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]
             [post, pre, str(season_id), str(user_id)],
         )
         return cur.fetchall()
+
+
+def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]:
+    """Points each user gained from one episode — the change in their total.
+
+    Used for the Standings trend arrow: rank as of the prior episode = current
+    total minus this. Every point in the standings traces to exactly one
+    episode, so summing this over all episodes reconciles with the four
+    standings components (see the invariant test). Components: roster scoring
+    events (doubled where Double Roster Points was played) + swap penalties
+    charged that episode + correct elimination picks (doubled); at the finale,
+    also winner-pick, finale-ballot and placement points, which resolve then.
+    """
+    points: dict[str, int] = {}
+
+    def add(uid: str, val: int) -> None:
+        points[uid] = points.get(uid, 0) + val
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select rp.user_id::text as user_id, sum(
+                (case
+                   when s.merge_episode is not null
+                    and ep.episode_number >= s.merge_episode
+                    and et.postmerge_point_value is not null
+                   then et.postmerge_point_value else et.point_value
+                 end)
+                * (case when et.is_per_unit then se.quantity else 1 end)
+                * (case when dbl.id is not null then 2 else 1 end)
+            ) as pts
+            from scoring_events se
+            join episodes ep on ep.id = se.episode_id
+            join seasons s on s.id = ep.season_id
+            join scoring_event_types et on et.event_type = se.event_type
+            join roster_picks rp
+              on rp.contestant_id = se.contestant_id and rp.season_id = s.id
+             and rp.active_from_episode <= ep.episode_number
+             and (rp.active_until_episode is null
+                  or rp.active_until_episode >= ep.episode_number)
+            left join advantage_plays dbl
+              on dbl.advantage_type = 'double_roster_points'
+             and dbl.user_id = rp.user_id
+             and dbl.episode_id = se.episode_id
+             and dbl.target_contestant_id = se.contestant_id
+            where s.id = %s and ep.episode_number = %s
+            group by rp.user_id
+            """,
+            [str(season_id), episode_number],
+        )
+        for row in cur.fetchall():
+            add(row["user_id"], row["pts"])
+
+        # A swap charged at this episode closed the old pick at episode_number-1.
+        cur.execute(
+            "select user_id::text as user_id, sum(swap_penalty_points) as pen"
+            " from roster_picks where season_id = %s and active_until_episode = %s"
+            " group by user_id",
+            [str(season_id), episode_number - 1],
+        )
+        for row in cur.fetchall():
+            add(row["user_id"], row["pen"])
+
+        cur.execute(
+            "select point_value, postmerge_point_value"
+            " from prediction_score_types where key = 'correct_elimination'"
+        )
+        cfg = cur.fetchone()
+        pre, post = cfg["point_value"], cfg["postmerge_point_value"]
+        cur.execute(
+            """
+            select pick.user_id::text as user_id, sum(
+                (case when s.merge_episode is not null
+                       and ep.episode_number >= s.merge_episode
+                      then %s else %s end)
+                * (case when dbl.id is not null then 2 else 1 end)
+            ) as pts
+            from elimination_picks pick
+            join episodes ep on ep.id = pick.episode_id
+            join seasons s on s.id = ep.season_id
+            join eliminations el
+              on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
+            left join advantage_plays dbl
+              on dbl.advantage_type = 'double_vote_points'
+             and dbl.user_id = pick.user_id
+             and dbl.episode_id = pick.episode_id
+             and dbl.target_contestant_id = pick.contestant_id
+            where s.id = %s and ep.episode_number = %s and ep.is_finale = false
+            group by pick.user_id
+            """,
+            [post, pre, str(season_id), episode_number],
+        )
+        for row in cur.fetchall():
+            add(row["user_id"], row["pts"])
+
+        cur.execute(
+            "select 1 from episodes where season_id = %s"
+            " and episode_number = %s and is_finale = true",
+            [str(season_id), episode_number],
+        )
+        is_finale = cur.fetchone() is not None
+
+    # Winner pick, finale ballot and roster placement all resolve at the finale.
+    if is_finale:
+        for uid, val in winner_points(conn, season_id).items():
+            add(uid, val)
+        for uid, val in finale_points(conn, season_id).items():
+            add(uid, val)
+        with conn.cursor() as cur:
+            cur.execute(
+                _PLACEMENT_SQL.format(group="rp.user_id", user_filter=""),
+                [str(season_id)],
+            )
+            for row in cur.fetchall():
+                add(row["key"], row["points"])
+
+    return points
