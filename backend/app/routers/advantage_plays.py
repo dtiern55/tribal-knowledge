@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from psycopg2 import errors as pg_errors
 
-from app import database
+from app import database, scoring
 from app.auth import get_current_user
 from app.locking import episode_locked, next_open_episode
 from app.schemas import (
@@ -64,7 +64,13 @@ def list_user_advantage_plays(
                     """,
                     [str(season_id), str(user_id)],
                 )
-            return cur.fetchall()
+            plays = cur.fetchall()
+
+        # Attach the bonus points each played double actually earned (#85).
+        bonus = scoring.advantage_bonus_by_play(conn, season_id, user_id)
+        for play in plays:
+            play["points_earned"] = bonus.get(str(play["id"]))
+        return plays
 
 
 @router.post(
@@ -168,6 +174,12 @@ def use_advantage(
             if not episode:
                 raise HTTPException(
                     status_code=400, detail="No open episode to use this advantage in"
+                )
+            # Advantages can't be played in the finale (issue #85).
+            if episode["is_finale"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Advantages can't be played in the finale",
                 )
 
             if play["advantage_type"] in _DOUBLE_TYPES:

@@ -70,6 +70,22 @@ def test_score_episode_grants_weekly_tokens(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_score_finale_grants_no_weekly_tokens(client, db_conn, current_user):
+    """Token earning stops at the finale (#85) — scoring it grants nothing."""
+    season = insert_season(db_conn, weekly_token_allocation=7)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        is_finale=True,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    r = client.post(f"/episodes/{ep['id']}/score")
+    assert r.status_code == 200
+    assert _weekly_grants(db_conn, ep["id"]) == {}
+
+
+@pytest.mark.integration
 def test_score_episode_skips_admin_accounts(client, db_conn, current_user):
     """Service accounts (Producer) don't receive weekly tokens (#50)."""
     season = insert_season(db_conn, weekly_token_allocation=7)

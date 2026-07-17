@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database
 from app.auth import get_current_admin, get_current_user
 from app.schemas import (
+    CastMember,
     Contestant,
     ContestantPerformance,
     ContestantsCreateRequest,
@@ -12,6 +13,48 @@ from app.schemas import (
 )
 
 router = APIRouter(tags=["contestants"])
+
+
+@router.get("/seasons/{season_id}/cast", response_model=list[CastMember])
+def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
+    """Every contestant with their base gameplay score — raw scoring events,
+    no per-user advantage doubling and no swap penalties (full cast list).
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            database.require_season(cur, season_id)
+            cur.execute(
+                """
+                select c.id, c.name, c.image_url, c.placement,
+                       (select min(ep2.episode_number)
+                        from eliminations el
+                        join episodes ep2 on ep2.id = el.episode_id
+                        where el.contestant_id = c.id) as eliminated_in_episode,
+                       coalesce(sum(
+                         (case
+                            when s.merge_episode is not null
+                             and ep.episode_number >= s.merge_episode
+                             and et.postmerge_point_value is not null
+                            then et.postmerge_point_value else et.point_value
+                          end)
+                         * (case when et.is_per_unit then se.quantity else 1 end)
+                       ), 0) as total_points,
+                       coalesce(sum(
+                         et.token_value
+                         * (case when et.is_per_unit then se.quantity else 1 end)
+                       ), 0) as total_tokens
+                from contestants c
+                join seasons s on s.id = c.season_id
+                left join scoring_events se on se.contestant_id = c.id
+                left join episodes ep on ep.id = se.episode_id
+                left join scoring_event_types et on et.event_type = se.event_type
+                where c.season_id = %s
+                group by c.id, c.name, c.image_url, c.placement
+                order by total_points desc, c.name
+                """,
+                [str(season_id)],
+            )
+            return cur.fetchall()
 
 
 @router.get(
@@ -43,7 +86,10 @@ def get_contestant_performance(
                           then et.postmerge_point_value else et.point_value
                         end)
                         * (case when et.is_per_unit then se.quantity else 1 end)
-                         as points
+                         as points,
+                       et.token_value
+                        * (case when et.is_per_unit then se.quantity else 1 end)
+                         as token_value
                 from scoring_events se
                 join episodes ep on ep.id = se.episode_id
                 join seasons s on s.id = ep.season_id
@@ -79,8 +125,13 @@ def get_contestant_performance(
                     },
                 )
                 stat["points"] += row["points"]
-                sign = "+" if row["points"] >= 0 else ""
-                stat["events"].append(f"{row['label']} ({sign}{row['points']})")
+                stat["events"].append(
+                    {
+                        "label": row["label"],
+                        "points": row["points"],
+                        "token_value": row["token_value"],
+                    }
+                )
             if elim_ep is not None:
                 by_ep.setdefault(
                     elim_ep,

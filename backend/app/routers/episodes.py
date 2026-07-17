@@ -116,7 +116,8 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                 [episode["season_id"]],
             )
             amount = cur.fetchone()["weekly_token_allocation"]
-            if amount > 0:
+            # Token earning stops at the finale (issue #85) — no weekly grant.
+            if amount > 0 and not episode["is_finale"]:
                 # Idempotent against manual weekly-allocation grants for the
                 # same episode (the corrections endpoint in tokens.py).
                 cur.execute(

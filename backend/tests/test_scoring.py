@@ -129,6 +129,33 @@ def test_roster_points_double_only_matching_episode(db_conn):
     assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 45}
 
 
+@pytest.mark.integration
+def test_roster_points_includes_placement(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
+    user = insert_user(db_conn)
+    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
+    insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
+
+    # Rostering the Sole Survivor at the finale -> +30 (issue #87).
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 30}
+
+
+@pytest.mark.integration
+def test_placement_points_only_if_active_at_finale(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
+    user = insert_user(db_conn)
+    runner = insert_contestant(db_conn, season["id"], "RunnerUp", placement=2)
+    # Swapped this contestant off the roster before the finale -> no placement pts.
+    insert_roster_pick(
+        db_conn, user["id"], season["id"], runner["id"], active_until_episode=5
+    )
+
+    # Total stays 0 (no placement bonus); would be +20 if it counted.
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 0}
+
+
 # --- elimination_points ---
 
 

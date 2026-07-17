@@ -28,7 +28,7 @@ def next_open_episode(cur, season_id: str) -> dict | None:
     """
     cur.execute(
         """
-        select e.id, e.episode_number from episodes e
+        select e.id, e.episode_number, e.is_finale from episodes e
         join seasons s on s.id = e.season_id
         where e.season_id = %s and e.picks_lock_at > now()
           and e.status != 'scored'
