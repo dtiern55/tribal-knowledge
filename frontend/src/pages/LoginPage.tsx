@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 
 export function LoginPage() {
-  const { session } = useAuth()
+  const { session, loading } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
@@ -13,6 +13,8 @@ export function LoginPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Don't flash the form while the session is still being restored (#1)
+  if (loading) return null
   if (session) return <Navigate to="/" replace />
 
   async function handleSubmit(e: React.FormEvent) {

@@ -102,7 +102,12 @@ export function MySeasonPage() {
         pickResults={pickResults}
       />
       <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
-      <TokensSection balance={balance} plays={plays} contestants={contestants} />
+      <TokensSection
+        balance={balance}
+        plays={plays}
+        contestants={contestants}
+        episodes={episodes}
+      />
     </div>
   )
 }
@@ -301,6 +306,11 @@ function RosterSection({
                   <span className="flex items-center gap-2 font-medium text-gray-900">
                     <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                     {c?.name ?? '—'}
+                    {c?.eliminated_in_episode != null && (
+                      <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
+                        Out ep {c.eliminated_in_episode}
+                      </span>
+                    )}
                   </span>
                   <Points value={rosterPoints.get(pick.contestant_id)} />
                 </li>
@@ -320,11 +330,14 @@ function RosterSection({
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-400"
                     >
                       <span className="line-through">{c?.name ?? '—'}</span>
-                      <span className="text-xs">
-                        ep {pick.active_from_episode}–{pick.active_until_episode}
-                        {pick.swap_penalty_points !== 0 && (
-                          <span className="ml-2 text-red-400">{pick.swap_penalty_points} pts</span>
-                        )}
+                      <span className="text-xs flex items-center gap-2">
+                        <Points value={rosterPoints.get(pick.contestant_id)} />
+                        <span>
+                          ep {pick.active_from_episode}–{pick.active_until_episode}
+                          {pick.swap_penalty_points !== 0 && (
+                            <span className="ml-1 text-red-400">· swap {pick.swap_penalty_points}</span>
+                          )}
+                        </span>
                       </span>
                     </li>
                   )
@@ -337,7 +350,7 @@ function RosterSection({
             upcomingEpisodes.length > 0 &&
             swapCandidates.length > 0 && (
               <div className="pt-4 border-t border-gray-100">
-                <SectionTitle>Swap a Pick ({season.swap_penalty_points} pts penalty)</SectionTitle>
+                <SectionTitle>Swap a Roster Pick ({season.swap_penalty_points} pts penalty)</SectionTitle>
                 <div className="space-y-3">
                   <div className="flex gap-3 flex-wrap">
                     <select
@@ -568,7 +581,7 @@ function PicksSection({
 
   return (
     <div>
-      <SectionTitle>Elimination Picks</SectionTitle>
+      <SectionTitle>Weekly Votes</SectionTitle>
 
       {!nextOpen && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
@@ -607,26 +620,40 @@ function PicksSection({
                 <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
                   <p className="text-3xl mb-1">🔥</p>
                   <p className="font-semibold text-green-800 mb-3">
-                    Picks locked in for Episode {ep.episode_number}
+                    Votes locked in for Episode {ep.episode_number}
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    {savedPicks.map((p) => (
-                      <span
-                        key={p.id}
-                        className="text-sm px-3 py-1.5 bg-white border border-green-200 rounded-lg font-medium text-gray-800"
-                      >
-                        {contestantMap.get(p.contestant_id)?.name ?? '—'}
-                        {activeDouble?.target_contestant_id === p.contestant_id && (
-                          <span className="text-indigo-600 font-semibold"> ×2</span>
-                        )}
-                      </span>
-                    ))}
+                    {savedPicks.map((p) => {
+                      const sc = contestantMap.get(p.contestant_id)
+                      // Voted-for someone already eliminated earlier — no longer eligible (#5)
+                      const stale =
+                        sc?.eliminated_in_episode != null &&
+                        sc.eliminated_in_episode < ep.episode_number
+                      return (
+                        <span
+                          key={p.id}
+                          className={`text-sm px-3 py-1.5 bg-white border rounded-lg font-medium ${
+                            stale
+                              ? 'border-gray-200 text-gray-400 line-through'
+                              : 'border-green-200 text-gray-800'
+                          }`}
+                        >
+                          {sc?.name ?? '—'}
+                          {activeDouble?.target_contestant_id === p.contestant_id && (
+                            <span className="text-indigo-600 font-semibold no-underline"> ×2</span>
+                          )}
+                          {stale && (
+                            <span className="ml-1 text-[10px] no-underline">(out)</span>
+                          )}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
               ) : (
                 <>
                   <p className="text-xs text-gray-500 mb-4">
-                    Pick up to {maxPicks} to be eliminated · {epPending.size} / {maxPicks} selected
+                    Vote for up to {maxPicks} to be eliminated · {epPending.size} / {maxPicks} selected
                     {activeExtra && ' · Extra Vote active'}
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
@@ -668,7 +695,7 @@ function PicksSection({
                   </p>
                   {activeExtra ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">Extra Vote active — +1 pick this episode</span>
+                      <span className="text-gray-700">Extra Vote active — +1 vote this episode</span>
                       <button
                         onClick={() => void takeBackPlay(activeExtra)}
                         disabled={advBusy}
@@ -686,7 +713,7 @@ function PicksSection({
                           disabled={advBusy}
                           className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-700 transition-colors"
                         >
-                          Play it (+1 pick)
+                          Play it (+1 vote)
                         </button>
                       </div>
                     )
@@ -711,7 +738,7 @@ function PicksSection({
                     ownedDouble &&
                     (epPending.size > 0 ? (
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-700 shrink-0">Double a pick:</span>
+                        <span className="text-gray-700 shrink-0">Double a vote:</span>
                         <select
                           value={doubleTarget}
                           onChange={(e) => setDoubleTarget(e.target.value)}
@@ -734,7 +761,7 @@ function PicksSection({
                       </div>
                     ) : (
                       <p className="text-sm text-gray-500">
-                        You own Double Vote Points — select picks first, then double one.
+                        You own Double Vote Points — select votes first, then double one.
                       </p>
                     ))
                   )}
@@ -749,7 +776,7 @@ function PicksSection({
                     onClick={() => setEditing(true)}
                     className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
                   >
-                    Edit Picks
+                    Edit Votes
                   </button>
                   <span className="text-xs text-gray-400">
                     Editable until {formatCentral(ep.picks_lock_at)}
@@ -762,7 +789,7 @@ function PicksSection({
                     disabled={submitting === ep.id || epPending.size === 0}
                     className="flex-1 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
                   >
-                    {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Picks'}
+                    {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Votes'}
                   </button>
                   {hasSavedPicks && (
                     <button
@@ -806,6 +833,12 @@ function PicksSection({
                       {picks.map((p) => {
                         const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
                         const name = contestantMap.get(p.contestant_id)?.name ?? '—'
+                        const doubled = plays.some(
+                          (pl) =>
+                            pl.episode_id === ep.id &&
+                            pl.advantage_type === 'double_vote_points' &&
+                            pl.target_contestant_id === p.contestant_id,
+                        )
                         // Only scored episodes have a settled result to color (#53)
                         const cls = !scored
                           ? 'bg-white border-gray-200 text-gray-700'
@@ -819,6 +852,9 @@ function PicksSection({
                           >
                             {scored && (result?.correct ? '✓ ' : '✗ ')}
                             {name}
+                            {doubled && (
+                              <span className="text-indigo-600 font-semibold no-underline"> ×2</span>
+                            )}
                             {scored && result?.correct && result.points > 0 && (
                               <span className="ml-1 font-semibold no-underline">
                                 +{result.points}
@@ -829,7 +865,7 @@ function PicksSection({
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400">No picks submitted</p>
+                    <p className="text-sm text-gray-400">No votes submitted</p>
                   )}
                 </div>
               )
@@ -958,20 +994,42 @@ function TokensSection({
   balance,
   plays,
   contestants,
+  episodes,
 }: {
   balance: number | null
   plays: AdvantagePlay[]
   contestants: Contestant[]
+  episodes: Episode[]
 }) {
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const active = plays.filter((p) => p.episode_id !== null)
+  const scoredIds = new Set(episodes.filter((e) => e.status === 'scored').map((e) => e.id))
+  const epNum = new Map(episodes.map((e) => [e.id, e.episode_number]))
+
+  // "Active" only while its episode is still to come — a played advantage on a
+  // scored episode has already applied and is spent, not active (#13).
+  const active = plays.filter((p) => p.episode_id !== null && !scoredIds.has(p.episode_id))
+  const used = plays.filter((p) => p.episode_id !== null && scoredIds.has(p.episode_id))
   const owned = plays.filter((p) => p.episode_id === null)
 
-  function label(p: AdvantagePlay) {
-    const name = p.target_contestant_id
-      ? contestantMap.get(p.target_contestant_id)?.name
-      : undefined
-    return p.advantage_type.replace(/_/g, ' ') + (name ? ` · ${name}` : '')
+  // Aggregate duplicate owned advantages (#2)
+  const ownedCounts = new Map<string, number>()
+  for (const p of owned) ownedCounts.set(p.advantage_type, (ownedCounts.get(p.advantage_type) ?? 0) + 1)
+
+  // Owned advantages can't be played on the finale (#15)
+  const nextOpen = [...episodes]
+    .sort((a, b) => a.episode_number - b.episode_number)
+    .find((e) => e.status !== 'scored')
+  const finaleOnly = owned.length > 0 && nextOpen?.is_finale === true
+
+  function pretty(type: string) {
+    return type
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  }
+  function withTarget(p: AdvantagePlay) {
+    const name = p.target_contestant_id ? contestantMap.get(p.target_contestant_id)?.name : undefined
+    return pretty(p.advantage_type) + (name ? ` · ${name}` : '')
   }
 
   return (
@@ -981,19 +1039,28 @@ function TokensSection({
         <span className="text-2xl font-bold text-gray-900">{balance ?? '—'}</span>
         <span className="text-sm text-gray-500">tokens</span>
       </div>
-      {(active.length > 0 || owned.length > 0) && (
+      {(active.length > 0 || owned.length > 0 || used.length > 0) && (
         <ul className="space-y-1 text-sm">
           {active.map((p) => (
             <li key={p.id} className="text-gray-700">
-              <span className="text-green-600 font-medium">Active</span> — {label(p)}
+              <span className="text-green-600 font-medium">Active</span> — {withTarget(p)}
             </li>
           ))}
-          {owned.map((p) => (
-            <li key={p.id} className="text-gray-500">
-              Owned — {label(p)}
+          {[...ownedCounts].map(([type, n]) => (
+            <li key={type} className="text-gray-500">
+              Owned — {pretty(type)}
+              {n > 1 && ` (×${n})`}
+            </li>
+          ))}
+          {used.map((p) => (
+            <li key={p.id} className="text-gray-400">
+              Used (ep {p.episode_id ? (epNum.get(p.episode_id) ?? '?') : '?'}) — {withTarget(p)}
             </li>
           ))}
         </ul>
+      )}
+      {finaleOnly && (
+        <p className="text-xs text-amber-600 mt-2">Advantages can't be used in the finale.</p>
       )}
     </div>
   )
