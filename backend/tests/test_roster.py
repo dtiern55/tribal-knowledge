@@ -315,7 +315,8 @@ def test_swap_blocked_after_episode_lock(client, db_conn):
         },
     )
     assert r.status_code == 400
-    assert "window" in r.json()["detail"]
+    # Swaps go to the next open episode (#9); with only a locked one there is none.
+    assert "No open episode" in r.json()["detail"]
 
 
 @pytest.mark.integration

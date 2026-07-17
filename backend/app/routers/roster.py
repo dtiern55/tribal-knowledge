@@ -5,7 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, episode_locked
+from app.locking import EPISODE_LOCKED_SQL, next_open_episode
 from app.schemas import RosterPick, RosterSubmitRequest, RosterSwapRequest
 
 router = APIRouter(tags=["roster"])
@@ -160,17 +160,11 @@ def swap_roster_pick(
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
-            cur.execute(
-                "select * from episodes where id = %s and season_id = %s",
-                [str(body.episode_id), str(season_id)],
-            )
-            episode = cur.fetchone()
+            # Swaps take effect immediately, from the next open episode (#9).
+            episode = next_open_episode(cur, str(season_id))
             if not episode:
-                raise HTTPException(status_code=404, detail="Episode not found")
-
-            if episode_locked(episode):
                 raise HTTPException(
-                    status_code=400, detail="Swap window for this episode has closed"
+                    status_code=400, detail="No open episode to swap into"
                 )
 
             cur.execute(

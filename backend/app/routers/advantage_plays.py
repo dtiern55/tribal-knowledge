@@ -238,7 +238,8 @@ def use_advantage(
                 raise HTTPException(
                     status_code=409,
                     detail=(
-                        f"{play['advantage_type']} already in play for this episode"
+                        f"{play['advantage_type']} is already in play on that"
+                        " target this episode"
                     ),
                 )
             return cur.fetchone()
