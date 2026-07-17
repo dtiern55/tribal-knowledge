@@ -54,30 +54,24 @@ def set_eliminations(
                         detail=f"Contestants not in this season: {invalid}",
                     )
 
+                # Additive (issue #71): reject anyone already eliminated
+                # anywhere in the season, including this episode.
                 cur.execute(
                     """
                     select e.contestant_id::text
                     from eliminations e
                     join episodes ep on e.episode_id = ep.id
                     where ep.season_id = %s
-                      and e.episode_id != %s
                       and e.contestant_id::text = any(%s)
                     """,
-                    [str(episode["season_id"]), str(episode_id), contestant_ids],
+                    [str(episode["season_id"]), contestant_ids],
                 )
                 already_out = [row["contestant_id"] for row in cur.fetchall()]
                 if already_out:
                     raise HTTPException(
                         status_code=400,
-                        detail=(
-                            "Contestants already eliminated in a prior"
-                            f" episode: {already_out}"
-                        ),
+                        detail=f"Contestants already eliminated: {already_out}",
                     )
-
-            cur.execute(
-                "delete from eliminations where episode_id = %s", [str(episode_id)]
-            )
 
             rows = []
             for entry in body:
@@ -89,3 +83,16 @@ def set_eliminations(
                 )
                 rows.append(cur.fetchone())
             return rows
+
+
+@router.delete("/eliminations/{elimination_id}", status_code=204)
+def delete_elimination(elimination_id: UUID, _: UUID = Depends(get_current_admin)):
+    """Remove one elimination (issue #71)."""
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "delete from eliminations where id = %s returning id",
+                [str(elimination_id)],
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Elimination not found")
