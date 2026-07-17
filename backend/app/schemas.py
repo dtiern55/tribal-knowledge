@@ -98,7 +98,6 @@ class RosterSubmitRequest(BaseModel):
 class RosterSwapRequest(BaseModel):
     old_contestant_id: UUID
     new_contestant_id: UUID
-    episode_id: UUID
 
 
 class EliminationPickSubmitRequest(BaseModel):
