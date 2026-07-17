@@ -60,7 +60,20 @@ export function ContestantPage() {
               {ep.events.length > 0 && (
                 <ul className="text-sm text-gray-600 space-y-0.5">
                   {ep.events.map((e, i) => (
-                    <li key={i}>{e}</li>
+                    <li key={i} className="flex items-center justify-between gap-2">
+                      <span>{e.label}</span>
+                      <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium">
+                        {e.points !== 0 && (
+                          <span className={e.points > 0 ? 'text-green-600' : 'text-red-500'}>
+                            {e.points > 0 ? '+' : ''}
+                            {e.points} pts
+                          </span>
+                        )}
+                        {e.token_value !== 0 && (
+                          <span className="text-amber-500">+{e.token_value} tkn</span>
+                        )}
+                      </span>
+                    </li>
                   ))}
                 </ul>
               )}

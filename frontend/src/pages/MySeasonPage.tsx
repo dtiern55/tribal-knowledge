@@ -10,6 +10,7 @@ import type {
   Contestant,
   EliminationPick,
   Episode,
+  FinalePrediction,
   PickResult,
   RosterPick,
   ScoringBreakdown,
@@ -93,6 +94,8 @@ export function MySeasonPage() {
         episodes={episodes}
         userId={userId}
         rosterPoints={rosterPoints}
+        plays={plays}
+        setPlays={setPlays}
       />
       <PicksSection
         season={season}
@@ -199,12 +202,16 @@ function RosterSection({
   episodes,
   userId,
   rosterPoints,
+  plays,
+  setPlays,
 }: {
   season: Season
   contestants: Contestant[]
   episodes: Episode[]
   userId: string
   rosterPoints: Map<string, number>
+  plays: AdvantagePlay[]
+  setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -216,10 +223,21 @@ function RosterSection({
   const [swapping, setSwapping] = useState(false)
   const [swapError, setSwapError] = useState<string | null>(null)
 
+  // Double Roster Points, playable inline here as well as on Advantages (#81).
+  const [dblTarget, setDblTarget] = useState('')
+  const [advBusy, setAdvBusy] = useState(false)
+  const [advError, setAdvError] = useState<string | null>(null)
+
   useEffect(() => {
     api
       .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
-      .then(setRoster)
+      .then((picks) => {
+        setRoster(picks)
+        // Seed the picker from the current active roster so pre-lock edits
+        // start from what you already have (issue #84 free rearranging).
+        const active = picks.filter((p) => p.active_until_episode === null)
+        if (active.length) setSelected(new Set(active.map((p) => p.contestant_id)))
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
   }, [season.id, userId])
 
@@ -245,6 +263,33 @@ function RosterSection({
   const swapCandidates = contestants.filter(
     (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
   )
+
+  // Swap gating (issue #84). A swapped-out pick = one swap used. Swaps lock
+  // once the next open episode reaches swap_lock_episode.
+  const swapsUsed = swappedRoster.length
+  const nextOpenEp = upcomingEpisodes
+    .filter((e) => e.episode_number >= (season.roster_lock_episode ?? 1))
+    .map((e) => e.episode_number)
+    .sort((a, b) => a - b)[0]
+  const swapsLocked =
+    season.swap_lock_episode != null &&
+    nextOpenEp != null &&
+    nextOpenEp >= season.swap_lock_episode
+  const swapCapReached = swapsUsed >= season.max_swaps
+
+  // Double Roster Points target the next open episode's roster scoring (#81).
+  const nextOpenEpisode = episodes.find((e) => isEpisodeOpen(e, season))
+  const ownedDoubleRoster = plays.filter(
+    (p) => p.episode_id === null && p.advantage_type === 'double_roster_points',
+  )
+  const activeDoubleRoster = plays.filter(
+    (p) =>
+      nextOpenEpisode != null &&
+      p.episode_id === nextOpenEpisode.id &&
+      p.advantage_type === 'double_roster_points',
+  )
+  const doubledRosterIds = new Set(activeDoubleRoster.map((p) => p.target_contestant_id))
+  const doubleTargets = activeRoster.filter((p) => !doubledRosterIds.has(p.contestant_id))
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -290,12 +335,45 @@ function RosterSection({
     }
   }
 
+  function replacePlay(updated: AdvantagePlay) {
+    setPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+  }
+
+  async function playDoubleRoster(play: AdvantagePlay, targetContestantId: string) {
+    setAdvBusy(true)
+    setAdvError(null)
+    try {
+      replacePlay(
+        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
+          target_contestant_id: targetContestantId,
+        }),
+      )
+      setDblTarget('')
+    } catch (e) {
+      setAdvError(e instanceof Error ? e.message : 'Advantage failed')
+    } finally {
+      setAdvBusy(false)
+    }
+  }
+
+  async function takeBackDoubleRoster(play: AdvantagePlay) {
+    setAdvBusy(true)
+    setAdvError(null)
+    try {
+      replacePlay(await api.delete<AdvantagePlay>(`/advantage-plays/${play.id}/use`))
+    } catch (e) {
+      setAdvError(e instanceof Error ? e.message : 'Take back failed')
+    } finally {
+      setAdvBusy(false)
+    }
+  }
+
   return (
     <div>
       <SectionTitle>My Roster</SectionTitle>
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
-      {hasRoster ? (
+      {!windowOpen && hasRoster ? (
         <div className="space-y-6">
           <ul className="space-y-2">
             {activeRoster.map((pick) => {
@@ -316,12 +394,79 @@ function RosterSection({
                         Out ep {c.eliminated_in_episode}
                       </span>
                     )}
+                    {doubledRosterIds.has(pick.contestant_id) && (
+                      <span className="text-indigo-600 font-semibold">×2</span>
+                    )}
                   </Link>
                   <Points value={rosterPoints.get(pick.contestant_id)} />
                 </li>
               )
             })}
           </ul>
+
+          {nextOpenEpisode != null &&
+            !nextOpenEpisode.is_finale &&
+            (ownedDoubleRoster.length > 0 || activeDoubleRoster.length > 0) && (
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  Advantages · Episode {nextOpenEpisode.episode_number}
+                </p>
+                {activeDoubleRoster.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">
+                      Double Roster Points on{' '}
+                      <span className="font-medium">
+                        {contestantMap.get(d.target_contestant_id ?? '')?.name ?? '—'}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => void takeBackDoubleRoster(d)}
+                      disabled={advBusy}
+                      className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                    >
+                      Take back
+                    </button>
+                  </div>
+                ))}
+                {ownedDoubleRoster.length > 0 &&
+                  (doubleTargets.length > 0 ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-700 shrink-0">
+                        Double roster pts
+                        {ownedDoubleRoster.length > 1
+                          ? ` (${ownedDoubleRoster.length} owned)`
+                          : ''}
+                        :
+                      </span>
+                      <select
+                        value={dblTarget}
+                        onChange={(e) => setDblTarget(e.target.value)}
+                        className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
+                      >
+                        <option value="">Choose…</option>
+                        {doubleTargets.map((p) => (
+                          <option key={p.id} value={p.contestant_id}>
+                            {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => void playDoubleRoster(ownedDoubleRoster[0], dblTarget)}
+                        disabled={advBusy || !dblTarget}
+                        className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-700 transition-colors"
+                      >
+                        Double ×2
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      You own {ownedDoubleRoster.length} Double Roster Points — every active
+                      pick is already doubled this episode.
+                    </p>
+                  ))}
+                {advError && <p className="text-red-600 text-xs">{advError}</p>}
+              </div>
+            )}
 
           {swappedRoster.length > 0 && (
             <div>
@@ -334,7 +479,12 @@ function RosterSection({
                       key={pick.id}
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-400"
                     >
-                      <span className="line-through">{c?.name ?? '—'}</span>
+                      <Link
+                        to={`/contestants/${pick.contestant_id}`}
+                        className="line-through hover:text-gray-600"
+                      >
+                        {c?.name ?? '—'}
+                      </Link>
                       <span className="text-xs flex items-center gap-2">
                         <Points value={rosterPoints.get(pick.contestant_id)} />
                         <span>
@@ -351,11 +501,25 @@ function RosterSection({
             </div>
           )}
 
-          {season.status !== 'completed' &&
-            upcomingEpisodes.length > 0 &&
-            swapCandidates.length > 0 && (
-              <div className="pt-4 border-t border-gray-100">
-                <SectionTitle>Swap a Roster Pick ({season.swap_penalty_points} pts penalty)</SectionTitle>
+          {season.status !== 'completed' && (
+            <div className="pt-4 border-t border-gray-100">
+              <SectionTitle>
+                Swap a Roster Pick ({season.swap_penalty_points} pts penalty)
+              </SectionTitle>
+              <p className="text-xs text-gray-400 mb-3">
+                {swapsUsed} of {season.max_swaps} swaps used
+                {season.swap_lock_episode != null &&
+                  ` · swaps lock at episode ${season.swap_lock_episode}`}
+              </p>
+              {swapsLocked ? (
+                <p className="text-sm text-gray-500">
+                  Roster swaps are locked for the rest of the season.
+                </p>
+              ) : swapCapReached ? (
+                <p className="text-sm text-gray-500">
+                  Swap limit reached — no swaps left this season.
+                </p>
+              ) : upcomingEpisodes.length > 0 && swapCandidates.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex gap-3 flex-wrap">
                     <select
@@ -393,13 +557,18 @@ function RosterSection({
                     {swapping ? 'Swapping…' : 'Confirm Swap'}
                   </button>
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-gray-500">No swaps available right now.</p>
+              )}
+            </div>
+          )}
         </div>
       ) : windowOpen ? (
         <div>
           <p className="text-sm text-gray-600 mb-1">
-            Pick {season.roster_size} castaways for your season roster.
+            {hasRoster
+              ? `Rearrange your roster freely before episode ${season.roster_lock_episode} — no penalty.`
+              : `Pick ${season.roster_size} castaways for your season roster.`}
           </p>
           <p className="text-xs text-gray-400 mb-4">
             Lock-in before episode {season.roster_lock_episode} · {selected.size} /{' '}
@@ -434,7 +603,7 @@ function RosterSection({
             disabled={selected.size !== season.roster_size || submitting}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
           >
-            {submitting ? 'Submitting…' : 'Lock In Roster'}
+            {submitting ? 'Saving…' : hasRoster ? 'Update Roster' : 'Lock In Roster'}
           </button>
         </div>
       ) : (
@@ -571,7 +740,16 @@ function PicksSection({
   }
 
   const nextOpen = episodes.find(isOpen)
-  const closedEpisodes = episodes.filter((ep) => !isOpen(ep)).reverse()
+  // Watch-only premiere episodes (before roster lock) accept no votes, so they
+  // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
+  const closedEpisodes = episodes
+    .filter(
+      (ep) =>
+        !isOpen(ep) &&
+        !ep.is_finale && // finale votes are the finale ballot, not weekly picks (#86)
+        ep.episode_number >= (season.roster_lock_episode ?? 1),
+    )
+    .reverse()
 
   return (
     <div>
@@ -581,7 +759,18 @@ function PicksSection({
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
 
+      {/* Final week: the weekly vote becomes the 3-part finale ballot (#86). */}
+      {nextOpen && nextOpen.is_finale && (
+        <FinaleBallot
+          season={season}
+          contestants={contestants}
+          finaleEp={nextOpen}
+          userId={userId}
+        />
+      )}
+
       {nextOpen &&
+        !nextOpen.is_finale &&
         (() => {
           const ep = nextOpen
           const epPending = pending.get(ep.id) ?? new Set<string>()
@@ -620,6 +809,12 @@ function PicksSection({
                   <p className="font-semibold text-green-800 mb-3">
                     Votes locked in for Episode {ep.episode_number}
                   </p>
+                  {savedPicks.length < maxPicks && (
+                    <p className="text-xs text-green-700 mb-3">
+                      {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
+                      {maxPicks - savedPicks.length} more before lock.
+                    </p>
+                  )}
                   <div className="flex flex-wrap justify-center gap-2">
                     {savedPicks.map((p) => {
                       const sc = contestantMap.get(p.contestant_id)
@@ -880,6 +1075,132 @@ function PicksSection({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Finale ballot (final week's weekly vote) ───────────────────────────────
+
+function FinaleBallot({
+  season,
+  contestants,
+  finaleEp,
+  userId,
+}: {
+  season: Season
+  contestants: Contestant[]
+  finaleEp: Episode
+  userId: string
+}) {
+  const [earlyBoot, setEarlyBoot] = useState('')
+  const [fireLoss, setFireLoss] = useState('')
+  const [winner, setWinner] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api
+      .get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`)
+      .then((pred) => {
+        setEarlyBoot(pred.early_boot_contestant_id ?? '')
+        setFireLoss(pred.fire_loss_contestant_id ?? '')
+        setWinner(pred.winner_contestant_id ?? '')
+      })
+      .catch(() => {
+        // No prediction yet — form starts empty
+      })
+  }, [season.id, userId])
+
+  const alive = contestants.filter((c) => c.eliminated_in_episode == null)
+  const picks = [
+    {
+      id: 'early-boot',
+      label: 'First Boot',
+      description: 'First person eliminated on finale night',
+      value: earlyBoot,
+      onChange: setEarlyBoot,
+    },
+    {
+      id: 'fire-loss',
+      label: 'Fire-Making Loser',
+      description: 'Loses the fire-making challenge',
+      value: fireLoss,
+      onChange: setFireLoss,
+    },
+    {
+      id: 'winner',
+      label: 'Sole Survivor',
+      description: 'Wins the game',
+      value: winner,
+      onChange: setWinner,
+    },
+  ]
+
+  async function submitBallot() {
+    setSubmitting(true)
+    setError(null)
+    setSaved(false)
+    try {
+      await api.post<FinalePrediction>(`/seasons/${season.id}/finale-predictions`, {
+        early_boot_contestant_id: earlyBoot || null,
+        fire_loss_contestant_id: fireLoss || null,
+        winner_contestant_id: winner || null,
+      })
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Submit failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="font-semibold text-gray-900">
+          Finale · Episode {finaleEp.episode_number}
+        </h3>
+        <span className="text-xs text-gray-400">Locks {formatCentral(finaleEp.picks_lock_at)}</span>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">Make your three finale predictions.</p>
+
+      <div className="space-y-4 mb-4">
+        {picks.map(({ id, label, description, value, onChange }) => (
+          <div key={id}>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-0.5">
+              {label}
+            </label>
+            <p className="text-xs text-gray-400 mb-1.5">{description}</p>
+            <select
+              value={value}
+              onChange={(e) => {
+                onChange(e.target.value)
+                setSaved(false)
+              }}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">No pick</option>
+              {alive.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+      {saved && <p className="text-green-600 text-sm mb-3">Ballot saved.</p>}
+
+      <button
+        onClick={() => void submitBallot()}
+        disabled={submitting}
+        className="w-full px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+      >
+        {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
+      </button>
     </div>
   )
 }

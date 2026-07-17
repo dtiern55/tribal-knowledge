@@ -19,6 +19,8 @@ export interface Season {
   merge_episode: number | null
   winner_lock_episode: number | null
   swap_penalty_points: number
+  max_swaps: number
+  swap_lock_episode: number | null
   weekly_token_allocation: number
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
@@ -109,6 +111,8 @@ export interface AdvantagePlay {
   advantage_type: string
   target_contestant_id: string | null
   token_cost: number
+  // bonus points a played double earned; null until played / for extra_vote
+  points_earned: number | null
   created_at: string
 }
 
@@ -148,10 +152,26 @@ export interface ScoringBreakdown {
   picks: PickResult[]
 }
 
+export interface CastMember {
+  id: string
+  name: string
+  image_url: string | null
+  placement: number | null
+  eliminated_in_episode: number | null
+  total_points: number
+  total_tokens: number
+}
+
+export interface ContestantEventStat {
+  label: string
+  points: number
+  token_value: number
+}
+
 export interface ContestantEpisodeStat {
   episode_number: number
   points: number
-  events: string[]
+  events: ContestantEventStat[]
   eliminated_type: string | null
 }
 

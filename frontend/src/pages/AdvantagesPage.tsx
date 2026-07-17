@@ -243,11 +243,15 @@ export function AdvantagesPage() {
               <button
                 onClick={() => void takeBack(p)}
                 disabled={busy === `unuse:${p.id}`}
-                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                className="shrink-0 px-2.5 py-1 border border-indigo-300 text-xs text-indigo-700 hover:bg-indigo-100 font-medium rounded-lg transition-colors"
               >
-                {busy === `unuse:${p.id}` ? 'Taking back…' : 'Take back'}
+                {busy === `unuse:${p.id}` ? 'Taking back…' : '↩ Take back'}
               </button>
             </div>
+            <p className="text-xs text-indigo-500 mt-1">
+              Changed your mind? Take it back into inventory any time before
+              Episode {playEpisode(p)?.episode_number} locks — no tokens lost.
+            </p>
           </div>
         ))}
       </div>
@@ -273,7 +277,21 @@ export function AdvantagesPage() {
                   )}
                   <span className="text-gray-400"> · Episode {playEpisode(p)?.episode_number}</span>
                 </span>
-                <span className="text-xs text-gray-400">{p.token_cost} tokens</span>
+                <span className="text-xs text-gray-400 flex items-center gap-2 shrink-0">
+                  {p.points_earned != null && (
+                    <span
+                      className={
+                        p.points_earned > 0
+                          ? 'text-green-600 font-medium'
+                          : 'text-gray-400'
+                      }
+                    >
+                      {p.points_earned > 0 ? '+' : ''}
+                      {p.points_earned} pts
+                    </span>
+                  )}
+                  <span>{p.token_cost} tokens</span>
+                </span>
               </li>
             ))}
           </ul>

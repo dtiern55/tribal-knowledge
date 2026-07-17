@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import type { Season, StandingEntry } from '../types'
 
@@ -50,7 +51,14 @@ export function StandingsPage() {
           {entries.map((entry, i) => (
             <tr key={entry.user_id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-3 text-gray-400">{i + 1}</td>
-              <td className="py-3 font-medium text-gray-900">{entry.display_name}</td>
+              <td className="py-3 font-medium">
+                <Link
+                  to={`/seasons/${season.id}/team/${entry.user_id}`}
+                  className="text-gray-900 hover:text-indigo-700"
+                >
+                  {entry.display_name}
+                </Link>
+              </td>
               <td className="py-3 text-right text-gray-700">{entry.roster_points}</td>
               <td className="py-3 text-right text-gray-700">{entry.elimination_points}</td>
               <td className="py-3 text-right text-gray-700">{entry.finale_points}</td>
