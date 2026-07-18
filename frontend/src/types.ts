@@ -80,6 +80,14 @@ export interface EliminationPick {
   created_at: string
 }
 
+export interface Elimination {
+  id: string
+  episode_id: string
+  contestant_id: string
+  elimination_type: string
+  created_at: string
+}
+
 export interface FinalePrediction {
   id: string
   user_id: string

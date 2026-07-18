@@ -29,10 +29,12 @@ def get_picks(
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
-            # Other players' picks stay hidden until the episode locks
-            if str(user_id) != str(current_user) and not episode_locked(episode):
+            # Other players' picks stay hidden until the episode is scored
+            # (#134) — post-lock but pre-scoring they're still private.
+            if str(user_id) != str(current_user) and episode["status"] != "scored":
                 raise HTTPException(
-                    status_code=403, detail="Picks are hidden until they lock"
+                    status_code=403,
+                    detail="Picks are hidden until the episode is scored",
                 )
             cur.execute(
                 """
