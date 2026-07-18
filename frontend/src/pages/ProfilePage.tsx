@@ -71,10 +71,21 @@ function DisplayNameSection() {
   )
 }
 
+/** Prove the caller knows the current password before an account change
+ * (#139) — an unlocked phone alone must not be enough to take over. */
+async function verifyCurrentPassword(
+  email: string,
+  password: string,
+): Promise<string | null> {
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  return error ? 'Current password is incorrect' : null
+}
+
 function EmailSection() {
   const { session } = useAuth()
   const currentEmail = session?.user.email ?? ''
   const [email, setEmail] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -84,6 +95,12 @@ function EmailSection() {
     setSaving(true)
     setError(null)
     setInfo(null)
+    const authError = await verifyCurrentPassword(currentEmail, currentPassword)
+    if (authError) {
+      setError(authError)
+      setSaving(false)
+      return
+    }
     const { data, error } = await supabase.auth.updateUser({ email })
     if (error) {
       setError(error.message)
@@ -94,6 +111,7 @@ function EmailSection() {
       setInfo('Email updated.')
       setEmail('')
     }
+    setCurrentPassword('')
     setSaving(false)
   }
 
@@ -115,11 +133,29 @@ function EmailSection() {
           className={inputCls}
         />
       </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Current password
+        </label>
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+          className={inputCls}
+        />
+      </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {info && <p className="text-sm text-green-600">{info}</p>}
       <button
         type="submit"
-        disabled={saving || !email.trim() || email.trim() === currentEmail}
+        disabled={
+          saving ||
+          !email.trim() ||
+          !currentPassword ||
+          email.trim() === currentEmail
+        }
         className={buttonCls}
       >
         {saving ? 'Saving…' : 'Change email'}
@@ -129,6 +165,9 @@ function EmailSection() {
 }
 
 function PasswordSection() {
+  const { session } = useAuth()
+  const currentEmail = session?.user.email ?? ''
+  const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -144,11 +183,21 @@ function PasswordSection() {
     setSaving(true)
     setError(null)
     setInfo(null)
+    const authError = await verifyCurrentPassword(currentEmail, current)
+    if (authError) {
+      setError(authError)
+      setSaving(false)
+      return
+    }
     const { error } = await supabase.auth.updateUser({ password })
     if (error) {
       setError(error.message)
     } else {
-      setInfo('Password updated.')
+      // Changing the password should actually lock out anyone else who
+      // holds a session (#139); this device keeps its own.
+      await supabase.auth.signOut({ scope: 'others' })
+      setInfo('Password updated. Any other signed-in devices were logged out.')
+      setCurrent('')
       setPassword('')
       setConfirm('')
     }
@@ -159,6 +208,19 @@ function PasswordSection() {
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
+          Current password
+        </label>
+        <input
+          type="password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          required
+          autoComplete="current-password"
+          className={inputCls}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           New password
         </label>
         <input
@@ -167,6 +229,7 @@ function PasswordSection() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
+          autoComplete="new-password"
           className={inputCls}
         />
       </div>
@@ -180,6 +243,7 @@ function PasswordSection() {
           onChange={(e) => setConfirm(e.target.value)}
           required
           minLength={6}
+          autoComplete="new-password"
           className={inputCls}
         />
       </div>
@@ -187,7 +251,7 @@ function PasswordSection() {
       {info && <p className="text-sm text-green-600">{info}</p>}
       <button
         type="submit"
-        disabled={saving || !password || !confirm}
+        disabled={saving || !current || !password || !confirm}
         className={buttonCls}
       >
         {saving ? 'Saving…' : 'Change password'}
