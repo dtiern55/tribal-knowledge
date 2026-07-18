@@ -15,6 +15,7 @@ from app.routers import (
     me,
     picks,
     roster,
+    rules,
     scoring_events,
     seasons,
     standings,
@@ -50,6 +51,7 @@ app.include_router(tokens.router)
 app.include_router(winner_picks.router)
 app.include_router(standings.router)
 app.include_router(league_settings.router)
+app.include_router(rules.router)
 
 
 @app.get("/health")

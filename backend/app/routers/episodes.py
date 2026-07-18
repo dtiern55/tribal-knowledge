@@ -113,21 +113,35 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
             scored = cur.fetchone()
 
             cur.execute(
-                "select weekly_token_allocation, advantage_lock_episode"
-                " from seasons where id = %s",
+                "select weekly_token_allocation, advantage_lock_episode,"
+                " roster_lock_episode from seasons where id = %s",
                 [episode["season_id"]],
             )
             srow = cur.fetchone()
             amount = srow["weekly_token_allocation"]
-            # Token earning stops at the advantage cutoff (issue #85) — no grant.
-            locked = advantages_locked(
-                episode["episode_number"],
-                episode["is_finale"],
-                srow["advantage_lock_episode"],
+
+            # Tokens are granted FOR the next upcoming episode, before it (#97):
+            # scoring episode N funds episode N+1, provided that episode is
+            # pickable (>= roster_lock) and advantages aren't locked for it yet.
+            # ep2's opening grant is the season-start bootstrap (weekly-allocation
+            # endpoint). The idempotency check keeps any overlap a no-op.
+            cur.execute(
+                "select id, episode_number, is_finale from episodes"
+                " where season_id = %s and episode_number > %s"
+                " order by episode_number limit 1",
+                [episode["season_id"], episode["episode_number"]],
             )
-            if amount > 0 and not locked:
-                # Idempotent against manual weekly-allocation grants for the
-                # same episode (the corrections endpoint in tokens.py).
+            nxt = cur.fetchone()
+            if (
+                amount > 0
+                and nxt is not None
+                and nxt["episode_number"] >= (srow["roster_lock_episode"] or 1)
+                and not advantages_locked(
+                    nxt["episode_number"],
+                    nxt["is_finale"],
+                    srow["advantage_lock_episode"],
+                )
+            ):
                 cur.execute(
                     """
                     insert into token_transactions
@@ -146,7 +160,7 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                     """,
                     {
                         "season": episode["season_id"],
-                        "episode": str(episode_id),
+                        "episode": str(nxt["id"]),
                         "amount": amount,
                     },
                 )

@@ -133,6 +133,22 @@ class ScoringEventType(BaseModel):
     label: str
 
 
+class RuleScoringEvent(BaseModel):
+    event_type: str
+    label: str
+    point_value: int
+    postmerge_point_value: Optional[int]
+    token_value: int
+    is_per_unit: bool
+
+
+class RulePredictionScore(BaseModel):
+    key: str
+    label: str
+    point_value: int
+    postmerge_point_value: Optional[int]
+
+
 # --- Admin write bodies ---
 
 
@@ -251,6 +267,13 @@ class AdvantageType(BaseModel):
     label: str
     token_cost: int
     enabled: bool
+
+
+class RulesResponse(BaseModel):
+    season: Season
+    scoring_events: list[RuleScoringEvent]
+    prediction_scores: list[RulePredictionScore]
+    advantages: list[AdvantageType]
 
 
 class LeagueSettings(BaseModel):

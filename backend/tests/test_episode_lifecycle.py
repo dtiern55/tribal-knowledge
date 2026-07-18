@@ -56,44 +56,41 @@ def _weekly_grants(conn, episode_id):
 
 
 @pytest.mark.integration
-def test_score_episode_grants_weekly_tokens(client, db_conn, current_user):
-    """Scoring grants every player the season's weekly allocation (#49)."""
+def test_score_episode_funds_next_episode(client, db_conn, current_user):
+    """Scoring episode N funds episode N+1 — tokens for the upcoming ep (#97)."""
     season = insert_season(db_conn, weekly_token_allocation=7)
     other = insert_user(db_conn, display_name="Other")
-    ep = _locked_episode(db_conn, season["id"])
+    ep1 = _locked_episode(db_conn, season["id"], episode_number=1)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
 
-    r = client.post(f"/episodes/{ep['id']}/score")
+    r = client.post(f"/episodes/{ep1['id']}/score")
     assert r.status_code == 200
-    grants = _weekly_grants(db_conn, ep["id"])
+    assert _weekly_grants(db_conn, ep1["id"]) == {}  # not for the scored episode
+    grants = _weekly_grants(db_conn, ep2["id"])
     assert grants[str(current_user["id"])] == 7
     assert grants[str(other["id"])] == 7
 
 
 @pytest.mark.integration
-def test_score_finale_grants_no_weekly_tokens(client, db_conn, current_user):
-    """Token earning stops at the finale (#85) — scoring it grants nothing."""
+def test_scoring_does_not_fund_the_finale(client, db_conn, current_user):
+    """The finale is never funded — advantages are locked there (#85/#97)."""
     season = insert_season(db_conn, weekly_token_allocation=7)
-    ep = insert_episode(
-        db_conn,
-        season["id"],
-        episode_number=1,
-        is_finale=True,
-        picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
-    )
-    r = client.post(f"/episodes/{ep['id']}/score")
-    assert r.status_code == 200
-    assert _weekly_grants(db_conn, ep["id"]) == {}
+    ep5 = _locked_episode(db_conn, season["id"], episode_number=5)
+    ep6 = insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
+    client.post(f"/episodes/{ep5['id']}/score")
+    assert _weekly_grants(db_conn, ep6["id"]) == {}
 
 
 @pytest.mark.integration
 def test_advantage_lock_episode_gates_weekly_tokens(client, db_conn, current_user):
-    """advantage_lock_episode=5: ep4 still grants tokens, ep5 doesn't."""
+    """advantage_lock=5: scoring ep3 funds ep4; scoring ep4 does NOT fund ep5."""
     season = insert_season(db_conn, weekly_token_allocation=7, advantage_lock_episode=5)
+    ep3 = _locked_episode(db_conn, season["id"], episode_number=3)
     ep4 = _locked_episode(db_conn, season["id"], episode_number=4)
-    ep5 = _locked_episode(db_conn, season["id"], episode_number=5)
+    ep5 = insert_episode(db_conn, season["id"], episode_number=5)
 
+    client.post(f"/episodes/{ep3['id']}/score")
     client.post(f"/episodes/{ep4['id']}/score")
-    client.post(f"/episodes/{ep5['id']}/score")
     assert _weekly_grants(db_conn, ep4["id"])[str(current_user["id"])] == 7
     assert _weekly_grants(db_conn, ep5["id"]) == {}
 
@@ -103,36 +100,39 @@ def test_score_episode_skips_admin_accounts(client, db_conn, current_user):
     """Service accounts (Producer) don't receive weekly tokens (#50)."""
     season = insert_season(db_conn, weekly_token_allocation=7)
     producer = insert_user(db_conn, display_name="Producer", is_admin=True)
-    ep = _locked_episode(db_conn, season["id"])
+    ep1 = _locked_episode(db_conn, season["id"], episode_number=1)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
 
-    client.post(f"/episodes/{ep['id']}/score")
-    grants = _weekly_grants(db_conn, ep["id"])
+    client.post(f"/episodes/{ep1['id']}/score")
+    grants = _weekly_grants(db_conn, ep2["id"])
     assert str(current_user["id"]) in grants
     assert str(producer["id"]) not in grants
 
 
 @pytest.mark.integration
 def test_score_episode_skips_already_granted(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    ep = _locked_episode(db_conn, season["id"])
-    # A manual correction grant already exists for this user + episode
+    season = insert_season(db_conn, weekly_token_allocation=10)
+    ep1 = _locked_episode(db_conn, season["id"], episode_number=1)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    # ep2 already bootstrapped at season start (weekly-allocation endpoint)
     r = client.post(
         f"/seasons/{season['id']}/tokens/weekly-allocation",
-        json={"episode_id": str(ep["id"]), "amount": 3},
+        json={"episode_id": str(ep2["id"]), "amount": 3},
     )
     assert r.status_code == 200
 
-    client.post(f"/episodes/{ep['id']}/score")
-    grants = _weekly_grants(db_conn, ep["id"])
-    assert grants[str(current_user["id"])] == 3  # not doubled, not overwritten
+    client.post(f"/episodes/{ep1['id']}/score")  # forward grant would fund ep2
+    grants = _weekly_grants(db_conn, ep2["id"])
+    assert grants[str(current_user["id"])] == 3  # not doubled by the forward grant
 
 
 @pytest.mark.integration
 def test_score_episode_zero_allocation_grants_nothing(client, db_conn, current_user):
     season = insert_season(db_conn, weekly_token_allocation=0)
-    ep = _locked_episode(db_conn, season["id"])
-    client.post(f"/episodes/{ep['id']}/score")
-    assert _weekly_grants(db_conn, ep["id"]) == {}
+    ep1 = _locked_episode(db_conn, season["id"], episode_number=1)
+    insert_episode(db_conn, season["id"], episode_number=2)
+    client.post(f"/episodes/{ep1['id']}/score")
+    assert _weekly_grants(db_conn, ep1["id"]) == {}
 
 
 @pytest.mark.integration
