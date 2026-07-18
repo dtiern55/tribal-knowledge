@@ -167,12 +167,33 @@ def test_use_blocked_in_finale(client, db_conn, current_user):
         is_finale=True,
         picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
-    _fund(client, season["id"], current_user["id"])
-    play = _buy(client, season["id"], "extra_vote")
+    # Acquire directly — buying is blocked in a locked episode (#102).
+    play = insert_advantage_play(
+        db_conn, current_user["id"], None, "extra_vote", season_id=season["id"]
+    )
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 400
     assert "no longer" in r.json()["detail"].lower()
+
+
+@pytest.mark.integration
+def test_buy_blocked_when_advantages_locked(client, db_conn, current_user):
+    """Can't buy once advantages are locked — it could never be played (#102)."""
+    season = insert_season(db_conn, advantage_lock_episode=5)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=5,
+        picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    _fund(client, season["id"], current_user["id"])
+    r = client.post(
+        f"/seasons/{season['id']}/advantage-plays",
+        json={"advantage_type": "double_vote_points"},
+    )
+    assert r.status_code == 400
+    assert "no longer be bought" in r.json()["detail"]
 
 
 @pytest.mark.integration
@@ -185,8 +206,10 @@ def test_use_blocked_at_advantage_lock_episode(client, db_conn, current_user):
         episode_number=5,  # open, not the finale
         picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
-    _fund(client, season["id"], current_user["id"])
-    play = _buy(client, season["id"], "extra_vote")
+    # Acquire directly — buying is blocked in a locked episode (#102).
+    play = insert_advantage_play(
+        db_conn, current_user["id"], None, "extra_vote", season_id=season["id"]
+    )
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 400

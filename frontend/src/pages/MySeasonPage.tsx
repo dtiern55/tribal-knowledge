@@ -931,8 +931,8 @@ function PicksSection({
                   {activeExtras.length > 0 && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">
-                        Extra Vote ×{activeExtras.length} active — +{activeExtras.length} vote
-                        {activeExtras.length > 1 ? 's' : ''}
+                        {activeExtras.length} Extra Vote{activeExtras.length > 1 ? 's' : ''} in
+                        play — you can vote for {activeExtras.length} more this episode
                       </span>
                       <button
                         onClick={() => void takeBackPlay(activeExtras[activeExtras.length - 1])}

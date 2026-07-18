@@ -93,6 +93,24 @@ def buy_advantage(
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
 
+            # No buying once advantages are locked — a bought advantage could
+            # never be played (issue #102). Only blocks when the next open
+            # episode is past the cutoff; buying earlier stays fine.
+            episode = next_open_episode(cur, str(season_id))
+            if episode is not None:
+                cur.execute(
+                    "select advantage_lock_episode from seasons where id = %s",
+                    [str(season_id)],
+                )
+                adv_lock = cur.fetchone()["advantage_lock_episode"]
+                if advantages_locked(
+                    episode["episode_number"], episode["is_finale"], adv_lock
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Advantages can no longer be bought this season",
+                    )
+
             cur.execute(
                 "select token_cost from advantage_types"
                 " where advantage_type = %s and enabled = true",

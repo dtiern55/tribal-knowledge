@@ -63,11 +63,16 @@ export function ContestantPage() {
               </div>
               {ep.events.length > 0 && (
                 <ul className="text-sm text-gray-600 space-y-0.5">
-                  {ep.events.map((e, i) => (
+                  {/* Point-scoring events first, then token/zero-point ones (item 2). */}
+                  {[...ep.events]
+                    .sort((a, b) => (a.points === 0 ? 1 : 0) - (b.points === 0 ? 1 : 0))
+                    .map((e, i) => (
                     <li key={i} className="flex items-center justify-between gap-2">
                       <span>
                         {e.label}
-                        {e.quantity > 1 && <span className="text-gray-400"> ×{e.quantity}</span>}
+                        {e.quantity > 1 && (
+                          <span className="text-gray-500 font-medium"> — {e.quantity} votes</span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium">
                         {e.points !== 0 && (
