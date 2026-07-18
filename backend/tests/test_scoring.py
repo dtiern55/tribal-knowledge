@@ -414,11 +414,26 @@ def test_roster_points_by_contestant_splits_and_sums(db_conn):
 
     by_c = scoring.roster_points_by_contestant(db_conn, season["id"], user["id"])
     assert by_c == {str(a["id"]): 15, str(b["id"]): -20}
-    # Per-contestant sum matches the season-level total
+    # Per-contestant sum matches the season-level total (no doubles in play)
     assert (
         sum(by_c.values())
         == scoring.roster_points(db_conn, season["id"])[str(user["id"])]
     )
+
+    # A played Double Roster must NOT inflate the breakdown (#136): the
+    # bonus is reported separately; only the standings total doubles.
+    insert_advantage_play(
+        db_conn,
+        user["id"],
+        ep["id"],
+        "double_roster_points",
+        target_contestant_id=a["id"],
+    )
+    by_c = scoring.roster_points_by_contestant(db_conn, season["id"], user["id"])
+    assert by_c[str(a["id"])] == 15  # base, not 30
+    assert (
+        scoring.roster_points(db_conn, season["id"])[str(user["id"])] == 10
+    )  # 30 - 20
 
 
 @pytest.mark.integration
@@ -438,3 +453,17 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
     assert by_c[str(hit["id"])]["points"] == 15  # premerge correct_elimination
     assert by_c[str(miss["id"])]["correct"] is False
     assert by_c[str(miss["id"])]["points"] == 0
+
+    # Double Vote must NOT inflate the per-pick display (#136): base points
+    # here, the bonus reported separately, standings total still doubled.
+    insert_advantage_play(
+        db_conn,
+        user["id"],
+        ep["id"],
+        "double_vote_points",
+        target_contestant_id=hit["id"],
+    )
+    results = scoring.elimination_pick_results(db_conn, season["id"], user["id"])
+    by_c = {r["contestant_id"]: r for r in results}
+    assert by_c[str(hit["id"])]["points"] == 15  # base, not 30
+    assert scoring.elimination_points(db_conn, season["id"])[str(user["id"])] == 30
