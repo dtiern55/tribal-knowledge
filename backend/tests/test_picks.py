@@ -222,7 +222,8 @@ def test_other_users_picks_hidden_until_lock(client, db_conn):
 
 
 @pytest.mark.integration
-def test_other_users_picks_visible_after_lock(client, db_conn):
+def test_other_users_picks_visible_only_after_scored(client, db_conn):
+    """#134: locked-but-unscored stays private; scored is visible."""
     from tests.helpers import insert_elimination_pick, insert_user
 
     season = insert_season(db_conn)
@@ -234,6 +235,12 @@ def test_other_users_picks_visible_after_lock(client, db_conn):
     contestant = insert_contestant(db_conn, season["id"])
     other = insert_user(db_conn, display_name="Other")
     insert_elimination_pick(db_conn, other["id"], ep["id"], contestant["id"])
+
+    r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
+    assert r.status_code == 403  # locked, but not yet scored
+
+    with db_conn.cursor() as cur:
+        cur.execute("update episodes set status = 'scored' where id = %s", [ep["id"]])
     r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
     assert r.status_code == 200
     assert len(r.json()) == 1

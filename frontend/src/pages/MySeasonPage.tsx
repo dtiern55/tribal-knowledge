@@ -1084,18 +1084,20 @@ function PicksSection({
                             pl.advantage_type === 'double_vote_points' &&
                             pl.target_contestant_id === p.contestant_id,
                         )
-                        // Only scored episodes have a settled result to color (#53)
+                        // Only scored episodes have a settled result to color
+                        // (#53). Incorrect stays neutral, not red — most votes
+                        // miss, and a wall of red feels bad (#135).
                         const cls = !scored
                           ? 'bg-white border-gray-200 text-gray-700'
                           : result?.correct
                             ? 'bg-green-50 border-green-300 text-green-800'
-                            : 'bg-red-50 border-red-200 text-red-700 line-through'
+                            : 'bg-white border-gray-200 text-gray-500'
                         return (
                           <span
                             key={p.id}
                             className={`text-sm px-2 py-1 border rounded-md ${cls}`}
                           >
-                            {scored && (result?.correct ? '✓ ' : '✗ ')}
+                            {scored && result?.correct && '✓ '}
                             {name}
                             {doubled && (
                               <span className="text-ocean-600 font-semibold no-underline"> ×2</span>

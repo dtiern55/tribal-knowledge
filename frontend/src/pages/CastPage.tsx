@@ -59,9 +59,11 @@ export function CastPage() {
                 )
               )}
             </Link>
-            <span className="flex items-center gap-2 text-sm shrink-0">
+            {/* Fixed-width right-aligned columns so rows line up whether or
+                not tokens exist (#133); tokens deliberately quieter. */}
+            <span className="flex items-center text-sm shrink-0">
               <span
-                className={`font-semibold ${
+                className={`w-16 text-right font-semibold ${
                   c.total_points > 0
                     ? 'text-green-600'
                     : c.total_points < 0
@@ -72,9 +74,9 @@ export function CastPage() {
                 {c.total_points > 0 ? '+' : ''}
                 {c.total_points} pts
               </span>
-              {c.total_tokens > 0 && (
-                <span className="text-xs text-amber-500">+{c.total_tokens} tkn</span>
-              )}
+              <span className="w-14 text-right text-[11px] text-amber-500/70">
+                {c.total_tokens > 0 ? `+${c.total_tokens} tkn` : ''}
+              </span>
             </span>
           </li>
         ))}

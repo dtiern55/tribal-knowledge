@@ -2,15 +2,30 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
-import type { Contestant, RosterPick, StandingEntry } from '../types'
+import type {
+  Contestant,
+  Elimination,
+  EliminationPick,
+  Episode,
+  RosterPick,
+  StandingEntry,
+} from '../types'
 
-// Read-only view of another player's roster, reached from Standings (#83).
-// The roster endpoint 403s until rosters lock, so hidden teams show a note.
+interface EpisodeVotes {
+  episode: Episode
+  picks: EliminationPick[]
+  eliminatedIds: Set<string>
+}
+
+// Read-only view of another player's roster, reached from Standings (#83),
+// plus their votes for scored episodes (#134 — pre-scoring votes stay
+// private, enforced server-side).
 export function TeamPage() {
   const { seasonId, userId } = useParams()
   const navigate = useNavigate()
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
+  const [votes, setVotes] = useState<EpisodeVotes[]>([])
   const [name, setName] = useState<string>('')
   const [hidden, setHidden] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -20,9 +35,10 @@ export function TeamPage() {
     if (!seasonId || !userId) return
     async function load() {
       try {
-        const [cs, standings] = await Promise.all([
+        const [cs, standings, episodes] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${seasonId}/contestants`),
           api.get<StandingEntry[]>(`/seasons/${seasonId}/standings`),
+          api.get<Episode[]>(`/seasons/${seasonId}/episodes`),
         ])
         setContestants(cs)
         setName(standings.find((s) => s.user_id === userId)?.display_name ?? 'Team')
@@ -31,6 +47,27 @@ export function TeamPage() {
         } catch {
           setHidden(true) // 403 until rosters lock
         }
+
+        const scored = episodes
+          .filter((e) => e.status === 'scored')
+          .sort((a, b) => b.episode_number - a.episode_number)
+        setVotes(
+          await Promise.all(
+            scored.map(async (episode) => {
+              const [picks, eliminations] = await Promise.all([
+                api
+                  .get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`)
+                  .catch(() => []),
+                api.get<Elimination[]>(`/episodes/${episode.id}/eliminations`),
+              ])
+              return {
+                episode,
+                picks,
+                eliminatedIds: new Set(eliminations.map((e) => e.contestant_id)),
+              }
+            }),
+          ),
+        )
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load team')
       } finally {
@@ -86,6 +123,50 @@ export function TeamPage() {
             )
           })}
         </ul>
+      )}
+
+      {votes.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+            Previous Votes
+          </h2>
+          <div className="space-y-3">
+            {votes.map(({ episode, picks, eliminatedIds }) => (
+              <div
+                key={episode.id}
+                className="p-4 bg-gray-50 border border-gray-100 rounded-xl"
+              >
+                <p className="font-medium text-gray-700 mb-2">
+                  Episode {episode.episode_number}
+                </p>
+                {picks.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {picks.map((p) => {
+                      const correct = eliminatedIds.has(p.contestant_id)
+                      // Correct gets the green + check; incorrect stays
+                      // neutral — most votes miss, no red walls (#135).
+                      return (
+                        <span
+                          key={p.id}
+                          className={`text-sm px-2 py-1 border rounded-md ${
+                            correct
+                              ? 'bg-green-50 border-green-300 text-green-800'
+                              : 'bg-white border-gray-200 text-gray-500'
+                          }`}
+                        >
+                          {correct && '✓ '}
+                          {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No votes submitted</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
