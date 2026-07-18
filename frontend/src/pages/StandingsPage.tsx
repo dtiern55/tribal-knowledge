@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { Season, StandingEntry } from '../types'
 
@@ -31,37 +31,63 @@ const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '�
 export function StandingsPage() {
   const { session } = useAuth()
   const userId = session?.user?.id
+  const [seasons, setSeasons] = useState<Season[]>([])
+  const [selectedId, setSelectedId] = useState('')
   const [entries, setEntries] = useState<StandingEntry[]>([])
-  const [season, setSeason] = useState<Season | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Season list drives the selector; default to the active (else latest) season.
   useEffect(() => {
-    async function load() {
-      try {
-        const active = await getActiveSeason()
-        setSeason(active)
-        if (active) {
-          const data = await api.get<StandingEntry[]>(`/seasons/${active.id}/standings`)
-          setEntries(data)
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load standings')
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
+    api
+      .get<Season[]>('/seasons')
+      .then((ss) => {
+        setSeasons(ss)
+        const active = ss.find((s) => s.status === 'active') ?? ss.at(-1)
+        setSelectedId(active?.id ?? '')
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load seasons'))
+      .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!selectedId) return
+    api
+      .get<StandingEntry[]>(`/seasons/${selectedId}/standings`)
+      .then(setEntries)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load standings'))
+  }, [selectedId])
 
   if (loading) return <p className="text-gray-500">Loading…</p>
   if (error) return <p className="text-red-600">{error}</p>
+  const season = seasons.find((s) => s.id === selectedId)
   if (!season) return <p className="text-gray-500">No season found.</p>
 
   return (
     <div>
-      <h1 className="font-display text-3xl tracking-wide text-ocean-800 mb-1">Standings</h1>
-      <p className="text-sm text-gray-500 mb-6">{season.name}</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+        <h1 className="font-display text-3xl tracking-wide text-ocean-800">Standings</h1>
+        {seasons.length > 1 && (
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white"
+          >
+            {seasons
+              .slice()
+              .reverse()
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                  {s.status === 'active' ? ' (active)' : ''}
+                </option>
+              ))}
+          </select>
+        )}
+      </div>
+      <p className="text-sm text-gray-500 mb-6">
+        {season.status === 'completed' ? 'Final standings' : 'Standings'}
+      </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

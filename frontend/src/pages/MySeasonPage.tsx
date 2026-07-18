@@ -291,6 +291,13 @@ function RosterSection({
   const doubledRosterIds = new Set(activeDoubleRoster.map((p) => p.target_contestant_id))
   const doubleTargets = activeRoster.filter((p) => !doubledRosterIds.has(p.contestant_id))
 
+  // Whether the current selection differs from the saved roster (#94): drives
+  // the save button's enabled/label state so it's clear a click is needed.
+  const savedContestantIds = new Set(activeRoster.map((r) => r.contestant_id))
+  const rosterDirty =
+    selected.size !== savedContestantIds.size ||
+    [...selected].some((id) => !savedContestantIds.has(id))
+
   function toggleSelect(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -598,13 +605,20 @@ function RosterSection({
               )
             })}
           </div>
-          <button
-            onClick={submitRoster}
-            disabled={selected.size !== season.roster_size || submitting}
-            className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
-          >
-            {submitting ? 'Saving…' : hasRoster ? 'Update Roster' : 'Lock In Roster'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={submitRoster}
+              disabled={selected.size !== season.roster_size || !rosterDirty || submitting}
+              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+            >
+              {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Roster'}
+            </button>
+            {hasRoster && (
+              <span className={`text-xs ${rosterDirty ? 'text-amber-600' : 'text-gray-400'}`}>
+                {rosterDirty ? 'Unsaved changes' : 'Saved ✓'}
+              </span>
+            )}
+          </div>
         </div>
       ) : (
         <p className="text-sm text-gray-500">Roster submission window has closed.</p>
@@ -653,17 +667,25 @@ function PicksSection({
       )
       const picksMap = new Map(results)
       setPicksByEpisode(picksMap)
+      // Drop picks whose castaway was eliminated in an EARLIER episode (#96):
+      // they can't come true, and leaving them wastes a vote slot and shows up
+      // as a Double Vote target. Seeds the editable set with only live picks.
+      const elimEp = new Map(contestants.map((c) => [c.id, c.eliminated_in_episode]))
       const pendingMap = new Map<string, Set<string>>()
       for (const ep of episodes) {
         if (isEpisodeOpen(ep, season)) {
           const saved = picksMap.get(ep.id) ?? []
-          pendingMap.set(ep.id, new Set(saved.map((p) => p.contestant_id)))
+          const live = saved.filter((p) => {
+            const out = elimEp.get(p.contestant_id)
+            return out == null || out >= ep.episode_number
+          })
+          pendingMap.set(ep.id, new Set(live.map((p) => p.contestant_id)))
         }
       }
       setPending(pendingMap)
     }
     void load()
-  }, [episodes, season, userId])
+  }, [episodes, season, userId, contestants])
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const isOpen = (ep: Episode) => isEpisodeOpen(ep, season)

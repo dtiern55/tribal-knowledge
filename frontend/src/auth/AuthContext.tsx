@@ -20,9 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session)
-      if (data.session) void fetchProfile()
+      // Await the profile so we never render with session-but-no-profile,
+      // which flashes the Join page before redirecting back (#93).
+      if (data.session) await fetchProfile()
       setLoading(false)
     })
 

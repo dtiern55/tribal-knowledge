@@ -123,6 +123,29 @@ export interface ScoringEventType {
   label: string
 }
 
+export interface RuleScoringEvent {
+  event_type: string
+  label: string
+  point_value: number
+  postmerge_point_value: number | null
+  token_value: number
+  is_per_unit: boolean
+}
+
+export interface RulePredictionScore {
+  key: string
+  label: string
+  point_value: number
+  postmerge_point_value: number | null
+}
+
+export interface RulesResponse {
+  season: Season
+  scoring_events: RuleScoringEvent[]
+  prediction_scores: RulePredictionScore[]
+  advantages: AdvantageType[]
+}
+
 export interface TokenBalance {
   user_id: string
   season_id: string

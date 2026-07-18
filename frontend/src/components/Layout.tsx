@@ -8,6 +8,7 @@ const PRIMARY = [
   { to: '/standings', label: 'Standings', icon: '🏆', end: false },
   { to: '/cast', label: 'Cast', icon: '👥', end: false },
   { to: '/advantages', label: 'Advantages', icon: '🎟️', end: false },
+  { to: '/rules', label: 'Rules', icon: '📖', end: false },
 ]
 
 export function Layout() {

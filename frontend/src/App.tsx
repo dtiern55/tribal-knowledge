@@ -9,6 +9,7 @@ import { JoinPage } from './pages/JoinPage'
 import { ContestantPage } from './pages/ContestantPage'
 import { LoginPage } from './pages/LoginPage'
 import { MySeasonPage } from './pages/MySeasonPage'
+import { RulesPage } from './pages/RulesPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StandingsPage } from './pages/StandingsPage'
 import { TeamPage } from './pages/TeamPage'
@@ -45,6 +46,10 @@ export default function App() {
             <Route
               path="cast"
               element={<ProtectedRoute><CastPage /></ProtectedRoute>}
+            />
+            <Route
+              path="rules"
+              element={<ProtectedRoute><RulesPage /></ProtectedRoute>}
             />
             <Route
               path="profile"
