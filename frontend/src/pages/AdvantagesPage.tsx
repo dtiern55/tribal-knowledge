@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
-import { isEpisodeOpen } from '../lib/episodes'
+import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
@@ -140,6 +140,8 @@ export function AdvantagesPage() {
     return ep != null && isEpisodeOpen(ep, season)
   })
   const spent = used.filter((p) => !inPlay.includes(p))
+  const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
+  const advLocked = nextOpen ? advantagesLocked(nextOpen, season) : false
 
   return (
     <div>
@@ -193,7 +195,11 @@ export function AdvantagesPage() {
                 owned
               </span>
             </div>
-            {p.advantage_type === 'double_roster_points' ? (
+            {advLocked ? (
+              <p className="text-xs text-amber-600 mt-1">
+                Advantages are locked for the rest of the season.
+              </p>
+            ) : p.advantage_type === 'double_roster_points' ? (
               <div className="flex gap-2 mt-2">
                 <select
                   value={rosterTarget}

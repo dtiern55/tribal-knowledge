@@ -21,6 +21,7 @@ export interface Season {
   swap_penalty_points: number
   max_swaps: number
   swap_lock_episode: number | null
+  advantage_lock_episode: number | null
   weekly_token_allocation: number
   status: 'upcoming' | 'active' | 'completed'
   created_at: string

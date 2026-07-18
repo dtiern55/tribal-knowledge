@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
+from app.locking import advantages_locked
 from app.schemas import Episode, EpisodeCreateRequest, EpisodeUpdateRequest
 
 router = APIRouter(tags=["episodes"])
@@ -112,12 +113,19 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
             scored = cur.fetchone()
 
             cur.execute(
-                "select weekly_token_allocation from seasons where id = %s",
+                "select weekly_token_allocation, advantage_lock_episode"
+                " from seasons where id = %s",
                 [episode["season_id"]],
             )
-            amount = cur.fetchone()["weekly_token_allocation"]
-            # Token earning stops at the finale (issue #85) — no weekly grant.
-            if amount > 0 and not episode["is_finale"]:
+            srow = cur.fetchone()
+            amount = srow["weekly_token_allocation"]
+            # Token earning stops at the advantage cutoff (issue #85) — no grant.
+            locked = advantages_locked(
+                episode["episode_number"],
+                episode["is_finale"],
+                srow["advantage_lock_episode"],
+            )
+            if amount > 0 and not locked:
                 # Idempotent against manual weekly-allocation grants for the
                 # same episode (the corrections endpoint in tokens.py).
                 cur.execute(

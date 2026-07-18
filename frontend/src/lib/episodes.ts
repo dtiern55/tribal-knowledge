@@ -10,3 +10,11 @@ export function isEpisodeOpen(ep: Episode, season: Season): boolean {
     ep.episode_number >= (season.roster_lock_episode ?? 1)
   )
 }
+
+// Advantages can't be played from advantage_lock_episode onward (extends #85);
+// when unset the cutoff is the finale. Mirrors backend app/locking.py.
+export function advantagesLocked(ep: Episode, season: Season): boolean {
+  return season.advantage_lock_episode != null
+    ? ep.episode_number >= season.advantage_lock_episode
+    : ep.is_finale
+}

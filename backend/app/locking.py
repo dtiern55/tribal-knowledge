@@ -10,6 +10,18 @@ from datetime import datetime, timezone
 EPISODE_LOCKED_SQL = "(picks_lock_at <= now() or status = 'scored')"
 
 
+def advantages_locked(
+    episode_number: int, is_finale: bool, advantage_lock_episode: int | None
+) -> bool:
+    """Advantages can't be played and weekly tokens aren't granted from here on
+    (extends #85). Configurable per season; NULL falls back to the finale.
+    Keep the two callers (advantage use, episode scoring) in sync via this.
+    """
+    if advantage_lock_episode is not None:
+        return episode_number >= advantage_lock_episode
+    return is_finale
+
+
 def episode_locked(episode: dict) -> bool:
     """True once a fetched episode row no longer accepts picks."""
     return (

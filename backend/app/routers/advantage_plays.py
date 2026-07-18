@@ -5,7 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database, scoring
 from app.auth import get_current_user
-from app.locking import episode_locked, next_open_episode
+from app.locking import advantages_locked, episode_locked, next_open_episode
 from app.schemas import (
     AdvantageBuyRequest,
     AdvantagePlay,
@@ -175,11 +175,18 @@ def use_advantage(
                 raise HTTPException(
                     status_code=400, detail="No open episode to use this advantage in"
                 )
-            # Advantages can't be played in the finale (issue #85).
-            if episode["is_finale"]:
+            # Advantages lock late-game (issue #85; cutoff configurable per season).
+            cur.execute(
+                "select advantage_lock_episode from seasons where id = %s",
+                [play["season_id"]],
+            )
+            adv_lock = cur.fetchone()["advantage_lock_episode"]
+            if advantages_locked(
+                episode["episode_number"], episode["is_finale"], adv_lock
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail="Advantages can't be played in the finale",
+                    detail="Advantages can no longer be played this season",
                 )
 
             if play["advantage_type"] in _DOUBLE_TYPES:

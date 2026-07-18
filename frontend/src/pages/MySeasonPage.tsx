@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
-import { isEpisodeOpen } from '../lib/episodes'
+import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -881,14 +881,20 @@ function PicksSection({
                 </>
               )}
 
-              {(ownedExtras.length > 0 ||
-                activeExtras.length > 0 ||
-                ownedDoubles.length > 0 ||
-                activeDoubles.length > 0) && (
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                    Advantages
-                  </p>
+              {advantagesLocked(ep, season)
+                ? (ownedExtras.length > 0 || ownedDoubles.length > 0) && (
+                    <p className="mb-4 text-xs text-amber-600">
+                      Advantages are locked for the rest of the season.
+                    </p>
+                  )
+                : (ownedExtras.length > 0 ||
+                    activeExtras.length > 0 ||
+                    ownedDoubles.length > 0 ||
+                    activeDoubles.length > 0) && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                        Advantages
+                      </p>
                   {activeExtras.length > 0 && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">
