@@ -1,6 +1,30 @@
 import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
-import type { RuleScoringEvent, RulesResponse } from '../types'
+import type { RulePredictionScore, RuleScoringEvent, RulesResponse } from '../types'
+
+// Prediction values grouped by concept, so distinct games aren't jumbled.
+const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
+  {
+    title: 'Weekly vote — predict who goes home',
+    blurb: 'Each episode, before it airs, you vote for who you think gets voted out.',
+    keys: ['correct_elimination'],
+  },
+  {
+    title: 'Winner pick — your season-long Sole Survivor',
+    blurb: 'One pick for who wins the whole game, locked in early and scored at the finale.',
+    keys: ['winner_sole_survivor', 'winner_runner_up', 'winner_2nd_runner_up'],
+  },
+  {
+    title: 'Finale night ballot',
+    blurb: 'Your three finale predictions: first boot, fire-making loser, and the winner.',
+    keys: ['correct_early_boot', 'correct_fire_loss', 'correct_winner_vote'],
+  },
+  {
+    title: 'Roster bonus — a castaway you rostered goes far',
+    blurb: 'If someone on your team finishes 1st / 2nd / 3rd, you get bonus roster points.',
+    keys: ['roster_placement_1', 'roster_placement_2', 'roster_placement_3'],
+  },
+]
 
 function pts(v: number) {
   return `${v > 0 ? '+' : ''}${v}`
@@ -29,14 +53,45 @@ function EventRow({ e }: { e: RuleScoringEvent }) {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  blurb,
+  children,
+}: {
+  title: string
+  blurb?: string
+  children: React.ReactNode
+}) {
   return (
     <div className="mb-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-1">
         {title}
       </h2>
+      {blurb && <p className="text-xs text-gray-500 mb-2">{blurb}</p>}
       <div className="bg-white border border-gray-200 rounded-xl p-4">{children}</div>
     </div>
+  )
+}
+
+// A grouped list of prediction values (points only), so distinct concepts
+// aren't jumbled into one value-sorted heap.
+function PredList({ rows }: { rows: RulePredictionScore[] }) {
+  return (
+    <ul>
+      {rows.map((p) => (
+        <li
+          key={p.key}
+          className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0"
+        >
+          <span className="text-sm text-gray-700">{p.label}</span>
+          <span className="text-sm font-medium text-jungle-700 shrink-0">
+            {p.postmerge_point_value != null && p.postmerge_point_value !== p.point_value
+              ? `${pts(p.point_value)} pre / ${pts(p.postmerge_point_value)} post`
+              : `${pts(p.point_value)} pts`}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -70,7 +125,13 @@ export function RulesPage() {
   return (
     <div>
       <h1 className="font-display text-3xl tracking-wide text-ocean-800 mb-1">Rules & Scoring</h1>
-      <p className="text-sm text-gray-500 mb-6">{season.name}</p>
+      <p className="text-sm text-gray-500 mb-4">{season.name}</p>
+      <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+        You score in a few separate ways: your <b>roster</b> (the team you draft) earns points
+        each episode; your <b>weekly vote</b> predicts each boot; your one <b>winner pick</b> and
+        the <b>finale ballot</b> pay off at the end. <b>Tokens</b> are a separate currency you
+        spend on advantages.
+      </p>
 
       <Section title="Season structure">
         <ul className="text-sm text-gray-700 space-y-1">
@@ -90,7 +151,10 @@ export function RulesPage() {
         </ul>
       </Section>
 
-      <Section title="Roster scoring (your picked team)">
+      <Section
+        title="Roster points — your picked team"
+        blurb="Your roster is the 5 castaways you draft. They earn you points every episode for what they do in the game."
+      >
         <ul>
           {rosterEvents.map((e) => (
             <EventRow key={e.event_type} e={e} />
@@ -98,25 +162,20 @@ export function RulesPage() {
         </ul>
       </Section>
 
-      <Section title="Predictions & finale">
-        <ul>
-          {prediction_scores.map((p) => (
-            <li
-              key={p.key}
-              className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0"
-            >
-              <span className="text-sm text-gray-700">{p.label}</span>
-              <span className="text-sm font-medium text-jungle-700 shrink-0">
-                {p.postmerge_point_value != null && p.postmerge_point_value !== p.point_value
-                  ? `${pts(p.point_value)} pre / ${pts(p.postmerge_point_value)} post`
-                  : `${pts(p.point_value)} pts`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {PRED_GROUPS.map((g) => {
+        const rows = prediction_scores.filter((p) => g.keys.includes(p.key))
+        if (rows.length === 0) return null
+        return (
+          <Section key={g.title} title={g.title} blurb={g.blurb}>
+            <PredList rows={rows} />
+          </Section>
+        )
+      })}
 
-      <Section title="Tokens — earn by watching (TV moments & game plays)">
+      <Section
+        title="Tokens — the second currency"
+        blurb="Separate from points: tokens are spent on advantages. You get an allocation each episode, plus some for fun TV moments and game plays by your roster."
+      >
         <ul>
           {tokenEvents.map((e) => (
             <EventRow key={e.event_type} e={e} />
@@ -124,7 +183,7 @@ export function RulesPage() {
         </ul>
       </Section>
 
-      <Section title="Advantages — spend tokens">
+      <Section title="Advantages — spend your tokens" blurb="Bought with tokens and played on an upcoming episode.">
         <ul>
           {advantages.map((a) => (
             <li

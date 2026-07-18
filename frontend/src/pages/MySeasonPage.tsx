@@ -1376,10 +1376,21 @@ function TokensSection({
       .finally(() => setLoadingHistory(false))
   }
 
-  function txnLabel(t: string) {
-    return t
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (m) => m.toUpperCase())
+  // Friendly ledger description. Under the per-episode token model an
+  // allocation reads "Episode N tokens", not "Weekly Allocation" (#97).
+  function txnDescription(h: TokenLedgerEntry): string {
+    const cap = (s: string) =>
+      s.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+    switch (h.transaction_type) {
+      case 'weekly_allocation':
+        return h.episode_number != null ? `Episode ${h.episode_number} tokens` : 'Token allocation'
+      case 'starting_allocation':
+        return 'Starting tokens'
+      case 'advantage_spend':
+        return h.description ? `Bought ${cap(h.description)}` : 'Bought advantage'
+      default:
+        return h.description ?? cap(h.transaction_type)
+    }
   }
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
@@ -1432,11 +1443,12 @@ function TokensSection({
           {history.map((h, i) => (
             <li key={i} className="flex justify-between gap-3">
               <span className="text-gray-600">
-                {txnLabel(h.transaction_type)}
-                {h.episode_number != null && (
-                  <span className="text-gray-400"> · ep {h.episode_number}</span>
-                )}
-                {h.description && <span className="text-gray-400"> · {h.description}</span>}
+                {txnDescription(h)}
+                {h.transaction_type !== 'weekly_allocation' &&
+                  h.transaction_type !== 'advantage_spend' &&
+                  h.episode_number != null && (
+                    <span className="text-gray-400"> · ep {h.episode_number}</span>
+                  )}
               </span>
               <span
                 className={`font-medium shrink-0 ${
