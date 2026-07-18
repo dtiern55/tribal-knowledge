@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
 
-export function ProfilePage() {
+const inputCls =
+  'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500'
+const buttonCls =
+  'w-full bg-ocean-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-ocean-700 disabled:opacity-50 cursor-pointer'
+
+function DisplayNameSection() {
   const { profile, refreshProfile } = useAuth()
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [error, setError] = useState<string | null>(null)
@@ -29,34 +35,171 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="max-w-sm mx-auto mt-8">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-6">Profile</h1>
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Display name
-          </label>
-          <input
-            value={displayName}
-            onChange={(e) => {
-              setDisplayName(e.target.value)
-              setSaved(false)
-            }}
-            required
-            maxLength={100}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
-          />
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && <p className="text-sm text-green-600">Saved.</p>}
-        <button
-          type="submit"
-          disabled={saving || unchanged || !displayName.trim()}
-          className="w-full bg-ocean-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-ocean-700 disabled:opacity-50 cursor-pointer"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </form>
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Display name
+        </label>
+        <input
+          value={displayName}
+          onChange={(e) => {
+            setDisplayName(e.target.value)
+            setSaved(false)
+          }}
+          required
+          maxLength={100}
+          className={inputCls}
+        />
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {saved && <p className="text-sm text-green-600">Saved.</p>}
+      <button
+        type="submit"
+        disabled={saving || unchanged || !displayName.trim()}
+        className={buttonCls}
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+    </form>
+  )
+}
+
+function EmailSection() {
+  const { session } = useAuth()
+  const currentEmail = session?.user.email ?? ''
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    setInfo(null)
+    const { data, error } = await supabase.auth.updateUser({ email })
+    if (error) {
+      setError(error.message)
+    } else if (data.user.new_email) {
+      // Email confirmation enabled: change is pending until verified.
+      setInfo(`Check ${email} for a confirmation link to finish the change.`)
+    } else {
+      setInfo('Email updated.')
+      setEmail('')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Email
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Currently <span className="font-medium">{currentEmail}</span>
+        </p>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="new@email.com"
+          required
+          className={inputCls}
+        />
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {info && <p className="text-sm text-green-600">{info}</p>}
+      <button
+        type="submit"
+        disabled={saving || !email.trim() || email.trim() === currentEmail}
+        className={buttonCls}
+      >
+        {saving ? 'Saving…' : 'Change email'}
+      </button>
+    </form>
+  )
+}
+
+function PasswordSection() {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (password !== confirm) {
+      setError('Passwords do not match')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setInfo(null)
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) {
+      setError(error.message)
+    } else {
+      setInfo('Password updated.')
+      setPassword('')
+      setConfirm('')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          New password
+        </label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          className={inputCls}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Confirm new password
+        </label>
+        <input
+          type="password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          required
+          minLength={6}
+          className={inputCls}
+        />
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {info && <p className="text-sm text-green-600">{info}</p>}
+      <button
+        type="submit"
+        disabled={saving || !password || !confirm}
+        className={buttonCls}
+      >
+        {saving ? 'Saving…' : 'Change password'}
+      </button>
+    </form>
+  )
+}
+
+export function ProfilePage() {
+  return (
+    <div className="max-w-sm mx-auto mt-8 space-y-8">
+      <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
+      <DisplayNameSection />
+      <div className="border-t border-gray-200 pt-6">
+        <EmailSection />
+      </div>
+      <div className="border-t border-gray-200 pt-6">
+        <PasswordSection />
+      </div>
     </div>
   )
 }
