@@ -34,6 +34,7 @@ tribal-knowledge/
       main.py        # FastAPI entry point
       database.py    # psycopg2 get_db() context manager
       routers/       # one file per domain
+    scripts/         # admin CLI tools (survivoR episode importer)
     tests/
     requirements.txt
     .env.example
