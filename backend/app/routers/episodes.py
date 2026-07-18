@@ -38,6 +38,16 @@ def create_episode(
                 raise HTTPException(
                     status_code=409, detail="episode_number already exists"
                 )
+            if body.is_finale:
+                cur.execute(
+                    "select 1 from episodes where season_id = %s and is_finale",
+                    [str(season_id)],
+                )
+                if cur.fetchone():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Season already has a finale episode",
+                    )
             params = {**body.model_dump(), "season_id": str(season_id)}
             cur.execute(
                 """
@@ -78,6 +88,17 @@ def update_episode(
                 if cur.fetchone():
                     raise HTTPException(
                         status_code=409, detail="episode_number already exists"
+                    )
+            if fields.get("is_finale"):
+                cur.execute(
+                    "select 1 from episodes"
+                    " where season_id = %s and is_finale and id <> %s",
+                    [existing["season_id"], str(episode_id)],
+                )
+                if cur.fetchone():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Season already has a finale episode",
                     )
             set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
             params = {**fields, "id": str(episode_id)}

@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
@@ -142,14 +143,21 @@ def submit_picks(
             )
 
             rows = []
-            for cid in body.contestant_ids:
-                cur.execute(
-                    """
-                    insert into elimination_picks (user_id, episode_id, contestant_id)
-                    values (%s, %s, %s)
-                    returning *
-                    """,
-                    [str(user_id), str(episode_id), str(cid)],
+            try:
+                for cid in body.contestant_ids:
+                    cur.execute(
+                        """
+                        insert into elimination_picks
+                            (user_id, episode_id, contestant_id)
+                        values (%s, %s, %s)
+                        returning *
+                        """,
+                        [str(user_id), str(episode_id), str(cid)],
+                    )
+                    rows.append(cur.fetchone())
+            except pg_errors.UniqueViolation:
+                # Concurrent double-submit raced past the delete above (#120)
+                raise HTTPException(
+                    status_code=409, detail="Picks already submitted — try again"
                 )
-                rows.append(cur.fetchone())
             return rows

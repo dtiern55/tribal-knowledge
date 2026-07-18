@@ -2,6 +2,7 @@ import pytest
 from psycopg2 import errors as pg_errors
 
 from tests.helpers import (
+    grant_tokens,
     insert_contestant,
     insert_episode,
     insert_roster_pick,
@@ -18,64 +19,6 @@ def test_balance_starts_at_zero(client, db_conn, current_user):
     data = r.json()
     assert data["balance"] == 0
     assert data["user_id"] == str(current_user["id"])
-
-
-@pytest.mark.integration
-def test_starting_allocation_all_users(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    other = insert_user(db_conn, display_name="Other")
-    r = client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation",
-        json={"amount": 10},
-    )
-    assert r.status_code == 200
-    rows = r.json()
-    # Both current_user and other should receive tokens
-    user_ids = {row["user_id"] for row in rows}
-    assert str(current_user["id"]) in user_ids
-    assert str(other["id"]) in user_ids
-    assert all(row["amount"] == 10 for row in rows)
-    assert all(row["transaction_type"] == "starting_allocation" for row in rows)
-
-
-@pytest.mark.integration
-def test_starting_allocation_single_user(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    r = client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation",
-        json={"amount": 10, "user_id": str(current_user["id"])},
-    )
-    assert r.status_code == 200
-    assert len(r.json()) == 1
-    assert r.json()[0]["user_id"] == str(current_user["id"])
-
-
-@pytest.mark.integration
-def test_starting_allocation_idempotent(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation", json={"amount": 10}
-    )
-    # Second call for the same season is idempotent — returns empty list
-    r = client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation", json={"amount": 10}
-    )
-    assert r.status_code == 200
-    assert r.json() == []
-
-
-@pytest.mark.integration
-def test_starting_allocation_single_user_conflict(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation",
-        json={"amount": 10, "user_id": str(current_user["id"])},
-    )
-    r = client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation",
-        json={"amount": 10, "user_id": str(current_user["id"])},
-    )
-    assert r.status_code == 409
 
 
 @pytest.mark.integration
@@ -113,10 +56,7 @@ def test_weekly_allocation_idempotent(client, db_conn, current_user):
 def test_balance_reflects_allocations(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
-    client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation",
-        json={"amount": 10, "user_id": str(current_user["id"])},
-    )
+    grant_tokens(db_conn, current_user["id"], season["id"], amount=10)
     client.post(
         f"/seasons/{season['id']}/tokens/weekly-allocation",
         json={"episode_id": str(ep["id"]), "amount": 10},
@@ -263,3 +203,39 @@ def test_weekly_grant_unique_index_backstop(db_conn, current_user):
         cur.execute(insert_sql, args)
         with pytest.raises(pg_errors.UniqueViolation):
             cur.execute(insert_sql, args)
+
+
+@pytest.mark.integration
+def test_delete_scoring_event_blocked_if_tokens_spent(client, db_conn, current_user):
+    """#120: reversing a token grant the player already spent would strand
+    their balance below zero — the delete is refused instead."""
+    season = insert_season(db_conn)
+    ep = insert_episode(db_conn, season["id"], episode_number=1)
+    c = insert_contestant(db_conn, season["id"], "Token Earner")
+    insert_roster_pick(
+        db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
+    )
+    # steal_immunity_idol grants 20 tokens to the rosterer
+    r = client.post(
+        f"/episodes/{ep['id']}/scoring-events",
+        json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
+    )
+    event_id = r.json()[0]["id"]
+
+    # Spend all 20 on an extra_vote: balance is now 0
+    buy = client.post(
+        f"/seasons/{season['id']}/advantage-plays",
+        json={"advantage_type": "extra_vote"},
+    )
+    assert buy.status_code == 201
+
+    r = client.delete(f"/scoring-events/{event_id}")
+    assert r.status_code == 409
+    assert "balance negative" in r.json()["detail"]
+
+    # With the spend out of the way the delete goes through
+    db_conn.cursor().execute(
+        "delete from token_transactions where transaction_type = 'advantage_spend'"
+    )
+    r = client.delete(f"/scoring-events/{event_id}")
+    assert r.status_code == 204

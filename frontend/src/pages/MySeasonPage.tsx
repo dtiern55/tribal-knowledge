@@ -632,7 +632,11 @@ function RosterSection({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-500">Roster submission window has closed.</p>
+        <p className="text-sm text-gray-500">
+          {season.roster_lock_episode == null
+            ? 'Roster submission window has not opened yet.'
+            : 'Roster submission window has closed.'}
+        </p>
       )}
     </div>
   )

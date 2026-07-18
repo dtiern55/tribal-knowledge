@@ -167,6 +167,30 @@ def delete_scoring_event(event_id: UUID, _: UUID = Depends(get_current_admin)):
             cur.execute("select id from scoring_events where id = %s", [str(event_id)])
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Scoring event not found")
+            # Reversing a grant whose tokens were already spent would strand
+            # the player below zero — surface it instead (#120).
+            cur.execute(
+                """
+                select 1 from token_transactions tt
+                where tt.scoring_event_id = %s
+                group by tt.user_id, tt.season_id
+                having (select coalesce(sum(amount), 0) from token_transactions t
+                        where t.user_id = tt.user_id
+                          and t.season_id = tt.season_id)
+                       < sum(tt.amount)
+                limit 1
+                """,
+                [str(event_id)],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Cannot delete: a player already spent the tokens this"
+                        " event granted, so reversing it would make their"
+                        " balance negative"
+                    ),
+                )
             # token_transactions.scoring_event_id has no cascade — clear first
             cur.execute(
                 "delete from token_transactions where scoring_event_id = %s",

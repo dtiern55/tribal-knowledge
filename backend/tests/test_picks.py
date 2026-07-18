@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tests.helpers import (
+    grant_tokens,
     insert_contestant,
     insert_elimination,
     insert_episode,
@@ -106,10 +107,7 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
 
-    client.post(
-        f"/seasons/{season['id']}/tokens/starting-allocation",
-        json={"amount": 20, "user_id": str(current_user["id"])},
-    )
+    grant_tokens(db_conn, current_user["id"], season["id"], amount=20)
     play = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={"advantage_type": "extra_vote"},

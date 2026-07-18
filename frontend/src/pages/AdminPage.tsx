@@ -882,51 +882,16 @@ function EpisodesSection({
 // ─── Tokens section ───────────────────────────────────────────────────────────
 
 function TokensSection({ season }: { season: Season }) {
-  const [startAmount, setStartAmount] = useState('10')
-  const [startSaving, setStartSaving] = useState(false)
-  const [startMsg, setStartMsg] = useState<string | null>(null)
-  const [startError, setStartError] = useState<string | null>(null)
-
-  function grantStarting() {
-    setStartMsg(null)
-    void run(setStartSaving, setStartError, async () => {
-      const rows = await api.post<unknown[]>(
-        `/seasons/${season.id}/tokens/starting-allocation`,
-        { amount: Number(startAmount) },
-      )
-      setStartMsg(`Granted to ${rows.length} player(s).`)
-    })
-  }
-
+  // Starting allocations are gone with the #97 token model (grants are per
+  // upcoming episode); the season-start bootstrap is a weekly grant too.
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
-        <p className="text-sm font-medium text-gray-700">Starting allocation (all players)</p>
-        <p className="text-xs text-gray-500">Idempotent — skips players who already received one.</p>
-        <div className="flex gap-2 items-center">
-          <input
-            type="number"
-            value={startAmount}
-            onChange={(e) => setStartAmount(e.target.value)}
-            className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
-          />
-          <span className="text-sm text-gray-500">tokens</span>
-        </div>
-        <ErrorMsg msg={startError} />
-        <SuccessMsg msg={startMsg} />
-        <ActionBtn onClick={grantStarting} disabled={startSaving}>
-          {startSaving ? 'Granting…' : 'Grant'}
-        </ActionBtn>
-      </div>
-
-      <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
-        <p className="text-sm font-medium text-gray-700">Weekly allocation</p>
-        <p className="text-xs text-gray-500">
-          Granted automatically when an episode is scored:{' '}
-          {season.weekly_token_allocation} tokens per player. Tune it on the
-          season (weekly_token_allocation).
-        </p>
-      </div>
+    <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
+      <p className="text-sm font-medium text-gray-700">Weekly allocation</p>
+      <p className="text-xs text-gray-500">
+        Granted automatically when an episode is scored:{' '}
+        {season.weekly_token_allocation} tokens per player. Tune it on the
+        season (weekly_token_allocation).
+      </p>
     </div>
   )
 }
