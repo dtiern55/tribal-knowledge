@@ -236,3 +236,28 @@ def test_placement_unique_index_backstop(db_conn):
     insert_contestant(db_conn, season["id"], "Alice", placement=1)
     with pytest.raises(pg_errors.UniqueViolation):
         insert_contestant(db_conn, season["id"], "Bob", placement=1)
+
+
+@pytest.mark.integration
+def test_second_finale_episode_rejected(client, db_conn):
+    """#120: placement and finale-ballot scoring join on THE finale episode;
+    a second is_finale row would multiply both."""
+    season = insert_season(db_conn)
+    insert_episode(db_conn, season["id"], episode_number=5, is_finale=True)
+    r = client.post(
+        f"/seasons/{season['id']}/episodes",
+        json={
+            "episode_number": 6,
+            "air_date": "2026-01-08",
+            "max_elimination_picks": 1,
+            "picks_lock_at": "2026-01-08T19:00:00Z",
+            "is_finale": True,
+        },
+    )
+    assert r.status_code == 409
+    assert "finale" in r.json()["detail"].lower()
+
+    # PATCHing a second episode to finale is equally rejected
+    ep6 = insert_episode(db_conn, season["id"], episode_number=6)
+    r = client.patch(f"/episodes/{ep6['id']}", json={"is_finale": True})
+    assert r.status_code == 409

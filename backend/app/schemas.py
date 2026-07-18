@@ -317,11 +317,6 @@ class TokenLedgerEntry(BaseModel):
     description: Optional[str] = None
 
 
-class StartingAllocationRequest(BaseModel):
-    amount: int = Field(gt=0)
-    user_id: Optional[UUID] = None
-
-
 class WeeklyAllocationRequest(BaseModel):
     episode_id: UUID
     amount: int = Field(gt=0)

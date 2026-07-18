@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database
 from app.auth import get_current_admin, get_current_user
 from app.schemas import (
-    StartingAllocationRequest,
     TokenBalance,
     TokenLedgerEntry,
     TokenTransaction,
@@ -71,79 +70,6 @@ def get_token_balance(
             )
             balance = cur.fetchone()["balance"]
     return TokenBalance(user_id=user_id, season_id=season_id, balance=balance)
-
-
-@router.post(
-    "/seasons/{season_id}/tokens/starting-allocation",
-    response_model=list[TokenTransaction],
-)
-def allocate_starting_tokens(
-    season_id: UUID,
-    body: StartingAllocationRequest,
-    _: UUID = Depends(get_current_admin),
-):
-    with database.get_db() as conn:
-        with conn.cursor() as cur:
-            database.require_season(cur, season_id)
-
-            if body.user_id is not None:
-                cur.execute(
-                    "select id from profiles where id = %s", [str(body.user_id)]
-                )
-                if not cur.fetchone():
-                    raise HTTPException(status_code=404, detail="User not found")
-                cur.execute(
-                    """
-                    select id from token_transactions
-                    where user_id = %s and season_id = %s
-                      and transaction_type = 'starting_allocation'
-                    """,
-                    [str(body.user_id), str(season_id)],
-                )
-                if cur.fetchone():
-                    raise HTTPException(
-                        status_code=409,
-                        detail="Starting allocation already issued to this user",
-                    )
-                cur.execute(
-                    """
-                    insert into token_transactions
-                        (user_id, season_id, transaction_type, amount)
-                    values (%s, %s, 'starting_allocation', %s)
-                    on conflict do nothing
-                    returning *
-                    """,
-                    [str(body.user_id), str(season_id), body.amount],
-                )
-                row = cur.fetchone()
-                if row is None:
-                    # Concurrent request raced past the check above (#114)
-                    raise HTTPException(
-                        status_code=409,
-                        detail="Starting allocation already issued to this user",
-                    )
-                return [row]
-            else:
-                # Allocate for all profiles who don't already have one
-                cur.execute(
-                    """
-                    insert into token_transactions
-                        (user_id, season_id, transaction_type, amount)
-                    select p.id, %(season)s, 'starting_allocation', %(amount)s
-                    from profiles p
-                    where not p.is_admin
-                      and not exists (
-                        select 1 from token_transactions tt
-                        where tt.user_id = p.id
-                          and tt.season_id = %(season)s
-                          and tt.transaction_type = 'starting_allocation'
-                    )
-                    on conflict do nothing
-                    returning *
-                    """,
-                    {"season": str(season_id), "amount": body.amount},
-                )
-                return cur.fetchall()
 
 
 @router.post(

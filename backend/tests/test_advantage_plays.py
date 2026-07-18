@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tests.helpers import (
+    grant_tokens,
     insert_advantage_play,
     insert_contestant,
     insert_elimination,
@@ -25,13 +26,9 @@ def _open_episode(conn, season_id, episode_number=1, max_picks=3):
     )
 
 
-def _fund(client, season_id, user_id, amount=50):
-    """Grant starting tokens so buys with a cost pass the balance check."""
-    r = client.post(
-        f"/seasons/{season_id}/tokens/starting-allocation",
-        json={"amount": amount, "user_id": str(user_id)},
-    )
-    assert r.status_code == 200
+def _fund(db_conn, season_id, user_id, amount=50):
+    """Grant tokens so buys with a cost pass the balance check."""
+    grant_tokens(db_conn, user_id, season_id, amount)
 
 
 def _buy(client, season_id, advantage_type):
@@ -60,7 +57,8 @@ def test_list_advantage_types(client):
 @pytest.mark.integration
 def test_buy_lands_in_inventory(client, db_conn, current_user):
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"])
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"])
 
     play = _buy(client, season["id"], "extra_vote")
     assert play["episode_id"] is None
@@ -72,7 +70,8 @@ def test_buy_lands_in_inventory(client, db_conn, current_user):
 @pytest.mark.integration
 def test_buy_deducts_tokens(client, db_conn, current_user):
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"], amount=20)
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"], amount=20)
 
     _buy(client, season["id"], "extra_vote")
     balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
@@ -84,7 +83,8 @@ def test_buy_deducts_tokens(client, db_conn, current_user):
 @pytest.mark.integration
 def test_buy_allows_stockpiling_same_type(client, db_conn, current_user):
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"])
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"])
 
     _buy(client, season["id"], "extra_vote")
     _buy(client, season["id"], "extra_vote")
@@ -93,16 +93,24 @@ def test_buy_allows_stockpiling_same_type(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_buy_needs_no_open_episode(client, db_conn, current_user):
+def test_buy_blocked_when_no_open_episode(client, db_conn, current_user):
+    """#120: with no open episode left the advantage could never be played,
+    so buying would only burn tokens — blocked (was previously allowed)."""
     season = insert_season(db_conn)  # no episodes at all
-    _fund(client, season["id"], current_user["id"])
-    _buy(client, season["id"], "extra_vote")
+    _fund(db_conn, season["id"], current_user["id"])
+    r = client.post(
+        f"/seasons/{season['id']}/advantage-plays",
+        json={"advantage_type": "extra_vote"},
+    )
+    assert r.status_code == 400
+    assert "no longer be bought" in r.json()["detail"]
 
 
 @pytest.mark.integration
 def test_buy_insufficient_tokens(client, db_conn, current_user):
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"], amount=10)
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"], amount=10)
 
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
@@ -119,6 +127,7 @@ def test_buy_insufficient_tokens(client, db_conn, current_user):
 @pytest.mark.integration
 def test_buy_invalid_advantage_type(client, db_conn, current_user):
     season = insert_season(db_conn)
+    _open_episode(db_conn, season["id"])
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={"advantage_type": "super_idol"},
@@ -130,6 +139,7 @@ def test_buy_invalid_advantage_type(client, db_conn, current_user):
 @pytest.mark.integration
 def test_buy_disabled_advantage_type_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)
+    _open_episode(db_conn, season["id"])
     with db_conn.cursor() as cur:
         cur.execute(
             "update advantage_types set enabled = false"
@@ -150,7 +160,7 @@ def test_buy_disabled_advantage_type_rejected(client, db_conn, current_user):
 def test_use_binds_open_episode(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "extra_vote")
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
@@ -189,7 +199,7 @@ def test_buy_blocked_when_advantages_locked(client, db_conn, current_user):
         episode_number=5,
         picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={"advantage_type": "double_vote_points"},
@@ -224,7 +234,7 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
     season = insert_season(db_conn, merge_episode=7)
     ep = _open_episode(db_conn, season["id"], episode_number=2)
     c = insert_contestant(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
     r = client.post(
         f"/advantage-plays/{play['id']}/use",
@@ -250,7 +260,7 @@ def test_double_vote_on_unpicked_target_earns_zero(client, db_conn, current_user
     season = insert_season(db_conn, merge_episode=7)
     ep = _open_episode(db_conn, season["id"], episode_number=2)
     c = insert_contestant(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
     r = client.post(
         f"/advantage-plays/{play['id']}/use",
@@ -296,8 +306,9 @@ def test_double_roster_on_unrostered_target_earns_nothing(
 @pytest.mark.integration
 def test_use_no_open_episode_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)  # no episodes
-    _fund(client, season["id"], current_user["id"])
-    play = _buy(client, season["id"], "extra_vote")
+    play = insert_advantage_play(
+        db_conn, current_user["id"], None, "extra_vote", season_id=season["id"]
+    )
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 400
@@ -309,7 +320,7 @@ def test_use_double_roster_requires_rostered_target(client, db_conn, current_use
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"], "Not Rostered")
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_roster_points")
 
     r = client.post(
@@ -333,7 +344,7 @@ def test_use_double_vote_with_season_contestant(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"], "Target")
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
 
     r = client.post(
@@ -348,7 +359,7 @@ def test_use_double_vote_with_season_contestant(client, db_conn, current_user):
 def test_use_double_type_requires_target(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
@@ -361,7 +372,7 @@ def test_use_extra_vote_rejects_target(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "extra_vote")
 
     r = client.post(
@@ -376,7 +387,7 @@ def test_use_extra_vote_rejects_target(client, db_conn, current_user):
 def test_use_already_in_play_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "extra_vote")
 
     assert client.post(f"/advantage-plays/{play['id']}/use", json={}).status_code == 200
@@ -390,7 +401,7 @@ def test_extra_votes_stack(client, db_conn, current_user):
     """Multiple owned extra votes can all be played in one episode (#14)."""
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     first = _buy(client, season["id"], "extra_vote")
     second = _buy(client, season["id"], "extra_vote")
 
@@ -413,7 +424,7 @@ def test_double_different_targets_ok_same_target_rejected(
     b = insert_contestant(db_conn, season["id"], "B")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
     insert_roster_pick(db_conn, current_user["id"], season["id"], b["id"])
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     d1 = _buy(client, season["id"], "double_roster_points")
     d2 = _buy(client, season["id"], "double_roster_points")
     d3 = _buy(client, season["id"], "double_roster_points")
@@ -450,7 +461,7 @@ def test_unuse_returns_to_inventory(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"], "Target")
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
     client.post(
         f"/advantage-plays/{play['id']}/use",
@@ -477,7 +488,8 @@ def test_unuse_returns_to_inventory(client, db_conn, current_user):
 @pytest.mark.integration
 def test_unuse_not_in_play_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"])
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "extra_vote")
 
     r = client.delete(f"/advantage-plays/{play['id']}/use")
@@ -508,7 +520,7 @@ def test_unuse_extra_vote_blocked_while_over_pick_limit(client, db_conn, current
     ep = _open_episode(db_conn, season["id"], max_picks=1)
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
-    _fund(client, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "extra_vote")
     client.post(f"/advantage-plays/{play['id']}/use", json={})
     r = client.post(
@@ -536,7 +548,8 @@ def test_unuse_extra_vote_blocked_while_over_pick_limit(client, db_conn, current
 @pytest.mark.integration
 def test_list_own_plays_includes_inventory(client, db_conn, current_user):
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"])
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     _buy(client, season["id"], "extra_vote")
     r = client.get(f"/seasons/{season['id']}/advantage-plays/{current_user['id']}")
     assert r.status_code == 200
@@ -592,7 +605,8 @@ def test_buy_takes_user_season_advisory_lock(client, db_conn, current_user):
     is still visible in pg_locks here.
     """
     season = insert_season(db_conn)
-    _fund(client, season["id"], current_user["id"])
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"])
     _buy(client, season["id"], "double_vote_points")
 
     with db_conn.cursor() as cur:

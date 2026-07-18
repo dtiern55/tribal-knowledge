@@ -243,3 +243,23 @@ def insert_winner_pick(conn, user_id, season_id, winner_contestant_id):
             [str(user_id), str(season_id), str(winner_contestant_id)],
         )
         return cur.fetchone()
+
+
+def grant_tokens(conn, user_id, season_id, amount=50):
+    """Fund a user's token balance directly in the ledger.
+
+    The admin starting-allocation endpoint was removed with the #97 token
+    model (#120); tests fund via a plain weekly_allocation row (episode_id
+    null, so the per-episode unique index never applies).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into token_transactions
+                (user_id, season_id, transaction_type, amount)
+            values (%s, %s, 'weekly_allocation', %s)
+            returning *
+            """,
+            [str(user_id), str(season_id), amount],
+        )
+        return cur.fetchone()
