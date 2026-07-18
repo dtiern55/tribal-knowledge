@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from psycopg2 import errors as pg_errors
 
 from tests.helpers import insert_contestant, insert_episode, insert_season
 
@@ -209,3 +210,29 @@ def test_list_scoring_event_types(client):
     by_type = {t["event_type"]: t["label"] for t in r.json()}
     assert by_type["win_individual_immunity"] == "Win individual immunity"
     assert "votes_received" in by_type
+
+
+@pytest.mark.integration
+def test_update_contestant_duplicate_placement_rejected(client, db_conn):
+    """#112: two contestants can't share a placement — it would double-award
+    winner and roster-placement points."""
+    season = insert_season(db_conn)
+    alice = insert_contestant(db_conn, season["id"], "Alice", placement=1)
+    bob = insert_contestant(db_conn, season["id"], "Bob")
+    r = client.patch(f"/contestants/{bob['id']}", json={"placement": 1})
+    assert r.status_code == 409
+    assert "already assigned to Alice" in r.json()["detail"]
+
+    # Re-saving a contestant's own placement stays allowed
+    r = client.patch(f"/contestants/{alice['id']}", json={"placement": 1})
+    assert r.status_code == 200
+
+
+@pytest.mark.integration
+def test_placement_unique_index_backstop(db_conn):
+    """#112: the DB itself rejects a duplicate placement, independent of the
+    endpoint's pre-check."""
+    season = insert_season(db_conn)
+    insert_contestant(db_conn, season["id"], "Alice", placement=1)
+    with pytest.raises(pg_errors.UniqueViolation):
+        insert_contestant(db_conn, season["id"], "Bob", placement=1)

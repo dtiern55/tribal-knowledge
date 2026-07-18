@@ -216,6 +216,21 @@ def update_contestant(
                         status_code=409,
                         detail="Contestant name already exists in this season",
                     )
+            if fields.get("placement") is not None:
+                cur.execute(
+                    "select name from contestants"
+                    " where season_id = %s and placement = %s and id <> %s",
+                    [existing["season_id"], fields["placement"], str(contestant_id)],
+                )
+                other = cur.fetchone()
+                if other:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"Placement {fields['placement']} is already"
+                            f" assigned to {other['name']}"
+                        ),
+                    )
             set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
             params = {**fields, "id": str(contestant_id)}
             cur.execute(
