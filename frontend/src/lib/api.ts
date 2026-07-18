@@ -15,8 +15,14 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   })
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { detail?: string }
-    throw new Error(body.detail ?? `HTTP ${res.status}`)
+    const body = (await res.json().catch(() => ({}))) as {
+      detail?: string | { msg?: string }[]
+    }
+    // FastAPI 422s send detail as an array of validation errors (#117)
+    const message = Array.isArray(body.detail)
+      ? body.detail.map((d) => d.msg ?? 'Invalid value').join('; ')
+      : (body.detail ?? `HTTP ${res.status}`)
+    throw new Error(message)
   }
 
   if (res.status === 204) return undefined as T
