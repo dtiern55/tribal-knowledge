@@ -172,7 +172,25 @@ def test_use_blocked_in_finale(client, db_conn, current_user):
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 400
-    assert "finale" in r.json()["detail"]
+    assert "no longer" in r.json()["detail"].lower()
+
+
+@pytest.mark.integration
+def test_use_blocked_at_advantage_lock_episode(client, db_conn, current_user):
+    """A per-season advantage_lock_episode blocks plays from that episode on."""
+    season = insert_season(db_conn, advantage_lock_episode=5)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=5,  # open, not the finale
+        picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    _fund(client, season["id"], current_user["id"])
+    play = _buy(client, season["id"], "extra_vote")
+
+    r = client.post(f"/advantage-plays/{play['id']}/use", json={})
+    assert r.status_code == 400
+    assert "no longer" in r.json()["detail"].lower()
 
 
 @pytest.mark.integration

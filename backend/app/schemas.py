@@ -16,6 +16,7 @@ class Season(BaseModel):
     swap_penalty_points: int
     max_swaps: int
     swap_lock_episode: Optional[int]
+    advantage_lock_episode: Optional[int]
     weekly_token_allocation: int
     status: str
     created_at: datetime
@@ -157,6 +158,7 @@ class SeasonUpdateRequest(BaseModel):
     swap_penalty_points: Optional[int] = Field(default=None, le=0)
     max_swaps: Optional[int] = Field(default=None, ge=0)
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
+    advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
     weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 

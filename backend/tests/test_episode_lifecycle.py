@@ -86,6 +86,19 @@ def test_score_finale_grants_no_weekly_tokens(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_advantage_lock_episode_gates_weekly_tokens(client, db_conn, current_user):
+    """advantage_lock_episode=5: ep4 still grants tokens, ep5 doesn't."""
+    season = insert_season(db_conn, weekly_token_allocation=7, advantage_lock_episode=5)
+    ep4 = _locked_episode(db_conn, season["id"], episode_number=4)
+    ep5 = _locked_episode(db_conn, season["id"], episode_number=5)
+
+    client.post(f"/episodes/{ep4['id']}/score")
+    client.post(f"/episodes/{ep5['id']}/score")
+    assert _weekly_grants(db_conn, ep4["id"])[str(current_user["id"])] == 7
+    assert _weekly_grants(db_conn, ep5["id"]) == {}
+
+
+@pytest.mark.integration
 def test_score_episode_skips_admin_accounts(client, db_conn, current_user):
     """Service accounts (Producer) don't receive weekly tokens (#50)."""
     season = insert_season(db_conn, weekly_token_allocation=7)
