@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
+from app.locking import advantages_locked
 from app.schemas import ScoringEvent, ScoringEventEntry, ScoringEventType
 
 router = APIRouter(tags=["scoring_events"])
@@ -44,12 +45,25 @@ def set_scoring_events(
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "select season_id, episode_number from episodes where id = %s",
+                "select season_id, episode_number, is_finale"
+                " from episodes where id = %s",
                 [str(episode_id)],
             )
             episode = cur.fetchone()
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
+
+            # Token earning stops at the advantage cutoff (issue #102): events
+            # are still recorded for context, but grant no tokens past it.
+            cur.execute(
+                "select advantage_lock_episode from seasons where id = %s",
+                [str(episode["season_id"])],
+            )
+            tokens_locked = advantages_locked(
+                episode["episode_number"],
+                episode["is_finale"],
+                cur.fetchone()["advantage_lock_episode"],
+            )
 
             event_type_info: dict[str, dict] = {}
             if body:
@@ -105,7 +119,7 @@ def set_scoring_events(
 
                 info = event_type_info.get(entry.event_type, {})
                 token_value = info.get("token_value", 0)
-                if token_value and token_value > 0:
+                if token_value and token_value > 0 and not tokens_locked:
                     amount = (
                         token_value * entry.quantity
                         if info.get("is_per_unit")
