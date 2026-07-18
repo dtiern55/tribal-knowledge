@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tests.helpers import (
+    grant_tokens,
     insert_contestant,
     insert_elimination,
     insert_episode,
@@ -154,6 +155,7 @@ def test_swap_roster_pick(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2
     )
+    grant_tokens(db_conn, current_user["id"], season["id"], amount=100)
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
@@ -176,14 +178,20 @@ def test_swap_roster_pick(client, db_conn, current_user):
     roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
     old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert old["active_until_episode"] == 2
-    assert old["swap_penalty_points"] == -20
+    # Swaps no longer dock points (2026-07-18): the cost comes from tokens
+    assert old["swap_penalty_points"] == 0
+    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
+        "balance"
+    ]
+    assert balance == 70  # 100 funded - default 30 swap cost
 
 
 @pytest.mark.integration
-def test_swap_uses_configured_penalty(client, db_conn, current_user):
+def test_swap_uses_configured_token_cost(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2, swap_penalty_points=-10
+        db_conn, roster_size=3, lock_episode=2, swap_token_cost=10
     )
+    grant_tokens(db_conn, current_user["id"], season["id"], amount=10)
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
@@ -198,16 +206,23 @@ def test_swap_uses_configured_penalty(client, db_conn, current_user):
             "episode_id": str(ep3["id"]),
         },
     )
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
-    old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
-    assert old["swap_penalty_points"] == -10
+    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
+        "balance"
+    ]
+    assert balance == 0  # exact-cost swap allowed
+    history = client.get(
+        f"/seasons/{season['id']}/tokens/{current_user['id']}/history"
+    ).json()
+    swap_row = next(e for e in history if e["transaction_type"] == "roster_swap")
+    assert swap_row["amount"] == -10
+    assert "Swap:" in swap_row["description"]
 
 
 @pytest.mark.integration
 def test_swap_cap_reached(client, db_conn):
     # max_swaps=1: the second real swap is rejected (issue #84).
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2, max_swaps=1
+        db_conn, roster_size=3, lock_episode=2, max_swaps=1, swap_token_cost=0
     )
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
@@ -283,7 +298,7 @@ def test_swap_contestant_not_on_roster(client, db_conn):
 @pytest.mark.integration
 def test_swap_re_add_past_contestant(client, db_conn):
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2
+        db_conn, roster_size=3, lock_episode=2, swap_token_cost=0
     )
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
@@ -468,6 +483,7 @@ def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2
     )
+    grant_tokens(db_conn, current_user["id"], season["id"], amount=100)
     insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
@@ -489,3 +505,29 @@ def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
             " where locktype = 'advisory' and pid = pg_backend_pid()"
         )
         assert cur.fetchone()["n"] == 1
+
+
+@pytest.mark.integration
+def test_swap_insufficient_tokens_rejected(client, db_conn, current_user):
+    """Swaps cost tokens (2026-07-18): without the balance, no swap."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "Insufficient tokens" in r.json()["detail"]
+    # nothing changed: roster intact, no ledger entry
+    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    assert all(p["active_until_episode"] is None for p in roster)
