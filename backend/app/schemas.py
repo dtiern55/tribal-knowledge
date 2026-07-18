@@ -331,12 +331,12 @@ class UserProfile(BaseModel):
 
 
 class JoinRequest(BaseModel):
-    display_name: str = Field(min_length=1, max_length=100)
+    display_name: str = Field(min_length=1, max_length=40)
     join_code: str = Field(min_length=1)
 
 
 class ProfileUpdateRequest(BaseModel):
-    display_name: str = Field(min_length=1, max_length=100)
+    display_name: str = Field(min_length=1, max_length=40)
 
 
 class WinnerPick(BaseModel):

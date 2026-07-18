@@ -48,6 +48,7 @@ export function JoinPage() {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
+            maxLength={40}
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
           />
         </div>
