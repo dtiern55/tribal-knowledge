@@ -584,23 +584,34 @@ function RosterSection({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {contestants.map((c) => {
               const isSelected = selected.has(c.id)
+              const isOut = c.eliminated_in_episode != null
               const maxed = !isSelected && selected.size >= season.roster_size
+              // Can't add an eliminated castaway; an already-rostered one stays
+              // removable so you can drop it (e.g. a premiere boot).
+              const blocked = maxed || (isOut && !isSelected)
               return (
                 <button
                   key={c.id}
                   onClick={() => toggleSelect(c.id)}
-                  disabled={maxed}
+                  disabled={blocked}
                   className={[
                     'flex items-center gap-2 p-3 rounded-lg border text-left text-sm font-medium transition-colors',
-                    isSelected
-                      ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
-                      : maxed
-                        ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                    isSelected && isOut
+                      ? 'border-red-300 bg-red-50 text-red-700'
+                      : isSelected
+                        ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
+                        : blocked
+                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
                   ].join(' ')}
                 >
                   <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
-                  {c.name}
+                  <span className={isOut ? 'line-through' : ''}>{c.name}</span>
+                  {isOut && (
+                    <span className="ml-auto text-[10px] uppercase tracking-wide text-red-500">
+                      out
+                    </span>
+                  )}
                 </button>
               )
             })}
