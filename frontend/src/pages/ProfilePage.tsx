@@ -1,5 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import {
+  installAvailable,
+  isInstalled,
+  isIos,
+  onInstallAvailable,
+  promptInstall,
+} from '../lib/install'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
@@ -189,6 +196,42 @@ function PasswordSection() {
   )
 }
 
+function InstallSection() {
+  const [canPrompt, setCanPrompt] = useState(installAvailable())
+  useEffect(() => onInstallAvailable(() => setCanPrompt(true)), [])
+
+  if (isInstalled()) return null
+
+  return (
+    <div>
+      <p className="text-sm font-medium text-gray-700 mb-1">
+        Add to home screen
+      </p>
+      {canPrompt ? (
+        <>
+          <p className="text-xs text-gray-500 mb-3">
+            Install Tribal Knowledge as an app — fullscreen, with its own icon.
+          </p>
+          <button onClick={() => void promptInstall()} className={buttonCls}>
+            Install app
+          </button>
+        </>
+      ) : isIos() ? (
+        <p className="text-xs text-gray-500">
+          In Safari, tap <span className="font-medium">Share</span> →{' '}
+          <span className="font-medium">Add to Home Screen</span> to install
+          Tribal Knowledge as an app.
+        </p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          Open this site in your phone's browser to install it as an app (look
+          for "Add to Home Screen" or "Install" in the browser menu).
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function ProfilePage() {
   return (
     <div className="max-w-sm mx-auto mt-8 space-y-8">
@@ -199,6 +242,9 @@ export function ProfilePage() {
       </div>
       <div className="border-t border-gray-200 pt-6">
         <PasswordSection />
+      </div>
+      <div className="border-t border-gray-200 pt-6">
+        <InstallSection />
       </div>
     </div>
   )
