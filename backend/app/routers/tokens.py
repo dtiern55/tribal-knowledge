@@ -110,11 +110,19 @@ def allocate_starting_tokens(
                     insert into token_transactions
                         (user_id, season_id, transaction_type, amount)
                     values (%s, %s, 'starting_allocation', %s)
+                    on conflict do nothing
                     returning *
                     """,
                     [str(body.user_id), str(season_id), body.amount],
                 )
-                return [cur.fetchone()]
+                row = cur.fetchone()
+                if row is None:
+                    # Concurrent request raced past the check above (#114)
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Starting allocation already issued to this user",
+                    )
+                return [row]
             else:
                 # Allocate for all profiles who don't already have one
                 cur.execute(
@@ -130,6 +138,7 @@ def allocate_starting_tokens(
                           and tt.season_id = %(season)s
                           and tt.transaction_type = 'starting_allocation'
                     )
+                    on conflict do nothing
                     returning *
                     """,
                     {"season": str(season_id), "amount": body.amount},
@@ -170,6 +179,7 @@ def allocate_weekly_tokens(
                       and tt.episode_id = %(episode)s
                       and tt.transaction_type = 'weekly_allocation'
                 )
+                on conflict do nothing
                 returning *
                 """,
                 {

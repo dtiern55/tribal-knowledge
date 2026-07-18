@@ -157,6 +157,7 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                           and tt.episode_id = %(episode)s
                           and tt.transaction_type = 'weekly_allocation'
                     )
+                    on conflict do nothing
                     """,
                     {
                         "season": episode["season_id"],
