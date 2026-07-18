@@ -54,7 +54,7 @@ function DisplayNameSection() {
             setSaved(false)
           }}
           required
-          maxLength={100}
+          maxLength={40}
           className={inputCls}
         />
       </div>
