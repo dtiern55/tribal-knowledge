@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Navigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 
 export function LoginPage() {
   const { session, loading } = useAuth()
-  const navigate = useNavigate()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,13 +22,15 @@ export function LoginPage() {
     setError(null)
     setInfo(null)
 
+    // On success we deliberately don't navigate: AuthContext publishes the
+    // session once the profile is loaded (#116), and the declarative
+    // redirect above then fires exactly once — no Join-page flash.
+    // `submitting` stays true so the button reads "Signing in…" meanwhile.
     if (mode === 'signin') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message)
         setSubmitting(false)
-      } else {
-        void navigate('/')
       }
       return
     }
@@ -40,15 +41,14 @@ export function LoginPage() {
       setSubmitting(false)
       return
     }
-    if (data.session) {
-      // Local dev / email confirmation disabled: already signed in.
-      void navigate('/')
-    } else {
+    if (!data.session) {
       // Email confirmation required before a session exists.
       setInfo('Check your email to confirm your account, then sign in.')
       setMode('signin')
       setSubmitting(false)
     }
+    // else: local dev / confirmation disabled — already signed in, the
+    // redirect above handles it.
   }
 
   return (

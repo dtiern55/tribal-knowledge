@@ -31,10 +31,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
       if (session) {
-        void fetchProfile()
+        // Same rule as the boot path above (#93): only expose the session
+        // once the profile is loaded, or ProtectedRoute sees
+        // session-but-no-profile and flashes the Join page on every
+        // sign-in (#116). Deferred rather than awaited — supabase-js
+        // holds its auth lock until this callback returns.
+        void fetchProfile().then(() => setSession(session))
       } else {
+        setSession(null)
         setProfile(null)
       }
     })
