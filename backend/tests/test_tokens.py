@@ -148,6 +148,27 @@ def test_scoring_events_accrue_gameplay_tokens(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_scoring_events_grant_no_tokens_past_cutoff(client, db_conn, current_user):
+    """Token events past the advantage cutoff are recorded but grant nothing (#102)."""
+    season = insert_season(db_conn, advantage_lock_episode=5)
+    ep = insert_episode(db_conn, season["id"], episode_number=5)  # past cutoff
+    c = insert_contestant(db_conn, season["id"], "Token Earner")
+    insert_roster_pick(
+        db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
+    )
+
+    r = client.post(
+        f"/episodes/{ep['id']}/scoring-events",
+        json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
+    )
+    assert r.status_code == 200  # event still recorded
+    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
+        "balance"
+    ]
+    assert balance == 0  # but no tokens granted
+
+
+@pytest.mark.integration
 def test_scoring_events_no_tokens_for_zero_value_event(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"], episode_number=1)
