@@ -1,14 +1,22 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import {
+  BookIcon,
+  GearIcon,
+  PalmIcon,
+  TicketIcon,
+  TrophyIcon,
+  UsersIcon,
+} from './icons'
 
 // Primary destinations. On desktop they sit inline in the top bar; on phones
 // they become a fixed bottom tab bar (thumb-reachable, can't overflow).
 const PRIMARY = [
-  { to: '/', label: 'My Season', icon: '🏝️', end: true },
-  { to: '/standings', label: 'Standings', icon: '🏆', end: false },
-  { to: '/cast', label: 'Cast', icon: '👥', end: false },
-  { to: '/advantages', label: 'Advantages', icon: '🎟️', end: false },
-  { to: '/rules', label: 'Rules', icon: '📖', end: false },
+  { to: '/', label: 'My Season', Icon: PalmIcon, end: true },
+  { to: '/standings', label: 'Standings', Icon: TrophyIcon, end: false },
+  { to: '/cast', label: 'Cast', Icon: UsersIcon, end: false },
+  { to: '/advantages', label: 'Advantages', Icon: TicketIcon, end: false },
+  { to: '/rules', label: 'Rules', Icon: BookIcon, end: false },
 ]
 
 export function Layout() {
@@ -16,7 +24,7 @@ export function Layout() {
   const authed = Boolean(session && profile)
   const tabs =
     authed && profile?.is_admin
-      ? [...PRIMARY, { to: '/admin', label: 'Admin', icon: '⚙️', end: false }]
+      ? [...PRIMARY, { to: '/admin', label: 'Admin', Icon: GearIcon, end: false }]
       : PRIMARY
 
   const topLink = ({ isActive }: { isActive: boolean }) =>
@@ -72,7 +80,7 @@ export function Layout() {
 
       {authed && (
         <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-sand-200 flex">
-          {tabs.map(({ to, label, icon, end }) => (
+          {tabs.map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -83,7 +91,7 @@ export function Layout() {
                 }`
               }
             >
-              <span className="text-lg leading-none">{icon}</span>
+              <Icon />
               {label}
             </NavLink>
           ))}
