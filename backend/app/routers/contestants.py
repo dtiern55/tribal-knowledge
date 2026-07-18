@@ -89,7 +89,9 @@ def get_contestant_performance(
                          as points,
                        et.token_value
                         * (case when et.is_per_unit then se.quantity else 1 end)
-                         as token_value
+                         as token_value,
+                       (case when et.is_per_unit then se.quantity else 1 end)
+                         as quantity
                 from scoring_events se
                 join episodes ep on ep.id = se.episode_id
                 join seasons s on s.id = ep.season_id
@@ -130,6 +132,7 @@ def get_contestant_performance(
                         "label": row["label"],
                         "points": row["points"],
                         "token_value": row["token_value"],
+                        "quantity": row["quantity"],
                     }
                 )
             if elim_ep is not None:

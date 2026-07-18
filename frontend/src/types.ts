@@ -191,6 +191,7 @@ export interface ContestantEventStat {
   label: string
   points: number
   token_value: number
+  quantity: number
 }
 
 export interface ContestantEpisodeStat {

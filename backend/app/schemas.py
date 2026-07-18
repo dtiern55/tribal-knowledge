@@ -183,6 +183,8 @@ class ContestantEventStat(BaseModel):
     label: str
     points: int
     token_value: int
+    # >1 for per-unit events (e.g. votes received), so the UI can show N×.
+    quantity: int
 
 
 class ContestantEpisodeStat(BaseModel):

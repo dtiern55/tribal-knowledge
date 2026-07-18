@@ -31,29 +31,20 @@ def test_roster_points_basic(db_conn):
 
 
 @pytest.mark.integration
-def test_roster_points_per_unit_premerge(db_conn):
+def test_votes_received_scores_zero(db_conn):
+    """Receiving votes at tribal costs no points (decision 2026-07-18) — pre
+    and post-merge alike. Still recorded (per-unit) for castaway-page context.
+    """
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    pre = insert_episode(db_conn, season["id"], episode_number=3)
+    post = insert_episode(db_conn, season["id"], episode_number=8)
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
-    insert_scoring_event(db_conn, ep["id"], c["id"], "votes_received", quantity=2)
+    insert_scoring_event(db_conn, pre["id"], c["id"], "votes_received", quantity=2)
+    insert_scoring_event(db_conn, post["id"], c["id"], "votes_received", quantity=3)
 
-    # pre-merge votes_received = -3 each
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): -6}
-
-
-@pytest.mark.integration
-def test_roster_points_postmerge_override(db_conn):
-    season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=8)
-    user = insert_user(db_conn)
-    c = insert_contestant(db_conn, season["id"])
-    insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
-    insert_scoring_event(db_conn, ep["id"], c["id"], "votes_received", quantity=2)
-
-    # post-merge (ep 8 >= merge 7) votes_received = -2 each
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): -4}
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 0}
 
 
 @pytest.mark.integration
