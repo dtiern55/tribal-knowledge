@@ -26,7 +26,12 @@ function Trend({ t }: { t: StandingEntry['trend'] }) {
   return null
 }
 
-const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null)
+// Top-3 rank chips replace the old emoji medals (#106): gold/silver/bronze
+const RANK_CHIP = [
+  'bg-amber-400 text-white',
+  'bg-gray-300 text-gray-600',
+  'bg-amber-700/70 text-white',
+]
 
 export function StandingsPage() {
   const { session } = useAuth()
@@ -121,9 +126,17 @@ export function StandingsPage() {
                 >
                   <td className="py-3">
                     <span className="inline-flex items-center gap-1">
-                      <span className={medal(i) ? 'text-base' : 'text-gray-400 w-4 text-center'}>
-                        {medal(i) ?? i + 1}
-                      </span>
+                      {i < RANK_CHIP.length ? (
+                        <span
+                          className={`w-5 h-5 rounded-full text-[10px] font-semibold inline-flex items-center justify-center ${RANK_CHIP[i]}`}
+                        >
+                          {i + 1}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 w-5 text-center">
+                          {i + 1}
+                        </span>
+                      )}
                       <Trend t={entry.trend} />
                     </span>
                   </td>
