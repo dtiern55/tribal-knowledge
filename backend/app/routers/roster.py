@@ -214,10 +214,11 @@ def swap_roster_pick(
                 )
 
             cur.execute(
-                "select id from contestants where id = %s and season_id = %s",
+                "select id, name from contestants where id = %s and season_id = %s",
                 [str(body.new_contestant_id), str(season_id)],
             )
-            if not cur.fetchone():
+            new_contestant = cur.fetchone()
+            if not new_contestant:
                 raise HTTPException(
                     status_code=400,
                     detail="New contestant not found in this season",
@@ -245,13 +246,37 @@ def swap_roster_pick(
                     detail="Contestant has already been on this roster",
                 )
 
+            # Swaps cost tokens, not points (2026-07-18 decision) — the
+            # advisory lock above makes this check-then-spend safe. The old
+            # pick's swap_penalty_points stays 0; nonzero values on closed
+            # rows are the pre-decision historical record scoring still sums.
+            cost = season["swap_token_cost"]
+            if cost > 0:
+                cur.execute(
+                    """
+                    select coalesce(sum(amount), 0) as balance
+                    from token_transactions
+                    where user_id = %s and season_id = %s
+                    """,
+                    [str(user_id), str(season_id)],
+                )
+                balance = cur.fetchone()["balance"]
+                if balance < cost:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Insufficient tokens: swapping costs {cost},"
+                            f" balance {balance}"
+                        ),
+                    )
+
             cur.execute(
                 """
                 update roster_picks
-                set active_until_episode = %s, swap_penalty_points = %s
+                set active_until_episode = %s
                 where id = %s
                 """,
-                [swap_episode - 1, season["swap_penalty_points"], str(old_pick["id"])],
+                [swap_episode - 1, str(old_pick["id"])],
             )
 
             cur.execute(
@@ -268,4 +293,26 @@ def swap_roster_pick(
                     swap_episode,
                 ],
             )
-            return cur.fetchone()
+            new_pick = cur.fetchone()
+
+            if cost > 0:
+                cur.execute(
+                    "select name from contestants where id = %s",
+                    [str(old_pick["contestant_id"])],
+                )
+                old_name = cur.fetchone()["name"]
+                cur.execute(
+                    """
+                    insert into token_transactions
+                        (user_id, season_id, transaction_type, amount, notes)
+                    values (%s, %s, 'roster_swap', %s, %s)
+                    """,
+                    [
+                        str(user_id),
+                        str(season_id),
+                        -cost,
+                        f"Swap: {old_name} → {new_contestant['name']}",
+                    ],
+                )
+
+            return new_pick

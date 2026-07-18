@@ -33,8 +33,8 @@ def get_token_history(
                 """
                 select tt.created_at, tt.transaction_type, tt.amount,
                        e.episode_number,
-                       coalesce(c.name || ' — ' || et.label, ap.advantage_type)
-                         as description
+                       coalesce(c.name || ' — ' || et.label,
+                                ap.advantage_type, tt.notes) as description
                 from token_transactions tt
                 left join episodes e on e.id = tt.episode_id
                 left join scoring_events se on se.id = tt.scoring_event_id

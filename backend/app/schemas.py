@@ -13,7 +13,7 @@ class Season(BaseModel):
     roster_lock_episode: Optional[int]
     merge_episode: Optional[int]
     winner_lock_episode: Optional[int]
-    swap_penalty_points: int
+    swap_token_cost: int
     max_swaps: int
     swap_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
@@ -52,6 +52,8 @@ class RosterPick(BaseModel):
     contestant_id: UUID
     active_from_episode: int
     active_until_episode: Optional[int]
+    # Historical: the point penalty applied when this row was closed by a
+    # pre-2026-07-18 swap. Always 0 since swaps moved to a token cost.
     swap_penalty_points: int
     created_at: datetime
 
@@ -161,7 +163,7 @@ class SeasonCreateRequest(BaseModel):
     roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=3, gt=0)
-    swap_penalty_points: int = Field(default=-20, le=0)
+    swap_token_cost: int = Field(default=30, ge=0)
     weekly_token_allocation: int = Field(default=10, ge=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
@@ -173,7 +175,7 @@ class SeasonUpdateRequest(BaseModel):
     roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=None, gt=0)
-    swap_penalty_points: Optional[int] = Field(default=None, le=0)
+    swap_token_cost: Optional[int] = Field(default=None, ge=0)
     max_swaps: Optional[int] = Field(default=None, ge=0)
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)

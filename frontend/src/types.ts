@@ -18,7 +18,7 @@ export interface Season {
   roster_lock_episode: number | null
   merge_episode: number | null
   winner_lock_episode: number | null
-  swap_penalty_points: number
+  swap_token_cost: number
   max_swaps: number
   swap_lock_episode: number | null
   advantage_lock_episode: number | null

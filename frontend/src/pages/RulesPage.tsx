@@ -140,7 +140,7 @@ export function RulesPage() {
           <li>Merge at episode <b>{season.merge_episode ?? '—'}</b></li>
           <li>Winner pick locks at episode <b>{season.winner_lock_episode ?? '—'}</b></li>
           <li>
-            Roster swaps: <b>{season.swap_penalty_points} pts</b> each, up to{' '}
+            Roster swaps: <b>{season.swap_token_cost} tokens</b> each, up to{' '}
             <b>{season.max_swaps}</b>/season
             {season.swap_lock_episode != null && <>, locked from episode <b>{season.swap_lock_episode}</b></>}
           </li>

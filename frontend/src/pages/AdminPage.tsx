@@ -97,7 +97,7 @@ function SeasonSection({
   const [mergeEp, setMergeEp] = useState(String(season.merge_episode ?? ''))
   const [lockEp, setLockEp] = useState(String(season.roster_lock_episode ?? ''))
   const [winnerLockEp, setWinnerLockEp] = useState(String(season.winner_lock_episode ?? ''))
-  const [penalty, setPenalty] = useState(String(season.swap_penalty_points))
+  const [swapCost, setSwapCost] = useState(String(season.swap_token_cost))
   const [status, setStatus] = useState(season.status)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -109,7 +109,7 @@ function SeasonSection({
         merge_episode: mergeEp ? Number(mergeEp) : null,
         roster_lock_episode: lockEp ? Number(lockEp) : null,
         winner_lock_episode: winnerLockEp ? Number(winnerLockEp) : null,
-        swap_penalty_points: Number(penalty),
+        swap_token_cost: Number(swapCost),
         status,
       })
       onUpdated(updated)
@@ -127,7 +127,7 @@ function SeasonSection({
               Season #{season.season_number} · {season.status} · roster locks ep{' '}
               {season.roster_lock_episode ?? '—'} · winner locks ep{' '}
               {season.winner_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} ·
-              swap penalty {season.swap_penalty_points} pts
+              swaps cost {season.swap_token_cost} tkn
             </p>
           </div>
           <ActionBtn variant="secondary" onClick={() => setEditing(true)}>
@@ -162,11 +162,11 @@ function SeasonSection({
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Swap penalty pts</label>
+          <label className="block text-xs text-gray-500 mb-1">Swap cost (tokens)</label>
           <input
             type="number"
-            value={penalty}
-            onChange={(e) => setPenalty(e.target.value)}
+            value={swapCost}
+            onChange={(e) => setSwapCost(e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
