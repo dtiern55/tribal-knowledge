@@ -409,6 +409,30 @@ function RosterSection({
                 </li>
               )
             })}
+            {/* Contestant rows show BASE points; a played double earns its
+                own line so the numbers above never silently inflate (#136). */}
+            {plays
+              .filter(
+                (p) =>
+                  p.advantage_type === 'double_roster_points' &&
+                  p.episode_id != null &&
+                  p.points_earned != null &&
+                  p.points_earned !== 0,
+              )
+              .map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
+                >
+                  <span className="text-ocean-800">
+                    Double Roster Points —{' '}
+                    <span className="font-medium">
+                      {contestantMap.get(p.target_contestant_id ?? '')?.name ?? '—'}
+                    </span>
+                  </span>
+                  <Points value={p.points_earned ?? undefined} />
+                </li>
+              ))}
           </ul>
 
           {nextOpenEpisode != null &&
@@ -1092,19 +1116,28 @@ function PicksSection({
                           : result?.correct
                             ? 'bg-green-50 border-green-300 text-green-800'
                             : 'bg-white border-gray-200 text-gray-500'
+                        // Pick chip shows the BASE points; the double's own
+                        // earnings render as a separate chip beside it (#136).
                         return (
-                          <span
-                            key={p.id}
-                            className={`text-sm px-2 py-1 border rounded-md ${cls}`}
-                          >
-                            {scored && result?.correct && '✓ '}
-                            {name}
-                            {doubled && (
-                              <span className="text-ocean-600 font-semibold no-underline"> ×2</span>
-                            )}
-                            {scored && result?.correct && result.points > 0 && (
-                              <span className="ml-1 font-semibold no-underline">
-                                +{result.points}
+                          <span key={p.id} className="contents">
+                            <span
+                              className={`text-sm px-2 py-1 border rounded-md ${cls}`}
+                            >
+                              {scored && result?.correct && '✓ '}
+                              {name}
+                              {doubled && (
+                                <span className="text-ocean-600 font-semibold"> ×2</span>
+                              )}
+                              {scored && result?.correct && result.points > 0 && (
+                                <span className="ml-1 font-semibold">
+                                  +{result.points}
+                                </span>
+                              )}
+                            </span>
+                            {doubled && scored && result?.correct && result.points > 0 && (
+                              <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
+                                Double Vote Points{' '}
+                                <span className="font-semibold">+{result.points}</span>
                               </span>
                             )}
                           </span>
