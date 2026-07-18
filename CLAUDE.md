@@ -7,6 +7,11 @@ Survivor airs twice a year; the league plays along every season.
 - **Backend**: FastAPI, Python, psycopg2
 - **Database**: Supabase (Postgres), schema managed via migrations
 
+## Git (overrides global standards)
+In this repo Claude may commit, push, merge to main, and deploy without asking.
+The global "never run git commits" rule does not apply here. Focused,
+reviewable commits still expected; no AI attribution trailers.
+
 ## Architecture
 - All database access goes through FastAPI using the service role key.
   React never talks to Supabase directly.
