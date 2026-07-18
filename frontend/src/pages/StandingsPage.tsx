@@ -98,10 +98,14 @@ export function StandingsPage() {
             <tr className="text-left text-ocean-700 border-b-2 border-ocean-100">
               <th className="pb-2 font-semibold w-12">#</th>
               <th className="pb-2 font-semibold">Player</th>
-              <th className="pb-2 font-semibold text-right">Roster</th>
-              <th className="pb-2 font-semibold text-right">Elim</th>
-              {showFinale && <th className="pb-2 font-semibold text-right">Finale</th>}
-              {showWinner && <th className="pb-2 font-semibold text-right">Winner</th>}
+              <th className="pb-2 font-semibold text-right hidden sm:table-cell">Roster</th>
+              <th className="pb-2 font-semibold text-right hidden sm:table-cell">Elim</th>
+              {showFinale && (
+                <th className="pb-2 font-semibold text-right hidden sm:table-cell">Finale</th>
+              )}
+              {showWinner && (
+                <th className="pb-2 font-semibold text-right hidden sm:table-cell">Winner</th>
+              )}
               <th className="pb-2 font-semibold text-right">Total</th>
             </tr>
           </thead>
@@ -136,13 +140,21 @@ export function StandingsPage() {
                       </span>
                     )}
                   </td>
-                  <td className="py-3 text-right text-gray-700">{entry.roster_points}</td>
-                  <td className="py-3 text-right text-gray-700">{entry.elimination_points}</td>
+                  <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
+                    {entry.roster_points}
+                  </td>
+                  <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
+                    {entry.elimination_points}
+                  </td>
                   {showFinale && (
-                    <td className="py-3 text-right text-gray-700">{entry.finale_points}</td>
+                    <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
+                      {entry.finale_points}
+                    </td>
                   )}
                   {showWinner && (
-                    <td className="py-3 text-right text-gray-700">{entry.winner_points}</td>
+                    <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
+                      {entry.winner_points}
+                    </td>
                   )}
                   <td className="py-3 text-right font-bold text-ocean-800 whitespace-nowrap">
                     {entry.total_points}
