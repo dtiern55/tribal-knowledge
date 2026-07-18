@@ -189,7 +189,12 @@ function PasswordSection() {
       setSaving(false)
       return
     }
-    const { error } = await supabase.auth.updateUser({ password })
+    // GoTrue's "require current password" setting validates this
+    // server-side; supabase-js's type doesn't know the field, hence the cast.
+    const { error } = await supabase.auth.updateUser({
+      password,
+      current_password: current,
+    } as unknown as { password: string })
     if (error) {
       setError(error.message)
     } else {
@@ -228,7 +233,7 @@ function PasswordSection() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           autoComplete="new-password"
           className={inputCls}
         />
@@ -242,7 +247,7 @@ function PasswordSection() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           autoComplete="new-password"
           className={inputCls}
         />
