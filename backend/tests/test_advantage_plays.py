@@ -6,8 +6,10 @@ from tests.helpers import (
     insert_advantage_play,
     insert_contestant,
     insert_elimination,
+    insert_elimination_pick,
     insert_episode,
     insert_roster_pick,
+    insert_scoring_event,
     insert_season,
     insert_user,
 )
@@ -229,13 +231,66 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
         json={"target_contestant_id": str(c["id"])},
     )
     assert r.status_code == 200
-    insert_elimination(db_conn, ep["id"], c["id"])  # the pick came true
+    # The user actually picked the target, and the pick came true (#115:
+    # without the pick, the double earns nothing and must report nothing).
+    insert_elimination_pick(db_conn, current_user["id"], ep["id"], c["id"])
+    insert_elimination(db_conn, ep["id"], c["id"])
 
     plays = client.get(
         f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
     ).json()
     played = next(p for p in plays if p["id"] == play["id"])
     assert played["points_earned"] == 15  # pre-merge correct_elimination value
+
+
+@pytest.mark.integration
+def test_double_vote_on_unpicked_target_earns_zero(client, db_conn, current_user):
+    """#115: a double vote on a contestant the user never picked earns 0 in
+    the real score, so Play History must report 0 — not the phantom bonus."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = _open_episode(db_conn, season["id"], episode_number=2)
+    c = insert_contestant(db_conn, season["id"])
+    _fund(client, season["id"], current_user["id"])
+    play = _buy(client, season["id"], "double_vote_points")
+    r = client.post(
+        f"/advantage-plays/{play['id']}/use",
+        json={"target_contestant_id": str(c["id"])},
+    )
+    assert r.status_code == 200
+    insert_elimination(db_conn, ep["id"], c["id"])  # eliminated, but never picked
+
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    played = next(p for p in plays if p["id"] == play["id"])
+    assert played["points_earned"] == 0
+
+
+@pytest.mark.integration
+def test_double_roster_on_unrostered_target_earns_nothing(
+    client, db_conn, current_user
+):
+    """#115: a roster double whose target isn't on the active roster for that
+    episode (e.g. swapped off after the play) must not report their points."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = _open_episode(db_conn, season["id"], episode_number=2)
+    c = insert_contestant(db_conn, season["id"])
+    play = insert_advantage_play(
+        db_conn,
+        current_user["id"],
+        ep["id"],
+        "double_roster_points",
+        target_contestant_id=c["id"],
+    )
+    insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
+
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    played = next(p for p in plays if p["id"] == play["id"])
+    # No active roster row for the target: same "earned nothing" reporting
+    # as a target with no scoring events.
+    assert played["points_earned"] is None
 
 
 @pytest.mark.integration
