@@ -82,6 +82,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
         for now_rank, s in enumerate(entries):
             was = prev_rank[s.user_id]
             s.trend = "up" if was > now_rank else "down" if was < now_rank else "same"
+            s.last_episode_points = last_delta.get(str(s.user_id), 0)
     return entries
 
 

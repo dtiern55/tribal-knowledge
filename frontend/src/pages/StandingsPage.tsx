@@ -63,6 +63,10 @@ export function StandingsPage() {
   const season = seasons.find((s) => s.id === selectedId)
   if (!season) return <p className="text-gray-500">No season found.</p>
 
+  // Finale/Winner are 0 until the season ends — hide them until they matter.
+  const showFinale = entries.some((e) => e.finale_points !== 0)
+  const showWinner = entries.some((e) => e.winner_points !== 0)
+
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
@@ -96,8 +100,8 @@ export function StandingsPage() {
               <th className="pb-2 font-semibold">Player</th>
               <th className="pb-2 font-semibold text-right">Roster</th>
               <th className="pb-2 font-semibold text-right">Elim</th>
-              <th className="pb-2 font-semibold text-right">Finale</th>
-              <th className="pb-2 font-semibold text-right">Winner</th>
+              {showFinale && <th className="pb-2 font-semibold text-right">Finale</th>}
+              {showWinner && <th className="pb-2 font-semibold text-right">Winner</th>}
               <th className="pb-2 font-semibold text-right">Total</th>
             </tr>
           </thead>
@@ -134,10 +138,24 @@ export function StandingsPage() {
                   </td>
                   <td className="py-3 text-right text-gray-700">{entry.roster_points}</td>
                   <td className="py-3 text-right text-gray-700">{entry.elimination_points}</td>
-                  <td className="py-3 text-right text-gray-700">{entry.finale_points}</td>
-                  <td className="py-3 text-right text-gray-700">{entry.winner_points}</td>
-                  <td className="py-3 text-right font-bold text-ocean-800">
+                  {showFinale && (
+                    <td className="py-3 text-right text-gray-700">{entry.finale_points}</td>
+                  )}
+                  {showWinner && (
+                    <td className="py-3 text-right text-gray-700">{entry.winner_points}</td>
+                  )}
+                  <td className="py-3 text-right font-bold text-ocean-800 whitespace-nowrap">
                     {entry.total_points}
+                    {entry.last_episode_points !== 0 && (
+                      <span
+                        className={`ml-1 text-xs font-medium ${
+                          entry.last_episode_points > 0 ? 'text-green-600' : 'text-red-500'
+                        }`}
+                      >
+                        ({entry.last_episode_points > 0 ? '+' : ''}
+                        {entry.last_episode_points})
+                      </span>
+                    )}
                   </td>
                 </tr>
               )

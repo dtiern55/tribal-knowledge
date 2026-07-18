@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, getActiveSeason } from '../lib/api'
 import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
-import type {
-  AdvantagePlay,
-  AdvantageType,
-  Contestant,
-  Episode,
-  RosterPick,
-  Season,
-} from '../types'
+import type { AdvantagePlay, AdvantageType, Contestant, Episode, Season } from '../types'
 
 const DESCRIPTIONS: Record<string, string> = {
   double_roster_points: "Double one roster contestant's points for an episode.",
@@ -25,13 +18,11 @@ export function AdvantagesPage() {
   const [types, setTypes] = useState<AdvantageType[]>([])
   const [balance, setBalance] = useState(0)
   const [contestants, setContestants] = useState<Contestant[]>([])
-  const [roster, setRoster] = useState<RosterPick[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [ownPlays, setOwnPlays] = useState<AdvantagePlay[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [rosterTarget, setRosterTarget] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -43,19 +34,17 @@ export function AdvantagesPage() {
         if (!active) return
         setSeason(active)
 
-        const [advTypes, tokenBalance, cs, eps, rosterData, plays] = await Promise.all([
+        const [advTypes, tokenBalance, cs, eps, plays] = await Promise.all([
           api.get<AdvantageType[]>('/advantage-types'),
           api.get<{ balance: number }>(`/seasons/${active.id}/tokens/${userId}`),
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
-          api.get<RosterPick[]>(`/seasons/${active.id}/roster/${userId}`).catch(() => []),
           api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
         ])
         setTypes(advTypes)
         setBalance(tokenBalance.balance)
         setContestants(cs)
         setEpisodes(eps)
-        setRoster(rosterData)
         setOwnPlays(plays)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
@@ -68,11 +57,6 @@ export function AdvantagesPage() {
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-  const alive = contestants.filter((c) => c.eliminated_in_episode == null)
-  const activeRosterIds = new Set(
-    roster.filter((r) => r.active_until_episode === null).map((r) => r.contestant_id),
-  )
-  const rosterOptions = alive.filter((c) => activeRosterIds.has(c.id))
 
   function replacePlay(updated: AdvantagePlay) {
     setOwnPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
@@ -90,23 +74,6 @@ export function AdvantagesPage() {
       setBalance((prev) => prev - cost)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Buy failed')
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function applyDoubleRoster(play: AdvantagePlay) {
-    setBusy(`use:${play.id}`)
-    setActionError(null)
-    try {
-      replacePlay(
-        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
-          target_contestant_id: rosterTarget,
-        }),
-      )
-      setRosterTarget('')
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Use failed')
     } finally {
       setBusy(null)
     }
@@ -142,6 +109,11 @@ export function AdvantagesPage() {
   const spent = used.filter((p) => !inPlay.includes(p))
   const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
   const advLocked = nextOpen ? advantagesLocked(nextOpen, season) : false
+  // The last episode advantages can still be played (one before the cutoff).
+  const lastPlayable =
+    !advLocked &&
+    season.advantage_lock_episode != null &&
+    nextOpen?.episode_number === season.advantage_lock_episode - 1
 
   return (
     <div>
@@ -156,24 +128,37 @@ export function AdvantagesPage() {
       {actionError && <p className="text-red-600 text-sm mb-4">{actionError}</p>}
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Shop</h2>
-      <div className="space-y-4 mb-8">
-        {types.map((t) => (
-          <div key={t.advantage_type} className="p-4 bg-white border border-gray-200 rounded-xl">
-            <div className="flex items-center justify-between mb-1">
-              <p className="font-semibold text-gray-900">{t.label}</p>
-              <span className="text-xs text-gray-400">{t.token_cost} tokens</span>
-            </div>
-            <p className="text-xs text-gray-500 mb-3">{DESCRIPTIONS[t.advantage_type] ?? ''}</p>
-            <button
-              onClick={() => void buy(t.advantage_type, t.token_cost)}
-              disabled={balance < t.token_cost || busy === `buy:${t.advantage_type}`}
-              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
-            >
-              {busy === `buy:${t.advantage_type}` ? 'Buying…' : 'Buy'}
-            </button>
+      {advLocked ? (
+        <p className="text-sm text-amber-600 mb-8">
+          Advantages are locked for the rest of the season — the shop is closed.
+        </p>
+      ) : (
+        <>
+          {lastPlayable && (
+            <p className="text-sm text-amber-600 mb-3">
+              ⚠️ This is the last episode to buy and play advantages — after this they lock.
+            </p>
+          )}
+          <div className="space-y-4 mb-8">
+            {types.map((t) => (
+              <div key={t.advantage_type} className="p-4 bg-white border border-gray-200 rounded-xl">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-gray-900">{t.label}</p>
+                  <span className="text-xs text-gray-400">{t.token_cost} tokens</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">{DESCRIPTIONS[t.advantage_type] ?? ''}</p>
+                <button
+                  onClick={() => void buy(t.advantage_type, t.token_cost)}
+                  disabled={balance < t.token_cost || busy === `buy:${t.advantage_type}`}
+                  className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+                >
+                  {busy === `buy:${t.advantage_type}` ? 'Buying…' : 'Buy'}
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
         Your Advantages
@@ -199,30 +184,10 @@ export function AdvantagesPage() {
               <p className="text-xs text-amber-600 mt-1">
                 Advantages are locked for the rest of the season.
               </p>
-            ) : p.advantage_type === 'double_roster_points' ? (
-              <div className="flex gap-2 mt-2">
-                <select
-                  value={rosterTarget}
-                  onChange={(e) => setRosterTarget(e.target.value)}
-                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">Use on which roster contestant…</option>
-                  {rosterOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => void applyDoubleRoster(p)}
-                  disabled={!rosterTarget || busy === `use:${p.id}`}
-                  className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
-                >
-                  {busy === `use:${p.id}` ? 'Using…' : 'Use'}
-                </button>
-              </div>
             ) : (
-              <p className="text-xs text-gray-500 mt-1">Use it on the Picks page.</p>
+              // Play everything on My Season (roster doubles in the roster
+              // section, vote doubles / extra votes in the Weekly Votes section).
+              <p className="text-xs text-gray-500 mt-1">Use it on the My Season page.</p>
             )}
           </div>
         ))}
