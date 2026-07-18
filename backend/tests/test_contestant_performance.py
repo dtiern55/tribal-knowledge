@@ -63,6 +63,21 @@ def test_cast_lists_base_scores(client, db_conn):
 
 
 @pytest.mark.integration
+def test_contestant_performance_votes_received_itemized(client, db_conn):
+    """Votes received show the count (quantity) but score 0 points (#15)."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    c = insert_contestant(db_conn, season["id"], "Target")
+    insert_scoring_event(db_conn, ep["id"], c["id"], "votes_received", quantity=3)
+
+    r = client.get(f"/contestants/{c['id']}/performance")
+    ev = r.json()["episodes"][0]["events"][0]
+    assert ev["quantity"] == 3
+    assert ev["points"] == 0
+    assert r.json()["total_points"] == 0
+
+
+@pytest.mark.integration
 def test_contestant_performance_token_only_event(client, db_conn):
     """Token-only events report their token value, not just +0 points (#83)."""
     season = insert_season(db_conn, merge_episode=7)

@@ -65,7 +65,10 @@ export function ContestantPage() {
                 <ul className="text-sm text-gray-600 space-y-0.5">
                   {ep.events.map((e, i) => (
                     <li key={i} className="flex items-center justify-between gap-2">
-                      <span>{e.label}</span>
+                      <span>
+                        {e.label}
+                        {e.quantity > 1 && <span className="text-gray-400"> ×{e.quantity}</span>}
+                      </span>
                       <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium">
                         {e.points !== 0 && (
                           <span className={e.points > 0 ? 'text-green-600' : 'text-red-500'}>
@@ -75,6 +78,9 @@ export function ContestantPage() {
                         )}
                         {e.token_value !== 0 && (
                           <span className="text-amber-500">+{e.token_value} tkn</span>
+                        )}
+                        {e.points === 0 && e.token_value === 0 && (
+                          <span className="text-gray-400">no points</span>
                         )}
                       </span>
                     </li>
