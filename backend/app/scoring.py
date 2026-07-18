@@ -324,6 +324,10 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
     double_roster_points, the elimination-pick value for double_vote_points.
     extra_vote isn't included — there's no single pick to attribute. Keyed by
     stringified advantage_plays.id.
+
+    Mirrors the roster/pick joins of roster_points()/elimination_points():
+    a double only pays if the user actually rostered/picked the target, and
+    this report must never claim points the score didn't award (#115).
     """
     bonus: dict[str, int] = {}
     with conn.cursor() as cur:
@@ -345,6 +349,13 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
               on se.episode_id = ap.episode_id
              and se.contestant_id = ap.target_contestant_id
             join scoring_event_types et on et.event_type = se.event_type
+            join roster_picks rp
+              on rp.contestant_id = ap.target_contestant_id
+             and rp.season_id = ap.season_id
+             and rp.user_id = ap.user_id
+             and rp.active_from_episode <= ep.episode_number
+             and (rp.active_until_episode is null
+                  or rp.active_until_episode >= ep.episode_number)
             where ap.season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_roster_points'
               and ap.episode_id is not null
@@ -365,7 +376,8 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
         cur.execute(
             """
             select ap.id::text as play_id,
-                   (case when el.contestant_id is null then 0
+                   (case when el.contestant_id is null
+                          or pick.contestant_id is null then 0
                      when s.merge_episode is not null
                       and ep.episode_number >= s.merge_episode
                      then %s else %s end) as bonus
@@ -375,6 +387,10 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
             left join eliminations el
               on el.episode_id = ap.episode_id
              and el.contestant_id = ap.target_contestant_id
+            left join elimination_picks pick
+              on pick.user_id = ap.user_id
+             and pick.episode_id = ap.episode_id
+             and pick.contestant_id = ap.target_contestant_id
             where ap.season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_vote_points'
               and ap.episode_id is not null
