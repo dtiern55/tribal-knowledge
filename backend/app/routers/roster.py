@@ -154,6 +154,8 @@ def swap_roster_pick(
     with database.get_db() as conn:
         with conn.cursor() as cur:
             season = database.require_season(cur, season_id)
+            # Guards the swap-cap count below against concurrent swaps.
+            database.lock_user_season(cur, user_id, season_id)
 
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")

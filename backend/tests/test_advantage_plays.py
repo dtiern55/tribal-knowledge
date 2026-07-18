@@ -527,3 +527,22 @@ def test_other_users_play_visible_after_episode_locks(client, db_conn, current_u
 
     r = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}")
     assert len(r.json()) == 1
+
+
+@pytest.mark.integration
+def test_buy_takes_user_season_advisory_lock(client, db_conn, current_user):
+    """#110: buying holds the advisory lock that serializes double-spends.
+
+    The test transaction never commits, so a lock taken inside the handler
+    is still visible in pg_locks here.
+    """
+    season = insert_season(db_conn)
+    _fund(client, season["id"], current_user["id"])
+    _buy(client, season["id"], "double_vote_points")
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "select count(*) as n from pg_locks"
+            " where locktype = 'advisory' and pid = pg_backend_pid()"
+        )
+        assert cur.fetchone()["n"] == 1
