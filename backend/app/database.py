@@ -31,6 +31,21 @@ def get_db():
         conn.close()
 
 
+def lock_user_season(cur, user_id, season_id) -> None:
+    """Serialize one user's writes within a season (issues #110/#113).
+
+    The token-balance and swap-cap guards are read-then-act; without this,
+    concurrent requests can both pass the check. Transaction-scoped advisory
+    locks release on commit/rollback and are safe through the transaction
+    pooler. A hashtext collision across users only queues them needlessly,
+    never corrupts.
+    """
+    cur.execute(
+        "select pg_advisory_xact_lock(hashtext(%s || ':' || %s))",
+        [str(user_id), str(season_id)],
+    )
+
+
 def require_season(cur, season_id) -> dict:
     """Fetch the season row or raise 404 — the shared handler preamble."""
     cur.execute("select * from seasons where id = %s", [str(season_id)])

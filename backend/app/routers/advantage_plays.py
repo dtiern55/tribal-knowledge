@@ -92,6 +92,8 @@ def buy_advantage(
     with database.get_db() as conn:
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
+            # Guards the balance check below against a concurrent double-spend.
+            database.lock_user_season(cur, user_id, season_id)
 
             # No buying once advantages are locked — a bought advantage could
             # never be played (issue #102). Only blocks when the next open

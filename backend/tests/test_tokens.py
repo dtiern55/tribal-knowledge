@@ -1,4 +1,5 @@
 import pytest
+from psycopg2 import errors as pg_errors
 
 from tests.helpers import (
     insert_contestant,
@@ -243,3 +244,22 @@ def test_token_history_describes_gameplay_event(client, db_conn, current_user):
     assert entries[0]["amount"] == 5
     assert entries[0]["episode_number"] == 1
     assert "Earner" in entries[0]["description"]
+
+
+@pytest.mark.integration
+def test_weekly_grant_unique_index_backstop(db_conn, current_user):
+    """#114: the DB itself rejects a duplicate weekly grant, so a race that
+    slips past the endpoint's NOT EXISTS guard cannot double-grant."""
+    season = insert_season(db_conn)
+    episode = insert_episode(db_conn, season["id"], episode_number=2)
+
+    insert_sql = """
+        insert into token_transactions
+            (user_id, season_id, episode_id, transaction_type, amount)
+        values (%s, %s, %s, 'weekly_allocation', 10)
+    """
+    args = [str(current_user["id"]), str(season["id"]), str(episode["id"])]
+    with db_conn.cursor() as cur:
+        cur.execute(insert_sql, args)
+        with pytest.raises(pg_errors.UniqueViolation):
+            cur.execute(insert_sql, args)

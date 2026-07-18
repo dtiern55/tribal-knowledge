@@ -460,3 +460,32 @@ def test_other_users_roster_visible_after_lock(client, db_conn):
     r = client.get(f"/seasons/{season['id']}/roster/{other['id']}")
     assert r.status_code == 200
     assert len(r.json()) == 1
+
+
+@pytest.mark.integration
+def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
+    """#113: swapping holds the advisory lock that serializes over-cap swaps."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+        },
+    )
+    assert r.status_code == 200
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "select count(*) as n from pg_locks"
+            " where locktype = 'advisory' and pid = pg_backend_pid()"
+        )
+        assert cur.fetchone()["n"] == 1
