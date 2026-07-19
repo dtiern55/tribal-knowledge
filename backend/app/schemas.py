@@ -171,7 +171,9 @@ class SeasonCreateRequest(BaseModel):
     name: str
     season_number: int
     roster_size: int = Field(default=5, ge=1, le=10)
-    roster_lock_episode: Optional[int] = Field(default=None, gt=0)
+    # Required for a season to be playable (#152): default 1, explicit null 422s
+    # at create time instead of 400ing every roster submit later.
+    roster_lock_episode: int = Field(default=1, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=3, gt=0)
     swap_token_cost: int = Field(default=20, ge=0)

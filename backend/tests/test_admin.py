@@ -17,6 +17,7 @@ def test_create_season(client):
     assert data["name"] == "Survivor: X"
     assert data["season_number"] == 50
     assert data["roster_size"] == 5  # default
+    assert data["roster_lock_episode"] == 1  # default (#152)
     assert data["status"] == "upcoming"
 
 
