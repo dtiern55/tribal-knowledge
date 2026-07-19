@@ -467,3 +467,39 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
     by_c = {r["contestant_id"]: r for r in results}
     assert by_c[str(hit["id"])]["points"] == 15  # base, not 30
     assert scoring.elimination_points(db_conn, season["id"])[str(user["id"])] == 30
+
+
+@pytest.mark.integration
+def test_scoring_ignores_global_template_changes(db_conn):
+    """#170: completed seasons are time capsules — tuning the global template
+    after a season exists must not change what that season scores."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    user = insert_user(db_conn)
+    contestant = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, user["id"], season["id"], contestant["id"])
+    insert_scoring_event(db_conn, ep["id"], contestant["id"], "win_individual_immunity")
+
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update scoring_event_types set point_value = 999"
+            " where event_type = 'win_individual_immunity'"
+        )
+        cur.execute(
+            "update prediction_score_types set point_value = 999"
+            " where key = 'correct_elimination'"
+        )
+    try:
+        assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    finally:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "update scoring_event_types set point_value = 15"
+                " where event_type = 'win_individual_immunity'"
+            )
+            cur.execute(
+                "update prediction_score_types set point_value = 15"
+                " where key = 'correct_elimination'"
+            )

@@ -63,7 +63,9 @@ def create_season(body: SeasonCreateRequest, _: UUID = Depends(get_current_admin
                 """,
                 body.model_dump(),
             )
-            return cur.fetchone()
+            season = cur.fetchone()
+            database.snapshot_scoring_config(cur, season["id"])
+            return season
 
 
 @router.patch("/{season_id}", response_model=Season)

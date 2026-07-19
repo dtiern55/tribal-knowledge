@@ -10,13 +10,19 @@ from app.schemas import ScoringEvent, ScoringEventEntry, ScoringEventType
 router = APIRouter(tags=["scoring_events"])
 
 
-@router.get("/scoring-event-types", response_model=list[ScoringEventType])
-def list_scoring_event_types(_: UUID = Depends(get_current_user)):
-    """Event types and their display labels — the DB is the source of truth."""
+@router.get(
+    "/seasons/{season_id}/scoring-event-types",
+    response_model=list[ScoringEventType],
+)
+def list_scoring_event_types(season_id: UUID, _: UUID = Depends(get_current_user)):
+    """The season's event types and display labels (#170: season snapshot)."""
     with database.get_db() as conn:
         with conn.cursor() as cur:
+            database.require_season(cur, season_id)
             cur.execute(
-                "select event_type, label from scoring_event_types order by label"
+                "select event_type, label from season_scoring_event_types"
+                " where season_id = %s order by label",
+                [str(season_id)],
             )
             return cur.fetchall()
 
@@ -84,8 +90,9 @@ def set_scoring_events(
                 event_types = list({e.event_type for e in body})
                 cur.execute(
                     "select event_type, token_value, is_per_unit"
-                    " from scoring_event_types where event_type = any(%s)",
-                    [event_types],
+                    " from season_scoring_event_types"
+                    " where season_id = %s and event_type = any(%s)",
+                    [str(episode["season_id"]), event_types],
                 )
                 for row in cur.fetchall():
                     event_type_info[row["event_type"]] = row

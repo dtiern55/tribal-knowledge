@@ -48,7 +48,8 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
             from scoring_events se
             join episodes ep on se.episode_id = ep.id
             join seasons s on ep.season_id = s.id
-            join scoring_event_types et on se.event_type = et.event_type
+            join season_scoring_event_types et
+              on se.event_type = et.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = se.contestant_id
              and rp.season_id = s.id
@@ -100,8 +101,9 @@ _PLACEMENT_SQL = """
     from roster_picks rp
     join contestants c on c.id = rp.contestant_id and c.placement in (1, 2, 3)
     join episodes fin on fin.season_id = rp.season_id and fin.is_finale = true
-    join prediction_score_types pst
+    join season_prediction_score_types pst
       on pst.key = 'roster_placement_' || c.placement
+     and pst.season_id = rp.season_id
     where rp.season_id = %s
       and rp.active_from_episode <= fin.episode_number
       and (rp.active_until_episode is null
@@ -123,7 +125,9 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
     with conn.cursor() as cur:
         cur.execute(
             "select point_value, postmerge_point_value"
-            " from prediction_score_types where key = 'correct_elimination'"
+            " from season_prediction_score_types"
+            " where season_id = %s and key = 'correct_elimination'",
+            [str(season_id)],
         )
         cfg = cur.fetchone()
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
@@ -165,11 +169,15 @@ def winner_points(conn, season_id: UUID) -> dict[str, int]:
     in finale_points().
     """
     with conn.cursor() as cur:
-        cur.execute("""
-            select key, point_value from prediction_score_types
-            where key in ('winner_sole_survivor', 'winner_runner_up',
+        cur.execute(
+            """
+            select key, point_value from season_prediction_score_types
+            where season_id = %s
+              and key in ('winner_sole_survivor', 'winner_runner_up',
                           'winner_2nd_runner_up')
-            """)
+            """,
+            [str(season_id)],
+        )
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
 
         cur.execute(
@@ -203,11 +211,15 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
     winner_points (the season-long locked winner_pick).
     """
     with conn.cursor() as cur:
-        cur.execute("""
-            select key, point_value from prediction_score_types
-            where key in ('correct_early_boot', 'correct_fire_loss',
+        cur.execute(
+            """
+            select key, point_value from season_prediction_score_types
+            where season_id = %s
+              and key in ('correct_early_boot', 'correct_fire_loss',
                           'correct_winner_vote')
-            """)
+            """,
+            [str(season_id)],
+        )
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
 
         cur.execute(
@@ -270,7 +282,8 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
             from scoring_events se
             join episodes ep on se.episode_id = ep.id
             join seasons s on ep.season_id = s.id
-            join scoring_event_types et on se.event_type = et.event_type
+            join season_scoring_event_types et
+              on se.event_type = et.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = se.contestant_id
              and rp.season_id = s.id
@@ -344,7 +357,8 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
             join scoring_events se
               on se.episode_id = ap.episode_id
              and se.contestant_id = ap.target_contestant_id
-            join scoring_event_types et on et.event_type = se.event_type
+            join season_scoring_event_types et
+              on et.event_type = se.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = ap.target_contestant_id
              and rp.season_id = ap.season_id
@@ -364,7 +378,9 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
 
         cur.execute(
             "select point_value, postmerge_point_value"
-            " from prediction_score_types where key = 'correct_elimination'"
+            " from season_prediction_score_types"
+            " where season_id = %s and key = 'correct_elimination'",
+            [str(season_id)],
         )
         cfg = cur.fetchone()
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
@@ -412,7 +428,9 @@ def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]
     with conn.cursor() as cur:
         cur.execute(
             "select point_value, postmerge_point_value"
-            " from prediction_score_types where key = 'correct_elimination'"
+            " from season_prediction_score_types"
+            " where season_id = %s and key = 'correct_elimination'",
+            [str(season_id)],
         )
         cfg = cur.fetchone()
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
@@ -474,7 +492,8 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
             from scoring_events se
             join episodes ep on ep.id = se.episode_id
             join seasons s on s.id = ep.season_id
-            join scoring_event_types et on et.event_type = se.event_type
+            join season_scoring_event_types et
+              on et.event_type = se.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = se.contestant_id and rp.season_id = s.id
              and rp.active_from_episode <= ep.episode_number
@@ -505,7 +524,9 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
 
         cur.execute(
             "select point_value, postmerge_point_value"
-            " from prediction_score_types where key = 'correct_elimination'"
+            " from season_prediction_score_types"
+            " where season_id = %s and key = 'correct_elimination'",
+            [str(season_id)],
         )
         cfg = cur.fetchone()
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]

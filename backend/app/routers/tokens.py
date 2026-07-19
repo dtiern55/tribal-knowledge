@@ -39,7 +39,9 @@ def get_token_history(
                 left join episodes e on e.id = tt.episode_id
                 left join scoring_events se on se.id = tt.scoring_event_id
                 left join contestants c on c.id = se.contestant_id
-                left join scoring_event_types et on et.event_type = se.event_type
+                left join season_scoring_event_types et
+                  on et.event_type = se.event_type
+                 and et.season_id = tt.season_id
                 left join advantage_plays ap on ap.id = tt.advantage_play_id
                 where tt.user_id = %s and tt.season_id = %s
                 order by tt.created_at desc

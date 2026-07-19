@@ -204,8 +204,10 @@ def test_update_league_settings(client):
 
 
 @pytest.mark.integration
-def test_list_scoring_event_types(client):
-    r = client.get("/scoring-event-types")
+def test_list_scoring_event_types(client, db_conn):
+    # Season-scoped since #170: the list reflects the season's snapshot.
+    season = insert_season(db_conn)
+    r = client.get(f"/seasons/{season['id']}/scoring-event-types")
     assert r.status_code == 200
     by_type = {t["event_type"]: t["label"] for t in r.json()}
     assert by_type["win_individual_immunity"] == "Win individual immunity"

@@ -18,15 +18,21 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
         with conn.cursor() as cur:
             season = database.require_season(cur, season_id)
+            # Season snapshot, not the globals (#170): the Rules page shows
+            # the values THIS season actually scores with, forever.
             cur.execute(
                 "select event_type, label, point_value, postmerge_point_value,"
-                " token_value, is_per_unit from scoring_event_types"
-                " order by point_value desc, token_value desc, label"
+                " token_value, is_per_unit from season_scoring_event_types"
+                " where season_id = %s"
+                " order by point_value desc, token_value desc, label",
+                [str(season_id)],
             )
             scoring_events = cur.fetchall()
             cur.execute(
                 "select key, label, point_value, postmerge_point_value"
-                " from prediction_score_types order by point_value desc"
+                " from season_prediction_score_types where season_id = %s"
+                " order by point_value desc",
+                [str(season_id)],
             )
             prediction_scores = cur.fetchall()
             cur.execute(
