@@ -166,3 +166,47 @@ def test_jury_and_placement():
     p = _build(castaways=cast)
     assert len(_events(p, "join_jury")) == 1
     assert p["placements"] == [{"castaway_id": "C", "name": "Cat", "placement": 12}]
+
+
+def test_fire_challenge_only_won_counts():
+    votes = [
+        _vote(
+            "A",
+            "Ann",
+            None,
+            "Cat",
+            "C",
+            vote_event="Fire challenge (f4)",
+            vote_event_outcome="Won",
+        ),
+        _vote(
+            "B",
+            "Bob",
+            None,
+            "Cat",
+            "C",
+            vote_event="Fire challenge (f4)",
+            vote_event_outcome="Saved",
+        ),
+        _vote(
+            "D",
+            "Dee",
+            None,
+            "Cat",
+            "C",
+            vote_event="Fire challenge (f4)",
+            vote_event_outcome="Immune",
+        ),
+        _vote(
+            "C",
+            "Cat",
+            None,
+            "Cat",
+            "C",
+            vote_event="Fire challenge (f4)",
+            vote_event_outcome="Lost",
+        ),
+    ]
+    p = _build(vote_history=votes)
+    wins = _events(p, "win_fire_making_challenge")
+    assert [e["castaway_id"] for e in wins] == ["A"]
