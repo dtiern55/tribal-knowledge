@@ -127,6 +127,39 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                     status_code=400,
                     detail="Cannot score episode before picks are locked",
                 )
+            # Auto-unplay unused extra votes (#157): played-but-unused vote
+            # capacity is an artifact of the play-then-pick two-step, not a
+            # strategic choice — revert the surplus plays (newest first) to
+            # inventory so they can be replayed later. Nothing is refunded;
+            # inventory left at season end stays dead per #85.
+            cur.execute(
+                """
+                with played as (
+                    select ap.id, ap.user_id,
+                           row_number() over (partition by ap.user_id
+                                              order by ap.created_at desc) as rn,
+                           count(*) over (partition by ap.user_id) as extras
+                    from advantage_plays ap
+                    where ap.episode_id = %(ep)s
+                      and ap.advantage_type = 'extra_vote'
+                ), picked as (
+                    select user_id, count(*) as n from elimination_picks
+                    where episode_id = %(ep)s group by user_id
+                )
+                update advantage_plays set episode_id = null
+                where id in (
+                    select p.id from played p
+                    left join picked k on k.user_id = p.user_id
+                    -- unused capacity = (base max + extras) - picks made
+                    where p.rn <= least(
+                        p.extras,
+                        %(base)s + p.extras - coalesce(k.n, 0)
+                    )
+                )
+                """,
+                {"ep": str(episode_id), "base": episode["max_elimination_picks"]},
+            )
+
             cur.execute(
                 "update episodes set status = 'scored' where id = %s returning *",
                 [str(episode_id)],

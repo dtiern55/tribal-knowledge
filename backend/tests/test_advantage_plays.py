@@ -615,3 +615,34 @@ def test_buy_takes_user_season_advisory_lock(client, db_conn, current_user):
             " where locktype = 'advisory' and pid = pg_backend_pid()"
         )
         assert cur.fetchone()["n"] == 1
+
+
+@pytest.mark.integration
+def test_unused_extra_vote_reverts_to_inventory_on_score(client, db_conn, current_user):
+    """#157: played-but-unused extra vote capacity auto-unplays at scoring —
+    surplus plays return to inventory (replayable), used ones stay bound."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        max_elimination_picks=1,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    c1 = insert_contestant(db_conn, season["id"], "Pick One")
+    c2 = insert_contestant(db_conn, season["id"], "Pick Two")
+    # Two extra votes played into the episode: capacity 3, but only 2 picks.
+    insert_advantage_play(db_conn, current_user["id"], ep["id"], "extra_vote")
+    insert_advantage_play(db_conn, current_user["id"], ep["id"], "extra_vote")
+    insert_elimination_pick(db_conn, current_user["id"], ep["id"], c1["id"])
+    insert_elimination_pick(db_conn, current_user["id"], ep["id"], c2["id"])
+
+    assert client.post(f"/episodes/{ep['id']}/score").status_code == 200
+
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    bound = [p for p in plays if p["episode_id"] == str(ep["id"])]
+    inventory = [p for p in plays if p["episode_id"] is None]
+    assert len(bound) == 1  # the used capacity stays played
+    assert len(inventory) == 1  # the surplus is back in inventory
