@@ -28,6 +28,19 @@ begin
   values
     (v_season_id, 'Survivor: Practice Island', 99, 5, 2, 9, 3, 'active');
 
+  -- Season scoring snapshot (#170): seed runs after migrations, so the
+  -- backfill has already passed — copy the templates for this season.
+  insert into season_scoring_event_types
+      (season_id, event_type, label, point_value, postmerge_point_value,
+       token_value, is_per_unit)
+  select v_season_id, event_type, label, point_value, postmerge_point_value,
+         token_value, is_per_unit
+  from scoring_event_types;
+  insert into season_prediction_score_types
+      (season_id, key, label, point_value, postmerge_point_value)
+  select v_season_id, key, label, point_value, postmerge_point_value
+  from prediction_score_types;
+
   -- ----------------------------------------------------------------
   -- Episodes: 1-3 scored (past), 4-5 open (future picks window)
   -- ----------------------------------------------------------------

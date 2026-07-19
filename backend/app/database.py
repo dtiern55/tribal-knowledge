@@ -55,6 +55,34 @@ def require_season(cur, season_id) -> dict:
     return season
 
 
+def snapshot_scoring_config(cur, season_id) -> None:
+    """Copy the global scoring config into the season (#170).
+
+    Completed seasons are time capsules: scoring reads only the season's
+    snapshot, so later tuning of the global templates never rewrites history.
+    """
+    cur.execute(
+        """
+        insert into season_scoring_event_types
+            (season_id, event_type, label, point_value, postmerge_point_value,
+             token_value, is_per_unit)
+        select %s, event_type, label, point_value, postmerge_point_value,
+               token_value, is_per_unit
+        from scoring_event_types
+        """,
+        [str(season_id)],
+    )
+    cur.execute(
+        """
+        insert into season_prediction_score_types
+            (season_id, key, label, point_value, postmerge_point_value)
+        select %s, key, label, point_value, postmerge_point_value
+        from prediction_score_types
+        """,
+        [str(season_id)],
+    )
+
+
 def require_roster_visible(cur, season, user_id, current_user) -> None:
     """403 unless requesting own data or the season's roster lock has passed.
 

@@ -4,6 +4,8 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from app import database
+
 
 def insert_user(conn, display_name="Test User", is_admin=False):
     user_id = uuid.uuid4()
@@ -59,7 +61,10 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
             """,
             params,
         )
-        return cur.fetchone()
+        season = cur.fetchone()
+        # Every season carries its scoring snapshot (#170), tests included.
+        database.snapshot_scoring_config(cur, season["id"])
+        return season
 
 
 def insert_contestant(conn, season_id, name="Player", placement=None):
