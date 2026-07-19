@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
-import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
+import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -281,23 +281,9 @@ function RosterSection({
     (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
   )
 
-  // Swap gating (issue #84). A swapped-out pick = one swap used. Swaps lock
-  // once the next open episode reaches swap_lock_episode.
+  // Swap gating (issue #84). A swapped-out pick = one swap used.
   const swapsUsed = swappedRoster.length
-  const nextOpenEp = upcomingEpisodes
-    .filter((e) => e.episode_number >= (season.roster_lock_episode ?? 1))
-    .map((e) => e.episode_number)
-    .sort((a, b) => a - b)[0]
-  // Mirror the server's fallback (#163): unset swap lock = merge + 2,
-  // and the finale never accepts swaps.
-  const effectiveSwapLock =
-    season.swap_lock_episode ??
-    (season.merge_episode != null ? season.merge_episode + 2 : null)
-  const finaleEpNum = episodes.find((e) => e.is_finale)?.episode_number
-  const swapsLocked =
-    nextOpenEp != null &&
-    ((effectiveSwapLock != null && nextOpenEp >= effectiveSwapLock) ||
-      nextOpenEp === finaleEpNum)
+  const swapLocked = swapsLocked(season, episodes)
   const swapCapReached = swapsUsed >= season.max_swaps
 
   // Double Roster Points target the next open episode's roster scoring (#81).
@@ -593,7 +579,7 @@ function RosterSection({
                 {season.swap_lock_episode != null &&
                   ` · swaps lock at episode ${season.swap_lock_episode}`}
               </p>
-              {swapsLocked ? (
+              {swapLocked ? (
                 <p className="text-sm text-gray-500">
                   Roster swaps are locked for the rest of the season.
                 </p>

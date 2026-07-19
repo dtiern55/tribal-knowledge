@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
-import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
+import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
-import type { AdvantagePlay, AdvantageType, Contestant, Episode, Season } from '../types'
+import type {
+  AdvantagePlay,
+  AdvantageType,
+  Contestant,
+  Episode,
+  RosterPick,
+  Season,
+} from '../types'
 
 const DESCRIPTIONS: Record<string, string> = {
   double_roster_points: "Double one roster contestant's points for an episode.",
@@ -20,6 +28,7 @@ export function AdvantagesPage() {
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [ownPlays, setOwnPlays] = useState<AdvantagePlay[]>([])
+  const [roster, setRoster] = useState<RosterPick[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,18 +43,20 @@ export function AdvantagesPage() {
         if (!active) return
         setSeason(active)
 
-        const [advTypes, tokenBalance, cs, eps, plays] = await Promise.all([
+        const [advTypes, tokenBalance, cs, eps, plays, picks] = await Promise.all([
           api.get<AdvantageType[]>('/advantage-types'),
           api.get<{ balance: number }>(`/seasons/${active.id}/tokens/${userId}`),
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
           api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
+          api.get<RosterPick[]>(`/seasons/${active.id}/roster/${userId}`),
         ])
         setTypes(advTypes)
         setBalance(tokenBalance.balance)
         setContestants(cs)
         setEpisodes(eps)
         setOwnPlays(plays)
+        setRoster(picks)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
       } finally {
@@ -109,6 +120,12 @@ export function AdvantagesPage() {
   const spent = used.filter((p) => !inPlay.includes(p))
   const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
   const advLocked = nextOpen ? advantagesLocked(nextOpen, season) : false
+  // Swap presented alongside advantages (#156): same buy-here / use-on-My-Season
+  // mental model, though the backend swap stays a single atomic call.
+  const swapsUsed = roster.filter((r) => r.active_until_episode !== null).length
+  const freeSwapsLeft = Math.max(0, season.free_swaps - swapsUsed)
+  const swapLocked = swapsLocked(season, episodes)
+  const swapCapReached = swapsUsed >= season.max_swaps
   // The last episode advantages can still be played (one before the cutoff).
   const lastPlayable =
     !advLocked &&
@@ -156,6 +173,43 @@ export function AdvantagesPage() {
                 </button>
               </div>
             ))}
+
+            {/* Swaps are token spends too — surfaced here so every capability
+                is bought/discovered in one place (#156). */}
+            <div className="p-4 bg-white border border-sand-200 rounded-xl">
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold text-gray-900">Roster Swap</p>
+                <span className="text-xs text-gray-400">
+                  {freeSwapsLeft > 0
+                    ? `${freeSwapsLeft} free, then ${season.swap_token_cost} tokens`
+                    : `${season.swap_token_cost} tokens`}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                Replace one of your roster picks with an unrostered castaway.
+              </p>
+              {swapLocked ? (
+                <p className="text-xs text-amber-600">
+                  Swaps are locked for the rest of the season.
+                </p>
+              ) : swapCapReached ? (
+                <p className="text-xs text-gray-500">
+                  Swap limit reached — {swapsUsed} of {season.max_swaps} used.
+                </p>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <Link
+                    to="/my-season"
+                    className="inline-block px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg hover:bg-jungle-700 transition-colors"
+                  >
+                    Swap on My Season
+                  </Link>
+                  <span className="text-xs text-gray-400">
+                    {swapsUsed} of {season.max_swaps} used
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
