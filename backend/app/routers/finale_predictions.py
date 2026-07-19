@@ -106,6 +106,25 @@ def submit_finale_prediction(
                         detail=f"Contestants not in this season: {invalid}",
                     )
 
+                # Ballot fields must name someone still in the game (#158) —
+                # the same rule weekly picks already enforce.
+                cur.execute(
+                    """
+                    select distinct e.contestant_id::text as id
+                    from eliminations e
+                    join episodes ep on ep.id = e.episode_id
+                    where ep.season_id = %s and e.contestant_id::text = any(%s)
+                    """,
+                    [str(season_id), ids],
+                )
+                gone = {row["id"] for row in cur.fetchall()}
+                dead = [str(v) for v in provided.values() if str(v) in gone]
+                if dead:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Contestant(s) already eliminated: {dead}",
+                    )
+
             cur.execute(
                 """
                 insert into finale_predictions
