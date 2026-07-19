@@ -151,7 +151,9 @@ def build_proposal(
     for r in vh:
         event = (r.get("vote_event") or "").lower()
         outcome = (r.get("vote_event_outcome") or "").lower()
-        if event.startswith("fire challenge") and outcome in _SAFE_OUTCOMES:
+        # Only "Won" is a fire win; "Saved"/"Immune" mark the non-participants
+        # the immunity winner protected (S49 finale proved this the hard way).
+        if event.startswith("fire challenge") and outcome == "won":
             add_event(r["castaway_id"], r["castaway"], "win_fire_making_challenge")
             warnings.append(
                 f"{r['castaway']}: fire-making win inferred from outcome "
