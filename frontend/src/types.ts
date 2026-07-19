@@ -19,6 +19,7 @@ export interface Season {
   merge_episode: number | null
   winner_lock_episode: number | null
   swap_token_cost: number
+  free_swaps: number
   max_swaps: number
   swap_lock_episode: number | null
   advantage_lock_episode: number | null

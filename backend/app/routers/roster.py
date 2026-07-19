@@ -171,10 +171,15 @@ def swap_roster_pick(
                     detail="Swap episode must be after the contestant was added",
                 )
 
-            # Swaps lock late-game (issue #84): none from swap_lock_episode on.
-            if (
-                season["swap_lock_episode"] is not None
-                and swap_episode >= season["swap_lock_episode"]
+            # Swaps lock late-game (issue #84). An unset lock falls back to
+            # two episodes past the merge (#163) so a fresh season can never
+            # swap a finalist in at final tribal; the finale itself is always
+            # off-limits.
+            swap_lock = season["swap_lock_episode"]
+            if swap_lock is None and season["merge_episode"] is not None:
+                swap_lock = season["merge_episode"] + 2
+            if episode["is_finale"] or (
+                swap_lock is not None and swap_episode >= swap_lock
             ):
                 raise HTTPException(
                     status_code=400,
@@ -189,7 +194,8 @@ def swap_roster_pick(
                 " and active_until_episode is not null",
                 [str(user_id), str(season_id)],
             )
-            if cur.fetchone()["n"] >= season["max_swaps"]:
+            swaps_used = cur.fetchone()["n"]
+            if swaps_used >= season["max_swaps"]:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Swap limit reached ({season['max_swaps']} per season)",
@@ -232,7 +238,9 @@ def swap_roster_pick(
             # advisory lock above makes this check-then-spend safe. The old
             # pick's swap_penalty_points stays 0; nonzero values on closed
             # rows are the pre-decision historical record scoring still sums.
-            cost = season["swap_token_cost"]
+            # The first free_swaps each season charge nothing (#159).
+            free = swaps_used < season["free_swaps"]
+            cost = 0 if free else season["swap_token_cost"]
             if cost > 0:
                 cur.execute(
                     """

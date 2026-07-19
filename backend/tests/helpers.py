@@ -33,6 +33,9 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "merge_episode": kwargs.pop("merge_episode", None),
         "winner_lock_episode": kwargs.pop("winner_lock_episode", None),
         "swap_token_cost": kwargs.pop("swap_token_cost", 30),
+        # 0 keeps most existing swap tests on the simple always-charged path;
+        # the free-swap tests opt in explicitly (#159).
+        "free_swaps": kwargs.pop("free_swaps", 0),
         "max_swaps": kwargs.pop("max_swaps", 3),
         "swap_lock_episode": kwargs.pop("swap_lock_episode", None),
         "advantage_lock_episode": kwargs.pop("advantage_lock_episode", None),
@@ -44,12 +47,12 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
             insert into seasons
                 (name, season_number, roster_size, status,
                  roster_lock_episode, merge_episode, winner_lock_episode,
-                 swap_token_cost, max_swaps, swap_lock_episode,
+                 swap_token_cost, free_swaps, max_swaps, swap_lock_episode,
                  advantage_lock_episode, weekly_token_allocation)
             values
                 (%(name)s, %(season_number)s, %(roster_size)s, %(status)s,
                  %(roster_lock_episode)s, %(merge_episode)s,
-                 %(winner_lock_episode)s, %(swap_token_cost)s,
+                 %(winner_lock_episode)s, %(swap_token_cost)s, %(free_swaps)s,
                  %(max_swaps)s, %(swap_lock_episode)s,
                  %(advantage_lock_episode)s, %(weekly_token_allocation)s)
             returning *
