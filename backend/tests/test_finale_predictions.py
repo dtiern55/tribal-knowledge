@@ -198,3 +198,19 @@ def test_ballot_rejects_eliminated_contestant(client, db_conn, current_user):
         json={"winner_contestant_id": str(alive["id"])},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.integration
+def test_ballot_allows_finale_episode_boots(client, db_conn, current_user):
+    """Finale-episode eliminations are what the ballot predicts — they stay
+    pickable even when results land before the window closes."""
+    season = insert_season(db_conn, status="active")
+    finalist = insert_contestant(db_conn, season["id"], "Finale Boot")
+    fin = _open_finale_episode(db_conn, season["id"])
+    insert_elimination(db_conn, fin["id"], finalist["id"])
+
+    r = client.post(
+        f"/seasons/{season['id']}/finale-predictions",
+        json={"early_boot_contestant_id": str(finalist["id"])},
+    )
+    assert r.status_code == 200
