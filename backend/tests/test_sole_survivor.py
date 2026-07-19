@@ -7,6 +7,7 @@ import pytest
 from app import scoring
 from tests.helpers import (
     insert_contestant,
+    insert_elimination,
     insert_episode,
     insert_roster_pick,
     insert_scoring_event,
@@ -70,23 +71,32 @@ def test_winner_points_zero_in_ss_mode(db_conn, current_user):
 @pytest.mark.integration
 def test_designation_rules(client, db_conn, current_user):
     season = _ss_season(db_conn, ss_lock_episode=3)
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, picks_lock_at=PAST)
     insert_episode(db_conn, season["id"], episode_number=3)
     a = insert_contestant(db_conn, season["id"], "A")
     b = insert_contestant(db_conn, season["id"], "B")
     off_roster = insert_contestant(db_conn, season["id"], "Bench")
+    dead = insert_contestant(db_conn, season["id"], "Booted")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
     insert_roster_pick(db_conn, current_user["id"], season["id"], b["id"])
+    insert_roster_pick(db_conn, current_user["id"], season["id"], dead["id"])
+    insert_elimination(db_conn, ep1["id"], dead["id"])
 
     url = f"/seasons/{season['id']}/sole-survivor"
     r = client.post(url, json={"contestant_id": str(off_roster["id"])})
     assert r.status_code == 400  # not on the active roster
+
+    # Eliminated but never swapped out: still on the roster, not designatable (#180)
+    r = client.post(url, json={"contestant_id": str(dead["id"])})
+    assert r.status_code == 400
+    assert "eliminated" in r.json()["detail"]
 
     assert client.post(url, json={"contestant_id": str(a["id"])}).status_code == 200
     # Re-designation before lock replaces, never duplicates.
     assert client.post(url, json={"contestant_id": str(b["id"])}).status_code == 200
     roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
     flags = {p["contestant_id"]: p["is_sole_survivor"] for p in roster}
-    assert flags == {str(a["id"]): False, str(b["id"]): True}
+    assert flags == {str(a["id"]): False, str(b["id"]): True, str(dead["id"]): False}
 
     # Window closes with the lock episode.
     with db_conn.cursor() as cur:
