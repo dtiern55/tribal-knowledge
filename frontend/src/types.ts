@@ -58,6 +58,7 @@ export interface StandingEntry {
   finale_points: number
   total_points: number
   trend: 'up' | 'down' | 'same' | null
+  trend_delta: number
   last_episode_points: number
 }
 
