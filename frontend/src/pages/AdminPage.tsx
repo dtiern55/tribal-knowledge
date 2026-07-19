@@ -962,7 +962,7 @@ export function AdminPage() {
         const [cs, eps, types, settings] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
-          api.get<ScoringEventType[]>('/scoring-event-types'),
+          api.get<ScoringEventType[]>(`/seasons/${active.id}/scoring-event-types`),
           api.get<LeagueSettings>('/league-settings'),
         ])
         setContestants(cs)
