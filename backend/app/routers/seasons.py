@@ -53,12 +53,12 @@ def create_season(body: SeasonCreateRequest, _: UUID = Depends(get_current_admin
                 insert into seasons
                     (name, season_number, roster_size, roster_lock_episode,
                      merge_episode, winner_lock_episode, swap_token_cost,
-                     weekly_token_allocation, status)
+                     free_swaps, weekly_token_allocation, status)
                 values
                     (%(name)s, %(season_number)s, %(roster_size)s,
                      %(roster_lock_episode)s, %(merge_episode)s,
                      %(winner_lock_episode)s, %(swap_token_cost)s,
-                     %(weekly_token_allocation)s, %(status)s)
+                     %(free_swaps)s, %(weekly_token_allocation)s, %(status)s)
                 returning *
                 """,
                 body.model_dump(),

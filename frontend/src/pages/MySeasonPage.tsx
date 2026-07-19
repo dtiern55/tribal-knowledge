@@ -543,7 +543,11 @@ function RosterSection({
           {season.status !== 'completed' && (
             <div className="pt-4 border-t border-gray-100">
               <SectionTitle>
-                Swap a Roster Pick (costs {season.swap_token_cost} tokens)
+                Swap a Roster Pick (
+                {Math.max(0, season.free_swaps - swapsUsed) > 0
+                  ? `${season.free_swaps - swapsUsed} free, then ${season.swap_token_cost} tokens each`
+                  : `costs ${season.swap_token_cost} tokens`}
+                )
               </SectionTitle>
               <p className="text-xs text-gray-400 mb-3">
                 {swapsUsed} of {season.max_swaps} swaps used

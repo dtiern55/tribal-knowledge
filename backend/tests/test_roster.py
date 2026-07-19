@@ -219,6 +219,93 @@ def test_swap_uses_configured_token_cost(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_first_swap_free_then_charged(client, db_conn, current_user):
+    # 1 free swap per season, later ones cost tokens (#159).
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1, swap_token_cost=20
+    )
+    grant_tokens(db_conn, current_user["id"], season["id"], amount=20)
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new1 = insert_contestant(db_conn, season["id"], "New 1")
+    new2 = insert_contestant(db_conn, season["id"], "New 2")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+
+    def balance():
+        return client.get(
+            f"/seasons/{season['id']}/tokens/{current_user['id']}"
+        ).json()["balance"]
+
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new1["id"]),
+        },
+    )
+    assert r.status_code == 200
+    assert balance() == 20  # free swap: nothing charged, no ledger row
+
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[1]["id"]),
+            "new_contestant_id": str(new2["id"]),
+        },
+    )
+    assert r.status_code == 200
+    assert balance() == 0  # second swap pays full price
+
+
+@pytest.mark.integration
+def test_swap_lock_defaults_to_merge_plus_two(client, db_conn):
+    # Unset swap_lock_episode falls back to merge_episode + 2 (#163).
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, merge_episode=3, swap_token_cost=0
+    )
+    insert_episode(db_conn, season["id"], episode_number=5)
+    new = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "locked" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_swap_blocked_into_finale(client, db_conn):
+    # No lock and no merge configured: the finale itself still refuses swaps.
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, swap_token_cost=0
+    )
+    insert_episode(db_conn, season["id"], episode_number=3, is_finale=True)
+    new = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "locked" in r.json()["detail"]
+
+
+@pytest.mark.integration
 def test_swap_cap_reached(client, db_conn):
     # max_swaps=1: the second real swap is rejected (issue #84).
     season, contestants = _make_season_with_roster(

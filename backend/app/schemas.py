@@ -14,6 +14,7 @@ class Season(BaseModel):
     merge_episode: Optional[int]
     winner_lock_episode: Optional[int]
     swap_token_cost: int
+    free_swaps: int
     max_swaps: int
     swap_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
@@ -165,7 +166,8 @@ class SeasonCreateRequest(BaseModel):
     roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=3, gt=0)
-    swap_token_cost: int = Field(default=30, ge=0)
+    swap_token_cost: int = Field(default=20, ge=0)
+    free_swaps: int = Field(default=1, ge=0)
     weekly_token_allocation: int = Field(default=10, ge=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
@@ -178,6 +180,7 @@ class SeasonUpdateRequest(BaseModel):
     merge_episode: Optional[int] = Field(default=None, gt=0)
     winner_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_token_cost: Optional[int] = Field(default=None, ge=0)
+    free_swaps: Optional[int] = Field(default=None, ge=0)
     max_swaps: Optional[int] = Field(default=None, ge=0)
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
