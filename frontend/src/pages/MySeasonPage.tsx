@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
+import { LockBadge } from '../components/LockBadge'
 import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
@@ -83,7 +84,7 @@ export function MySeasonPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">{season.name}</h1>
+        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
         <p className="text-sm text-gray-500">My Season</p>
       </div>
 
@@ -125,7 +126,7 @@ export function MySeasonPage() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-3">
       {children}
     </h2>
   )
@@ -155,10 +156,10 @@ function PointsHeader({
   ]
 
   return (
-    <div className="p-5 bg-white border border-gray-200 rounded-xl">
+    <div className="p-5 bg-white border border-sand-200 rounded-xl">
       <div className="flex items-baseline justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2">
             My Points
           </p>
           <p className="text-4xl font-bold text-gray-900">{total}</p>
@@ -381,7 +382,15 @@ function RosterSection({
 
   return (
     <div>
-      <SectionTitle>My Roster</SectionTitle>
+      <SectionTitle>
+        My Roster{' '}
+        {lockEpisode && (
+          <LockBadge
+            lockAt={lockEpisode.picks_lock_at}
+            scored={lockEpisode.status === 'scored'}
+          />
+        )}
+      </SectionTitle>
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {!windowOpen && hasRoster ? (
@@ -392,7 +401,7 @@ function RosterSection({
               return (
                 <li
                   key={pick.id}
-                  className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-white border border-sand-200 rounded-lg"
                 >
                   <Link
                     to={`/contestants/${pick.contestant_id}`}
@@ -580,7 +589,7 @@ function RosterSection({
                     <select
                       value={swapOld}
                       onChange={(e) => setSwapOld(e.target.value)}
-                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
                     >
                       <option value="">Drop contestant…</option>
                       {activeRoster.map((pick) => (
@@ -592,7 +601,7 @@ function RosterSection({
                     <select
                       value={swapNew}
                       onChange={(e) => setSwapNew(e.target.value)}
-                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
                     >
                       <option value="">Add contestant…</option>
                       {swapCandidates.map((c) => (
@@ -650,7 +659,7 @@ function RosterSection({
                         ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
                         : blocked
                           ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                          : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
                   ].join(' ')}
                 >
                   <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
@@ -668,7 +677,7 @@ function RosterSection({
             <button
               onClick={submitRoster}
               disabled={selected.size !== season.roster_size || !rosterDirty || submitting}
-              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+              className="px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
             >
               {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Roster'}
             </button>
@@ -838,7 +847,10 @@ function PicksSection({
 
   return (
     <div>
-      <SectionTitle>Weekly Votes</SectionTitle>
+      <SectionTitle>
+        Weekly Votes{' '}
+        {nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
+      </SectionTitle>
 
       {!nextOpen && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
@@ -883,7 +895,7 @@ function PicksSection({
           const maxPicks = ep.max_elimination_picks + activeExtras.length
 
           return (
-            <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+            <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="font-semibold text-gray-900">Episode {ep.episode_number}</h3>
                 <span className="text-xs text-gray-400">Locks {formatCentral(ep.picks_lock_at)}</span>
@@ -912,7 +924,7 @@ function PicksSection({
                           key={p.id}
                           className={`text-sm px-3 py-1.5 bg-white border rounded-lg font-medium ${
                             stale
-                              ? 'border-gray-200 text-gray-400 line-through'
+                              ? 'border-sand-200 text-gray-400 line-through'
                               : 'border-green-200 text-gray-800'
                           }`}
                         >
@@ -953,7 +965,7 @@ function PicksSection({
                                 ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
                                 : maxed
                                   ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                                  : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
                           ].join(' ')}
                         >
                           <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
@@ -1080,7 +1092,7 @@ function PicksSection({
                   <button
                     onClick={() => submitPicks(ep.id)}
                     disabled={submitting === ep.id || epPending.size === 0}
-                    className="flex-1 px-4 py-2.5 bg-ocean-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+                    className="flex-1 px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
                   >
                     {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Votes'}
                   </button>
@@ -1136,10 +1148,10 @@ function PicksSection({
                         // (#53). Incorrect stays neutral, not red — most votes
                         // miss, and a wall of red feels bad (#135).
                         const cls = !scored
-                          ? 'bg-white border-gray-200 text-gray-700'
+                          ? 'bg-white border-sand-200 text-gray-700'
                           : result?.correct
                             ? 'bg-green-50 border-green-300 text-green-800'
-                            : 'bg-white border-gray-200 text-gray-500'
+                            : 'bg-white border-sand-200 text-gray-500'
                         // Pick chip shows the BASE points; the double's own
                         // earnings render as a separate chip beside it (#136).
                         return (
@@ -1258,7 +1270,7 @@ function FinaleBallot({
   }
 
   return (
-    <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+    <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-semibold text-gray-900">
           Finale · Episode {finaleEp.episode_number}
@@ -1270,7 +1282,7 @@ function FinaleBallot({
       <div className="space-y-4 mb-4">
         {picks.map(({ id, label, description, value, onChange }) => (
           <div key={id}>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-0.5">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-0.5">
               {label}
             </label>
             <p className="text-xs text-gray-400 mb-1.5">{description}</p>
@@ -1280,7 +1292,7 @@ function FinaleBallot({
                 onChange(e.target.value)
                 setSaved(false)
               }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">No pick</option>
               {alive.map((c) => (
@@ -1299,7 +1311,7 @@ function FinaleBallot({
       <button
         onClick={() => void submitBallot()}
         disabled={submitting}
-        className="w-full px-4 py-2.5 bg-ocean-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+        className="w-full px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
       >
         {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
       </button>
@@ -1376,7 +1388,15 @@ function SoleSurvivorSection({
 
   return (
     <div>
-      <SectionTitle>Sole Survivor</SectionTitle>
+      <SectionTitle>
+        Sole Survivor{' '}
+        {lockEpisode && (
+          <LockBadge
+            lockAt={lockEpisode.picks_lock_at}
+            scored={lockEpisode.status === 'scored'}
+          />
+        )}
+      </SectionTitle>
       <p className="text-xs text-gray-400 mb-3">
         Everything your Sole Survivor scores in the finale counts double for you.
       </p>
@@ -1405,7 +1425,7 @@ function SoleSurvivorSection({
                 setChoice(e.target.value)
                 setSaved(false)
               }}
-              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Select your Sole Survivor…</option>
               {active.map((p) => (
@@ -1489,7 +1509,15 @@ function WinnerSection({
 
   return (
     <div>
-      <SectionTitle>Winner Pick</SectionTitle>
+      <SectionTitle>
+        Winner Pick{' '}
+        {lockEpisode && (
+          <LockBadge
+            lockAt={lockEpisode.picks_lock_at}
+            scored={lockEpisode.status === 'scored'}
+          />
+        )}
+      </SectionTitle>
       {!windowOpen ? (
         <p className="text-sm text-gray-600">
           {winner ? (
@@ -1516,7 +1544,7 @@ function WinnerSection({
                 setWinner(e.target.value)
                 setSaved(false)
               }}
-              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Select a winner…</option>
               {alive.map((c) => (
@@ -1528,7 +1556,7 @@ function WinnerSection({
             <button
               onClick={submitPick}
               disabled={!winner || submitting}
-              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+              className="px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
             >
               {submitting ? 'Saving…' : 'Save Pick'}
             </button>

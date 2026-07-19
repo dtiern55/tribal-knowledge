@@ -14,7 +14,7 @@ import type { UserProfile } from '../types'
 const inputCls =
   'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500'
 const buttonCls =
-  'w-full bg-ocean-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-ocean-700 disabled:opacity-50 cursor-pointer'
+  'w-full bg-jungle-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-jungle-700 disabled:opacity-50 cursor-pointer'
 
 function DisplayNameSection() {
   const { profile, refreshProfile } = useAuth()
@@ -304,15 +304,15 @@ function InstallSection() {
 export function ProfilePage() {
   return (
     <div className="max-w-sm mx-auto mt-8 space-y-8">
-      <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
+      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">Profile</h1>
       <DisplayNameSection />
-      <div className="border-t border-gray-200 pt-6">
+      <div className="border-t border-sand-200 pt-6">
         <EmailSection />
       </div>
-      <div className="border-t border-gray-200 pt-6">
+      <div className="border-t border-sand-200 pt-6">
         <PasswordSection />
       </div>
-      <div className="border-t border-gray-200 pt-6">
+      <div className="border-t border-sand-200 pt-6">
         <InstallSection />
       </div>
     </div>

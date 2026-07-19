@@ -22,7 +22,7 @@ const ELIMINATION_TYPES = [
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4 mt-8 first:mt-0">
+    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-4 mt-8 first:mt-0">
       {title}
     </h2>
   )
@@ -68,7 +68,7 @@ function ActionBtn({
 }) {
   const cls =
     variant === 'primary'
-      ? 'bg-ocean-600 text-white hover:bg-ocean-700'
+      ? 'bg-jungle-600 text-white hover:bg-jungle-700'
       : variant === 'danger'
         ? 'bg-red-600 text-white hover:bg-red-700'
         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -119,7 +119,7 @@ function SeasonSection({
 
   if (!editing) {
     return (
-      <div className="p-4 bg-white border border-gray-200 rounded-xl">
+      <div className="p-4 bg-white border border-sand-200 rounded-xl">
         <div className="flex items-start justify-between">
           <div>
             <p className="font-semibold text-gray-900">{season.name}</p>
@@ -139,14 +139,14 @@ function SeasonSection({
   }
 
   return (
-    <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
+    <div className="p-4 bg-white border border-sand-200 rounded-xl space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className="block text-xs text-gray-500 mb-1">Name</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -154,7 +154,7 @@ function SeasonSection({
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as Season['status'])}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           >
             <option value="upcoming">upcoming</option>
             <option value="active">active</option>
@@ -167,7 +167,7 @@ function SeasonSection({
             type="number"
             value={swapCost}
             onChange={(e) => setSwapCost(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -176,7 +176,7 @@ function SeasonSection({
             type="number"
             value={lockEp}
             onChange={(e) => setLockEp(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -185,7 +185,7 @@ function SeasonSection({
             type="number"
             value={winnerLockEp}
             onChange={(e) => setWinnerLockEp(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -194,7 +194,7 @@ function SeasonSection({
             type="number"
             value={mergeEp}
             onChange={(e) => setMergeEp(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
       </div>
@@ -277,14 +277,14 @@ function ContestantsSection({
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
+                className="flex-1 border border-sand-200 rounded px-2 py-1 text-sm"
                 placeholder="Name"
               />
               <input
                 type="number"
                 value={editPlacement}
                 onChange={(e) => setEditPlacement(e.target.value)}
-                className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
+                className="w-20 border border-sand-200 rounded px-2 py-1 text-sm"
                 placeholder="Place"
               />
               <ActionBtn onClick={() => saveEdit(c.id)} disabled={saving}>
@@ -299,7 +299,7 @@ function ContestantsSection({
               <input
                 value={editImageUrl}
                 onChange={(e) => setEditImageUrl(e.target.value)}
-                className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
+                className="flex-1 border border-sand-200 rounded px-2 py-1 text-sm"
                 placeholder="Photo URL (upload in Supabase Studio, paste the public link)"
               />
             </div>
@@ -330,7 +330,7 @@ function ContestantsSection({
           value={addText}
           onChange={(e) => setAddText(e.target.value)}
           rows={4}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2"
+          className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mb-2"
           placeholder="Castaway 01&#10;Castaway 02"
         />
         <ErrorMsg msg={addError} />
@@ -508,7 +508,7 @@ function EpisodePanel({
               type="number"
               value={epNum}
               onChange={(e) => setEpNum(e.target.value)}
-              className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div>
@@ -517,7 +517,7 @@ function EpisodePanel({
               type="date"
               value={airDate}
               onChange={(e) => setAirDate(e.target.value)}
-              className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div>
@@ -526,7 +526,7 @@ function EpisodePanel({
               type="datetime-local"
               value={locksAt}
               onChange={(e) => setLocksAt(e.target.value)}
-              className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div>
@@ -535,7 +535,7 @@ function EpisodePanel({
               type="number"
               value={maxPicks}
               onChange={(e) => setMaxPicks(e.target.value)}
-              className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -589,7 +589,7 @@ function EpisodePanel({
                       value={draft.elimination_type}
                       disabled={elimBusy === c.id}
                       onChange={(e) => setElimType(c.id, e.target.value)}
-                      className="border border-gray-200 rounded px-2 py-1 text-xs"
+                      className="border border-sand-200 rounded px-2 py-1 text-xs"
                     >
                       {ELIMINATION_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>
@@ -642,7 +642,7 @@ function EpisodePanel({
               <select
                 value={newContestant}
                 onChange={(e) => setNewContestant(e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
+                className="border border-sand-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
               >
                 <option value="">Contestant…</option>
                 {contestants.map((c) => (
@@ -654,7 +654,7 @@ function EpisodePanel({
               <select
                 value={newEventType}
                 onChange={(e) => setNewEventType(e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
+                className="border border-sand-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
               >
                 {eventTypes.map((t) => (
                   <option key={t.event_type} value={t.event_type}>
@@ -667,7 +667,7 @@ function EpisodePanel({
                 value={newQty}
                 onChange={(e) => setNewQty(Number(e.target.value))}
                 min={1}
-                className="w-16 border border-gray-200 rounded px-2 py-1 text-sm"
+                className="w-16 border border-sand-200 rounded px-2 py-1 text-sm"
               />
               <ActionBtn
                 variant="secondary"
@@ -775,7 +775,7 @@ function EpisodesSection({
   return (
     <div className="space-y-2">
       {episodes.map((ep) => (
-        <div key={ep.id} className="p-4 bg-white border border-gray-200 rounded-xl">
+        <div key={ep.id} className="p-4 bg-white border border-sand-200 rounded-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="font-medium text-gray-900">Ep {ep.episode_number}</span>
@@ -815,7 +815,7 @@ function EpisodesSection({
                 type="number"
                 value={epNum}
                 onChange={(e) => setEpNum(e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div>
@@ -824,7 +824,7 @@ function EpisodesSection({
                 type="date"
                 value={airDate}
                 onChange={(e) => setAirDate(e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div>
@@ -833,7 +833,7 @@ function EpisodesSection({
                 type="datetime-local"
                 value={locksAt}
                 onChange={(e) => setLocksAt(e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div>
@@ -842,7 +842,7 @@ function EpisodesSection({
                 type="number"
                 value={maxPicks}
                 onChange={(e) => setMaxPicks(e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -870,7 +870,7 @@ function EpisodesSection({
       ) : (
         <button
           onClick={() => setShowAddForm(true)}
-          className="w-full py-2 text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl hover:border-gray-300 hover:text-gray-700 transition-colors"
+          className="w-full py-2 text-sm text-gray-500 border border-dashed border-sand-200 rounded-xl hover:border-gray-300 hover:text-gray-700 transition-colors"
         >
           + Add episode
         </button>
@@ -922,7 +922,7 @@ function LeagueSettingsSection({
   }
 
   return (
-    <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3 max-w-sm">
+    <div className="p-4 bg-white border border-sand-200 rounded-xl space-y-3 max-w-sm">
       <p className="text-xs text-gray-500">
         Share this code with new members — they enter it at /join to create their
         profile.
@@ -930,7 +930,7 @@ function LeagueSettingsSection({
       <input
         value={joinCode}
         onChange={(e) => setJoinCode(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
       />
       <ErrorMsg msg={error} />
       <SuccessMsg msg={success} />
@@ -991,7 +991,7 @@ export function AdminPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Admin</h1>
+      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">Admin</h1>
       <p className="text-sm text-gray-500 mb-8">{season.name}</p>
 
       <SectionHeader title="Season" />

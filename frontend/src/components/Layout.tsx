@@ -28,10 +28,11 @@ export function Layout() {
       : PRIMARY
 
   const topLink = ({ isActive }: { isActive: boolean }) =>
-    `text-sm ${isActive ? 'text-ocean-700 font-medium' : 'text-gray-600 hover:text-gray-900'}`
+    `text-sm ${isActive ? 'text-ember-600 font-semibold' : 'text-gray-600 hover:text-gray-900'}`
 
   return (
     <div className="min-h-screen bg-sand-50">
+      <div className="torch-stripe h-1" />
       <nav className="bg-white border-b border-sand-200">
         <div className="max-w-5xl mx-auto px-4 flex items-center h-14 gap-6">
           <NavLink
@@ -86,8 +87,10 @@ export function Layout() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] ${
-                  isActive ? 'text-ocean-700' : 'text-gray-500'
+                `flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] border-t-2 ${
+                  isActive
+                    ? 'text-ember-600 border-ember-500 font-semibold'
+                    : 'text-gray-500 border-transparent'
                 }`
               }
             >

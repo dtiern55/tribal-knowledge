@@ -117,10 +117,10 @@ export function AdvantagesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">{season.name}</h1>
+      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
       <p className="text-sm text-gray-500 mb-6">Advantages</p>
 
-      <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl mb-6">
+      <div className="flex items-center justify-between p-4 bg-white border border-sand-200 rounded-xl mb-6">
         <span className="text-sm text-gray-500">Token balance</span>
         <span className="text-xl font-semibold text-gray-900">{balance}</span>
       </div>
@@ -141,7 +141,7 @@ export function AdvantagesPage() {
           )}
           <div className="space-y-4 mb-8">
             {types.map((t) => (
-              <div key={t.advantage_type} className="p-4 bg-white border border-gray-200 rounded-xl">
+              <div key={t.advantage_type} className="p-4 bg-white border border-sand-200 rounded-xl">
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold text-gray-900">{t.label}</p>
                   <span className="text-xs text-gray-400">{t.token_cost} tokens</span>
@@ -150,7 +150,7 @@ export function AdvantagesPage() {
                 <button
                   onClick={() => void buy(t.advantage_type, t.token_cost)}
                   disabled={balance < t.token_cost || busy === `buy:${t.advantage_type}`}
-                  className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+                  className="px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
                 >
                   {busy === `buy:${t.advantage_type}` ? 'Buying…' : 'Buy'}
                 </button>
@@ -172,7 +172,7 @@ export function AdvantagesPage() {
         {inventory.map((p) => (
           <div
             key={p.id}
-            className="p-3 bg-white border border-gray-200 rounded-lg text-sm"
+            className="p-3 bg-white border border-sand-200 rounded-lg text-sm"
           >
             <div className="flex items-center justify-between">
               <span className="font-medium text-gray-900">{label(p.advantage_type)}</span>

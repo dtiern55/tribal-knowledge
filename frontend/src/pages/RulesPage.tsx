@@ -72,11 +72,11 @@ function Section({
 }) {
   return (
     <div className="mb-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-1">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-ocean-700 border-l-2 border-ember-500 pl-2 mb-1">
         {title}
       </h2>
       {blurb && <p className="text-xs text-gray-500 mb-2">{blurb}</p>}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">{children}</div>
+      <div className="bg-white border border-sand-200 rounded-xl p-4">{children}</div>
     </div>
   )
 }
