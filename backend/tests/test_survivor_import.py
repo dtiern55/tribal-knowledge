@@ -210,3 +210,61 @@ def test_fire_challenge_only_won_counts():
     p = _build(vote_history=votes)
     wins = _events(p, "win_fire_making_challenge")
     assert [e["castaway_id"] for e in wins] == ["A"]
+
+
+def test_giveaway_idol_same_episode():
+    """S50 pattern: idol Found and Received in one episode = a hand-off —
+    finder acquired it inactive, receiver activated it."""
+    details = [
+        {
+            "version_season": S,
+            "advantage_id": 9,
+            "advantage_type": "Hidden Immunity Idol",
+        }
+    ]
+    moves = [
+        {
+            "version_season": S,
+            "episode": 5,
+            "castaway_id": "A",
+            "castaway": "Ann",
+            "advantage_id": 9,
+            "event": "Found",
+        },
+        {
+            "version_season": S,
+            "episode": 5,
+            "castaway_id": "B",
+            "castaway": "Bob",
+            "advantage_id": 9,
+            "event": "Received",
+        },
+    ]
+    p = _build(advantage_movement=moves, advantage_details=details)
+    assert [e["castaway_id"] for e in _events(p, "acquire_inactive_idol")] == ["A"]
+    assert [e["castaway_id"] for e in _events(p, "activate_inactive_idol")] == ["B"]
+    assert _events(p, "acquire_active_idol") == []
+
+
+def test_idol_played_not_needed_warns_distinctly():
+    details = [
+        {
+            "version_season": S,
+            "advantage_id": 9,
+            "advantage_type": "Hidden Immunity Idol",
+        }
+    ]
+    moves = [
+        {
+            "version_season": S,
+            "episode": 5,
+            "castaway_id": "A",
+            "castaway": "Ann",
+            "advantage_id": 9,
+            "event": "Played",
+            "success": "Not needed",
+        }
+    ]
+    p = _build(advantage_movement=moves, advantage_details=details)
+    assert _events(p, "idol_played_successfully") == []
+    assert any("wasn't needed" in w for w in p["warnings"])
