@@ -1230,7 +1230,14 @@ function FinaleBallot({
       })
   }, [season.id, userId])
 
-  const alive = contestants.filter((c) => c.eliminated_in_episode == null)
+  // Alive at the finale: never-eliminated OR eliminated in the finale
+  // itself — the ballot predicts the finale's boots, so they stay listed
+  // even when results land before the window closes (matches the server).
+  const alive = contestants.filter(
+    (c) =>
+      c.eliminated_in_episode == null ||
+      c.eliminated_in_episode === finaleEp.episode_number,
+  )
   const picks = [
     {
       id: 'early-boot',
