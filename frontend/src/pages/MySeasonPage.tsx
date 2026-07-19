@@ -258,6 +258,10 @@ function RosterSection({
 
   const hasRoster = roster.length > 0
   const activeRoster = roster.filter((r) => r.active_until_episode === null)
+  // Original picks all start at the roster lock episode; anything later
+  // arrived via swap (#162 — comparing against 1 badged everyone when the
+  // lock episode was > 1).
+  const rosterBaseEp = Math.min(...roster.map((r) => r.active_from_episode))
   const swappedRoster = roster.filter((r) => r.active_until_episode !== null)
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
 
@@ -417,7 +421,7 @@ function RosterSection({
                         SS
                       </span>
                     )}
-                    {pick.active_from_episode > 1 && (
+                    {pick.active_from_episode > rosterBaseEp && (
                       <span
                         className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
                         title={`Swapped in from episode ${pick.active_from_episode}`}

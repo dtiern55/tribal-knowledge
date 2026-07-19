@@ -113,6 +113,8 @@ export function TeamPage() {
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const active = roster.filter((r) => r.active_until_episode === null)
+  // Original picks share the earliest start episode; later starts are swap-ins.
+  const rosterBaseEp = Math.min(...roster.map((r) => r.active_from_episode))
   // Pair each swapped-out pick with its replacement: a swap closes the old
   // row at ep N and opens the new one at N+1 (#155).
   const swaps = roster
@@ -165,7 +167,7 @@ export function TeamPage() {
                       SS
                     </span>
                   )}
-                  {pick.active_from_episode > 1 && (
+                  {pick.active_from_episode > rosterBaseEp && (
                     <span
                       className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
                       title={`Swapped in from episode ${pick.active_from_episode}`}
