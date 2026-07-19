@@ -106,14 +106,17 @@ def submit_finale_prediction(
                         detail=f"Contestants not in this season: {invalid}",
                     )
 
-                # Ballot fields must name someone still in the game (#158) —
-                # the same rule weekly picks already enforce.
+                # Ballot fields must name someone alive AT the finale (#158):
+                # pre-finale boots are invalid, but the finale episode's own
+                # eliminations are exactly what the ballot predicts — those
+                # stay pickable even if results were entered early.
                 cur.execute(
                     """
                     select distinct e.contestant_id::text as id
                     from eliminations e
                     join episodes ep on ep.id = e.episode_id
                     where ep.season_id = %s and e.contestant_id::text = any(%s)
+                      and ep.is_finale = false
                     """,
                     [str(season_id), ids],
                 )
