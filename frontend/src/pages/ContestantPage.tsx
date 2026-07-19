@@ -34,7 +34,7 @@ export function ContestantPage() {
       </button>
       <div className="flex items-center gap-3 mt-3 mb-1">
         <ContestantAvatar name={perf.name} imageUrl={perf.image_url} size="md" />
-        <h1 className="text-2xl font-semibold text-gray-900">{perf.name}</h1>
+        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">{perf.name}</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         {perf.total_points} pts total
@@ -49,7 +49,7 @@ export function ContestantPage() {
       ) : (
         <div className="space-y-3">
           {perf.episodes.map((ep) => (
-            <div key={ep.episode_number} className="p-4 bg-white border border-gray-200 rounded-xl">
+            <div key={ep.episode_number} className="p-4 bg-white border border-sand-200 rounded-xl">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-gray-800">Episode {ep.episode_number}</span>
                 <span

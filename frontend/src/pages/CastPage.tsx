@@ -33,13 +33,13 @@ export function CastPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">{season.name}</h1>
+      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
       <p className="text-sm text-gray-500 mb-6">Cast · base score, no advantages applied</p>
       <ul className="space-y-2">
         {cast.map((c) => (
           <li
             key={c.id}
-            className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+            className="flex items-center justify-between p-3 bg-white border border-sand-200 rounded-lg"
           >
             <Link
               to={`/contestants/${c.id}`}

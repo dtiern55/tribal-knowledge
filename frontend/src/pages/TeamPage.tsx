@@ -135,7 +135,7 @@ export function TeamPage() {
       >
         ← Back
       </button>
-      <h1 className="text-2xl font-semibold text-gray-900 mt-3 mb-1">{name}</h1>
+      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mt-3 mb-1">{name}</h1>
       <p className="text-sm text-gray-500 mb-6">Roster</p>
 
       {hidden ? (
@@ -149,7 +149,7 @@ export function TeamPage() {
             return (
               <li
                 key={pick.id}
-                className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+                className="flex items-center justify-between p-3 bg-white border border-sand-200 rounded-lg"
               >
                 <Link
                   to={`/contestants/${pick.contestant_id}`}
@@ -204,7 +204,7 @@ export function TeamPage() {
 
       {swaps.length > 0 && (
         <div className="mt-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-2">
             Swaps
           </h2>
           <ul className="space-y-1 text-sm text-gray-600">
@@ -225,7 +225,7 @@ export function TeamPage() {
 
       {votes.length > 0 && (
         <div className="mt-10">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-3">
             Previous Votes
           </h2>
           <div className="space-y-3">
@@ -249,7 +249,7 @@ export function TeamPage() {
                           className={`text-sm px-2 py-1 border rounded-md ${
                             correct
                               ? 'bg-green-50 border-green-300 text-green-800'
-                              : 'bg-white border-gray-200 text-gray-500'
+                              : 'bg-white border-sand-200 text-gray-500'
                           }`}
                         >
                           {correct && '✓ '}

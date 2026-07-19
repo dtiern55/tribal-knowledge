@@ -86,7 +86,7 @@ export function StandingsPage() {
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white"
+            className="border border-sand-200 rounded-lg px-2 py-1 text-sm bg-white"
           >
             {seasons
               .slice()
@@ -154,7 +154,7 @@ export function StandingsPage() {
                       {entry.display_name}
                     </Link>
                     {isMe && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide bg-ocean-600 text-white px-1.5 py-0.5 rounded">
+                      <span className="ml-2 text-[10px] uppercase tracking-wide bg-jungle-600 text-white px-1.5 py-0.5 rounded">
                         You
                       </span>
                     )}

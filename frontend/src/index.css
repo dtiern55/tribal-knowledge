@@ -21,9 +21,36 @@
   --color-jungle-600: #2f7a34;
   --color-jungle-700: #27612b;
 
+  --color-jungle-200: #b3dcb2;
+  --color-jungle-800: #1f4d23;
+
   --color-sand-50: #faf8f2;
   --color-sand-100: #f2ece0;
   --color-sand-200: #e6dcc7;
+  --color-sand-300: #d5c6a4;
+
+  /* Torch/ember orange — the tribal accent (#56). */
+  --color-ember-50: #fdf3ec;
+  --color-ember-100: #fae1cf;
+  --color-ember-200: #f4c29e;
+  --color-ember-300: #ec9c63;
+  --color-ember-400: #e37b33;
+  --color-ember-500: #d5621b;
+  --color-ember-600: #b54e13;
+  --color-ember-700: #913e13;
+  --color-ember-800: #713214;
 
   --font-display: "Anton", "Arial Narrow", system-ui, sans-serif;
+}
+
+/* Torch-to-jungle gradient stripe: the one loud tribal accent, used at the
+   top of the app shell. */
+.torch-stripe {
+  background: linear-gradient(
+    90deg,
+    var(--color-ember-600),
+    var(--color-ember-400) 35%,
+    var(--color-amber-500, #f59e0b) 60%,
+    var(--color-jungle-600)
+  );
 }
