@@ -10,7 +10,7 @@ const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
     keys: ['correct_elimination'],
   },
   {
-    title: 'Winner pick — your season-long Sole Survivor',
+    title: 'Winner pick — call the winner early',
     blurb: 'One pick for who wins the whole game, locked in early and scored at the finale.',
     keys: ['winner_sole_survivor', 'winner_runner_up', 'winner_2nd_runner_up'],
   },
