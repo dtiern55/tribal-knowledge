@@ -20,25 +20,7 @@ def get_roster(
     with database.get_db() as conn:
         with conn.cursor() as cur:
             season = database.require_season(cur, season_id)
-
-            # Other players' rosters stay hidden until the roster lock passes
-            if str(user_id) != str(current_user):
-                locked = False
-                if season["roster_lock_episode"] is not None:
-                    cur.execute(
-                        f"""
-                        select 1 from episodes
-                        where season_id = %s and episode_number = %s
-                          and {EPISODE_LOCKED_SQL}
-                        """,
-                        [str(season_id), season["roster_lock_episode"]],
-                    )
-                    locked = cur.fetchone() is not None
-                if not locked:
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Rosters are hidden until they lock",
-                    )
+            database.require_roster_visible(cur, season, user_id, current_user)
             cur.execute(
                 """
                 select * from roster_picks

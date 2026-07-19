@@ -71,12 +71,25 @@ def test_standings_excludes_admin_accounts(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_scoring_breakdown_owner_only(client, db_conn, current_user):
-    """The granular breakdown is owner-only (#52)."""
-    season = insert_season(db_conn)
+def test_scoring_breakdown_hidden_until_roster_lock(client, db_conn, current_user):
+    """Another player's breakdown follows the roster visibility rule (#160):
+    403 before rosters lock, then roster points only — never their picks."""
+    season = insert_season(db_conn, roster_lock_episode=1)
     other = insert_user(db_conn, display_name="Other")
+
+    insert_episode(db_conn, season["id"], episode_number=1)  # lock in the future
     r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{other['id']}")
     assert r.status_code == 403
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set picks_lock_at = now() - interval '1 hour'"
+            " where season_id = %s",
+            [str(season["id"])],
+        )
+    r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{other['id']}")
+    assert r.status_code == 200
+    assert r.json()["picks"] == []
 
 
 @pytest.mark.integration
