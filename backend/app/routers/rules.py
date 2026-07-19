@@ -28,9 +28,19 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
                 [str(season_id)],
             )
             scoring_events = cur.fetchall()
+            # Both mode's key sets live in every snapshot; show only the set
+            # this season actually scores with (#164).
+            hidden = (
+                "('made_final_tribal', 'runner_up', 'sole_survivor_win')"
+                if season["winner_mode"] == "classic"
+                else "('winner_sole_survivor', 'winner_runner_up',"
+                " 'winner_2nd_runner_up', 'roster_placement_1',"
+                " 'roster_placement_2', 'roster_placement_3')"
+            )
             cur.execute(
                 "select key, label, point_value, postmerge_point_value"
                 " from season_prediction_score_types where season_id = %s"
+                f" and key not in {hidden}"
                 " order by point_value desc",
                 [str(season_id)],
             )

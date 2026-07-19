@@ -42,6 +42,10 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "swap_lock_episode": kwargs.pop("swap_lock_episode", None),
         "advantage_lock_episode": kwargs.pop("advantage_lock_episode", None),
         "weekly_token_allocation": kwargs.pop("weekly_token_allocation", 10),
+        # classic keeps the pre-#164 tests on the winner-pick path; the
+        # sole-survivor tests opt in explicitly.
+        "winner_mode": kwargs.pop("winner_mode", "classic"),
+        "ss_lock_episode": kwargs.pop("ss_lock_episode", None),
     }
     with conn.cursor() as cur:
         cur.execute(
@@ -50,13 +54,15 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
                 (name, season_number, roster_size, status,
                  roster_lock_episode, merge_episode, winner_lock_episode,
                  swap_token_cost, free_swaps, max_swaps, swap_lock_episode,
-                 advantage_lock_episode, weekly_token_allocation)
+                 advantage_lock_episode, weekly_token_allocation,
+                 winner_mode, ss_lock_episode)
             values
                 (%(name)s, %(season_number)s, %(roster_size)s, %(status)s,
                  %(roster_lock_episode)s, %(merge_episode)s,
                  %(winner_lock_episode)s, %(swap_token_cost)s, %(free_swaps)s,
                  %(max_swaps)s, %(swap_lock_episode)s,
-                 %(advantage_lock_episode)s, %(weekly_token_allocation)s)
+                 %(advantage_lock_episode)s, %(weekly_token_allocation)s,
+                 %(winner_mode)s, %(ss_lock_episode)s)
             returning *
             """,
             params,

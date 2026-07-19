@@ -20,6 +20,8 @@ export interface Season {
   winner_lock_episode: number | null
   swap_token_cost: number
   free_swaps: number
+  winner_mode: 'classic' | 'sole_survivor'
+  ss_lock_episode: number | null
   max_swaps: number
   swap_lock_episode: number | null
   advantage_lock_episode: number | null
@@ -70,6 +72,7 @@ export interface RosterPick {
   contestant_id: string
   active_from_episode: number
   active_until_episode: number | null
+  is_sole_survivor: boolean
   swap_penalty_points: number
   created_at: string
 }
