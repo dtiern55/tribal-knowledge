@@ -22,7 +22,8 @@ export function ContestantAvatar({
   imageUrl: string | null
   size?: keyof typeof sizeClass
 }) {
-  const base = `${sizeClass[size]} rounded-full shrink-0 object-cover`
+  // object-top: cast photos are portraits; center-crop cuts off heads.
+  const base = `${sizeClass[size]} rounded-full shrink-0 object-cover object-top`
   if (imageUrl) {
     return <img src={imageUrl} alt={name} className={base} />
   }
