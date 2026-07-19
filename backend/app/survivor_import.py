@@ -167,18 +167,46 @@ def build_proposal(
         (d["version_season"], d["advantage_id"]): d.get("advantage_type", "?")
         for d in advantage_details
     }
-    for r in _ep(advantage_movement, season_key, episode):
+    moves = _ep(advantage_movement, season_key, episode)
+    # Give-away idols (S50 pattern, Danny's ruling 2026-07-19): an idol Found
+    # and Received in the same episode was handed off — the finder held it
+    # inactive, the hand-off activated it for the receiver.
+    given_away = {
+        r["advantage_id"]
+        for r in moves
+        if r.get("event") == "Found"
+        and adv_type.get((season_key, r.get("advantage_id"))) in _IDOL_TYPES
+        and any(
+            m.get("event") in ("Received", "Recieved")
+            and m.get("advantage_id") == r.get("advantage_id")
+            for m in moves
+        )
+    }
+    for r in moves:
         atype = adv_type.get((season_key, r.get("advantage_id")), "?")
         event = r.get("event", "")
         cid, name = r["castaway_id"], r["castaway"]
         if event in ("Found", "Found (beware)", "Received", "Recieved"):
             if atype in _IDOL_TYPES:
-                inactive = event == "Found (beware)" or "Half" in atype
-                add_event(
-                    cid,
-                    name,
-                    "acquire_inactive_idol" if inactive else "acquire_active_idol",
-                )
+                if event in ("Received", "Recieved"):
+                    add_event(cid, name, "activate_inactive_idol")
+                    if r.get("advantage_id") not in given_away:
+                        warnings.append(
+                            f"{name}: received an idol found in an earlier"
+                            " episode — verify the finder's acquire was"
+                            " recorded as inactive"
+                        )
+                else:
+                    inactive = (
+                        event == "Found (beware)"
+                        or "Half" in atype
+                        or r.get("advantage_id") in given_away
+                    )
+                    add_event(
+                        cid,
+                        name,
+                        "acquire_inactive_idol" if inactive else "acquire_active_idol",
+                    )
             elif atype == "Extra Vote":
                 add_event(cid, name, "acquire_extra_vote")
             else:
@@ -189,6 +217,11 @@ def build_proposal(
             if atype in _IDOL_TYPES:
                 if r.get("success") == "Yes":
                     add_event(cid, name, "idol_played_successfully")
+                elif r.get("success") == "Not needed":
+                    warnings.append(
+                        f"{name}: played {atype} but it wasn't needed —"
+                        " no save, nothing proposed"
+                    )
                 else:
                     warnings.append(
                         f"{name}: played {atype} unsuccessfully — no event proposed"
