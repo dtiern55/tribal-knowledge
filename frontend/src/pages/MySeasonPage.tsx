@@ -1375,7 +1375,13 @@ function SoleSurvivorSection({
   }, [season.id, userId])
 
   const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
-  const active = roster.filter((p) => p.active_until_episode === null)
+  // Eliminated castaways can linger on an active roster (never swapped out) —
+  // they're not valid designees (#180)
+  const active = roster.filter(
+    (p) =>
+      p.active_until_episode === null &&
+      contestants.find((c) => c.id === p.contestant_id)?.eliminated_in_episode == null,
+  )
   const designee = roster.find((p) => p.is_sole_survivor)
 
   // Effective lock mirrors the backend chain (2026-07-19 decision):
