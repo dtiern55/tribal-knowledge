@@ -401,6 +401,18 @@ def designate_sole_survivor(
                     detail="Contestant is not on your active roster",
                 )
 
+            # An eliminated castaway can linger on the roster if never swapped
+            # out — they're not a valid designee (#180)
+            cur.execute(
+                "select id from eliminations where contestant_id = %s",
+                [str(body.contestant_id)],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Contestant(s) already eliminated",
+                )
+
             cur.execute(
                 "update roster_picks set is_sole_survivor = false"
                 " where user_id = %s and season_id = %s and is_sole_survivor",
