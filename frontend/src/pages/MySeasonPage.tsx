@@ -106,7 +106,11 @@ export function MySeasonPage() {
         setPlays={setPlays}
         pickResults={pickResults}
       />
-      <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
+      {season.winner_mode === 'classic' ? (
+        <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
+      ) : (
+        <SoleSurvivorSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
+      )}
       <TokensSection
         balance={balance}
         plays={plays}
@@ -396,6 +400,14 @@ function RosterSection({
                   >
                     <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                     {c?.name ?? '—'}
+                    {pick.is_sole_survivor && (
+                      <span
+                        className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold"
+                        title="Your Sole Survivor — finale points count double"
+                      >
+                        SS
+                      </span>
+                    )}
                     {pick.active_from_episode > 1 && (
                       <span
                         className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
@@ -1291,6 +1303,129 @@ function FinaleBallot({
       >
         {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
       </button>
+    </div>
+  )
+}
+
+// ─── Sole Survivor section (#164) ───────────────────────────────────────────
+
+function SoleSurvivorSection({
+  season,
+  contestants,
+  episodes,
+  userId,
+}: {
+  season: Season
+  contestants: Contestant[]
+  episodes: Episode[]
+  userId: string
+}) {
+  const [roster, setRoster] = useState<RosterPick[]>([])
+  const [choice, setChoice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .then((picks) => {
+        setRoster(picks)
+        const current = picks.find((p) => p.is_sole_survivor)
+        if (current) setChoice(current.contestant_id)
+      })
+      .catch(() => setRoster([]))
+  }, [season.id, userId])
+
+  const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
+  const active = roster.filter((p) => p.active_until_episode === null)
+  const designee = roster.find((p) => p.is_sole_survivor)
+
+  // Effective lock mirrors the backend chain: explicit, else swap lock,
+  // else merge + 2.
+  const lockEp =
+    season.ss_lock_episode ??
+    season.swap_lock_episode ??
+    (season.merge_episode != null ? season.merge_episode + 2 : null)
+  const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
+  const windowOpen =
+    season.status !== 'completed' &&
+    lockEp != null &&
+    (lockEpisode == null ||
+      (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
+
+  async function designate() {
+    if (!choice) return
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      await api.post<RosterPick>(`/seasons/${season.id}/sole-survivor`, {
+        contestant_id: choice,
+      })
+      setRoster((rs) =>
+        rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === choice })),
+      )
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Designation failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionTitle>Sole Survivor</SectionTitle>
+      <p className="text-xs text-gray-400 mb-3">
+        Everything your Sole Survivor scores in the finale counts double for you.
+      </p>
+      {!windowOpen ? (
+        <p className="text-sm text-gray-600">
+          {designee ? (
+            <>
+              Your Sole Survivor:{' '}
+              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
+            </>
+          ) : (
+            'No Sole Survivor designated — the window has closed.'
+          )}
+        </p>
+      ) : (
+        <>
+          <p className="text-xs text-gray-400 mb-3">
+            Locks before episode {lockEp}
+            {lockEpisode && <> ({formatCentral(lockEpisode.picks_lock_at)})</>} · changeable
+            until then · must be on your roster
+          </p>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select
+              value={choice}
+              onChange={(e) => {
+                setChoice(e.target.value)
+                setSaved(false)
+              }}
+              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Select your Sole Survivor…</option>
+              {active.map((p) => (
+                <option key={p.id} value={p.contestant_id}>
+                  {nameOf(p.contestant_id)}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={designate}
+              disabled={!choice || saving}
+              className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-amber-600 transition-colors"
+            >
+              {saving ? 'Saving…' : 'Designate'}
+            </button>
+          </div>
+          {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+          {saved && <p className="text-green-600 text-sm mt-2">Designated.</p>}
+        </>
+      )}
     </div>
   )
 }

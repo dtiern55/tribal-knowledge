@@ -15,6 +15,14 @@ const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
     keys: ['winner_sole_survivor', 'winner_runner_up', 'winner_2nd_runner_up'],
   },
   {
+    title: 'Sole Survivor designation',
+    blurb:
+      'Designate one castaway on your roster as your Sole Survivor before the designation ' +
+      'locks — everything they score in the finale episode counts double for you, ' +
+      'including these final-tribal bonuses.',
+    keys: ['made_final_tribal', 'runner_up', 'sole_survivor_win'],
+  },
+  {
     title: 'Finale night ballot',
     blurb: 'Your three finale predictions: first boot, fire-making loser, and the winner.',
     keys: ['correct_early_boot', 'correct_fire_loss', 'correct_winner_vote'],
@@ -128,9 +136,14 @@ export function RulesPage() {
       <p className="text-sm text-gray-500 mb-4">{season.name}</p>
       <p className="text-sm text-gray-600 mb-6 leading-relaxed">
         You score in a few separate ways: your <b>roster</b> (the team you draft) earns points
-        each episode; your <b>weekly vote</b> predicts each boot; your one <b>winner pick</b> and
-        the <b>finale ballot</b> pay off at the end. <b>Tokens</b> are a separate currency you
-        spend on advantages.
+        each episode; your <b>weekly vote</b> predicts each boot; your{' '}
+        {season.winner_mode === 'classic' ? (
+          <b>winner pick</b>
+        ) : (
+          <b>Sole Survivor designation</b>
+        )}{' '}
+        and the <b>finale ballot</b> pay off at the end. <b>Tokens</b> are a separate currency
+        you spend on advantages.
       </p>
 
       <Section title="Season structure">
@@ -138,7 +151,18 @@ export function RulesPage() {
           <li>Roster size: <b>{season.roster_size}</b> castaways</li>
           <li>Rosters lock at episode <b>{season.roster_lock_episode ?? '—'}</b> (freely editable before then)</li>
           <li>Merge at episode <b>{season.merge_episode ?? '—'}</b></li>
-          <li>Winner pick locks at episode <b>{season.winner_lock_episode ?? '—'}</b></li>
+          {season.winner_mode === 'classic' ? (
+            <li>Winner pick locks at episode <b>{season.winner_lock_episode ?? '—'}</b></li>
+          ) : (
+            <li>
+              Sole Survivor designation locks at episode{' '}
+              <b>
+                {season.ss_lock_episode ??
+                  season.swap_lock_episode ??
+                  (season.merge_episode != null ? season.merge_episode + 2 : '—')}
+              </b>
+            </li>
+          )}
           <li>
             Roster swaps: <b>{season.swap_token_cost} tokens</b> each, up to{' '}
             <b>{season.max_swaps}</b>/season

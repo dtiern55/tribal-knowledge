@@ -157,6 +157,14 @@ export function TeamPage() {
                 >
                   <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                   {c?.name ?? '—'}
+                  {pick.is_sole_survivor && (
+                    <span
+                      className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold"
+                      title="Sole Survivor — finale points count double"
+                    >
+                      SS
+                    </span>
+                  )}
                   {pick.active_from_episode > 1 && (
                     <span
                       className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
