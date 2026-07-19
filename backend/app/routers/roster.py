@@ -6,9 +6,37 @@ from psycopg2 import errors as pg_errors
 from app import database
 from app.auth import get_current_user
 from app.locking import EPISODE_LOCKED_SQL, next_open_episode
-from app.schemas import RosterPick, RosterSubmitRequest, RosterSwapRequest
+from app.schemas import (
+    RosterPick,
+    RosterSubmitRequest,
+    RosterSwapRequest,
+    SoleSurvivorRequest,
+)
 
 router = APIRouter(tags=["roster"])
+
+
+def _effective_ss_lock(season) -> int | None:
+    """The episode from which sole-survivor designation is locked (#164):
+    explicit ss_lock_episode, else the swap lock, else two past the merge."""
+    if season["ss_lock_episode"] is not None:
+        return season["ss_lock_episode"]
+    if season["swap_lock_episode"] is not None:
+        return season["swap_lock_episode"]
+    if season["merge_episode"] is not None:
+        return season["merge_episode"] + 2
+    return None
+
+
+def _episode_locked(cur, season_id, episode_number) -> bool:
+    cur.execute(
+        f"""
+        select 1 from episodes
+        where season_id = %s and episode_number = %s and {EPISODE_LOCKED_SQL}
+        """,
+        [str(season_id), episode_number],
+    )
+    return cur.fetchone() is not None
 
 
 @router.get("/seasons/{season_id}/roster/{user_id}", response_model=list[RosterPick])
@@ -29,7 +57,16 @@ def get_roster(
                 """,
                 [str(user_id), str(season_id)],
             )
-            return cur.fetchall()
+            rows = cur.fetchall()
+
+            # Another player's designation is strategy until it locks (#164):
+            # the roster may already be visible, the flag is not.
+            if str(user_id) != str(current_user):
+                ss_lock = _effective_ss_lock(season)
+                if ss_lock is None or not _episode_locked(cur, season_id, ss_lock):
+                    for r in rows:
+                        r["is_sole_survivor"] = False
+            return rows
 
 
 @router.post("/seasons/{season_id}/roster", response_model=list[RosterPick])
@@ -306,3 +343,66 @@ def swap_roster_pick(
                 )
 
             return new_pick
+
+
+@router.post("/seasons/{season_id}/sole-survivor", response_model=RosterPick)
+def designate_sole_survivor(
+    season_id: UUID,
+    body: SoleSurvivorRequest,
+    user_id: UUID = Depends(get_current_user),
+):
+    """Designate one active-roster contestant as your Sole Survivor (#164).
+
+    Free and editable until the designation locks; their finale-episode
+    contribution to your roster score is doubled. Replaces the classic
+    winner pick in sole_survivor-mode seasons.
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            season = database.require_season(cur, season_id)
+            if season["winner_mode"] != "sole_survivor":
+                raise HTTPException(
+                    status_code=400,
+                    detail="This season uses classic winner picks",
+                )
+            if season["status"] == "completed":
+                raise HTTPException(status_code=400, detail="Season is complete")
+
+            ss_lock = _effective_ss_lock(season)
+            if ss_lock is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Sole survivor lock not configured for this season",
+                )
+            if _episode_locked(cur, season_id, ss_lock):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Sole survivor designation window has closed",
+                )
+
+            cur.execute(
+                """
+                select id from roster_picks
+                where user_id = %s and season_id = %s and contestant_id = %s
+                  and active_until_episode is null
+                """,
+                [str(user_id), str(season_id), str(body.contestant_id)],
+            )
+            pick = cur.fetchone()
+            if not pick:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Contestant is not on your active roster",
+                )
+
+            cur.execute(
+                "update roster_picks set is_sole_survivor = false"
+                " where user_id = %s and season_id = %s and is_sole_survivor",
+                [str(user_id), str(season_id)],
+            )
+            cur.execute(
+                "update roster_picks set is_sole_survivor = true"
+                " where id = %s returning *",
+                [str(pick["id"])],
+            )
+            return cur.fetchone()

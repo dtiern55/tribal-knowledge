@@ -63,6 +63,12 @@ def submit_winner_pick(
         with conn.cursor() as cur:
             season = database.require_season(cur, season_id)
 
+            if season["winner_mode"] != "classic":
+                raise HTTPException(
+                    status_code=400,
+                    detail="This season designates a Sole Survivor instead",
+                )
+
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
