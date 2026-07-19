@@ -32,6 +32,9 @@ _origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
+    # Vercel preview deployments get per-branch subdomains; a regex lets them
+    # hit the API so UI changes are testable pre-merge (set in fly.toml).
+    allow_origin_regex=os.environ.get("CORS_ORIGIN_REGEX"),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
