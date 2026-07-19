@@ -77,14 +77,10 @@ def main() -> None:
     )
 
     seasons = api.get("/seasons").raise_for_status().json()
-    season = next(
-        (s for s in seasons if s["season_number"] == args.our_season), None
-    )
+    season = next((s for s in seasons if s["season_number"] == args.our_season), None)
     if not season:
         sys.exit(f"No league season with season_number={args.our_season}")
-    cast = (
-        api.get(f"/seasons/{season['id']}/contestants").raise_for_status().json()
-    )
+    cast = api.get(f"/seasons/{season['id']}/contestants").raise_for_status().json()
 
     storage = httpx.Client(
         base_url=f"{supabase_url}/storage/v1",
