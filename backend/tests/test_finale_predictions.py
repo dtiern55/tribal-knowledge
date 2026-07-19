@@ -3,7 +3,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from tests.helpers import insert_contestant, insert_episode, insert_season
+from tests.helpers import (
+    insert_contestant,
+    insert_elimination,
+    insert_episode,
+    insert_season,
+)
 
 
 def _open_finale_episode(conn, season_id):
@@ -168,3 +173,28 @@ def test_submit_invalid_contestant(client, db_conn):
     )
     assert r.status_code == 400
     assert "not in this season" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_ballot_rejects_eliminated_contestant(client, db_conn, current_user):
+    """#158: ballot fields must name someone still in the game, same as
+    weekly picks."""
+    season = insert_season(db_conn, status="active")
+    gone = insert_contestant(db_conn, season["id"], "Booted")
+    alive = insert_contestant(db_conn, season["id"], "Alive")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    insert_elimination(db_conn, ep2["id"], gone["id"])
+    _open_finale_episode(db_conn, season["id"])
+
+    r = client.post(
+        f"/seasons/{season['id']}/finale-predictions",
+        json={"winner_contestant_id": str(gone["id"])},
+    )
+    assert r.status_code == 400
+    assert "eliminated" in r.json()["detail"]
+
+    r = client.post(
+        f"/seasons/{season['id']}/finale-predictions",
+        json={"winner_contestant_id": str(alive["id"])},
+    )
+    assert r.status_code == 200
