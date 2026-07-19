@@ -3,11 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import type {
+  AdvantagePlay,
   Contestant,
   Elimination,
   EliminationPick,
   Episode,
   RosterPick,
+  ScoringBreakdown,
   StandingEntry,
 } from '../types'
 
@@ -15,6 +17,22 @@ interface EpisodeVotes {
   episode: Episode
   picks: EliminationPick[]
   eliminatedIds: Set<string>
+}
+
+function Points({ value }: { value: number | undefined }) {
+  if (value == null) return null
+  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-400'
+  return (
+    <span className={`text-xs font-medium ${color}`}>
+      {value > 0 ? '+' : ''}
+      {value} pts
+    </span>
+  )
+}
+
+const ADVANTAGE_LABEL: Record<string, string> = {
+  double_roster_points: 'Double Roster Points',
+  double_vote_points: 'Double Vote Points',
 }
 
 // Read-only view of another player's roster, reached from Standings (#83),
@@ -25,6 +43,8 @@ export function TeamPage() {
   const navigate = useNavigate()
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
+  const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
+  const [plays, setPlays] = useState<AdvantagePlay[]>([])
   const [votes, setVotes] = useState<EpisodeVotes[]>([])
   const [name, setName] = useState<string>('')
   const [hidden, setHidden] = useState(false)
@@ -44,6 +64,17 @@ export function TeamPage() {
         setName(standings.find((s) => s.user_id === userId)?.display_name ?? 'Team')
         try {
           setRoster(await api.get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`))
+          // Same 403-until-lock rule as the roster; roster points only for
+          // other players' breakdowns (#160).
+          const breakdown = await api.get<ScoringBreakdown>(
+            `/seasons/${seasonId}/scoring-breakdown/${userId}`,
+          )
+          setRosterPoints(new Map(breakdown.roster.map((r) => [r.contestant_id, r.points])))
+          setPlays(
+            await api
+              .get<AdvantagePlay[]>(`/seasons/${seasonId}/advantage-plays/${userId}`)
+              .catch(() => []),
+          )
         } catch {
           setHidden(true) // 403 until rosters lock
         }
@@ -82,6 +113,19 @@ export function TeamPage() {
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const active = roster.filter((r) => r.active_until_episode === null)
+  // Pair each swapped-out pick with its replacement: a swap closes the old
+  // row at ep N and opens the new one at N+1 (#155).
+  const swaps = roster
+    .filter((r) => r.active_until_episode !== null)
+    .map((out) => ({
+      out,
+      into: roster.find(
+        (r) => r.active_from_episode === (out.active_until_episode ?? 0) + 1,
+      ),
+    }))
+  const bonuses = plays.filter(
+    (p) => p.points_earned != null && p.points_earned !== 0,
+  )
 
   return (
     <div>
@@ -105,7 +149,7 @@ export function TeamPage() {
             return (
               <li
                 key={pick.id}
-                className="flex items-center p-3 bg-white border border-gray-200 rounded-lg"
+                className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
               >
                 <Link
                   to={`/contestants/${pick.contestant_id}`}
@@ -113,16 +157,62 @@ export function TeamPage() {
                 >
                   <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                   {c?.name ?? '—'}
+                  {pick.active_from_episode > 1 && (
+                    <span
+                      className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
+                      title={`Swapped in from episode ${pick.active_from_episode}`}
+                    >
+                      ⇄ ep {pick.active_from_episode}
+                    </span>
+                  )}
                   {c?.eliminated_in_episode != null && (
                     <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
                       Out ep {c.eliminated_in_episode}
                     </span>
                   )}
                 </Link>
+                <Points value={rosterPoints.get(pick.contestant_id)} />
               </li>
             )
           })}
+          {/* Played doubles earn separate line items so contestant rows show
+              BASE points, mirroring the owner's My Season view (#136/#160). */}
+          {bonuses.map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
+            >
+              <span className="text-ocean-800">
+                {ADVANTAGE_LABEL[p.advantage_type] ?? p.advantage_type} —{' '}
+                <span className="font-medium">
+                  {contestantMap.get(p.target_contestant_id ?? '')?.name ?? '—'}
+                </span>
+              </span>
+              <Points value={p.points_earned ?? undefined} />
+            </li>
+          ))}
         </ul>
+      )}
+
+      {swaps.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+            Swaps
+          </h2>
+          <ul className="space-y-1 text-sm text-gray-600">
+            {swaps.map(({ out, into }) => (
+              <li key={out.id}>
+                {contestantMap.get(out.contestant_id)?.name ?? '—'}
+                {' → '}
+                {into ? (contestantMap.get(into.contestant_id)?.name ?? '—') : '?'}
+                <span className="text-gray-400">
+                  {' '}
+                  (episode {(out.active_until_episode ?? 0) + 1})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {votes.length > 0 && (

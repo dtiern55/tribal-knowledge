@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from app import database, scoring
 from app.auth import get_current_user
@@ -82,6 +82,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
         for now_rank, s in enumerate(entries):
             was = prev_rank[s.user_id]
             s.trend = "up" if was > now_rank else "down" if was < now_rank else "same"
+            s.trend_delta = abs(was - now_rank)
             s.last_episode_points = last_delta.get(str(s.user_id), 0)
     return entries
 
@@ -97,16 +98,21 @@ def get_scoring_breakdown(
 ):
     """Per-contestant roster points and per-pick results for one user (#52).
 
-    Owner-only: the granular breakdown behind the My Season expanders is
-    yours alone. High-level totals stay in /standings, which is public.
+    Own breakdown: everything. Other players (#160): roster points only, and
+    only once rosters lock — pick results stay out because per-episode votes
+    have their own scored-only visibility path (#134).
     """
-    if str(user_id) != str(current_user):
-        raise HTTPException(status_code=403, detail="Breakdown is owner-only")
+    is_owner = str(user_id) == str(current_user)
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            database.require_season(cur, season_id)
+            season = database.require_season(cur, season_id)
+            database.require_roster_visible(cur, season, user_id, current_user)
         roster = scoring.roster_points_by_contestant(conn, season_id, user_id)
-        picks = scoring.elimination_pick_results(conn, season_id, user_id)
+        picks = (
+            scoring.elimination_pick_results(conn, season_id, user_id)
+            if is_owner
+            else []
+        )
     return {
         "roster": [
             {"contestant_id": cid, "points": pts} for cid, pts in roster.items()

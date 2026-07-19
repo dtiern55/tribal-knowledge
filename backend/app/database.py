@@ -53,3 +53,30 @@ def require_season(cur, season_id) -> dict:
     if not season:
         raise HTTPException(status_code=404, detail="Season not found")
     return season
+
+
+def require_roster_visible(cur, season, user_id, current_user) -> None:
+    """403 unless requesting own data or the season's roster lock has passed.
+
+    The shared visibility rule for another player's roster-derived data
+    (roster rows, per-contestant breakdown — issues #83/#160).
+    """
+    from app.locking import EPISODE_LOCKED_SQL
+
+    if str(user_id) == str(current_user):
+        return
+    locked = False
+    if season["roster_lock_episode"] is not None:
+        cur.execute(
+            f"""
+            select 1 from episodes
+            where season_id = %s and episode_number = %s
+              and {EPISODE_LOCKED_SQL}
+            """,
+            [str(season["id"]), season["roster_lock_episode"]],
+        )
+        locked = cur.fetchone() is not None
+    if not locked:
+        raise HTTPException(
+            status_code=403, detail="Rosters are hidden until they lock"
+        )

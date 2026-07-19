@@ -396,6 +396,14 @@ function RosterSection({
                   >
                     <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
                     {c?.name ?? '—'}
+                    {pick.active_from_episode > 1 && (
+                      <span
+                        className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
+                        title={`Swapped in from episode ${pick.active_from_episode}`}
+                      >
+                        ⇄ ep {pick.active_from_episode}
+                      </span>
+                    )}
                     {c?.eliminated_in_episode != null && (
                       <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
                         Out ep {c.eliminated_in_episode}
@@ -1484,7 +1492,7 @@ function TokensSection({
           onClick={toggleHistory}
           className="text-sm text-ocean-600 hover:text-ocean-800 font-medium"
         >
-          {history ? 'Hide history' : loadingHistory ? 'Loading…' : 'Where from?'}
+          {history ? 'Hide history' : loadingHistory ? 'Loading…' : 'History'}
         </button>
       </div>
       {history && (

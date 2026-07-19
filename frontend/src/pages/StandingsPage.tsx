@@ -4,17 +4,23 @@ import { api } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { Season, StandingEntry } from '../types'
 
-function Trend({ t }: { t: StandingEntry['trend'] }) {
+function Trend({ t, delta }: { t: StandingEntry['trend']; delta: number }) {
   if (t === 'up')
     return (
-      <span className="text-jungle-600" title="Up since last episode">
-        ▲
+      <span
+        className="text-jungle-600 text-xs font-medium"
+        title={`Up ${delta} since last episode`}
+      >
+        ▲{delta}
       </span>
     )
   if (t === 'down')
     return (
-      <span className="text-red-500" title="Down since last episode">
-        ▼
+      <span
+        className="text-red-500 text-xs font-medium"
+        title={`Down ${delta} since last episode`}
+      >
+        ▼{delta}
       </span>
     )
   if (t === 'same')
@@ -137,7 +143,7 @@ export function StandingsPage() {
                           {i + 1}
                         </span>
                       )}
-                      <Trend t={entry.trend} />
+                      <Trend t={entry.trend} delta={entry.trend_delta} />
                     </span>
                   </td>
                   <td className="py-3 font-medium whitespace-nowrap">
