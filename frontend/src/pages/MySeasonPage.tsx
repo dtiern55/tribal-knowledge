@@ -147,11 +147,19 @@ function PointsHeader({
   const components = [
     { label: 'Roster', value: standing?.roster_points ?? 0 },
     { label: 'Eliminations', value: standing?.elimination_points ?? 0 },
-    {
-      label: 'Winner',
-      value: standing?.winner_points ?? 0,
-      note: season.winner_lock_episode ? `locks ep ${season.winner_lock_episode}` : undefined,
-    },
+    // ss-mode seasons have no winner-pick component — the Sole Survivor
+    // double lands inside roster points instead (#164).
+    ...(season.winner_mode === 'classic'
+      ? [
+          {
+            label: 'Winner',
+            value: standing?.winner_points ?? 0,
+            note: season.winner_lock_episode
+              ? `locks ep ${season.winner_lock_episode}`
+              : undefined,
+          },
+        ]
+      : []),
     { label: 'Finale', value: standing?.finale_points ?? 0 },
   ]
 
@@ -280,10 +288,16 @@ function RosterSection({
     .filter((e) => e.episode_number >= (season.roster_lock_episode ?? 1))
     .map((e) => e.episode_number)
     .sort((a, b) => a - b)[0]
+  // Mirror the server's fallback (#163): unset swap lock = merge + 2,
+  // and the finale never accepts swaps.
+  const effectiveSwapLock =
+    season.swap_lock_episode ??
+    (season.merge_episode != null ? season.merge_episode + 2 : null)
+  const finaleEpNum = episodes.find((e) => e.is_finale)?.episode_number
   const swapsLocked =
-    season.swap_lock_episode != null &&
     nextOpenEp != null &&
-    nextOpenEp >= season.swap_lock_episode
+    ((effectiveSwapLock != null && nextOpenEp >= effectiveSwapLock) ||
+      nextOpenEp === finaleEpNum)
   const swapCapReached = swapsUsed >= season.max_swaps
 
   // Double Roster Points target the next open episode's roster scoring (#81).
@@ -1364,12 +1378,13 @@ function SoleSurvivorSection({
   const active = roster.filter((p) => p.active_until_episode === null)
   const designee = roster.find((p) => p.is_sole_survivor)
 
-  // Effective lock mirrors the backend chain: explicit, else swap lock,
-  // else merge + 2.
+  // Effective lock mirrors the backend chain (2026-07-19 decision):
+  // explicit, else the advantage lock, else the finale.
   const lockEp =
     season.ss_lock_episode ??
-    season.swap_lock_episode ??
-    (season.merge_episode != null ? season.merge_episode + 2 : null)
+    season.advantage_lock_episode ??
+    episodes.find((e) => e.is_finale)?.episode_number ??
+    null
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   const windowOpen =
     season.status !== 'completed' &&

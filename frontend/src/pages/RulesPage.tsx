@@ -155,12 +155,8 @@ export function RulesPage() {
             <li>Winner pick locks at episode <b>{season.winner_lock_episode ?? '—'}</b></li>
           ) : (
             <li>
-              Sole Survivor designation locks at episode{' '}
-              <b>
-                {season.ss_lock_episode ??
-                  season.swap_lock_episode ??
-                  (season.merge_episode != null ? season.merge_episode + 2 : '—')}
-              </b>
+              Sole Survivor designation locks with advantages, at episode{' '}
+              <b>{season.ss_lock_episode ?? season.advantage_lock_episode ?? 'the finale'}</b>
             </li>
           )}
           <li>

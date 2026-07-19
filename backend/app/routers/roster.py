@@ -16,16 +16,22 @@ from app.schemas import (
 router = APIRouter(tags=["roster"])
 
 
-def _effective_ss_lock(season) -> int | None:
-    """The episode from which sole-survivor designation is locked (#164):
-    explicit ss_lock_episode, else the swap lock, else two past the merge."""
+def _effective_ss_lock(cur, season) -> int | None:
+    """The episode from which sole-survivor designation is locked (#164;
+    retimed 2026-07-19): explicit ss_lock_episode, else the advantage lock,
+    else the finale — designation stays open later than swaps, closing with
+    the rest of the advantage economy."""
     if season["ss_lock_episode"] is not None:
         return season["ss_lock_episode"]
-    if season["swap_lock_episode"] is not None:
-        return season["swap_lock_episode"]
-    if season["merge_episode"] is not None:
-        return season["merge_episode"] + 2
-    return None
+    if season["advantage_lock_episode"] is not None:
+        return season["advantage_lock_episode"]
+    cur.execute(
+        "select episode_number from episodes"
+        " where season_id = %s and is_finale = true limit 1",
+        [str(season["id"])],
+    )
+    row = cur.fetchone()
+    return row["episode_number"] if row else None
 
 
 def _episode_locked(cur, season_id, episode_number) -> bool:
@@ -62,7 +68,7 @@ def get_roster(
             # Another player's designation is strategy until it locks (#164):
             # the roster may already be visible, the flag is not.
             if str(user_id) != str(current_user):
-                ss_lock = _effective_ss_lock(season)
+                ss_lock = _effective_ss_lock(cur, season)
                 if ss_lock is None or not _episode_locked(cur, season_id, ss_lock):
                     for r in rows:
                         r["is_sole_survivor"] = False
@@ -368,7 +374,7 @@ def designate_sole_survivor(
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
-            ss_lock = _effective_ss_lock(season)
+            ss_lock = _effective_ss_lock(cur, season)
             if ss_lock is None:
                 raise HTTPException(
                     status_code=400,
