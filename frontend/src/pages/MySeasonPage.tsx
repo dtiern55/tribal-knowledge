@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
-import { advantagesLocked, isEpisodeOpen } from '../lib/episodes'
+import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -281,23 +281,9 @@ function RosterSection({
     (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
   )
 
-  // Swap gating (issue #84). A swapped-out pick = one swap used. Swaps lock
-  // once the next open episode reaches swap_lock_episode.
+  // Swap gating (issue #84). A swapped-out pick = one swap used.
   const swapsUsed = swappedRoster.length
-  const nextOpenEp = upcomingEpisodes
-    .filter((e) => e.episode_number >= (season.roster_lock_episode ?? 1))
-    .map((e) => e.episode_number)
-    .sort((a, b) => a - b)[0]
-  // Mirror the server's fallback (#163): unset swap lock = merge + 2,
-  // and the finale never accepts swaps.
-  const effectiveSwapLock =
-    season.swap_lock_episode ??
-    (season.merge_episode != null ? season.merge_episode + 2 : null)
-  const finaleEpNum = episodes.find((e) => e.is_finale)?.episode_number
-  const swapsLocked =
-    nextOpenEp != null &&
-    ((effectiveSwapLock != null && nextOpenEp >= effectiveSwapLock) ||
-      nextOpenEp === finaleEpNum)
+  const swapLocked = swapsLocked(season, episodes)
   const swapCapReached = swapsUsed >= season.max_swaps
 
   // Double Roster Points target the next open episode's roster scoring (#81).
@@ -593,7 +579,7 @@ function RosterSection({
                 {season.swap_lock_episode != null &&
                   ` · swaps lock at episode ${season.swap_lock_episode}`}
               </p>
-              {swapsLocked ? (
+              {swapLocked ? (
                 <p className="text-sm text-gray-500">
                   Roster swaps are locked for the rest of the season.
                 </p>
@@ -874,15 +860,20 @@ function PicksSection({
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
 
-      {/* Final week: the weekly vote becomes the 3-part finale ballot (#86). */}
-      {nextOpen && nextOpen.is_finale && (
-        <FinaleBallot
-          season={season}
-          contestants={contestants}
-          finaleEp={nextOpen}
-          userId={userId}
-        />
-      )}
+      {/* Final week: the weekly vote becomes the 3-part finale ballot (#86);
+          it stays visible after lock as the stamped ballot (#189). */}
+      {(() => {
+        const fin = episodes.find((e) => e.is_finale)
+        const show = fin && (nextOpen?.id === fin.id || !isOpen(fin))
+        return show ? (
+          <FinaleBallot
+            season={season}
+            contestants={contestants}
+            finaleEp={fin}
+            userId={userId}
+          />
+        ) : null
+      })()}
 
       {nextOpen &&
         !nextOpen.is_finale &&
@@ -1230,6 +1221,11 @@ function FinaleBallot({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  // Saved ballot shows as a display state with Edit until lock (#189)
+  const [hasSaved, setHasSaved] = useState(false)
+  const [editing, setEditing] = useState(false)
+
+  const locked = !isEpisodeOpen(finaleEp, season)
 
   useEffect(() => {
     api
@@ -1238,6 +1234,13 @@ function FinaleBallot({
         setEarlyBoot(pred.early_boot_contestant_id ?? '')
         setFireLoss(pred.fire_loss_contestant_id ?? '')
         setWinner(pred.winner_contestant_id ?? '')
+        setHasSaved(
+          Boolean(
+            pred.early_boot_contestant_id ??
+              pred.fire_loss_contestant_id ??
+              pred.winner_contestant_id,
+          ),
+        )
       })
       .catch(() => {
         // No prediction yet — form starts empty
@@ -1287,6 +1290,8 @@ function FinaleBallot({
         winner_contestant_id: winner || null,
       })
       setSaved(true)
+      setHasSaved(Boolean(earlyBoot || fireLoss || winner))
+      setEditing(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
     } finally {
@@ -1294,52 +1299,99 @@ function FinaleBallot({
     }
   }
 
+  const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
+
   return (
     <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-semibold text-gray-900">
           Finale · Episode {finaleEp.episode_number}
         </h3>
-        <span className="text-xs text-gray-400">Locks {formatCentral(finaleEp.picks_lock_at)}</span>
+        <LockBadge
+          lockAt={finaleEp.picks_lock_at}
+          scored={finaleEp.status === 'scored'}
+        />
       </div>
-      <p className="text-xs text-gray-500 mb-4">Make your three finale predictions.</p>
 
-      <div className="space-y-4 mb-4">
-        {picks.map(({ id, label, description, value, onChange }) => (
-          <div key={id}>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-0.5">
-              {label}
-            </label>
-            <p className="text-xs text-gray-400 mb-1.5">{description}</p>
-            <select
-              value={value}
-              onChange={(e) => {
-                onChange(e.target.value)
+      {locked && !hasSaved ? (
+        <p className="text-sm text-gray-600 mt-2">
+          No ballot submitted — the window has closed.
+        </p>
+      ) : locked || (hasSaved && !editing) ? (
+        <div className="mt-2 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
+          <p className="text-3xl mb-1">🔥</p>
+          <p className="font-semibold text-green-800 mb-3">
+            {locked ? 'Finale ballot locked' : 'Finale ballot in'}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {picks.map(({ id, label, value }) => (
+              <span
+                key={id}
+                className="text-sm px-3 py-1.5 bg-white border border-green-200 rounded-lg text-left"
+              >
+                <span className="block text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                  {label}
+                </span>
+                <span className="font-medium text-gray-800">
+                  {value ? nameOf(value) : 'No pick'}
+                </span>
+              </span>
+            ))}
+          </div>
+          {!locked && (
+            <button
+              onClick={() => {
+                setEditing(true)
                 setSaved(false)
               }}
-              className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+              className="mt-4 px-4 py-1.5 text-sm font-medium text-green-800 bg-white border border-green-300 rounded-lg hover:bg-green-100 transition-colors"
             >
-              <option value="">No pick</option>
-              {alive.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              Edit ballot
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-gray-500 mb-4">Make your three finale predictions.</p>
+
+          <div className="space-y-4 mb-4">
+            {picks.map(({ id, label, description, value, onChange }) => (
+              <div key={id}>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-0.5">
+                  {label}
+                </label>
+                <p className="text-xs text-gray-400 mb-1.5">{description}</p>
+                <select
+                  value={value}
+                  onChange={(e) => {
+                    onChange(e.target.value)
+                    setSaved(false)
+                  }}
+                  className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">No pick</option>
+                  {alive.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-      {saved && <p className="text-green-600 text-sm mb-3">Ballot saved.</p>}
+          {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+          {saved && <p className="text-green-600 text-sm mb-3">Ballot saved.</p>}
 
-      <button
-        onClick={() => void submitBallot()}
-        disabled={submitting}
-        className="w-full px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
-      >
-        {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
-      </button>
+          <button
+            onClick={() => void submitBallot()}
+            disabled={submitting}
+            className="w-full px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
+          >
+            {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
+          </button>
+        </>
+      )}
     </div>
   )
 }
