@@ -151,3 +151,44 @@ def test_winner_pick_blocked_in_ss_mode(client, db_conn, current_user):
     )
     assert r.status_code == 400
     assert "Sole Survivor" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_ss_lock_falls_back_to_advantage_lock(client, db_conn, current_user):
+    """Unset ss_lock defers to the advantage lock (2026-07-19 retiming)."""
+    season = insert_season(
+        db_conn,
+        winner_mode="sole_survivor",
+        roster_lock_episode=1,
+        merge_episode=3,
+        advantage_lock_episode=6,
+    )
+    insert_episode(db_conn, season["id"], episode_number=6, picks_lock_at=PAST)
+    a = insert_contestant(db_conn, season["id"], "A")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
+    r = client.post(
+        f"/seasons/{season['id']}/sole-survivor", json={"contestant_id": str(a["id"])}
+    )
+    assert r.status_code == 400
+    assert "closed" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_ss_lock_falls_back_to_finale(client, db_conn, current_user):
+    """No ss lock, no advantage lock: designation stays open until the finale
+    locks — even past the swap lock."""
+    season = insert_season(
+        db_conn,
+        winner_mode="sole_survivor",
+        roster_lock_episode=1,
+        merge_episode=3,
+        swap_lock_episode=4,
+    )
+    insert_episode(db_conn, season["id"], episode_number=5)
+    insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
+    a = insert_contestant(db_conn, season["id"], "A")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
+    r = client.post(
+        f"/seasons/{season['id']}/sole-survivor", json={"contestant_id": str(a["id"])}
+    )
+    assert r.status_code == 200
