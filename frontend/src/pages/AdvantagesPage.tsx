@@ -202,7 +202,7 @@ export function AdvantagesPage() {
                     to="/my-season"
                     className="inline-block px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg hover:bg-jungle-700 transition-colors"
                   >
-                    Swap on My Season
+                    Swap on My Tribe
                   </Link>
                   <span className="text-xs text-gray-400">
                     {swapsUsed} of {season.max_swaps} used
@@ -241,7 +241,7 @@ export function AdvantagesPage() {
             ) : (
               // Play everything on My Season (roster doubles in the roster
               // section, vote doubles / extra votes in the Weekly Votes section).
-              <p className="text-xs text-gray-500 mt-1">Use it on the My Season page.</p>
+              <p className="text-xs text-gray-500 mt-1">Use it on the My Tribe page.</p>
             )}
           </div>
         ))}

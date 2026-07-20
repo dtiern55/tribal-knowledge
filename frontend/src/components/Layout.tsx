@@ -13,10 +13,10 @@ import {
 // Primary destinations. On desktop they sit inline in the top bar; on phones
 // they become a fixed bottom tab bar (thumb-reachable, can't overflow).
 const PRIMARY = [
-  { to: '/', label: 'My Season', Icon: PalmIcon, end: true },
+  { to: '/', label: 'My Tribe', Icon: PalmIcon, end: true },
+  { to: '/advantages', label: 'Advantages', Icon: TicketIcon, end: false },
   { to: '/standings', label: 'Standings', Icon: TrophyIcon, end: false },
   { to: '/cast', label: 'Cast', Icon: UsersIcon, end: false },
-  { to: '/advantages', label: 'Advantages', Icon: TicketIcon, end: false },
   { to: '/rules', label: 'Rules', Icon: BookIcon, end: false },
 ]
 
