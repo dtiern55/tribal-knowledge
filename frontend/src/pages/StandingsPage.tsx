@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { api } from '../lib/api'
+import { api, getActiveSeason, pinSeason } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { Season, StandingEntry } from '../types'
 
@@ -48,18 +48,22 @@ export function StandingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Season list drives the selector; default to the active (else latest) season.
+  // Season list drives the selector; default to the pinned/active season and
+  // pin changes so the rest of the app follows the pick.
   useEffect(() => {
-    api
-      .get<Season[]>('/seasons')
-      .then((ss) => {
+    Promise.all([api.get<Season[]>('/seasons'), getActiveSeason()])
+      .then(([ss, current]) => {
         setSeasons(ss)
-        const active = ss.find((s) => s.status === 'active') ?? ss.at(-1)
-        setSelectedId(active?.id ?? '')
+        setSelectedId(current?.id ?? '')
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load seasons'))
       .finally(() => setLoading(false))
   }, [])
+
+  function selectSeason(id: string) {
+    setSelectedId(id)
+    pinSeason(id, seasons)
+  }
 
   useEffect(() => {
     if (!selectedId) return
@@ -85,7 +89,7 @@ export function StandingsPage() {
         {seasons.length > 1 && (
           <select
             value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
+            onChange={(e) => selectSeason(e.target.value)}
             className="border border-sand-200 rounded-lg px-2 py-1 text-sm bg-white"
           >
             {seasons
