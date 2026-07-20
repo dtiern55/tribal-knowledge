@@ -21,6 +21,7 @@ import argparse
 import os
 import re
 import sys
+import time
 
 import httpx
 from dotenv import load_dotenv
@@ -54,8 +55,44 @@ def tvmaze_person(query: str) -> tuple[str, str] | None:
     for hit in r.json():
         person = hit["person"]
         if person.get("image"):
-            return person["name"], person["image"]["medium"]
+            # full-res original: face detection needs the pixels
+            return person["name"], person["image"]["original"]
     return None
+
+
+def face_crop(img_bytes: bytes) -> bytes:
+    """Square crop around the largest detected face, resized to ~400px (#187).
+
+    TVmaze/wiki framing is inconsistent (headshots mixed with full-body promo
+    shots); largest-face Haar detection + a generous margin normalizes both.
+    No face found → the image passes through untouched.
+    """
+    import cv2
+    import numpy as np
+
+    img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return img_bytes
+    faces = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    ).detectMultiScale(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 1.1, 6)
+    ih, iw = img.shape[:2]
+    # promo shots keep the head in the top half — anything lower is a
+    # false positive (a torso "face" cropped one image to legs and sand)
+    faces = [f for f in faces if f[1] + f[3] / 2 < ih * 0.55]
+    crop = img
+    if len(faces) > 0:
+        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+        # face plus hair and shoulders, biased slightly upward
+        size = min(int(h * 2.6), ih, iw)
+        cx, cy = x + w // 2, y + h // 2 - int(h * 0.15)
+        x0 = max(0, min(cx - size // 2, iw - size))
+        y0 = max(0, min(cy - size // 2, ih - size))
+        crop = img[y0 : y0 + size, x0 : x0 + size]
+    if crop.shape[0] > 400:
+        crop = cv2.resize(crop, (round(400 * crop.shape[1] / crop.shape[0]), 400))
+    ok, out = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    return out.tobytes() if ok else img_bytes
 
 
 def wiki_file_url(season: int, full_name: str) -> str | None:
@@ -135,6 +172,7 @@ def main() -> None:
     )
 
     names = full_names(args.survivor_season)
+    run_stamp = int(time.time())
     missing = []
     for c in cast:
         if c.get("image_url") and not args.replace:
@@ -157,20 +195,23 @@ def main() -> None:
             continue
         img = httpx.get(src, headers=UA, timeout=60, follow_redirects=True)
         img.raise_for_status()
+        content = face_crop(img.content)
         slug = re.sub(r"[^a-z0-9]+", "-", c["name"].lower()).strip("-")
         path = f"s{args.survivor_season}/{slug}.jpg"
         up = storage.post(
             f"/object/{BUCKET}/{path}",
-            content=img.content,
+            content=content,
             headers={"Content-Type": "image/jpeg", "x-upsert": "true"},
         )
         up.raise_for_status()
         # ?v= busts browser/CDN caches when an existing photo is replaced
-        public_url = f"{supabase_url}/storage/v1/object/public/{BUCKET}/{path}?v=tvmaze"
+        public_url = (
+            f"{supabase_url}/storage/v1/object/public/{BUCKET}/{path}?v={run_stamp}"
+        )
         api.patch(
             f"/contestants/{c['id']}", json={"image_url": public_url}
         ).raise_for_status()
-        print(f"  {c['name']:<24} ok — {label} ({len(img.content) // 1024} KB)")
+        print(f"  {c['name']:<24} ok — {label} ({len(content) // 1024} KB)")
 
     if not args.apply:
         print("\ndry run — re-run with --apply to upload")

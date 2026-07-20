@@ -16,6 +16,7 @@ dev = [
     "ruff",
     "pytest",
     "httpx",
+    "opencv-python-headless<5",
 ]
 
 [tool.black]
