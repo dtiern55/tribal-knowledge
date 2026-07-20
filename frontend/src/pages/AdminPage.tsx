@@ -945,6 +945,155 @@ function EpisodePanel({
 
 // ─── Episodes section ─────────────────────────────────────────────────────────
 
+// Review-gated TVmaze episode proposal (#197)
+interface EpisodeProposal {
+  episodes: {
+    episode_number: number
+    name: string
+    air_date: string
+    picks_lock_at: string
+    is_finale: boolean
+    exists: boolean
+  }[]
+  source: string
+}
+
+/** Create a season's episodes from TVmaze's schedule (#197): real air dates,
+ * picks_lock_at defaulting to the airstamp; the admin reviews then creates
+ * through the normal episode endpoint. */
+function EpisodeProposalSection({
+  season,
+  episodes,
+  onCreated,
+}: {
+  season: Season
+  episodes: Episode[]
+  onCreated: (eps: Episode[]) => void
+}) {
+  const [tvmazeSeason, setTvmazeSeason] = useState('')
+  const [proposal, setProposal] = useState<EpisodeProposal | null>(null)
+  const [checked, setChecked] = useState<Set<number>>(new Set())
+  const [loading, setLoading] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  function load() {
+    setSuccess(null)
+    void run(setLoading, setError, async () => {
+      const q = tvmazeSeason ? `?tvmaze_season=${tvmazeSeason}` : ''
+      const p = await api.get<EpisodeProposal>(
+        `/seasons/${season.id}/episode-proposal${q}`,
+      )
+      setProposal(p)
+      // Already-created episode numbers default unchecked — creating them
+      // again would 409.
+      setChecked(
+        new Set(p.episodes.filter((e) => !e.exists).map((e) => e.episode_number)),
+      )
+    })
+  }
+
+  function toggle(n: number) {
+    setChecked((prev) => {
+      const next = new Set(prev)
+      if (next.has(n)) next.delete(n)
+      else next.add(n)
+      return next
+    })
+  }
+
+  function apply() {
+    if (!proposal) return
+    void run(setApplying, setError, async () => {
+      const created: Episode[] = []
+      for (const e of proposal.episodes) {
+        if (!checked.has(e.episode_number)) continue
+        created.push(
+          await api.post<Episode>(`/seasons/${season.id}/episodes`, {
+            episode_number: e.episode_number,
+            air_date: e.air_date,
+            picks_lock_at: e.picks_lock_at,
+            max_elimination_picks: 3,
+            is_finale: e.is_finale,
+          }),
+        )
+      }
+      onCreated(
+        [...episodes, ...created].sort((a, b) => a.episode_number - b.episode_number),
+      )
+      setProposal(null)
+      setSuccess(`Created ${created.length} episode${created.length === 1 ? '' : 's'}.`)
+    })
+  }
+
+  return (
+    <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
+      <p className="text-xs font-semibold text-gray-500">Create episodes from TVmaze</p>
+      {!proposal ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="number"
+            placeholder="US season # (default: this season)"
+            value={tvmazeSeason}
+            onChange={(e) => setTvmazeSeason(e.target.value)}
+            className="w-64 border border-sand-200 rounded px-2 py-1 text-sm"
+          />
+          <ActionBtn variant="secondary" onClick={load} disabled={loading}>
+            {loading ? 'Loading…' : 'Load schedule'}
+          </ActionBtn>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-400">
+            {proposal.source} — review, uncheck anything wrong, then create.
+            Picks lock at air time; episodes are created with 3 max votes —
+            adjust per episode after. Data:{' '}
+            <a
+              href="https://www.tvmaze.com"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              TVmaze
+            </a>{' '}
+            (CC BY-SA).
+          </p>
+          <div className="space-y-1">
+            {proposal.episodes.map((e) => (
+              <label key={e.episode_number} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={checked.has(e.episode_number)}
+                  onChange={() => toggle(e.episode_number)}
+                />
+                <span className={e.exists ? 'text-gray-400' : 'text-gray-700'}>
+                  Ep {e.episode_number} · {e.air_date} · locks{' '}
+                  {utcToCentralLocal(e.picks_lock_at).replace('T', ' ')} CT
+                  {e.is_finale && ' · finale'}
+                  {e.exists && ' · already created'}
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <ActionBtn onClick={apply} disabled={applying || checked.size === 0}>
+              {applying
+                ? 'Creating…'
+                : `Create ${checked.size} episode${checked.size === 1 ? '' : 's'}`}
+            </ActionBtn>
+            <ActionBtn variant="secondary" onClick={() => setProposal(null)}>
+              Cancel
+            </ActionBtn>
+          </div>
+        </div>
+      )}
+      <ErrorMsg msg={error} />
+      <SuccessMsg msg={success} />
+    </div>
+  )
+}
+
 function EpisodesSection({
   season,
   episodes,
@@ -1110,6 +1259,8 @@ function EpisodesSection({
           + Add episode
         </button>
       )}
+
+      <EpisodeProposalSection season={season} episodes={episodes} onCreated={onUpdated} />
     </div>
   )
 }
@@ -1197,7 +1348,8 @@ export function AdminPage() {
         const [cs, eps, types, settings] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
-          api.get<ScoringEventType[]>('/scoring-event-types'),
+          // Season-scoped since #170's snapshot; the global route is gone
+          api.get<ScoringEventType[]>(`/seasons/${active.id}/scoring-event-types`),
           api.get<LeagueSettings>('/league-settings'),
         ])
         setContestants(cs)

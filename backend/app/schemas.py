@@ -231,6 +231,22 @@ class ImportProposal(BaseModel):
     source: str
 
 
+class EpisodeProposalItem(BaseModel):
+    episode_number: int
+    name: str
+    air_date: date
+    # Defaults to the TVmaze airstamp; admin adjusts per episode as usual
+    picks_lock_at: datetime
+    is_finale: bool
+    # Episode number already exists in the league season
+    exists: bool
+
+
+class EpisodeProposal(BaseModel):
+    episodes: list[EpisodeProposalItem]
+    source: str
+
+
 class ContestantEventStat(BaseModel):
     label: str
     points: int

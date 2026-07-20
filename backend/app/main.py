@@ -21,6 +21,7 @@ from app.routers import (
     standings,
     survivor_import,
     tokens,
+    tvmaze,
     winner_picks,
 )
 
@@ -57,6 +58,7 @@ app.include_router(standings.router)
 app.include_router(league_settings.router)
 app.include_router(rules.router)
 app.include_router(survivor_import.router)
+app.include_router(tvmaze.router)
 
 
 @app.get("/health")
