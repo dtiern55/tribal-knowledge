@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
+import { Torch } from '../components/Torch'
 import type { CastMember, Season } from '../types'
 
 // Full cast list: every contestant's base gameplay score (no advantages
@@ -53,7 +54,11 @@ export function CastPage() {
                 </span>
               ) : (
                 c.eliminated_in_episode != null && (
-                  <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded"
+                    title={`Voted out · episode ${c.eliminated_in_episode}`}
+                  >
+                    <Torch lit={false} className="w-3 h-3" />
                     Out ep {c.eliminated_in_episode}
                   </span>
                 )
