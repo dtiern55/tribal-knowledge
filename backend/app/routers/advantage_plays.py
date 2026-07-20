@@ -20,6 +20,41 @@ router = APIRouter(tags=["advantage_plays"])
 _DOUBLE_TYPES = {"double_roster_points", "double_vote_points"}
 
 
+def _roster_swap_buy_cost(cur, user_id: UUID, season_id: UUID) -> int:
+    """Price a roster_swap credit from the season's swap economics (#202).
+
+    Committed swaps (closed roster rows) plus credits already held both count
+    against max_swaps; the first free_swaps of them are free. Callers must
+    already hold the user/season advisory lock so this count-then-cap is safe.
+    """
+    cur.execute(
+        "select free_swaps, swap_token_cost, max_swaps from seasons where id = %s",
+        [str(season_id)],
+    )
+    season = cur.fetchone()
+    cur.execute(
+        "select count(*) as n from roster_picks"
+        " where user_id = %s and season_id = %s"
+        " and active_until_episode is not null",
+        [str(user_id), str(season_id)],
+    )
+    committed = cur.fetchone()["n"]
+    cur.execute(
+        "select count(*) as n from advantage_plays"
+        " where user_id = %s and season_id = %s"
+        " and advantage_type = 'roster_swap' and episode_id is null",
+        [str(user_id), str(season_id)],
+    )
+    held = cur.fetchone()["n"]
+    acquired = committed + held
+    if acquired >= season["max_swaps"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Swap limit reached ({season['max_swaps']} per season)",
+        )
+    return 0 if acquired < season["free_swaps"] else season["swap_token_cost"]
+
+
 @router.get("/advantage-types", response_model=list[AdvantageType])
 def list_advantage_types(_: UUID = Depends(get_current_user)):
     with database.get_db() as conn:
@@ -104,31 +139,37 @@ def buy_advantage(
                     status_code=400,
                     detail="Advantages can no longer be bought this season",
                 )
-            cur.execute(
-                "select advantage_lock_episode from seasons where id = %s",
-                [str(season_id)],
-            )
-            adv_lock = cur.fetchone()["advantage_lock_episode"]
-            if advantages_locked(
-                episode["episode_number"], episode["is_finale"], adv_lock
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Advantages can no longer be bought this season",
-                )
 
-            cur.execute(
-                "select token_cost from advantage_types"
-                " where advantage_type = %s and enabled = true",
-                [body.advantage_type],
-            )
-            advantage = cur.fetchone()
-            if not advantage:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unknown advantage type: {body.advantage_type}",
+            if body.advantage_type == "roster_swap":
+                # Swap credits price off the season's swap economics, not the
+                # flat advantage_types cost, and use their own cap (#202).
+                cost = _roster_swap_buy_cost(cur, user_id, season_id)
+            else:
+                cur.execute(
+                    "select advantage_lock_episode from seasons where id = %s",
+                    [str(season_id)],
                 )
-            cost = advantage["token_cost"]
+                adv_lock = cur.fetchone()["advantage_lock_episode"]
+                if advantages_locked(
+                    episode["episode_number"], episode["is_finale"], adv_lock
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Advantages can no longer be bought this season",
+                    )
+
+                cur.execute(
+                    "select token_cost from advantage_types"
+                    " where advantage_type = %s and enabled = true",
+                    [body.advantage_type],
+                )
+                advantage = cur.fetchone()
+                if not advantage:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Unknown advantage type: {body.advantage_type}",
+                    )
+                cost = advantage["token_cost"]
 
             cur.execute(
                 """
