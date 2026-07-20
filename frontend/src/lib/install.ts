@@ -40,3 +40,19 @@ export function isInstalled(): boolean {
 export function isIos(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
+
+// Post-join install nudge flag (#184): armed once at /join, cleared forever
+// on dismiss or install — never nags twice.
+const NUDGE_KEY = 'install-nudge'
+
+export function armInstallNudge(): void {
+  if (!isInstalled()) localStorage.setItem(NUDGE_KEY, 'pending')
+}
+
+export function installNudgePending(): boolean {
+  return localStorage.getItem(NUDGE_KEY) === 'pending'
+}
+
+export function dismissInstallNudge(): void {
+  localStorage.setItem(NUDGE_KEY, 'done')
+}
