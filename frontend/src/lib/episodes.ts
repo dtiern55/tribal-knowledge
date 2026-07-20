@@ -19,6 +19,31 @@ export function advantagesLocked(ep: Episode, season: Season): boolean {
     : ep.is_finale
 }
 
+// Effective Sole Survivor lock mirrors the backend chain (2026-07-19
+// decision): explicit ss_lock_episode, else the advantage lock, else the
+// finale. Mirrors backend app/locking.py.
+export function ssLockEpisodeNumber(season: Season, episodes: Episode[]): number | null {
+  return (
+    season.ss_lock_episode ??
+    season.advantage_lock_episode ??
+    episodes.find((e) => e.is_finale)?.episode_number ??
+    null
+  )
+}
+
+// The designation window stays open until the effective lock episode locks
+// picks or is scored.
+export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean {
+  if (season.status === 'completed') return false
+  const lockEp = ssLockEpisodeNumber(season, episodes)
+  if (lockEp == null) return false
+  const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
+  return (
+    lockEpisode == null ||
+    (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date())
+  )
+}
+
 // Swaps lock once the next open episode reaches swap_lock_episode; unset falls
 // back to merge + 2, and the finale never accepts swaps (#84, #163). Mirrors
 // backend app/locking.py.
