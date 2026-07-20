@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
@@ -107,7 +106,9 @@ export function AdvantagesPage() {
   if (!season) return <p className="text-gray-500">No active season.</p>
 
   const byType = new Map(types.map((t) => [t.advantage_type, t]))
-  const label = (t: string) => byType.get(t)?.label ?? t
+  // roster_swap isn't in advantage_types (its cost is per-season), so name it here.
+  const label = (t: string) =>
+    byType.get(t)?.label ?? (t === 'roster_swap' ? 'Roster Swap' : t)
 
   const inventory = ownPlays.filter((p) => p.episode_id === null)
   const used = ownPlays.filter((p) => p.episode_id !== null)
@@ -120,12 +121,16 @@ export function AdvantagesPage() {
   const spent = used.filter((p) => !inPlay.includes(p))
   const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
   const advLocked = nextOpen ? advantagesLocked(nextOpen, season) : false
-  // Swap presented alongside advantages (#156): same buy-here / use-on-My-Season
-  // mental model, though the backend swap stays a single atomic call.
+  // Swap is a bought-then-used advantage now (#202): buy a credit here, spend
+  // it on the My Tribe page. Committed swaps + credits in hand both count
+  // against the cap, and the first free_swaps of them are free.
   const swapsUsed = roster.filter((r) => r.active_until_episode !== null).length
-  const freeSwapsLeft = Math.max(0, season.free_swaps - swapsUsed)
+  const swapCredits = inventory.filter((p) => p.advantage_type === 'roster_swap')
+  const swapsAcquired = swapsUsed + swapCredits.length
+  const freeSwapsLeft = Math.max(0, season.free_swaps - swapsAcquired)
+  const swapBuyCost = freeSwapsLeft > 0 ? 0 : season.swap_token_cost
   const swapLocked = swapsLocked(season, episodes)
-  const swapCapReached = swapsUsed >= season.max_swaps
+  const swapCapReached = swapsAcquired >= season.max_swaps
   // The last episode advantages can still be played (one before the cutoff).
   const lastPlayable =
     !advLocked &&
@@ -174,8 +179,8 @@ export function AdvantagesPage() {
               </div>
             ))}
 
-            {/* Swaps are token spends too — surfaced here so every capability
-                is bought/discovered in one place (#156). */}
+            {/* Swap credits are bought here like any advantage, then spent on
+                the My Tribe page (#202); pricing/cap stay per-season. */}
             <div className="p-4 bg-white border border-sand-200 rounded-xl">
               <div className="flex items-center justify-between mb-1">
                 <p className="font-semibold text-gray-900">Roster Swap</p>
@@ -186,7 +191,8 @@ export function AdvantagesPage() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mb-3">
-                Replace one of your roster picks with an unrostered castaway.
+                Replace one of your roster picks with an unrostered castaway. Buy
+                here, then use it on the My Tribe page.
               </p>
               {swapLocked ? (
                 <p className="text-xs text-amber-600">
@@ -194,18 +200,20 @@ export function AdvantagesPage() {
                 </p>
               ) : swapCapReached ? (
                 <p className="text-xs text-gray-500">
-                  Swap limit reached — {swapsUsed} of {season.max_swaps} used.
+                  Swap limit reached — {swapsAcquired} of {season.max_swaps} used.
                 </p>
               ) : (
                 <div className="flex items-center justify-between">
-                  <Link
-                    to="/my-season"
-                    className="inline-block px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg hover:bg-jungle-700 transition-colors"
+                  <button
+                    onClick={() => void buy('roster_swap', swapBuyCost)}
+                    disabled={balance < swapBuyCost || busy === 'buy:roster_swap'}
+                    className="px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
                   >
-                    Swap on My Tribe
-                  </Link>
+                    {busy === 'buy:roster_swap' ? 'Buying…' : 'Buy'}
+                  </button>
                   <span className="text-xs text-gray-400">
-                    {swapsUsed} of {season.max_swaps} used
+                    {swapCredits.length > 0 && `${swapCredits.length} ready · `}
+                    {swapsAcquired} of {season.max_swaps} used
                   </span>
                 </div>
               )}

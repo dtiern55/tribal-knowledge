@@ -286,8 +286,12 @@ function RosterSection({
   // locked (#190).
   const ssOpen = ssDesignationOpen(season, episodes)
 
-  // Swap gating (issue #84). A swapped-out pick = one swap used.
+  // Swap gating (issue #84). A swapped-out pick = one swap used. Swaps now
+  // spend a credit bought on the Advantages page (#202).
   const swapsUsed = swappedRoster.length
+  const swapCredits = plays.filter(
+    (p) => p.episode_id === null && p.advantage_type === 'roster_swap',
+  ).length
   const swapLocked = swapsLocked(season, episodes)
   const swapCapReached = swapsUsed >= season.max_swaps
 
@@ -346,7 +350,13 @@ function RosterSection({
         old_contestant_id: swapOld,
         new_contestant_id: swapNew,
       })
-      setRoster(await api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`))
+      // Roster changes and a swap credit gets spent — refresh both (#202).
+      const [picks, ownPlays] = await Promise.all([
+        api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
+        api.get<AdvantagePlay[]>(`/seasons/${season.id}/advantage-plays/${userId}`),
+      ])
+      setRoster(picks)
+      setPlays(ownPlays)
       setSwapOld('')
       setSwapNew('')
     } catch (e) {
@@ -551,15 +561,10 @@ function RosterSection({
 
           {season.status !== 'completed' && (
             <div className="pt-4 border-t border-gray-100">
-              <SectionTitle>
-                Swap a Roster Pick (
-                {Math.max(0, season.free_swaps - swapsUsed) > 0
-                  ? `${season.free_swaps - swapsUsed} free, then ${season.swap_token_cost} tokens each`
-                  : `costs ${season.swap_token_cost} tokens`}
-                )
-              </SectionTitle>
+              <SectionTitle>Swap a Roster Pick</SectionTitle>
               <p className="text-xs text-gray-400 mb-3">
-                {swapsUsed} of {season.max_swaps} swaps used
+                {swapCredits} swap {swapCredits === 1 ? 'credit' : 'credits'} ready ·{' '}
+                {swapsUsed} of {season.max_swaps} used
                 {season.swap_lock_episode != null &&
                   ` · swaps lock at episode ${season.swap_lock_episode}`}
               </p>
@@ -570,6 +575,10 @@ function RosterSection({
               ) : swapCapReached ? (
                 <p className="text-sm text-gray-500">
                   Swap limit reached — no swaps left this season.
+                </p>
+              ) : swapCredits === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No swap credits — buy one on the Advantages page to swap here.
                 </p>
               ) : upcomingEpisodes.length > 0 && swapCandidates.length > 0 ? (
                 <div className="space-y-3">

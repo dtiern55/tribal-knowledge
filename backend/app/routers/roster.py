@@ -229,21 +229,6 @@ def swap_roster_pick(
                     detail="Roster swaps are locked for the rest of the season",
                 )
 
-            # Cap on true mid-season swaps (issue #84). A swapped-out pick is the
-            # only thing that closes an active range, so counting them = swaps used.
-            cur.execute(
-                "select count(*) as n from roster_picks"
-                " where user_id = %s and season_id = %s"
-                " and active_until_episode is not null",
-                [str(user_id), str(season_id)],
-            )
-            swaps_used = cur.fetchone()["n"]
-            if swaps_used >= season["max_swaps"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Swap limit reached ({season['max_swaps']} per season)",
-                )
-
             cur.execute(
                 "select id, name from contestants where id = %s and season_id = %s",
                 [str(body.new_contestant_id), str(season_id)],
@@ -277,31 +262,28 @@ def swap_roster_pick(
                     detail="Contestant has already been on this roster",
                 )
 
-            # Swaps cost tokens, not points (2026-07-18 decision) — the
-            # advisory lock above makes this check-then-spend safe. The old
-            # pick's swap_penalty_points stays 0; nonzero values on closed
-            # rows are the pre-decision historical record scoring still sums.
-            # The first free_swaps each season charge nothing (#159).
-            free = swaps_used < season["free_swaps"]
-            cost = 0 if free else season["swap_token_cost"]
-            if cost > 0:
-                cur.execute(
-                    """
-                    select coalesce(sum(amount), 0) as balance
-                    from token_transactions
-                    where user_id = %s and season_id = %s
-                    """,
-                    [str(user_id), str(season_id)],
+            # A swap consumes one pre-bought roster_swap credit (#202). The
+            # per-season cap and free/paid pricing were settled when the credit
+            # was bought on the Advantages page, so nothing is charged here.
+            # The old pick's swap_penalty_points stays 0; nonzero values on
+            # closed rows are the pre-token-era record scoring still sums.
+            cur.execute(
+                """
+                select id from advantage_plays
+                where user_id = %s and season_id = %s
+                  and advantage_type = 'roster_swap' and episode_id is null
+                order by created_at
+                limit 1
+                for update
+                """,
+                [str(user_id), str(season_id)],
+            )
+            credit = cur.fetchone()
+            if not credit:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Buy a roster swap on the Advantages page first",
                 )
-                balance = cur.fetchone()["balance"]
-                if balance < cost:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Insufficient tokens: swapping costs {cost},"
-                            f" balance {balance}"
-                        ),
-                    )
 
             cur.execute(
                 """
@@ -328,25 +310,17 @@ def swap_roster_pick(
             )
             new_pick = cur.fetchone()
 
-            if cost > 0:
-                cur.execute(
-                    "select name from contestants where id = %s",
-                    [str(old_pick["contestant_id"])],
-                )
-                old_name = cur.fetchone()["name"]
-                cur.execute(
-                    """
-                    insert into token_transactions
-                        (user_id, season_id, transaction_type, amount, notes)
-                    values (%s, %s, 'roster_swap', %s, %s)
-                    """,
-                    [
-                        str(user_id),
-                        str(season_id),
-                        -cost,
-                        f"Swap: {old_name} → {new_contestant['name']}",
-                    ],
-                )
+            # Spend the credit: bind it to the episode the swap takes effect in,
+            # tagged with the incoming contestant (keeps it distinct from any
+            # other swap that same episode under the per-target unique index).
+            cur.execute(
+                """
+                update advantage_plays
+                set episode_id = %s, target_contestant_id = %s
+                where id = %s
+                """,
+                [episode["id"], str(body.new_contestant_id), credit["id"]],
+            )
 
             return new_pick
 
