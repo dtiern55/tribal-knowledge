@@ -216,6 +216,15 @@ export function RulesPage() {
           ))}
         </ul>
       </Section>
+
+      {/* CC BY-SA attribution for episode schedule + contestant photos (#197/#187) */}
+      <p className="text-xs text-gray-400 mt-8">
+        Episode schedule and contestant photos via{' '}
+        <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer" className="underline">
+          TVmaze
+        </a>{' '}
+        (CC BY-SA).
+      </p>
     </div>
   )
 }
