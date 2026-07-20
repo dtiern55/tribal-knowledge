@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
-import { ContestantAvatar } from '../components/ContestantAvatar'
+import { RosterCard } from '../components/RosterCard'
 import type {
   AdvantagePlay,
   Contestant,
@@ -145,46 +145,28 @@ export function TeamPage() {
       ) : active.length === 0 ? (
         <p className="text-sm text-gray-500">No roster yet.</p>
       ) : (
-        <ul className="space-y-2">
-          {active.map((pick) => {
-            const c = contestantMap.get(pick.contestant_id)
-            return (
-              <li
-                key={pick.id}
-                className="flex items-center justify-between p-3 bg-white border border-sand-200 rounded-lg"
-              >
-                <Link
-                  to={`/contestants/${pick.contestant_id}`}
-                  className="flex items-center gap-2 font-medium text-gray-900 hover:text-ocean-700"
-                >
-                  <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
-                  {c?.name ?? '—'}
-                  {pick.is_sole_survivor && (
-                    <span
-                      className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold"
-                      title="Sole Survivor — finale points count double"
-                    >
-                      SS
-                    </span>
-                  )}
-                  {pick.active_from_episode > rosterBaseEp && (
-                    <span
-                      className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
-                      title={`Swapped in from episode ${pick.active_from_episode}`}
-                    >
-                      ⇄ ep {pick.active_from_episode}
-                    </span>
-                  )}
-                  {c?.eliminated_in_episode != null && (
-                    <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
-                      Out ep {c.eliminated_in_episode}
-                    </span>
-                  )}
-                </Link>
-                <Points value={rosterPoints.get(pick.contestant_id)} />
-              </li>
+        <ul className="space-y-2.5">
+          {/* Another player's SS flag is only served post-lock, so the solid
+              gold outline is always the right state here. */}
+          {/* Boots sink to the bottom (#190); stable sort keeps the rest in place. */}
+          {[...active]
+            .sort(
+              (a, b) =>
+                Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
+                Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null),
             )
-          })}
+            .map((pick) => (
+            <RosterCard
+              key={pick.id}
+              contestantId={pick.contestant_id}
+              contestant={contestantMap.get(pick.contestant_id)}
+              isSoleSurvivor={pick.is_sole_survivor}
+              swappedInEpisode={
+                pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
+              }
+              right={<Points value={rosterPoints.get(pick.contestant_id)} />}
+            />
+          ))}
           {/* Played doubles earn separate line items so contestant rows show
               BASE points, mirroring the owner's My Season view (#136/#160). */}
           {bonuses.map((p) => (

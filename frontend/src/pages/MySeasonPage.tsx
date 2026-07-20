@@ -3,7 +3,8 @@ import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
-import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
+import { advantagesLocked, isEpisodeOpen, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { RosterCard } from '../components/RosterCard'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -281,6 +282,10 @@ function RosterSection({
     (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
   )
 
+  // Light gold SS outline while the designation window is open, solid once
+  // locked (#190).
+  const ssOpen = ssDesignationOpen(season, episodes)
+
   // Swap gating (issue #84). A swapped-out pick = one swap used.
   const swapsUsed = swappedRoster.length
   const swapLocked = swapsLocked(season, episodes)
@@ -399,49 +404,28 @@ function RosterSection({
 
       {!windowOpen && hasRoster ? (
         <div className="space-y-6">
-          <ul className="space-y-2">
-            {activeRoster.map((pick) => {
-              const c = contestantMap.get(pick.contestant_id)
-              return (
-                <li
-                  key={pick.id}
-                  className="flex items-center justify-between p-3 bg-white border border-sand-200 rounded-lg"
-                >
-                  <Link
-                    to={`/contestants/${pick.contestant_id}`}
-                    className="flex items-center gap-2 font-medium text-gray-900 hover:text-ocean-700"
-                  >
-                    <ContestantAvatar name={c?.name ?? '—'} imageUrl={c?.image_url ?? null} />
-                    {c?.name ?? '—'}
-                    {pick.is_sole_survivor && (
-                      <span
-                        className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold"
-                        title="Your Sole Survivor — finale points count double"
-                      >
-                        SS
-                      </span>
-                    )}
-                    {pick.active_from_episode > rosterBaseEp && (
-                      <span
-                        className="text-[10px] uppercase tracking-wide bg-ocean-50 text-ocean-600 px-1.5 py-0.5 rounded"
-                        title={`Swapped in from episode ${pick.active_from_episode}`}
-                      >
-                        ⇄ ep {pick.active_from_episode}
-                      </span>
-                    )}
-                    {c?.eliminated_in_episode != null && (
-                      <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
-                        Out ep {c.eliminated_in_episode}
-                      </span>
-                    )}
-                    {doubledRosterIds.has(pick.contestant_id) && (
-                      <span className="text-ocean-600 font-semibold">×2</span>
-                    )}
-                  </Link>
-                  <Points value={rosterPoints.get(pick.contestant_id)} />
-                </li>
+          <ul className="space-y-2.5">
+            {/* Boots sink to the bottom (#190); stable sort keeps the rest in place. */}
+            {[...activeRoster]
+              .sort(
+                (a, b) =>
+                  Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
+                  Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null),
               )
-            })}
+              .map((pick) => (
+              <RosterCard
+                key={pick.id}
+                contestantId={pick.contestant_id}
+                contestant={contestantMap.get(pick.contestant_id)}
+                isSoleSurvivor={pick.is_sole_survivor}
+                ssWindowOpen={ssOpen}
+                swappedInEpisode={
+                  pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
+                }
+                doubled={doubledRosterIds.has(pick.contestant_id)}
+                right={<Points value={rosterPoints.get(pick.contestant_id)} />}
+              />
+            ))}
             {/* Contestant rows show BASE points; a played double earns its
                 own line so the numbers above never silently inflate (#136). */}
             {plays
@@ -1436,19 +1420,9 @@ function SoleSurvivorSection({
   )
   const designee = roster.find((p) => p.is_sole_survivor)
 
-  // Effective lock mirrors the backend chain (2026-07-19 decision):
-  // explicit, else the advantage lock, else the finale.
-  const lockEp =
-    season.ss_lock_episode ??
-    season.advantage_lock_episode ??
-    episodes.find((e) => e.is_finale)?.episode_number ??
-    null
+  const lockEp = ssLockEpisodeNumber(season, episodes)
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
-  const windowOpen =
-    season.status !== 'completed' &&
-    lockEp != null &&
-    (lockEpisode == null ||
-      (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
+  const windowOpen = ssDesignationOpen(season, episodes)
 
   async function designate() {
     if (!choice) return
