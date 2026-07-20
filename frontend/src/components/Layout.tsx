@@ -38,7 +38,7 @@ export function Layout() {
         <div className="max-w-5xl mx-auto px-4 flex items-center h-14 gap-6">
           <NavLink
             to="/"
-            className="font-display text-lg md:text-xl tracking-wide leading-none shrink-0"
+            className="font-brand font-bold text-lg md:text-xl tracking-wide leading-none shrink-0"
           >
             <span className="text-ocean-700">TRIBAL</span>{' '}
             <span className="text-jungle-600">KNOWLEDGE</span>

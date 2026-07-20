@@ -41,6 +41,9 @@
   --color-ember-800: #713214;
 
   --font-display: "Anton", "Arial Narrow", system-ui, sans-serif;
+  /* Brand lockup only (the TRIBAL KNOWLEDGE wordmark). Anton stays the
+     workhorse display face for headings. */
+  --font-brand: "Skranji", "Anton", system-ui, sans-serif;
 }
 
 /* Torch-to-jungle gradient stripe: the one loud tribal accent, used at the
