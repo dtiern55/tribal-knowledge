@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import { InstallNudge } from './InstallNudge'
 import {
   BookIcon,
   GearIcon,
@@ -74,6 +75,8 @@ export function Layout() {
           </div>
         </div>
       </nav>
+
+      {authed && <InstallNudge />}
 
       <main className="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8">
         <Outlet />
