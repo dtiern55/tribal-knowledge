@@ -201,6 +201,36 @@ class SeasonUpdateRequest(BaseModel):
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 
 
+class ImportElimination(BaseModel):
+    contestant_id: UUID
+    name: str
+    elimination_type: str
+    result: str
+
+
+class ImportEvent(BaseModel):
+    contestant_id: UUID
+    name: str
+    event_type: str
+    quantity: int
+
+
+class ImportPlacement(BaseModel):
+    contestant_id: UUID
+    name: str
+    placement: int
+
+
+class ImportProposal(BaseModel):
+    eliminations: list[ImportElimination]
+    events: list[ImportEvent]
+    placements: list[ImportPlacement]
+    warnings: list[str]
+    # survivoR names with no matching contestant — their items are dropped
+    unmatched: list[str]
+    source: str
+
+
 class ContestantEventStat(BaseModel):
     label: str
     points: int

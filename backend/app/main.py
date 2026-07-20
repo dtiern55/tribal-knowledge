@@ -19,6 +19,7 @@ from app.routers import (
     scoring_events,
     seasons,
     standings,
+    survivor_import,
     tokens,
     winner_picks,
 )
@@ -55,6 +56,7 @@ app.include_router(winner_picks.router)
 app.include_router(standings.router)
 app.include_router(league_settings.router)
 app.include_router(rules.router)
+app.include_router(survivor_import.router)
 
 
 @app.get("/health")
