@@ -48,7 +48,14 @@ export function ContestantPage() {
         <p className="text-sm text-gray-500">No scored activity yet.</p>
       ) : (
         <div className="space-y-3">
-          {perf.episodes.map((ep) => (
+          {/* Most recent episode first; events that score nothing and pay no
+              tokens (e.g. votes received since 20260723 zeroed them) stay in
+              the DB but are noise here. */}
+          {[...perf.episodes]
+            .sort((a, b) => b.episode_number - a.episode_number)
+            .map((ep) => {
+            const events = ep.events.filter((e) => e.points !== 0 || e.token_value !== 0)
+            return (
             <div key={ep.episode_number} className="p-4 bg-white border border-sand-200 rounded-xl">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-gray-800">Episode {ep.episode_number}</span>
@@ -61,17 +68,17 @@ export function ContestantPage() {
                   {ep.points} pts
                 </span>
               </div>
-              {ep.events.length > 0 && (
+              {events.length > 0 && (
                 <ul className="text-sm text-gray-600 space-y-0.5">
-                  {/* Point-scoring events first, then token/zero-point ones (item 2). */}
-                  {[...ep.events]
+                  {/* Point-scoring events first, then token-only ones (item 2). */}
+                  {[...events]
                     .sort((a, b) => (a.points === 0 ? 1 : 0) - (b.points === 0 ? 1 : 0))
                     .map((e, i) => (
                     <li key={i} className="flex items-center justify-between gap-2">
                       <span>
                         {e.label}
                         {e.quantity > 1 && (
-                          <span className="text-gray-500 font-medium"> — {e.quantity} votes</span>
+                          <span className="text-gray-500 font-medium"> ×{e.quantity}</span>
                         )}
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium">
@@ -84,9 +91,6 @@ export function ContestantPage() {
                         {e.token_value !== 0 && (
                           <span className="text-amber-500">+{e.token_value} tkn</span>
                         )}
-                        {e.points === 0 && e.token_value === 0 && (
-                          <span className="text-gray-400">no points</span>
-                        )}
                       </span>
                     </li>
                   ))}
@@ -98,7 +102,8 @@ export function ContestantPage() {
                 </p>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

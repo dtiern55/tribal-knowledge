@@ -38,8 +38,24 @@ export const api = {
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 }
 
-/** The season every page operates on: the active one, else the most recent. */
+// The Standings season pick sticks app-wide (issue: every page independently
+// snapped back to the default season). Pinning the default clears instead, so
+// nobody stays stuck on an old season once a new one goes live.
+const SEASON_KEY = 'tk-season-id'
+
+export function pinSeason(id: string, seasons: Season[]) {
+  if (id === defaultSeason(seasons)?.id) localStorage.removeItem(SEASON_KEY)
+  else localStorage.setItem(SEASON_KEY, id)
+}
+
+export function defaultSeason(seasons: Season[]): Season | null {
+  return seasons.find((s) => s.status === 'active') ?? seasons.at(-1) ?? null
+}
+
+/** The season every page operates on: the pinned Standings pick if it still
+ * exists, else the active one, else the most recent. */
 export async function getActiveSeason(): Promise<Season | null> {
   const seasons = await api.get<Season[]>('/seasons')
-  return seasons.find((s) => s.status === 'active') ?? seasons.at(-1) ?? null
+  const pinned = localStorage.getItem(SEASON_KEY)
+  return seasons.find((s) => s.id === pinned) ?? defaultSeason(seasons)
 }
