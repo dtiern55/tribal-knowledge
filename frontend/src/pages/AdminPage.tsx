@@ -357,6 +357,226 @@ interface EliminationRow {
   elimination_type: string
 }
 
+// Review-gated survivoR import (#132)
+interface ImportProposal {
+  eliminations: { contestant_id: string; name: string; elimination_type: string; result: string }[]
+  events: { contestant_id: string; name: string; event_type: string; quantity: number }[]
+  placements: { contestant_id: string; name: string; placement: number }[]
+  warnings: string[]
+  unmatched: string[]
+  source: string
+}
+
+/** Review-gated survivoR import (#132): load the server's proposal, uncheck
+ * anything wrong, apply through the normal additive endpoints. */
+function ImportSection({
+  episode,
+  contestants,
+  eventTypes,
+  elims,
+  events,
+  onApplied,
+}: {
+  episode: Episode
+  contestants: Contestant[]
+  eventTypes: ScoringEventType[]
+  elims: EliminationRow[]
+  events: ScoringEventRow[]
+  onApplied: (added: { elims: EliminationRow[]; events: ScoringEventRow[] }) => void
+}) {
+  const [sourceSeason, setSourceSeason] = useState('')
+  const [proposal, setProposal] = useState<ImportProposal | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const elimDone = new Set(elims.map((e) => e.contestant_id))
+  const eventDone = new Set(events.map((e) => `${e.contestant_id}:${e.event_type}`))
+  const placementOf = new Map(contestants.map((c) => [c.id, c.placement]))
+  const eventLabel = (t: string) =>
+    eventTypes.find((e) => e.event_type === t)?.label ?? t
+
+  function load() {
+    setSuccess(null)
+    void run(setLoading, setError, async () => {
+      const q = sourceSeason ? `?source_season=${sourceSeason}` : ''
+      const p = await api.get<ImportProposal>(
+        `/episodes/${episode.id}/import-proposal${q}`,
+      )
+      setProposal(p)
+      // Anything already recorded defaults unchecked — re-applying it would
+      // duplicate (events) or 400 (eliminations).
+      const init = new Set<string>()
+      p.eliminations.forEach((e, i) => {
+        if (!elimDone.has(e.contestant_id)) init.add(`e:${i}`)
+      })
+      p.events.forEach((ev, i) => {
+        if (!eventDone.has(`${ev.contestant_id}:${ev.event_type}`)) init.add(`v:${i}`)
+      })
+      p.placements.forEach((pl, i) => {
+        if (placementOf.get(pl.contestant_id) !== pl.placement) init.add(`p:${i}`)
+      })
+      setChecked(init)
+    })
+  }
+
+  function toggle(key: string) {
+    setChecked((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function apply() {
+    if (!proposal) return
+    void run(setApplying, setError, async () => {
+      const els = proposal.eliminations.filter((_, i) => checked.has(`e:${i}`))
+      const evs = proposal.events.filter((_, i) => checked.has(`v:${i}`))
+      const pls = proposal.placements.filter((_, i) => checked.has(`p:${i}`))
+      const addedElims = els.length
+        ? await api.post<EliminationRow[]>(
+            `/episodes/${episode.id}/eliminations`,
+            els.map((e) => ({
+              contestant_id: e.contestant_id,
+              elimination_type: e.elimination_type,
+            })),
+          )
+        : []
+      const addedEvents = evs.length
+        ? await api.post<ScoringEventRow[]>(
+            `/episodes/${episode.id}/scoring-events`,
+            evs.map((e) => ({
+              contestant_id: e.contestant_id,
+              event_type: e.event_type,
+              quantity: e.quantity,
+              notes: `import: ${proposal.source}`,
+            })),
+          )
+        : []
+      for (const pl of pls) {
+        await api.patch(`/contestants/${pl.contestant_id}`, {
+          placement: pl.placement,
+        })
+      }
+      onApplied({ elims: addedElims, events: addedEvents })
+      setProposal(null)
+      setSuccess(
+        `Applied ${addedElims.length} eliminations, ${addedEvents.length} events, ${pls.length} placements.`,
+      )
+    })
+  }
+
+  const row = (key: string, label: string, done: boolean) => (
+    <label key={key} className="flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={checked.has(key)} onChange={() => toggle(key)} />
+      <span className={done ? 'text-gray-400' : 'text-gray-700'}>
+        {label}
+        {done && ' · already recorded'}
+      </span>
+    </label>
+  )
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 mb-3">Import from survivoR</p>
+      {!proposal ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="number"
+            placeholder="US season # (default: this season)"
+            value={sourceSeason}
+            onChange={(e) => setSourceSeason(e.target.value)}
+            className="w-64 border border-sand-200 rounded px-2 py-1 text-sm"
+          />
+          <ActionBtn variant="secondary" onClick={load} disabled={loading}>
+            {loading ? 'Loading…' : 'Load proposal'}
+          </ActionBtn>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">
+            {proposal.source} — review, uncheck anything wrong, then apply.
+            Judgment calls and TV-moment tokens stay manual. Data:{' '}
+            <a
+              href="https://github.com/doehm/survivoR"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              survivoR
+            </a>{' '}
+            (CC BY).
+          </p>
+          {proposal.unmatched.length > 0 && (
+            <p className="text-xs text-red-600">
+              No matching contestant (items dropped): {proposal.unmatched.join('; ')}
+            </p>
+          )}
+          {proposal.eliminations.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs text-gray-400">Eliminations</p>
+              {proposal.eliminations.map((e, i) =>
+                row(
+                  `e:${i}`,
+                  `${e.name} — ${e.elimination_type} (${e.result})`,
+                  elimDone.has(e.contestant_id),
+                ),
+              )}
+            </div>
+          )}
+          {proposal.events.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs text-gray-400">Scoring events</p>
+              {proposal.events.map((ev, i) =>
+                row(
+                  `v:${i}`,
+                  `${ev.name} — ${eventLabel(ev.event_type)}${ev.quantity !== 1 ? ` ×${ev.quantity}` : ''}`,
+                  eventDone.has(`${ev.contestant_id}:${ev.event_type}`),
+                ),
+              )}
+            </div>
+          )}
+          {proposal.placements.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs text-gray-400">Placements</p>
+              {proposal.placements.map((pl, i) =>
+                row(
+                  `p:${i}`,
+                  `${pl.name} — ${pl.placement}`,
+                  placementOf.get(pl.contestant_id) === pl.placement,
+                ),
+              )}
+            </div>
+          )}
+          {proposal.warnings.length > 0 && (
+            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-1">
+              {proposal.warnings.map((w, i) => (
+                <p key={i} className="text-xs text-amber-700">
+                  ! {w}
+                </p>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <ActionBtn onClick={apply} disabled={applying || checked.size === 0}>
+              {applying ? 'Applying…' : `Apply ${checked.size} item${checked.size === 1 ? '' : 's'}`}
+            </ActionBtn>
+            <ActionBtn variant="secondary" onClick={() => setProposal(null)}>
+              Cancel
+            </ActionBtn>
+          </div>
+        </div>
+      )}
+      <ErrorMsg msg={error} />
+      <SuccessMsg msg={success} />
+    </div>
+  )
+}
+
 function EpisodePanel({
   episode,
   contestants,
@@ -681,6 +901,21 @@ function EpisodePanel({
         )}
         <ErrorMsg msg={eventsError} />
       </div>
+
+      {/* Import from survivoR (#132) */}
+      {elimLoaded && eventsLoaded && episode.status !== 'scored' && (
+        <ImportSection
+          episode={episode}
+          contestants={contestants}
+          eventTypes={eventTypes}
+          elims={elims}
+          events={events}
+          onApplied={({ elims: ae, events: av }) => {
+            setElims((prev) => [...prev, ...ae])
+            setEvents((prev) => [...prev, ...av])
+          }}
+        />
+      )}
 
       {/* Score episode */}
       <div className="pt-4 border-t border-gray-100">
