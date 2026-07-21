@@ -61,7 +61,43 @@ def create_episode(
                 """,
                 params,
             )
-            return cur.fetchone()
+            episode = cur.fetchone()
+
+            # Fund the episode the moment its row exists (#217): one weekly
+            # allocation per player per episode, granted here rather than when
+            # the prior episode is scored — so a grant can never be silently
+            # lost by scoring before the next episode has been created, and no
+            # manual season-start bootstrap is required. Skipped past the
+            # advantage lock (nothing left to spend on) or when allocation is 0.
+            cur.execute(
+                "select weekly_token_allocation, advantage_lock_episode"
+                " from seasons where id = %s",
+                [str(season_id)],
+            )
+            srow = cur.fetchone()
+            amount = srow["weekly_token_allocation"]
+            if amount > 0 and not advantages_locked(
+                episode["episode_number"],
+                episode["is_finale"],
+                srow["advantage_lock_episode"],
+            ):
+                cur.execute(
+                    """
+                    insert into token_transactions
+                        (user_id, season_id, episode_id, transaction_type, amount)
+                    select p.id, %(season)s, %(episode)s, 'weekly_allocation',
+                           %(amount)s
+                    from profiles p
+                    where not p.is_admin
+                    on conflict do nothing
+                    """,
+                    {
+                        "season": str(season_id),
+                        "episode": str(episode["id"]),
+                        "amount": amount,
+                    },
+                )
+            return episode
 
 
 @router.patch("/episodes/{episode_id}", response_model=Episode)
@@ -160,63 +196,10 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                 {"ep": str(episode_id), "base": episode["max_elimination_picks"]},
             )
 
+            # Weekly token allocations are granted when an episode is created,
+            # not here (#217). Scoring only closes the episode out.
             cur.execute(
                 "update episodes set status = 'scored' where id = %s returning *",
                 [str(episode_id)],
             )
-            scored = cur.fetchone()
-
-            cur.execute(
-                "select weekly_token_allocation, advantage_lock_episode,"
-                " roster_lock_episode from seasons where id = %s",
-                [episode["season_id"]],
-            )
-            srow = cur.fetchone()
-            amount = srow["weekly_token_allocation"]
-
-            # Tokens are granted FOR the next upcoming episode, before it (#97):
-            # scoring episode N funds episode N+1, provided that episode is
-            # pickable (>= roster_lock) and advantages aren't locked for it yet.
-            # ep2's opening grant is the season-start bootstrap (weekly-allocation
-            # endpoint). The idempotency check keeps any overlap a no-op.
-            cur.execute(
-                "select id, episode_number, is_finale from episodes"
-                " where season_id = %s and episode_number > %s"
-                " order by episode_number limit 1",
-                [episode["season_id"], episode["episode_number"]],
-            )
-            nxt = cur.fetchone()
-            if (
-                amount > 0
-                and nxt is not None
-                and nxt["episode_number"] >= (srow["roster_lock_episode"] or 1)
-                and not advantages_locked(
-                    nxt["episode_number"],
-                    nxt["is_finale"],
-                    srow["advantage_lock_episode"],
-                )
-            ):
-                cur.execute(
-                    """
-                    insert into token_transactions
-                        (user_id, season_id, episode_id, transaction_type, amount)
-                    select p.id, %(season)s, %(episode)s, 'weekly_allocation',
-                           %(amount)s
-                    from profiles p
-                    where not p.is_admin
-                      and not exists (
-                        select 1 from token_transactions tt
-                        where tt.user_id = p.id
-                          and tt.season_id = %(season)s
-                          and tt.episode_id = %(episode)s
-                          and tt.transaction_type = 'weekly_allocation'
-                    )
-                    on conflict do nothing
-                    """,
-                    {
-                        "season": episode["season_id"],
-                        "episode": str(nxt["id"]),
-                        "amount": amount,
-                    },
-                )
-            return scored
+            return cur.fetchone()
