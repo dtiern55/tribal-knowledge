@@ -96,7 +96,17 @@ Skip anything already recorded (same contestant + type), then:
 
 Use a traceable `notes` like `import: {source}` on applied events.
 
-## 6. Verify & score
+## 6. Sync tribes to this episode
+
+`POST {API}/seasons/{season_id}/sync-tribes?source_season={US}&up_to_episode={N}`
+— bounds tribe membership to what's aired, so the buffs follow swaps without
+leaking future tribes (#212). Run it every week with this episode's number.
+
+**If the merge airs this episode**, also turn on post-merge scoring:
+`PATCH {API}/seasons/{season_id}` `{"merge_episode": N}`. (Don't set it before
+it happens — that's future knowledge, and it changes point values.)
+
+## 7. Verify & score
 
 - `GET {API}/seasons/{season_id}/cast` and `.../standings`. Show Danny:
   - per-contestant point/token deltas for this episode,
