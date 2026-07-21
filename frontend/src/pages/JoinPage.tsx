@@ -37,7 +37,7 @@ export function JoinPage() {
 
   return (
     <div className="max-w-sm mx-auto mt-16">
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-2">Join the league</h1>
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-2">Join the league</h1>
       <p className="text-sm text-gray-500 mb-6">
         Ask a league admin for the join code.
       </p>

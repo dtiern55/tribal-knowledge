@@ -137,7 +137,7 @@ export function TeamPage() {
       >
         ← Back
       </button>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mt-3 mb-1">{name}</h1>
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mt-3 mb-1">{name}</h1>
       <p className="text-sm text-gray-500 mb-6">Roster</p>
 
       {hidden ? (

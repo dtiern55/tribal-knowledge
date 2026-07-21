@@ -1378,7 +1378,7 @@ export function AdminPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">Admin</h1>
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">Admin</h1>
       <p className="text-sm text-gray-500 mb-8">{season.name}</p>
 
       <SectionHeader title="Season" />

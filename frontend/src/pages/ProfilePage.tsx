@@ -304,7 +304,7 @@ function InstallSection() {
 export function ProfilePage() {
   return (
     <div className="max-w-sm mx-auto mt-8 space-y-8">
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">Profile</h1>
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800">Profile</h1>
       <DisplayNameSection />
       <div className="border-t border-sand-200 pt-6">
         <EmailSection />

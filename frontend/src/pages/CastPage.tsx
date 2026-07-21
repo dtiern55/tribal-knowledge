@@ -34,7 +34,7 @@ export function CastPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
       <p className="text-sm text-gray-500 mb-6">Cast · base score, no advantages applied</p>
       <ul className="space-y-2">
         {cast.map((c) => (

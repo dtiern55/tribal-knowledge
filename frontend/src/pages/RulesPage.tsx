@@ -132,7 +132,7 @@ export function RulesPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl tracking-wide text-ocean-800 mb-1">Rules & Scoring</h1>
+      <h1 className="marker-underline font-display text-3xl tracking-wide text-ocean-800 mb-1">Rules & Scoring</h1>
       <p className="text-sm text-gray-500 mb-4">{season.name}</p>
       <p className="text-sm text-gray-600 mb-6 leading-relaxed">
         You score in a few separate ways: your <b>roster</b> (the team you draft) earns points

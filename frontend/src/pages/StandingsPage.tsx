@@ -85,7 +85,7 @@ export function StandingsPage() {
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-        <h1 className="font-display text-3xl tracking-wide text-ocean-800">Standings</h1>
+        <h1 className="marker-underline font-display text-3xl tracking-wide text-ocean-800">Standings</h1>
         {seasons.length > 1 && (
           <select
             value={selectedId}

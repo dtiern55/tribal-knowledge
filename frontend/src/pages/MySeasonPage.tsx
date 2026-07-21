@@ -86,7 +86,7 @@ export function MySeasonPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
+        <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
         <p className="text-sm text-gray-500">My Tribe</p>
       </div>
 

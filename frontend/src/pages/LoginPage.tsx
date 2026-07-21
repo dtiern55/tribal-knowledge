@@ -53,7 +53,7 @@ export function LoginPage() {
 
   return (
     <div className="max-w-sm mx-auto mt-16">
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-6">
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-6">
         {mode === 'signin' ? 'Sign in' : 'Sign up'}
       </h1>
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">

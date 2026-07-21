@@ -139,7 +139,7 @@ export function AdvantagesPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
+      <h1 className="marker-underline font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
       <p className="text-sm text-gray-500 mb-6">Advantages</p>
 
       <div className="flex items-center justify-between p-4 bg-white border border-sand-200 rounded-xl mb-6">
