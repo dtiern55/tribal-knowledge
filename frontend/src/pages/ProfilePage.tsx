@@ -269,7 +269,11 @@ function InstallSection() {
   const [canPrompt, setCanPrompt] = useState(installAvailable())
   useEffect(() => onInstallAvailable(() => setCanPrompt(true)), [])
 
-  if (isInstalled()) return null
+  // Only show when there's an actionable path: a live install prompt, or iOS
+  // where we can give Share → Add to Home Screen steps. Otherwise the section
+  // (and its instructions) stays hidden rather than lingering as stale,
+  // button-less text on desktop (#223).
+  if (isInstalled() || (!canPrompt && !isIos())) return null
 
   return (
     <div>
@@ -285,16 +289,11 @@ function InstallSection() {
             Install app
           </button>
         </>
-      ) : isIos() ? (
+      ) : (
         <p className="text-xs text-gray-500">
           In Safari, tap <span className="font-medium">Share</span> →{' '}
           <span className="font-medium">Add to Home Screen</span> to install
           Tribal Knowledge as an app.
-        </p>
-      ) : (
-        <p className="text-xs text-gray-500">
-          Open this site in your phone's browser to install it as an app (look
-          for "Add to Home Screen" or "Install" in the browser menu).
         </p>
       )}
     </div>
