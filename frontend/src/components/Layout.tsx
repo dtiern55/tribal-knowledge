@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { InstallNudge } from './InstallNudge'
 import { NavDrawer } from './NavDrawer'
 import {
   BookIcon,
@@ -38,8 +37,6 @@ export function Layout() {
   return (
     <div className="min-h-screen bg-sand-50">
       <div className="torch-stripe h-1" />
-      {/* Install nudge sits at the very top so it's unmissable (#223). */}
-      {authed && <InstallNudge />}
       <nav className="bg-white border-b border-sand-200">
         <div className="max-w-5xl mx-auto px-4 flex items-center h-14 gap-6">
           <NavLink
