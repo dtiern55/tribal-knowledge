@@ -233,6 +233,9 @@ function RosterSection({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Pre-lock, default to showing just your picks (so you can plan an advantage
+  // on one); the full picker opens on Edit (#218).
+  const [editing, setEditing] = useState(false)
 
   const [swapOld, setSwapOld] = useState('')
   const [swapNew, setSwapNew] = useState('')
@@ -335,6 +338,7 @@ function RosterSection({
         contestant_ids: [...selected],
       })
       setRoster(picks)
+      setEditing(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
     } finally {
@@ -414,8 +418,25 @@ function RosterSection({
       </SectionTitle>
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
-      {!windowOpen && hasRoster ? (
+      {hasRoster && !(windowOpen && editing) ? (
         <div className="space-y-6">
+          {windowOpen && (
+            <div className="flex items-center justify-between gap-3 -mt-2">
+              <p className="text-xs text-gray-500">
+                Your picks for episode {season.roster_lock_episode} — plan an advantage
+                below, or edit before they lock.
+              </p>
+              <button
+                onClick={() => {
+                  setSelected(new Set(savedContestantIds))
+                  setEditing(true)
+                }}
+                className="shrink-0 text-sm text-ocean-600 font-medium hover:text-ocean-800"
+              >
+                Edit
+              </button>
+            </div>
+          )}
           <ul className="space-y-2.5">
             {/* Boots sink to the bottom (#190); stable sort keeps the rest in place. */}
             {[...activeRoster]
@@ -561,7 +582,7 @@ function RosterSection({
             </div>
           )}
 
-          {season.status !== 'completed' && (
+          {!windowOpen && season.status !== 'completed' && (
             <div className="pt-4 border-t border-gray-100">
               <SectionTitle>Swap a Roster Pick</SectionTitle>
               <p className="text-xs text-gray-400 mb-3">
@@ -680,6 +701,17 @@ function RosterSection({
             >
               {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Roster'}
             </button>
+            {hasRoster && editing && (
+              <button
+                onClick={() => {
+                  setSelected(new Set(savedContestantIds))
+                  setEditing(false)
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            )}
             {hasRoster && (
               <span className={`text-xs ${rosterDirty ? 'text-amber-600' : 'text-gray-400'}`}>
                 {rosterDirty ? 'Unsaved changes' : 'Saved ✓'}
