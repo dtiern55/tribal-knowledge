@@ -147,8 +147,9 @@ def update_episode(
 
 @router.post("/episodes/{episode_id}/score", response_model=Episode)
 def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
-    """Mark the episode scored and grant every player the season's weekly
-    token allocation (issue #49) — one admin action ends the Friday ritual.
+    """Mark the episode scored — one admin action ends the Friday ritual
+    (issue #49). Weekly token allocations are granted at episode-create time,
+    not here (#217).
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
