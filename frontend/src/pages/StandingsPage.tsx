@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { Link } from 'react-router'
-import { api, getActiveSeason, pinSeason } from '../lib/api'
+import { api, getActiveSeason } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { Season, StandingEntry } from '../types'
 
@@ -49,8 +49,8 @@ export function StandingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Season list drives the selector; default to the pinned/active season and
-  // pin changes so the rest of the app follows the pick.
+  // Standings follows the app-wide active season; switching happens in the
+  // nav drawer now (#219), not here.
   useEffect(() => {
     Promise.all([api.get<Season[]>('/seasons'), getActiveSeason()])
       .then(([ss, current]) => {
@@ -60,11 +60,6 @@ export function StandingsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load seasons'))
       .finally(() => setLoading(false))
   }, [])
-
-  function selectSeason(id: string) {
-    setSelectedId(id)
-    pinSeason(id, seasons)
-  }
 
   useEffect(() => {
     if (!selectedId) return
@@ -87,23 +82,7 @@ export function StandingsPage() {
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
         <h1 className="font-display text-3xl tracking-wide text-ocean-800">Standings</h1>
-        {seasons.length > 1 && (
-          <select
-            value={selectedId}
-            onChange={(e) => selectSeason(e.target.value)}
-            className="border border-sand-200 rounded-lg px-2 py-1 text-sm bg-white"
-          >
-            {seasons
-              .slice()
-              .reverse()
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {s.status === 'active' ? ' (active)' : ''}
-                </option>
-              ))}
-          </select>
-        )}
+        <span className="text-sm text-gray-500">{season.name}</span>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         {season.status === 'completed' ? 'Final standings' : 'Standings'}

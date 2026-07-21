@@ -84,3 +84,60 @@ export function GearIcon() {
     </Svg>
   )
 }
+
+export function MenuIcon() {
+  return (
+    <Svg>
+      <path d="M3 6h18" />
+      <path d="M3 12h18" />
+      <path d="M3 18h18" />
+    </Svg>
+  )
+}
+
+export function CloseIcon() {
+  return (
+    <Svg>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Svg>
+  )
+}
+
+export function EnvelopeIcon() {
+  return (
+    <Svg>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m2 7 10 6 10-6" />
+    </Svg>
+  )
+}
+
+export function UserIcon() {
+  return (
+    <Svg>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </Svg>
+  )
+}
+
+export function DownloadIcon() {
+  return (
+    <Svg>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M12 15V3" />
+    </Svg>
+  )
+}
+
+export function LogOutIcon() {
+  return (
+    <Svg>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </Svg>
+  )
+}
