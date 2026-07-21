@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { InstallNudge } from './InstallNudge'
+import { NavDrawer } from './NavDrawer'
 import {
   BookIcon,
   GearIcon,
   IdolIcon,
+  MenuIcon,
   PalmIcon,
   TrophyIcon,
   UsersIcon,
@@ -21,8 +24,9 @@ const PRIMARY = [
 ]
 
 export function Layout() {
-  const { session, profile, signOut } = useAuth()
+  const { session, profile } = useAuth()
   const authed = Boolean(session && profile)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const tabs =
     authed && profile?.is_admin
       ? [...PRIMARY, { to: '/admin', label: 'Admin', Icon: GearIcon, end: false }]
@@ -57,17 +61,14 @@ export function Layout() {
           )}
 
           <div className="ml-auto flex items-center gap-4">
-            {authed && (
-              <NavLink to="/profile" className={topLink}>
-                {profile?.display_name}
-              </NavLink>
-            )}
-            {session ? (
+            {authed ? (
               <button
-                onClick={() => void signOut()}
-                className="text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Open menu"
+                aria-haspopup="dialog"
+                className="text-ocean-700 hover:text-ocean-900 cursor-pointer"
               >
-                Sign out
+                <MenuIcon />
               </button>
             ) : (
               <NavLink to="/login" className="text-sm text-ocean-600 font-medium">
@@ -103,6 +104,8 @@ export function Layout() {
           ))}
         </nav>
       )}
+
+      {authed && <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />}
     </div>
   )
 }
