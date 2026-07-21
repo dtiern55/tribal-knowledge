@@ -37,6 +37,10 @@ export function MySeasonPage() {
   const [balance, setBalance] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Bumped whenever the roster changes so sibling sections (Sole Survivor)
+  // that keep their own roster copy refetch instead of going stale (#219-era
+  // pre-lock roster edits).
+  const [rosterVersion, setRosterVersion] = useState(0)
 
   useEffect(() => {
     if (!userId) return
@@ -100,6 +104,7 @@ export function MySeasonPage() {
         rosterPoints={rosterPoints}
         plays={plays}
         setPlays={setPlays}
+        onRosterChange={() => setRosterVersion((v) => v + 1)}
       />
       <PicksSection
         season={season}
@@ -113,7 +118,13 @@ export function MySeasonPage() {
       {season.winner_mode === 'classic' ? (
         <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
       ) : (
-        <SoleSurvivorSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
+        <SoleSurvivorSection
+          season={season}
+          contestants={contestants}
+          episodes={episodes}
+          userId={userId}
+          rosterVersion={rosterVersion}
+        />
       )}
       <TokensSection
         balance={balance}
@@ -220,6 +231,7 @@ function RosterSection({
   rosterPoints,
   plays,
   setPlays,
+  onRosterChange,
 }: {
   season: Season
   contestants: Contestant[]
@@ -228,6 +240,7 @@ function RosterSection({
   rosterPoints: Map<string, number>
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
+  onRosterChange: () => void
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -339,6 +352,7 @@ function RosterSection({
       })
       setRoster(picks)
       setEditing(false)
+      onRosterChange()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
     } finally {
@@ -363,6 +377,7 @@ function RosterSection({
       ])
       setRoster(picks)
       setPlays(ownPlays)
+      onRosterChange()
       setSwapOld('')
       setSwapNew('')
     } catch (e) {
@@ -1442,11 +1457,13 @@ function SoleSurvivorSection({
   contestants,
   episodes,
   userId,
+  rosterVersion,
 }: {
   season: Season
   contestants: Contestant[]
   episodes: Episode[]
   userId: string
+  rosterVersion: number
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [choice, setChoice] = useState('')
@@ -1454,16 +1471,18 @@ function SoleSurvivorSection({
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Refetch when the roster changes (rosterVersion) so a pre-lock swap can't
+  // leave a removed castaway designated or hide the new pick (#180 follow-up).
   useEffect(() => {
     api
       .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
       .then((picks) => {
         setRoster(picks)
         const current = picks.find((p) => p.is_sole_survivor)
-        if (current) setChoice(current.contestant_id)
+        setChoice(current ? current.contestant_id : '')
       })
       .catch(() => setRoster([]))
-  }, [season.id, userId])
+  }, [season.id, userId, rosterVersion])
 
   const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
   // Eliminated castaways can linger on an active roster (never swapped out) —
