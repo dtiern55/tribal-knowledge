@@ -15,6 +15,20 @@ from app.schemas import (
 router = APIRouter(tags=["contestants"])
 
 
+def _cast_sort_key(row: dict) -> tuple:
+    """Order the cast (#7): still-in players first by score high→low, then the
+    voted-out below them in reverse boot order so the first person out sits at
+    the very bottom. Boot order is per-episode only; same-episode boots tie on
+    name (no within-episode order is recorded)."""
+    out = row["eliminated_in_episode"]
+    return (
+        out is not None,
+        -row["total_points"] if out is None else 0,
+        -(out or 0),
+        row["name"],
+    )
+
+
 @router.get("/seasons/{season_id}/cast", response_model=list[CastMember])
 def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
     """Every contestant with their base gameplay score — raw scoring events,
@@ -62,7 +76,9 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                 """,
                 [str(season_id)],
             )
-            return cur.fetchall()
+            rows = cur.fetchall()
+            rows.sort(key=_cast_sort_key)
+            return rows
 
 
 @router.get(
