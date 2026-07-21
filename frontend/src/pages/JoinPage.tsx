@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { api } from '../lib/api'
-import { armInstallNudge } from '../lib/install'
 import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
 
@@ -26,7 +25,6 @@ export function JoinPage() {
         display_name: displayName,
         join_code: joinCode,
       })
-      armInstallNudge()
       await refreshProfile()
       void navigate('/')
     } catch (e) {
