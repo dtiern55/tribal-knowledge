@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PageLoader } from '../components/PageLoader'
 import { useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
 import { RosterCard } from '../components/RosterCard'
@@ -108,7 +109,7 @@ export function TeamPage() {
     void load()
   }, [seasonId, userId])
 
-  if (loading) return <p className="text-gray-500">Loading…</p>
+  if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))

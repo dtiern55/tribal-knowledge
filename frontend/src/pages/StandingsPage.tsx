@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PageLoader } from '../components/PageLoader'
 import { Link } from 'react-router'
 import { api, getActiveSeason, pinSeason } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
@@ -73,7 +74,7 @@ export function StandingsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load standings'))
   }, [selectedId])
 
-  if (loading) return <p className="text-gray-500">Loading…</p>
+  if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
   const season = seasons.find((s) => s.id === selectedId)
   if (!season) return <p className="text-gray-500">No season found.</p>

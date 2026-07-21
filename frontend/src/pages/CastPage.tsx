@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PageLoader } from '../components/PageLoader'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
@@ -28,7 +29,7 @@ export function CastPage() {
     void load()
   }, [])
 
-  if (loading) return <p className="text-gray-500">Loading…</p>
+  if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
   if (!season) return <p className="text-gray-500">No season found.</p>
 
