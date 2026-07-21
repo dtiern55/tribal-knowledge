@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="112" fill="#241a12"/>
+
+<circle cx="256" cy="256" r="238" fill="#3c2c1d"/>
+<circle cx="256" cy="256" r="238" fill="none" stroke="#4a3826" stroke-width="10"/>
+<!-- maze ring: angular meander hooks -->
+<g fill="none" stroke="#e7d9b6" stroke-width="15" stroke-linejoin="miter" stroke-linecap="square" opacity="0.92">
+  <path d="M256 40 v44 M256 84 h40 v40 M296 124 h-70"/>
+  <path d="M472 256 h-44 M428 256 v40 h-40 M388 296 v-70"/>
+  <path d="M256 472 v-44 M256 428 h-40 v-40 M216 388 h70"/>
+  <path d="M40 256 h44 M84 256 v-40 h40 M124 216 v70"/>
+  <path d="M110 110 l30 30 M140 140 l0 34 M140 140 l34 0"/>
+  <path d="M402 110 l-30 30 M372 140 l0 34 M372 140 l-34 0"/>
+  <path d="M402 402 l-30 -30 M372 372 l0 -34 M372 372 l-34 0"/>
+  <path d="M110 402 l30 -30 M140 372 l0 -34 M140 372 l34 0"/>
+</g>
+<!-- central bone disc -->
+<circle cx="256" cy="262" r="104" fill="#e7d9b6"/>
+<circle cx="256" cy="262" r="104" fill="none" stroke="#a87d2f" stroke-width="4" opacity="0.5"/>
+<!-- skull sockets + nose punched to dark -->
+<g fill="#241a12">
+  <circle cx="226" cy="246" r="28"/>
+  <circle cx="286" cy="246" r="28"/>
+  <path d="M256 288 l20 34 h-40 z"/>
+</g>
+</svg>
