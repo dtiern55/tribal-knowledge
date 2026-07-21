@@ -50,13 +50,19 @@ def _fetch(refresh: bool) -> dict[str, list[dict]]:
 def sync_tribes(
     season_id: UUID,
     source_season: int | None = None,
+    up_to_episode: int | None = None,
     refresh: bool = False,
     _: UUID = Depends(get_current_admin),
 ):
-    """Upsert the season's tribes and rebuild contestant membership from survivoR.
+    """Rebuild the season's tribes + contestant membership from survivoR.
 
     source_season is the US season number; defaults to the league season's own
     number (practice seasons replaying an old season override it).
+
+    up_to_episode bounds it to what a live season would know: pass the latest
+    aired episode so future swaps/merges aren't leaked. Omit it only for a
+    finished season where the final state is wanted. Re-run each week with a
+    higher number as episodes air.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
@@ -78,6 +84,7 @@ def sync_tribes(
                 season_key,
                 tribe_colours=data["tribe_colours"],
                 tribe_mapping=data["tribe_mapping"],
+                up_to_episode=up_to_episode,
             )
             if not built["tribes"]:
                 raise HTTPException(
@@ -93,26 +100,25 @@ def sync_tribes(
                 if r.get("version_season") == season_key
             }
 
-            tribe_id: dict[str, str] = {}
-            for t in built["tribes"]:
-                cur.execute(
-                    """
-                    insert into tribes (season_id, name, color, is_merge)
-                    values (%s, %s, %s, %s)
-                    on conflict (season_id, name)
-                    do update set color = excluded.color, is_merge = excluded.is_merge
-                    returning id
-                    """,
-                    [str(season_id), t["name"], t["color"], t["is_merge"]],
-                )
-                tribe_id[t["name"]] = str(cur.fetchone()["id"])
-
-            # Rebuild membership wholesale so a re-run reflects the latest data.
+            # Full rebuild so a re-run (and the up_to_episode bound) never leaves
+            # a stale tribe or membership behind. contestant_tribes first (FK).
             cur.execute(
                 "delete from contestant_tribes where contestant_id in"
                 " (select id from contestants where season_id = %s)",
                 [str(season_id)],
             )
+            cur.execute("delete from tribes where season_id = %s", [str(season_id)])
+
+            tribe_id: dict[str, str] = {}
+            for t in built["tribes"]:
+                cur.execute(
+                    """
+                    insert into tribes (season_id, name, color, is_merge)
+                    values (%s, %s, %s, %s) returning id
+                    """,
+                    [str(season_id), t["name"], t["color"], t["is_merge"]],
+                )
+                tribe_id[t["name"]] = str(cur.fetchone()["id"])
             applied = 0
             unmatched: set[str] = set()
             for m in built["memberships"]:

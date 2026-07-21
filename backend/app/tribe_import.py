@@ -17,14 +17,19 @@ def build_tribe_data(
     *,
     tribe_colours: list[dict],
     tribe_mapping: list[dict],
+    up_to_episode: int | None = None,
 ) -> dict:
     """Return {"tribes": [{name, color, is_merge}],
     "memberships": [{castaway_id, tribe_name, from_episode}]}.
 
     memberships holds only change-points (a row when a castaway's tribe differs
     from their previous episode), ordered per castaway by episode.
+
+    `up_to_episode` bounds it to what a live season would know: change-points
+    from later episodes are dropped, and only tribes actually reached by then
+    are returned (so a future swap/merge isn't leaked before it airs).
     """
-    tribes: dict[str, dict] = {}
+    all_colors: dict[str, dict] = {}
     for r in tribe_colours:
         if r.get("version_season") != season_key:
             continue
@@ -33,7 +38,7 @@ def build_tribe_data(
             continue
         is_merge = "merge" in (r.get("tribe_status") or "").lower()
         color = MERGE_COLOR if is_merge else (r.get("tribe_colour") or "#888888")
-        tribes[name] = {"name": name, "color": color, "is_merge": is_merge}
+        all_colors[name] = {"name": name, "color": color, "is_merge": is_merge}
 
     rows = sorted(
         (r for r in tribe_mapping if r.get("version_season") == season_key),
@@ -45,12 +50,17 @@ def build_tribe_data(
         cid, tribe, ep = r.get("castaway_id"), r.get("tribe"), r.get("episode")
         if not cid or not tribe or ep is None:
             continue
+        if up_to_episode is not None and ep > up_to_episode:
+            continue
         if last.get(cid) != tribe:
             memberships.append(
                 {"castaway_id": cid, "tribe_name": tribe, "from_episode": ep}
             )
             last[cid] = tribe
-    return {"tribes": list(tribes.values()), "memberships": memberships}
+
+    used = {m["tribe_name"] for m in memberships}
+    tribes = [all_colors[n] for n in all_colors if n in used]
+    return {"tribes": tribes, "memberships": memberships}
 
 
 def _demo() -> None:
@@ -92,6 +102,13 @@ def _demo() -> None:
     a = [m for m in out["memberships"] if m["castaway_id"] == "A"]
     assert [m["from_episode"] for m in a] == [1, 6], a  # ep-2 duplicate collapsed
     assert all(m["castaway_id"] != "Z" for m in out["memberships"])
+
+    # Bounded to ep 1 (live season): the future merge is not leaked.
+    early = build_tribe_data(
+        "US28", tribe_colours=colours, tribe_mapping=mapping, up_to_episode=1
+    )
+    assert {t["name"] for t in early["tribes"]} == {"Luzon"}, early["tribes"]
+    assert [m["from_episode"] for m in early["memberships"]] == [1]
     print("ok")
 
 
