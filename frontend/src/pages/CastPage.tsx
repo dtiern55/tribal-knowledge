@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
+import { Torch } from '../components/Torch'
 import type { CastMember, Season } from '../types'
 
 // Full cast list: every contestant's base gameplay score (no advantages
@@ -43,18 +44,34 @@ export function CastPage() {
           >
             <Link
               to={`/contestants/${c.id}`}
-              className="flex items-center gap-2 font-medium text-gray-900 hover:text-ocean-700"
+              className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
+                c.eliminated_in_episode != null ? 'text-gray-500' : 'text-gray-900'
+              }`}
             >
-              <ContestantAvatar name={c.name} imageUrl={c.image_url} />
-              {c.name}
+              <span
+                className="shrink-0"
+                title={
+                  c.eliminated_in_episode != null
+                    ? `Voted out · episode ${c.eliminated_in_episode}`
+                    : 'Still in the game'
+                }
+              >
+                <Torch lit={c.eliminated_in_episode == null} />
+              </span>
+              <span className={c.eliminated_in_episode != null ? 'grayscale opacity-70' : undefined}>
+                <ContestantAvatar name={c.name} imageUrl={c.image_url} />
+              </span>
+              <span className={c.eliminated_in_episode != null ? 'line-through decoration-stone-300' : undefined}>
+                {c.name}
+              </span>
               {c.placement != null ? (
                 <span className="text-[10px] uppercase tracking-wide bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded">
                   #{c.placement}
                 </span>
               ) : (
                 c.eliminated_in_episode != null && (
-                  <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">
-                    Out ep {c.eliminated_in_episode}
+                  <span className="text-[10px] uppercase tracking-wide text-stone-400">
+                    ep {c.eliminated_in_episode}
                   </span>
                 )
               )}
