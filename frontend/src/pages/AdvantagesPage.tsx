@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
 import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
@@ -101,7 +102,7 @@ export function AdvantagesPage() {
     }
   }
 
-  if (loading) return <p className="text-gray-500">Loading…</p>
+  if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
   if (!season) return <p className="text-gray-500">No active season.</p>
 

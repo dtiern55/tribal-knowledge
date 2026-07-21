@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
@@ -1365,7 +1366,7 @@ export function AdminPage() {
     void load()
   }, [])
 
-  if (loading) return <p className="text-gray-500">Loading…</p>
+  if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
 
   if (!profile?.is_admin) {
