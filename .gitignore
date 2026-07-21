@@ -3,5 +3,6 @@ __pycache__/
 *.pyc
 .venv/
 supabase/.temp/
-.claude/
+.claude/*
+!.claude/skills/
 *.Zone.Identifier
