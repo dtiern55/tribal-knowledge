@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="112" fill="#241a12"/>
+
+<circle cx="256" cy="256" r="238" fill="#3c2c1d"/>
+<circle cx="256" cy="256" r="238" fill="none" stroke="#4a3826" stroke-width="10"/>
+<g fill="#d9ab4e">
+  <!-- angular carved brow ridge (a bold gold scowl) -->
+  <path d="M112 150 l70 40 l74 -26 l74 26 l70 -40 l-16 66 l-58 24 l-70 -22 l-70 22 l-58 -24 z"/>
+  <!-- temple flame swirls -->
+  <path d="M120 232 q-22 26 -8 66 q4 -34 34 -40 z"/>
+  <path d="M392 232 q22 26 8 66 q-4 -34 -34 -40 z"/>
+  <!-- nose ridge -->
+  <path d="M256 232 q24 46 11 96 q-11 20 -11 20 q0 0 -11 -20 q-13 -50 11 -96 z"/>
+  <!-- mouth tooth bar -->
+  <rect x="188" y="356" width="136" height="34" rx="7"/>
+</g>
+<!-- eyes: gold ring + dark pupil -->
+<g>
+  <circle cx="182" cy="262" r="44" fill="#eecb78"/>
+  <circle cx="182" cy="262" r="44" fill="none" stroke="#a87d2f" stroke-width="6"/>
+  <circle cx="182" cy="264" r="16" fill="#241a12"/>
+  <circle cx="330" cy="262" r="44" fill="#eecb78"/>
+  <circle cx="330" cy="262" r="44" fill="none" stroke="#a87d2f" stroke-width="6"/>
+  <circle cx="330" cy="264" r="16" fill="#241a12"/>
+</g>
+<!-- fangs: two distinct downward tusks -->
+<g fill="#eecb78">
+  <path d="M196 388 l16 0 l-4 60 z"/>
+  <path d="M300 388 l16 0 l-12 60 z"/>
+</g>
+<g fill="#3c2c1d">
+  <rect x="210" y="360" width="6" height="26"/>
+  <rect x="232" y="360" width="6" height="26"/>
+  <rect x="254" y="360" width="6" height="26"/>
+  <rect x="276" y="360" width="6" height="26"/>
+  <rect x="298" y="360" width="6" height="26"/>
+</g>
+</svg>
