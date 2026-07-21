@@ -60,7 +60,12 @@ export function CastPage() {
                 <Torch lit={c.eliminated_in_episode == null} />
               </span>
               <span className={c.eliminated_in_episode != null ? 'grayscale opacity-70' : undefined}>
-                <ContestantAvatar name={c.name} imageUrl={c.image_url} />
+                <ContestantAvatar
+                  name={c.name}
+                  imageUrl={c.image_url}
+                  tribeColor={c.tribe_color}
+                  tribeName={c.tribe_name}
+                />
               </span>
               <span className={c.eliminated_in_episode != null ? 'line-through decoration-stone-300' : undefined}>
                 {c.name}

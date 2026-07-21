@@ -33,6 +33,9 @@ class Contestant(BaseModel):
     image_url: Optional[str] = None
     # Only populated by the season contestants list; None elsewhere
     eliminated_in_episode: Optional[int] = None
+    # Current tribe (#212): None until tribes are synced / for pre-import seasons
+    tribe_name: Optional[str] = None
+    tribe_color: Optional[str] = None
     created_at: datetime
 
 
@@ -267,6 +270,8 @@ class ContestantPerformance(BaseModel):
     image_url: Optional[str] = None
     placement: Optional[int] = None
     eliminated_in_episode: Optional[int] = None
+    tribe_name: Optional[str] = None
+    tribe_color: Optional[str] = None
     total_points: int
     episodes: list[ContestantEpisodeStat]
 
@@ -277,6 +282,8 @@ class CastMember(BaseModel):
     image_url: Optional[str] = None
     placement: Optional[int] = None
     eliminated_in_episode: Optional[int] = None
+    tribe_name: Optional[str] = None
+    tribe_color: Optional[str] = None
     # Base gameplay score: raw scoring events only, no per-user advantage
     # doubling and no swap penalties (issue: full cast list).
     total_points: int

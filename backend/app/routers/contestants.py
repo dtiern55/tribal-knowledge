@@ -30,6 +30,14 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                         from eliminations el
                         join episodes ep2 on ep2.id = el.episode_id
                         where el.contestant_id = c.id) as eliminated_in_episode,
+                       (select t.name from contestant_tribes ct
+                        join tribes t on t.id = ct.tribe_id
+                        where ct.contestant_id = c.id
+                        order by ct.from_episode desc limit 1) as tribe_name,
+                       (select t.color from contestant_tribes ct
+                        join tribes t on t.id = ct.tribe_id
+                        where ct.contestant_id = c.id
+                        order by ct.from_episode desc limit 1) as tribe_color,
                        coalesce(sum(
                          (case
                             when s.merge_episode is not null
@@ -67,7 +75,15 @@ def get_contestant_performance(
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "select id, name, image_url, placement, season_id"
+                "select id, name, image_url, placement, season_id,"
+                " (select t.name from contestant_tribes ct"
+                "  join tribes t on t.id = ct.tribe_id"
+                "  where ct.contestant_id = contestants.id"
+                "  order by ct.from_episode desc limit 1) as tribe_name,"
+                " (select t.color from contestant_tribes ct"
+                "  join tribes t on t.id = ct.tribe_id"
+                "  where ct.contestant_id = contestants.id"
+                "  order by ct.from_episode desc limit 1) as tribe_color"
                 " from contestants where id = %s",
                 [str(contestant_id)],
             )
@@ -147,6 +163,8 @@ def get_contestant_performance(
                 "image_url": c["image_url"],
                 "placement": c["placement"],
                 "eliminated_in_episode": elim_ep,
+                "tribe_name": c["tribe_name"],
+                "tribe_color": c["tribe_color"],
                 "total_points": sum(e["points"] for e in episodes),
                 "episodes": episodes,
             }

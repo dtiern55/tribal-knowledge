@@ -37,6 +37,8 @@ export interface Contestant {
   placement: number | null
   image_url: string | null
   eliminated_in_episode: number | null
+  tribe_name: string | null
+  tribe_color: string | null
   created_at: string
 }
 
@@ -197,6 +199,8 @@ export interface CastMember {
   image_url: string | null
   placement: number | null
   eliminated_in_episode: number | null
+  tribe_name: string | null
+  tribe_color: string | null
   total_points: number
   total_tokens: number
 }
@@ -220,6 +224,8 @@ export interface ContestantPerformance {
   image_url: string | null
   placement: number | null
   eliminated_in_episode: number | null
+  tribe_name: string | null
+  tribe_color: string | null
   total_points: number
   episodes: ContestantEpisodeStat[]
 }
