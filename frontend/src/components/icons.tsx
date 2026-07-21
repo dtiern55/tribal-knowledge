@@ -56,13 +56,16 @@ export function UsersIcon() {
 
 // Hidden-immunity idol — the Advantages tab (#56). A carved tiki face reads
 // "advantage" far better than a raffle ticket, and echoes the app icon.
+// Hidden-immunity-idol glyph (#221): a skull in a carved disc, echoing the
+// Tocantins maze idol. Fits the Advantages tab — advantages are idols.
 export function IdolIcon() {
   return (
     <Svg>
-      <path d="M6 9c0-3.3 2.7-6 6-6s6 2.7 6 6v8c0 2.5-2.7 4-6 4s-6-1.5-6-4Z" />
-      <path d="M8.5 10.5 12 12l3.5-1.5" />
-      <path d="M9.5 13.5h.01M14.5 13.5h.01" />
-      <path d="M12 13l-1.5 4h3Z" />
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="9.4" cy="10.8" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="14.6" cy="10.8" r="1.4" fill="currentColor" stroke="none" />
+      <path d="M12 13l1.5 2.7h-3z" fill="currentColor" stroke="none" />
+      <path d="M12 3v1.8M12 19.2v1.8M3 12h1.8M19.2 12h1.8" />
     </Svg>
   )
 }
