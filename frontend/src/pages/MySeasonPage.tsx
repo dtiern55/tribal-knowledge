@@ -5,6 +5,7 @@ import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
 import { advantagesLocked, isEpisodeOpen, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterCard } from '../components/RosterCard'
+import { VoteMark } from '../components/VoteMark'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -904,7 +905,7 @@ function PicksSection({
               </div>
               {confirmed ? (
                 <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
-                  <p className="text-3xl mb-1">🔥</p>
+                  <div className="flex justify-center mb-1"><VoteMark sealed className="w-10 h-10" /></div>
                   <p className="font-semibold text-green-800 mb-3">
                     Votes locked in for Episode {ep.episode_number}
                   </p>
@@ -1096,7 +1097,13 @@ function PicksSection({
                     disabled={submitting === ep.id || epPending.size === 0}
                     className="flex-1 px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
                   >
-                    {submitting === ep.id ? 'Locking in…' : '🔥 Lock In Votes'}
+                    {submitting === ep.id ? (
+                      'Locking in…'
+                    ) : (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <VoteMark className="w-5 h-5" /> Lock In Votes
+                      </span>
+                    )}
                   </button>
                   {hasSavedPicks && (
                     <button
@@ -1312,7 +1319,7 @@ function FinaleBallot({
         </p>
       ) : locked || (hasSaved && !editing) ? (
         <div className="mt-2 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
-          <p className="text-3xl mb-1">🔥</p>
+          <div className="flex justify-center mb-1"><VoteMark sealed className="w-10 h-10" /></div>
           <p className="font-semibold text-green-800 mb-3">
             {locked ? 'Finale ballot locked' : 'Finale ballot in'}
           </p>
@@ -1381,7 +1388,13 @@ function FinaleBallot({
             disabled={submitting}
             className="w-full px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
           >
-            {submitting ? 'Saving…' : '🔥 Lock In Finale Ballot'}
+            {submitting ? (
+              'Saving…'
+            ) : (
+              <span className="inline-flex items-center justify-center gap-2">
+                <VoteMark className="w-5 h-5" /> Lock In Finale Ballot
+              </span>
+            )}
           </button>
         </>
       )}

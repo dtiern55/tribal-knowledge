@@ -54,13 +54,15 @@ export function UsersIcon() {
   )
 }
 
-export function TicketIcon() {
+// Hidden-immunity idol — the Advantages tab (#56). A carved tiki face reads
+// "advantage" far better than a raffle ticket, and echoes the app icon.
+export function IdolIcon() {
   return (
     <Svg>
-      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-      <path d="M13 5v2" />
-      <path d="M13 17v2" />
-      <path d="M13 11v2" />
+      <path d="M6 9c0-3.3 2.7-6 6-6s6 2.7 6 6v8c0 2.5-2.7 4-6 4s-6-1.5-6-4Z" />
+      <path d="M8.5 10.5 12 12l3.5-1.5" />
+      <path d="M9.5 13.5h.01M14.5 13.5h.01" />
+      <path d="M12 13l-1.5 4h3Z" />
     </Svg>
   )
 }

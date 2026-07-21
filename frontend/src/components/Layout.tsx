@@ -4,8 +4,8 @@ import { InstallNudge } from './InstallNudge'
 import {
   BookIcon,
   GearIcon,
+  IdolIcon,
   PalmIcon,
-  TicketIcon,
   TrophyIcon,
   UsersIcon,
 } from './icons'
@@ -14,7 +14,7 @@ import {
 // they become a fixed bottom tab bar (thumb-reachable, can't overflow).
 const PRIMARY = [
   { to: '/', label: 'My Tribe', Icon: PalmIcon, end: true },
-  { to: '/advantages', label: 'Advantages', Icon: TicketIcon, end: false },
+  { to: '/advantages', label: 'Advantages', Icon: IdolIcon, end: false },
   { to: '/standings', label: 'Standings', Icon: TrophyIcon, end: false },
   { to: '/cast', label: 'Cast', Icon: UsersIcon, end: false },
   { to: '/rules', label: 'Rules', Icon: BookIcon, end: false },
