@@ -34,10 +34,25 @@ export function ContestantPage() {
         ← Back
       </button>
       <div className="flex items-center gap-3 mt-3 mb-1">
-        <ContestantAvatar name={perf.name} imageUrl={perf.image_url} size="md" />
+        <ContestantAvatar
+          name={perf.name}
+          imageUrl={perf.image_url}
+          size="md"
+          tribeColor={perf.tribe_color}
+          tribeName={perf.tribe_name}
+        />
         <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">{perf.name}</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6">
+        {perf.tribe_name && (
+          <span className="inline-flex items-center gap-1.5 mr-1 align-middle">
+            <span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: perf.tribe_color ?? undefined }}
+            />
+            {perf.tribe_name} ·
+          </span>
+        )}{' '}
         {perf.total_points} pts total
         {perf.placement != null && ` · placed #${perf.placement}`}
         {perf.eliminated_in_episode != null &&

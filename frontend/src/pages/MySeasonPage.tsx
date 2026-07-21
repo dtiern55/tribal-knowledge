@@ -661,7 +661,7 @@ function RosterSection({
                           : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
                   ].join(' ')}
                 >
-                  <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
+                  <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                   <span className={isOut ? 'line-through' : ''}>{c.name}</span>
                   {isOut && (
                     <span className="ml-auto text-[10px] uppercase tracking-wide text-red-500">
@@ -972,7 +972,7 @@ function PicksSection({
                                   : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
                           ].join(' ')}
                         >
-                          <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
+                          <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                           {c.name}
                           {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
                         </button>

@@ -62,7 +62,12 @@ export function RosterCard({
           <Torch lit={outEp == null} />
         </span>
         <span className={outEp != null ? 'grayscale opacity-70' : undefined}>
-          <ContestantAvatar name={contestant?.name ?? '—'} imageUrl={contestant?.image_url ?? null} />
+          <ContestantAvatar
+            name={contestant?.name ?? '—'}
+            imageUrl={contestant?.image_url ?? null}
+            tribeColor={contestant?.tribe_color ?? null}
+            tribeName={contestant?.tribe_name ?? null}
+          />
         </span>
         <span className={outEp != null ? 'line-through decoration-stone-300' : undefined}>
           {contestant?.name ?? '—'}
