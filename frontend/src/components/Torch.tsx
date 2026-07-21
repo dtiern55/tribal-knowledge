@@ -2,47 +2,67 @@
  * Torch status glyph (#56): lit = still in the game, snuffed = voted out —
  * the Survivor snuffer motif that replaces the old red "OUT" stamp.
  *
- * Multicolour filled mark (ember flame / ash smoke), so it lives apart from
- * the monochrome currentColor nav icons in icons.tsx.
- *
- * ponytail: only the snuffed state is wired up so far (RosterCard, CastPage);
- * the lit variant is here for the contestant page header when that gets its pass.
+ * Bold, portrait mark (flame + wood handle + ocean lashing) meant to read as
+ * an actual torch at ~28px in the roster/cast leading column. Multicolour
+ * fills, so it lives apart from the monochrome currentColor nav icons.
  */
 export function Torch({
   lit,
-  className = 'w-4 h-4',
+  className = 'w-6 h-8',
 }: {
   lit: boolean
   className?: string
 }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <svg viewBox="0 0 64 88" className={className} aria-hidden="true">
       {lit ? (
         <>
+          <rect x="28" y="46" width="8" height="38" rx="2.5" fill="#b07a4a" />
+          <path d="M30 50 v30 M34 50 v30" stroke="#8a5a34" strokeWidth="0.8" opacity=".5" />
           <path
-            d="M12 2.2 C10.7 4.6 13.3 5.3 12.1 7.5 C14.1 6.6 15.2 8.7 14.3 10.5 C13.6 12 11.6 12.2 10.5 11 C9.4 9.8 10.2 7.2 11.6 6.5 C12.4 5.1 12.7 3.6 12 2.2 Z"
-            fill="#e37b33"
-          />
-          <rect x="10.8" y="11" width="2.4" height="10" rx="1" fill="#b07a4a" />
-          <path
-            d="M9.4 12.2 C11 13.2 13 13.2 14.6 12.2 L14.6 13.9 C13 14.9 11 14.9 9.4 13.9 Z"
+            d="M23 47 C30 52 34 52 41 47 L41 53 C34 58 30 58 23 53 Z"
             fill="#1f7aa8"
+          />
+          <path
+            d="M33 3 C26 16 42 18 35 29 C46 25 50 39 42 46 C38 51 26 51 22 45 C16 37 22 26 30 24 C34 18 31 10 33 3 Z"
+            fill="#FFCB2E"
+          />
+          <path d="M19 40 C16 44 18 50 22 50 C20 46 23 42 19 40 Z" fill="#FFCB2E" />
+          <path
+            d="M33 26 C29 32 33 40 38 42 C34 48 25 45 26 36 C26 31 30 27 33 26 Z"
+            fill="#F26A1B"
           />
         </>
       ) : (
         <>
+          <rect x="28" y="46" width="8" height="38" rx="2.5" fill="#9a8a76" />
+          <path d="M30 50 v30 M34 50 v30" stroke="#7d7060" strokeWidth="0.8" opacity=".5" />
           <path
-            d="M12 3 C13 3.9 13 5 12.1 5.9 C11.2 6.8 11.2 7.8 12.1 8.7"
-            stroke="#9aa0a6"
-            strokeWidth="1.3"
-            fill="none"
+            d="M23 47 C30 52 34 52 41 47 L41 53 C34 58 30 58 23 53 Z"
+            fill="#9aa7ae"
+          />
+          <ellipse cx="32" cy="44" rx="8.5" ry="3" fill="#4a4038" />
+          <path
+            d="M25 44 l2 -4 M31 43 l0 -5 M37 44 l-1 -4"
+            stroke="#3a332c"
+            strokeWidth="1.6"
             strokeLinecap="round"
           />
-          <rect x="10.8" y="9.5" width="2.4" height="11.5" rx="1" fill="#9a8a76" />
-          <ellipse cx="12" cy="9.4" rx="2.1" ry="1.1" fill="#514a42" />
           <path
-            d="M9.4 12 C11 13 13 13 14.6 12 L14.6 13.7 C13 14.7 11 14.7 9.4 13.7 Z"
-            fill="#a9a29a"
+            d="M30 40 C34 34 27 31 31 25"
+            stroke="#b6bcc0"
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+            opacity=".8"
+          />
+          <path
+            d="M37 41 C40 36 35 33 38 28"
+            stroke="#c7ccd0"
+            strokeWidth="1.8"
+            fill="none"
+            strokeLinecap="round"
+            opacity=".7"
           />
         </>
       )}

@@ -9,11 +9,10 @@ const STAMP_BASE =
   'text-[9px] font-bold uppercase tracking-widest shadow-sm'
 
 /**
- * Roster row card (#190): corner stamp hanging off the top-left edge — red
- * a snuffed-torch stamp for boots (wins the corner), gold SOLE SURVIVOR
- * otherwise — plus a gold outline for the designee (light while the
- * designation window is still open, solid once locked). Voted-out cards go
- * muted ash.
+ * Roster row card (#190, #56): a torch in the leading column carries status —
+ * lit while the contestant is in, snuffed once voted out. A gold SOLE SURVIVOR
+ * corner stamp marks the designee (plus a gold ring — light while the
+ * designation window is open, solid once locked). Voted-out cards go muted ash.
  */
 export function RosterCard({
   contestantId,
@@ -42,35 +41,35 @@ export function RosterCard({
         isSoleSurvivor ? (ssWindowOpen ? 'ring-2 ring-amber-200' : 'ring-2 ring-amber-400') : '',
       ].join(' ')}
     >
-      {outEp != null ? (
-        <span
-          className={`${STAMP_BASE} border-stone-300 bg-stone-50 text-stone-500 inline-flex items-center gap-1`}
-          title={`Voted out · episode ${outEp}`}
-        >
-          <Torch lit={false} className="w-3.5 h-3.5" />
-          Out · Ep {outEp}
-        </span>
-      ) : isSoleSurvivor ? (
+      {isSoleSurvivor && outEp == null && (
         <span
           className={`${STAMP_BASE} border-amber-400 bg-amber-50 text-amber-600`}
           title={ssTitle}
         >
           Sole Survivor
         </span>
-      ) : null}
+      )}
       <Link
         to={`/contestants/${contestantId}`}
         className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
           outEp != null ? 'text-gray-500' : 'text-gray-900'
         }`}
       >
+        <span
+          className="shrink-0"
+          title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+        >
+          <Torch lit={outEp == null} />
+        </span>
         <span className={outEp != null ? 'grayscale opacity-70' : undefined}>
           <ContestantAvatar name={contestant?.name ?? '—'} imageUrl={contestant?.image_url ?? null} />
         </span>
         <span className={outEp != null ? 'line-through decoration-stone-300' : undefined}>
           {contestant?.name ?? '—'}
         </span>
-        {/* OUT wins the corner; keep the SS info as an inline chip. */}
+        {outEp != null && (
+          <span className="text-[10px] uppercase tracking-wide text-stone-400">ep {outEp}</span>
+        )}
         {isSoleSurvivor && outEp != null && (
           <span
             className="text-[10px] uppercase tracking-widest text-amber-600 border border-amber-300 rounded px-1.5 py-0.5 font-semibold"
