@@ -34,6 +34,8 @@ export function MySeasonPage() {
   const [breakdown, setBreakdown] = useState<ScoringBreakdown>({ roster: [], picks: [] })
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
   const [balance, setBalance] = useState<number | null>(null)
+  const [rank, setRank] = useState<number | null>(null)
+  const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Bumped whenever the roster changes so sibling sections (Sole Survivor)
@@ -65,6 +67,10 @@ export function MySeasonPage() {
         ])
         setContestants(cs)
         setEpisodes(eps)
+        // Standings come back rank-ordered, so the user's index is their rank.
+        const idx = standings.findIndex((s) => s.user_id === userId)
+        setRank(idx >= 0 ? idx + 1 : null)
+        setPlayerCount(standings.length)
         setStanding(standings.find((s) => s.user_id === userId) ?? null)
         setBreakdown(bd)
         setPlays(ownPlays)
@@ -89,9 +95,12 @@ export function MySeasonPage() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
-        <p className="text-sm text-gray-500">My Tribe</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
+          <p className="text-sm text-gray-500">My Tribe</p>
+        </div>
+        <HeaderPoints standing={standing} rank={rank} count={playerCount} />
       </div>
 
       <ThisWeekHub
@@ -101,7 +110,6 @@ export function MySeasonPage() {
         contestants={contestants}
         userId={userId}
       />
-      <PointsHeader standing={standing} />
 
       <section id="roster" className="scroll-mt-20">
         <RosterSection
@@ -154,6 +162,74 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-3">
       {children}
     </h2>
+  )
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
+
+/**
+ * Collapsible section header (title · optional right slot · chevron) with the
+ * open/closed choice persisted per section. Weekly Votes and My Roster open by
+ * default and get the ocean accent (the weekly essentials); Season Predictions
+ * and Advantages collapse to a quiet row.
+ */
+function SectionShell({
+  title,
+  right,
+  defaultOpen = true,
+  prominent = false,
+  children,
+}: {
+  title: string
+  right?: React.ReactNode
+  defaultOpen?: boolean
+  prominent?: boolean
+  children: React.ReactNode
+}) {
+  const storageKey = `mytribe.section.${title}`
+  const [open, setOpen] = useState(() => {
+    const saved = localStorage.getItem(storageKey)
+    return saved == null ? defaultOpen : saved === '1'
+  })
+  function toggle() {
+    setOpen((o) => {
+      localStorage.setItem(storageKey, o ? '0' : '1')
+      return !o
+    })
+  }
+  return (
+    <div>
+      <button
+        onClick={toggle}
+        aria-expanded={open}
+        className={`w-full flex items-center gap-2 pl-2 border-l-2 ${open ? 'mb-3' : ''} ${
+          prominent ? 'border-ocean-500' : 'border-ember-500'
+        }`}
+      >
+        <span
+          className={`text-xs font-semibold uppercase tracking-wide ${
+            prominent ? 'text-ocean-800' : 'text-gray-500'
+          }`}
+        >
+          {title}
+        </span>
+        {right}
+        <svg
+          viewBox="0 0 24 24"
+          className={`ml-auto w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && children}
+    </div>
   )
 }
 
@@ -272,14 +348,21 @@ function ThisWeekHub({
   )
 }
 
-// ─── Points header ──────────────────────────────────────────────────────────
+// ─── Header points chip ─────────────────────────────────────────────────────
 
-function PointsHeader({ standing }: { standing: StandingEntry | null }) {
-  const [expanded, setExpanded] = useState(false)
+// Compact My Points chip for the page header — total + rank, breakdown behind a
+// tap. No winner component (SS double lands inside roster points, #164).
+function HeaderPoints({
+  standing,
+  rank,
+  count,
+}: {
+  standing: StandingEntry | null
+  rank: number | null
+  count: number
+}) {
+  const [open, setOpen] = useState(false)
   const total = standing?.total_points ?? 0
-
-  // No winner-pick component — the Sole Survivor double lands inside roster
-  // points instead (#164).
   const components = [
     { label: 'Roster', value: standing?.roster_points ?? 0 },
     { label: 'Eliminations', value: standing?.elimination_points ?? 0 },
@@ -287,30 +370,36 @@ function PointsHeader({ standing }: { standing: StandingEntry | null }) {
   ]
 
   return (
-    <div className="p-5 bg-white border border-sand-200 rounded-xl">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2">
-            My Points
-          </p>
-          <p className="text-4xl font-bold text-gray-900">{total}</p>
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="rounded-xl px-4 py-2 bg-gradient-to-br from-ocean-500 to-ocean-700 text-white text-right shadow-md hover:from-ocean-600 hover:to-ocean-800 transition-colors"
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-white/80">
+          My Points
         </div>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="text-sm text-ocean-600 hover:text-ocean-800 font-medium"
-        >
-          {expanded ? 'Hide breakdown' : 'Show breakdown'}
-        </button>
-      </div>
-      {expanded && (
-        <ul className="mt-4 space-y-1 border-t border-gray-100 pt-3">
-          {components.map((c) => (
-            <li key={c.label} className="flex justify-between text-sm">
-              <span className="text-gray-600">{c.label}</span>
-              <span className="font-medium text-gray-900">{c.value}</span>
+        <div className="text-2xl font-bold leading-none tabular-nums">{total}</div>
+        {rank != null && (
+          <div className="text-[11px] text-white/90 mt-0.5">
+            {ordinal(rank)} of {count}
+          </div>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-48 bg-white border border-sand-200 rounded-xl shadow-lg p-3 z-20">
+          <ul className="space-y-1">
+            {components.map((c) => (
+              <li key={c.label} className="flex justify-between text-sm">
+                <span className="text-gray-600">{c.label}</span>
+                <span className="font-medium text-gray-900">{c.value}</span>
+              </li>
+            ))}
+            <li className="flex justify-between text-sm border-t border-gray-100 pt-1 mt-1">
+              <span className="font-semibold text-gray-700">Total</span>
+              <span className="font-bold text-gray-900">{total}</span>
             </li>
-          ))}
-        </ul>
+          </ul>
+        </div>
       )}
     </div>
   )
@@ -540,16 +629,18 @@ function RosterSection({
   }
 
   return (
-    <div>
-      <SectionTitle>
-        My Roster{' '}
-        {lockEpisode && (
+    <SectionShell
+      title="My Roster"
+      prominent
+      right={
+        lockEpisode && (
           <LockBadge
             lockAt={lockEpisode.picks_lock_at}
             scored={lockEpisode.status === 'scored'}
           />
-        )}
-      </SectionTitle>
+        )
+      }
+    >
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {hasRoster && !(windowOpen && editing) ? (
@@ -876,7 +967,7 @@ function RosterSection({
             : 'Roster submission window has closed.'}
         </p>
       )}
-    </div>
+    </SectionShell>
   )
 }
 
@@ -1027,12 +1118,11 @@ function PicksSection({
     .reverse()
 
   return (
-    <div>
-      <SectionTitle>
-        Weekly Votes{' '}
-        {nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
-      </SectionTitle>
-
+    <SectionShell
+      title="Weekly Votes"
+      prominent
+      right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
+    >
       {!nextOpen && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
@@ -1105,10 +1195,7 @@ function PicksSection({
 
           return (
             <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="font-semibold text-gray-900">Episode {ep.episode_number}</h3>
-                <span className="text-xs text-gray-400">Locks {formatCentral(ep.picks_lock_at)}</span>
-              </div>
+              <h3 className="font-semibold text-gray-900 mb-1">Episode {ep.episode_number}</h3>
               {confirmed ? (
                 <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
                   <div className="flex justify-center mb-1"><VoteMark sealed className="w-10 h-10" /></div>
@@ -1314,9 +1401,7 @@ function PicksSection({
                   >
                     Edit Votes
                   </button>
-                  <span className="text-xs text-gray-400">
-                    Editable until {formatCentral(ep.picks_lock_at)}
-                  </span>
+                  <span className="text-xs text-gray-400">Editable until it locks</span>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -1426,7 +1511,7 @@ function PicksSection({
           </div>
         </div>
       )}
-    </div>
+    </SectionShell>
   )
 }
 
@@ -1699,16 +1784,18 @@ function SoleSurvivorSection({
   }
 
   return (
-    <div>
-      <SectionTitle>
-        Sole Survivor{' '}
-        {lockEpisode && (
+    <SectionShell
+      title="Sole Survivor"
+      defaultOpen={false}
+      right={
+        lockEpisode && (
           <LockBadge
             lockAt={lockEpisode.picks_lock_at}
             scored={lockEpisode.status === 'scored'}
           />
-        )}
-      </SectionTitle>
+        )
+      }
+    >
       <p className="text-xs text-gray-400 mb-3">
         Everything your Sole Survivor scores in the finale counts double for you.
       </p>
@@ -1758,7 +1845,7 @@ function SoleSurvivorSection({
           {saved && <p className="text-green-600 text-sm mt-2">Designated.</p>}
         </>
       )}
-    </div>
+    </SectionShell>
   )
 }
 
@@ -1843,8 +1930,17 @@ function TokensSection({
   }
 
   return (
-    <div>
-      <SectionTitle>Tokens & Advantages</SectionTitle>
+    <SectionShell
+      title="Advantages"
+      defaultOpen={false}
+      right={
+        balance != null && (
+          <span className="text-xs font-semibold text-gray-500 bg-sand-100 border border-sand-200 px-2 py-0.5 rounded-full">
+            {balance} tokens
+          </span>
+        )
+      }
+    >
       <div className="flex items-baseline gap-3 mb-3">
         <span className="text-2xl font-bold text-gray-900">{balance ?? '—'}</span>
         <span className="text-sm text-gray-500">tokens</span>
@@ -1903,6 +1999,6 @@ function TokensSection({
       {finaleOnly && (
         <p className="text-xs text-amber-600 mt-2">Advantages can't be used in the finale.</p>
       )}
-    </div>
+    </SectionShell>
   )
 }
