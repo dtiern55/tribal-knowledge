@@ -520,6 +520,7 @@ def test_unuse_extra_vote_blocked_while_over_pick_limit(client, db_conn, current
     ep = _open_episode(db_conn, season["id"], max_picks=1)
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
+    insert_contestant(db_conn, season["id"], "Player C")  # keep cap above 2 (#240)
     _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "extra_vote")
     client.post(f"/advantage-plays/{play['id']}/use", json={})

@@ -43,6 +43,7 @@ def test_submit_picks(client, db_conn, current_user):
     ep = _open_episode(db_conn, season["id"])
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
+    insert_contestant(db_conn, season["id"], "Player C")  # keep cap above 2
     r = client.post(
         f"/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
@@ -56,6 +57,7 @@ def test_submit_picks_appears_in_get(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
     contestant = insert_contestant(db_conn, season["id"])
+    insert_contestant(db_conn, season["id"], "Other")  # keep cap above 1
     client.post(
         f"/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
@@ -106,6 +108,7 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
     ep = _open_episode(db_conn, season["id"], max_picks=1)
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
+    insert_contestant(db_conn, season["id"], "Player C")  # keeps cap above 2
 
     grant_tokens(db_conn, current_user["id"], season["id"], amount=20)
     play = client.post(
@@ -125,10 +128,34 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_cannot_pick_every_remaining_option(client, db_conn, current_user):
+    """Extra votes never let you select every castaway still in — cap is
+    (still in the game − 1), even with a high base limit (#240)."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"], max_picks=3)
+    c1 = insert_contestant(db_conn, season["id"], "Player A")
+    c2 = insert_contestant(db_conn, season["id"], "Player B")  # only 2 still in
+
+    r = client.post(
+        f"/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
+    )
+    assert r.status_code == 400
+    assert "Too many picks" in r.json()["detail"]
+
+    ok = client.post(
+        f"/episodes/{ep['id']}/picks", json={"contestant_ids": [str(c1["id"])]}
+    )
+    assert ok.status_code == 200
+
+
+@pytest.mark.integration
 def test_submit_picks_duplicate_contestant(client, db_conn):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"], max_picks=3)
     c = insert_contestant(db_conn, season["id"])
+    insert_contestant(db_conn, season["id"], "B")  # keep cap above 2 so the
+    insert_contestant(db_conn, season["id"], "C")  # dup check is what fires
     r = client.post(
         f"/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c["id"]), str(c["id"])]},
@@ -192,6 +219,8 @@ def test_submit_picks_already_eliminated(client, db_conn):
     )
     ep2 = _open_episode(db_conn, season["id"], episode_number=2)
     contestant = insert_contestant(db_conn, season["id"])
+    insert_contestant(db_conn, season["id"], "B")  # keep others in so the cap
+    insert_contestant(db_conn, season["id"], "C")  # isn't what rejects the pick
     insert_elimination(db_conn, ep1["id"], contestant["id"])
     r = client.post(
         f"/episodes/{ep2['id']}/picks",
@@ -267,6 +296,7 @@ def test_watch_only_premiere_rejects_picks(client, db_conn, current_user):
     ep1 = _open_episode(db_conn, season["id"], episode_number=1)
     ep2 = _open_episode(db_conn, season["id"], episode_number=2)
     contestant = insert_contestant(db_conn, season["id"])
+    insert_contestant(db_conn, season["id"], "Other")  # keep cap above 1
 
     r = client.post(
         f"/episodes/{ep1['id']}/picks",

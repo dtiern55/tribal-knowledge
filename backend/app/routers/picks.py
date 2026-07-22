@@ -91,6 +91,19 @@ def submit_picks(
             )
             max_picks = episode["max_elimination_picks"] + cur.fetchone()["n"]
 
+            # You can never pick every remaining option — extra votes only go up
+            # to (contestants still in the game − 1) (#240).
+            cur.execute(
+                "select count(*) as n from contestants c"
+                " where c.season_id = %s and not exists ("
+                "   select 1 from eliminations e"
+                "   join episodes ep on ep.id = e.episode_id"
+                "   where e.contestant_id = c.id and ep.episode_number < %s)",
+                [str(episode["season_id"]), episode["episode_number"]],
+            )
+            still_in = cur.fetchone()["n"]
+            max_picks = min(max_picks, max(still_in - 1, 0))
+
             if len(body.contestant_ids) > max_picks:
                 raise HTTPException(
                     status_code=400,
