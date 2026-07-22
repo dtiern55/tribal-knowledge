@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
 import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
@@ -193,7 +194,11 @@ export function AdvantagesPage() {
               </div>
               <p className="text-xs text-gray-500 mb-3">
                 Replace one of your roster picks with an unrostered castaway. Buy
-                here, then use it on the My Tribe page.
+                here, then use it on the{' '}
+                <Link to="/my-season#swap" className="text-jungle-700 font-medium underline">
+                  My Tribe page
+                </Link>
+                .
               </p>
               {swapLocked ? (
                 <p className="text-xs text-amber-600">
@@ -250,7 +255,17 @@ export function AdvantagesPage() {
             ) : (
               // Play everything on My Season (roster doubles in the roster
               // section, vote doubles / extra votes in the Weekly Votes section).
-              <p className="text-xs text-gray-500 mt-1">Use it on the My Tribe page.</p>
+              // A swap credit deep-links straight to the swap control (#248).
+              <p className="text-xs text-gray-500 mt-1">
+                Use it on the{' '}
+                <Link
+                  to={p.advantage_type === 'roster_swap' ? '/my-season#swap' : '/my-season'}
+                  className="text-jungle-700 font-medium underline"
+                >
+                  My Tribe page
+                </Link>
+                .
+              </p>
             )}
           </div>
         ))}
