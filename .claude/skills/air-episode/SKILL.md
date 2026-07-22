@@ -131,8 +131,9 @@ schedules the watch. Skip only if N was the finale.
   behind, this ritual waits or falls back to manual admin-UI entry.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, survivor moments, or tokens.
-- **Weekly player token allocation**
-  (`POST {API}/seasons/{season_id}/tokens/weekly-allocation`) is a *separate*
-  cadence from scoring — confirm it's handled, but it is not part of this ritual.
+- **Weekly player token allocation** is handled by **step 8** — creating episode
+  N+1 grants its +10 (grant-on-create, #217). The manual
+  `POST {API}/seasons/{season_id}/tokens/weekly-allocation` endpoint is only a
+  backstop/override now, not the normal path.
 - Fine-grained fixes after applying are easy: scoring events are additive with
   per-item delete (`DELETE {API}/scoring-events/{id}`) in the admin UI.
