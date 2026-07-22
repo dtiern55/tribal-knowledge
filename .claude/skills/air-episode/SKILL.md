@@ -115,14 +115,25 @@ it happens — that's future knowledge, and it changes point values.)
     contestant sitting at 0 where you expected points, an unexpected token move.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
+## 8. Create the next episode (funds its weekly +10)
+
+Right after scoring episode N, create the **episode N+1** row:
+`POST {API}/seasons/{season_id}/episodes`. Grant-on-create (#217) grants every
+player that episode's `weekly_token_allocation` the moment the row exists — so
+the +10 for N+1 lands as soon as N is scored, and players go into N+1 with their
+episode-N earnings **plus** the fresh allocation. Use a placeholder
+`picks_lock_at` (a week out); Danny sets the real air/lock date in Admin when he
+schedules the watch. Skip only if N was the finale.
+
 ## Remember
 
 - **survivoR lag** gates everything: data lands a day+ after air. If it's
   behind, this ritual waits or falls back to manual admin-UI entry.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, survivor moments, or tokens.
-- **Weekly player token allocation**
-  (`POST {API}/seasons/{season_id}/tokens/weekly-allocation`) is a *separate*
-  cadence from scoring — confirm it's handled, but it is not part of this ritual.
+- **Weekly player token allocation** is handled by **step 8** — creating episode
+  N+1 grants its +10 (grant-on-create, #217). The manual
+  `POST {API}/seasons/{season_id}/tokens/weekly-allocation` endpoint is only a
+  backstop/override now, not the normal path.
 - Fine-grained fixes after applying are easy: scoring events are additive with
   per-item delete (`DELETE {API}/scoring-events/{id}`) in the admin UI.
