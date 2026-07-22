@@ -45,9 +45,9 @@ def test_list_advantage_types(client):
     r = client.get("/advantage-types")
     assert r.status_code == 200
     by_type = {a["advantage_type"]: a for a in r.json()}
-    assert by_type["double_roster_points"]["token_cost"] == 15
+    assert by_type["double_roster_points"]["token_cost"] == 20
     assert by_type["double_vote_points"]["token_cost"] == 10
-    assert by_type["extra_vote"]["token_cost"] == 20
+    assert by_type["extra_vote"]["token_cost"] == 5
     assert all(a["enabled"] for a in r.json())
 
 
@@ -64,14 +64,14 @@ def test_buy_lands_in_inventory(client, db_conn, current_user):
     assert play["episode_id"] is None
     assert play["target_contestant_id"] is None
     assert play["season_id"] == str(season["id"])
-    assert play["token_cost"] == 20
+    assert play["token_cost"] == 5
 
 
 @pytest.mark.integration
 def test_buy_deducts_tokens(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    _fund(db_conn, season["id"], current_user["id"], amount=20)
+    _fund(db_conn, season["id"], current_user["id"], amount=5)
 
     _buy(client, season["id"], "extra_vote")
     balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
@@ -110,7 +110,7 @@ def test_buy_blocked_when_no_open_episode(client, db_conn, current_user):
 def test_buy_insufficient_tokens(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    _fund(db_conn, season["id"], current_user["id"], amount=10)
+    _fund(db_conn, season["id"], current_user["id"], amount=3)
 
     r = client.post(
         f"/seasons/{season['id']}/advantage-plays",
@@ -121,7 +121,7 @@ def test_buy_insufficient_tokens(client, db_conn, current_user):
     balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
         "balance"
     ]
-    assert balance == 10
+    assert balance == 3
 
 
 @pytest.mark.integration
@@ -424,7 +424,7 @@ def test_double_different_targets_ok_same_target_rejected(
     b = insert_contestant(db_conn, season["id"], "B")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
     insert_roster_pick(db_conn, current_user["id"], season["id"], b["id"])
-    _fund(db_conn, season["id"], current_user["id"])
+    _fund(db_conn, season["id"], current_user["id"], amount=70)  # 3 × 20
     d1 = _buy(client, season["id"], "double_roster_points")
     d2 = _buy(client, season["id"], "double_roster_points")
     d3 = _buy(client, season["id"], "double_roster_points")
