@@ -195,7 +195,7 @@ export function AdvantagesPage() {
               <p className="text-xs text-gray-500 mb-3">
                 Replace one of your roster picks with an unrostered castaway. Buy
                 here, then use it on the{' '}
-                <Link to="/my-season#swap" className="text-jungle-700 font-medium underline">
+                <Link to="/#swap" className="text-jungle-700 font-medium underline">
                   My Tribe page
                 </Link>
                 .
@@ -259,7 +259,7 @@ export function AdvantagesPage() {
               <p className="text-xs text-gray-500 mt-1">
                 Use it on the{' '}
                 <Link
-                  to={p.advantage_type === 'roster_swap' ? '/my-season#swap' : '/my-season'}
+                  to={p.advantage_type === 'roster_swap' ? '/#swap' : '/'}
                   className="text-jungle-700 font-medium underline"
                 >
                   My Tribe page
