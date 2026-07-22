@@ -11,6 +11,7 @@ import {
 } from '../lib/install'
 import type { Season } from '../types'
 import {
+  BookIcon,
   CloseIcon,
   DownloadIcon,
   EnvelopeIcon,
@@ -130,6 +131,10 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
           </div>
 
           <nav className="py-1">
+            <Link to="/rules" onClick={onClose} className={rowCls}>
+              <BookIcon />
+              Rules
+            </Link>
             <div className={`${rowCls} cursor-default text-gray-400 hover:bg-transparent`}>
               <EnvelopeIcon />
               <span className="flex-1">Treemail</span>

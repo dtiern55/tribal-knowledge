@@ -79,6 +79,15 @@ export function BookIcon() {
   )
 }
 
+export function BallotIcon() {
+  return (
+    <Svg>
+      <path d="M9 12l2 2 4-4" />
+      <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+    </Svg>
+  )
+}
+
 export function GearIcon() {
   return (
     <Svg>
