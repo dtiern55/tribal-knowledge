@@ -26,7 +26,7 @@ const rowCls =
  * switcher, account links, install, and sign out — reachable from the
  * top-bar menu button on every page. */
 export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile, signOut } = useAuth()
+  const { signOut } = useAuth()
   const [seasons, setSeasons] = useState<Season[]>([])
   const [activeId, setActiveId] = useState('')
   const [canPrompt, setCanPrompt] = useState(installAvailable())
@@ -116,9 +116,10 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
               onChange={(e) => changeSeason(e.target.value)}
               className="w-full rounded-lg border border-ocean-200 bg-white px-3 py-2 font-display tracking-wide text-ocean-900"
             >
-              {seasons
-                .slice()
+              {/* Active season first, then past seasons newest→oldest (#236). */}
+              {[...seasons]
                 .reverse()
+                .sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active'))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -138,7 +139,7 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
             </div>
             <Link to="/profile" onClick={onClose} className={rowCls}>
               <UserIcon />
-              {profile?.display_name ?? 'Profile'}
+              Profile
             </Link>
             <div className={`${rowCls} cursor-default text-gray-400 hover:bg-transparent`}>
               <GearIcon />
