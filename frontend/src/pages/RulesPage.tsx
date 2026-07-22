@@ -249,6 +249,10 @@ export function RulesPage() {
             other shared advantages.
           </li>
           <li>
+            <b>Crying</b> — wet eyes alone don't count. It takes a real cry: a shed
+            tear, an audible sob, or a breaking voice.
+          </li>
+          <li>
             <b>Extra votes</b> can be used until only <b>one selection remains</b> — you
             can never vote for every castaway still in the game.
           </li>
