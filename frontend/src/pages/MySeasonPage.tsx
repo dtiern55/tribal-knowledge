@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
@@ -272,6 +272,19 @@ function RosterSection({
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
   }, [season.id, userId])
+
+  // Deep-link from Advantages: /my-season#swap scrolls the swap control into
+  // view once the roster has rendered (#248). Ref-guarded so editing the roster
+  // later doesn't yank the page back.
+  const location = useLocation()
+  const swapRef = useRef<HTMLDivElement>(null)
+  const scrolledToSwap = useRef(false)
+  useEffect(() => {
+    if (location.hash === '#swap' && !scrolledToSwap.current && swapRef.current) {
+      swapRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      scrolledToSwap.current = true
+    }
+  }, [location.hash, roster])
 
   const lockEpisode =
     season.roster_lock_episode != null
@@ -598,7 +611,11 @@ function RosterSection({
           )}
 
           {!windowOpen && season.status !== 'completed' && (
-            <div className="pt-4 border-t border-gray-100">
+            <div
+              id="swap"
+              ref={swapRef}
+              className="scroll-mt-20 p-4 bg-jungle-50 border border-jungle-100 rounded-xl"
+            >
               <SectionTitle>Swap a Roster Pick</SectionTitle>
               <p className="text-xs text-gray-400 mb-3">
                 {swapCredits} swap {swapCredits === 1 ? 'credit' : 'credits'} ready ·{' '}
@@ -627,11 +644,23 @@ function RosterSection({
                       className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
                     >
                       <option value="">Drop contestant…</option>
-                      {activeRoster.map((pick) => (
-                        <option key={pick.id} value={pick.contestant_id}>
-                          {contestantMap.get(pick.contestant_id)?.name ?? pick.contestant_id}
-                        </option>
-                      ))}
+                      {activeRoster.map((pick) => {
+                        const c = contestantMap.get(pick.contestant_id)
+                        // Signify castaways already voted out (#248): native
+                        // <option> styling is unreliable, so mark them in the
+                        // label and grey them where the browser honors it.
+                        const out = c?.eliminated_in_episode != null
+                        return (
+                          <option
+                            key={pick.id}
+                            value={pick.contestant_id}
+                            style={out ? { color: '#9ca3af' } : undefined}
+                          >
+                            {c?.name ?? pick.contestant_id}
+                            {out ? ' — out' : ''}
+                          </option>
+                        )
+                      })}
                     </select>
                     <select
                       value={swapNew}
