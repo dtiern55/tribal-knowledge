@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { NavDrawer } from './NavDrawer'
 import {
-  BookIcon,
+  BallotIcon,
   GearIcon,
   IdolIcon,
   MenuIcon,
@@ -16,10 +16,10 @@ import {
 // they become a fixed bottom tab bar (thumb-reachable, can't overflow).
 const PRIMARY = [
   { to: '/', label: 'My Tribe', Icon: PalmIcon, end: true },
+  { to: '/my-votes', label: 'My Votes', Icon: BallotIcon, end: false },
   { to: '/advantages', label: 'Advantages', Icon: IdolIcon, end: false },
   { to: '/standings', label: 'Standings', Icon: TrophyIcon, end: false },
   { to: '/cast', label: 'Cast', Icon: UsersIcon, end: false },
-  { to: '/rules', label: 'Rules', Icon: BookIcon, end: false },
 ]
 
 export function Layout() {

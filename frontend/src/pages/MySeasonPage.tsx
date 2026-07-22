@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
@@ -20,10 +20,11 @@ import type {
   ScoringBreakdown,
   Season,
   StandingEntry,
-  TokenLedgerEntry,
 } from '../types'
 
-export function MySeasonPage() {
+// My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
+// season sections + the one data load, so both pages live in this file.
+function useMySeasonData() {
   const { session } = useAuth()
   const userId = session?.user?.id
 
@@ -33,7 +34,6 @@ export function MySeasonPage() {
   const [standing, setStanding] = useState<StandingEntry | null>(null)
   const [breakdown, setBreakdown] = useState<ScoringBreakdown>({ roster: [], picks: [] })
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
-  const [balance, setBalance] = useState<number | null>(null)
   const [rank, setRank] = useState<number | null>(null)
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -54,16 +54,12 @@ export function MySeasonPage() {
         }
         setSeason(active)
 
-        const [cs, eps, standings, bd, ownPlays, bal] = await Promise.all([
+        const [cs, eps, standings, bd, ownPlays] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
           api.get<StandingEntry[]>(`/seasons/${active.id}/standings`),
           api.get<ScoringBreakdown>(`/seasons/${active.id}/scoring-breakdown/${userId}`),
           api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
-          api
-            .get<{ balance: number }>(`/seasons/${active.id}/tokens/${userId}`)
-            .then((t) => t.balance)
-            .catch(() => null),
         ])
         setContestants(cs)
         setEpisodes(eps)
@@ -74,7 +70,6 @@ export function MySeasonPage() {
         setStanding(standings.find((s) => s.user_id === userId) ?? null)
         setBreakdown(bd)
         setPlays(ownPlays)
-        setBalance(bal)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
       } finally {
@@ -84,75 +79,100 @@ export function MySeasonPage() {
     void load()
   }, [userId])
 
-  if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
-  if (!season || !userId) return <p className="text-gray-500">No active season.</p>
+  return {
+    userId,
+    season,
+    contestants,
+    episodes,
+    standing,
+    breakdown,
+    plays,
+    setPlays,
+    rank,
+    playerCount,
+    loading,
+    error,
+    rosterVersion,
+    bumpRoster: () => setRosterVersion((v) => v + 1),
+  }
+}
 
-  const rosterPoints = new Map(breakdown.roster.map((r) => [r.contestant_id, r.points]))
-  const pickResults = new Map(
-    breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
-  )
+export function MyTribePage() {
+  const d = useMySeasonData()
+  if (d.loading) return <PageLoader />
+  if (d.error) return <p className="text-red-600">{d.error}</p>
+  if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
+
+  const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
 
   return (
     <div className="space-y-10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
+          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{d.season.name}</h1>
           <p className="text-sm text-gray-500">My Tribe</p>
         </div>
-        <HeaderPoints standing={standing} rank={rank} count={playerCount} />
+        <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
       </div>
 
       <ThisWeekHub
-        season={season}
-        episodes={episodes}
-        plays={plays}
-        contestants={contestants}
-        userId={userId}
+        season={d.season}
+        episodes={d.episodes}
+        plays={d.plays}
+        contestants={d.contestants}
+        userId={d.userId}
       />
 
       <section id="roster" className="scroll-mt-20">
         <RosterSection
-          season={season}
-          contestants={contestants}
-          episodes={episodes}
-          userId={userId}
+          season={d.season}
+          contestants={d.contestants}
+          episodes={d.episodes}
+          userId={d.userId}
           rosterPoints={rosterPoints}
-          plays={plays}
-          setPlays={setPlays}
-          onRosterChange={() => setRosterVersion((v) => v + 1)}
-        />
-      </section>
-      <section id="votes" className="scroll-mt-20">
-        <PicksSection
-          season={season}
-          contestants={contestants}
-          episodes={episodes}
-          userId={userId}
-          plays={plays}
-          setPlays={setPlays}
-          pickResults={pickResults}
+          plays={d.plays}
+          setPlays={d.setPlays}
+          onRosterChange={d.bumpRoster}
         />
       </section>
       <section id="predictions" className="scroll-mt-20">
         <SoleSurvivorSection
-          season={season}
-          contestants={contestants}
-          episodes={episodes}
-          userId={userId}
-          rosterVersion={rosterVersion}
+          season={d.season}
+          contestants={d.contestants}
+          episodes={d.episodes}
+          userId={d.userId}
+          rosterVersion={d.rosterVersion}
         />
       </section>
-      <section id="advantages" className="scroll-mt-20">
-        <TokensSection
-          balance={balance}
-          plays={plays}
-          contestants={contestants}
-          episodes={episodes}
-          seasonId={season.id}
-          userId={userId}
-        />
-      </section>
+    </div>
+  )
+}
+
+export function MyVotesPage() {
+  const d = useMySeasonData()
+  if (d.loading) return <PageLoader />
+  if (d.error) return <p className="text-red-600">{d.error}</p>
+  if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
+
+  const pickResults = new Map(
+    d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
+  )
+
+  return (
+    <div className="space-y-10">
+      <div>
+        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{d.season.name}</h1>
+        <p className="text-sm text-gray-500">My Votes</p>
+      </div>
+      <PicksSection
+        season={d.season}
+        contestants={d.contestants}
+        episodes={d.episodes}
+        userId={d.userId}
+        plays={d.plays}
+        setPlays={d.setPlays}
+        pickResults={pickResults}
+      />
     </div>
   )
 }
@@ -261,6 +281,7 @@ function ThisWeekHub({
   contestants: Contestant[]
   userId: string
 }) {
+  const navigate = useNavigate()
   const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
   const [voteCount, setVoteCount] = useState<number | null>(null)
 
@@ -337,9 +358,7 @@ function ThisWeekHub({
       )}
 
       <button
-        onClick={() =>
-          document.getElementById('votes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
+        onClick={() => navigate('/my-votes')}
         className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg hover:bg-ocean-700 transition-colors"
       >
         {locked ? 'Review your votes' : 'Review & lock votes'}
@@ -468,7 +487,7 @@ function RosterSection({
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
   }, [season.id, userId])
 
-  // Deep-link from Advantages: /my-season#swap scrolls the swap control into
+  // Deep-link from Advantages: /#swap scrolls the swap control into
   // view once the roster has rendered (#248). Ref-guarded so editing the roster
   // later doesn't yank the page back.
   const location = useLocation()
@@ -1844,160 +1863,6 @@ function SoleSurvivorSection({
           {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
           {saved && <p className="text-green-600 text-sm mt-2">Designated.</p>}
         </>
-      )}
-    </SectionShell>
-  )
-}
-
-// ─── Tokens section ─────────────────────────────────────────────────────────
-
-function TokensSection({
-  balance,
-  plays,
-  contestants,
-  episodes,
-  seasonId,
-  userId,
-}: {
-  balance: number | null
-  plays: AdvantagePlay[]
-  contestants: Contestant[]
-  episodes: Episode[]
-  seasonId: string
-  userId: string
-}) {
-  const [history, setHistory] = useState<TokenLedgerEntry[] | null>(null)
-  const [loadingHistory, setLoadingHistory] = useState(false)
-
-  function toggleHistory() {
-    if (history) {
-      setHistory(null)
-      return
-    }
-    setLoadingHistory(true)
-    void api
-      .get<TokenLedgerEntry[]>(`/seasons/${seasonId}/tokens/${userId}/history`)
-      .then(setHistory)
-      .finally(() => setLoadingHistory(false))
-  }
-
-  // Friendly ledger description. Under the per-episode token model an
-  // allocation reads "Episode N tokens", not "Weekly Allocation" (#97).
-  function txnDescription(h: TokenLedgerEntry): string {
-    const cap = (s: string) =>
-      s.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
-    switch (h.transaction_type) {
-      case 'weekly_allocation':
-        return h.episode_number != null ? `Episode ${h.episode_number} tokens` : 'Token allocation'
-      case 'starting_allocation':
-        return 'Starting tokens'
-      case 'advantage_spend':
-        return h.description ? `Bought ${cap(h.description)}` : 'Bought advantage'
-      default:
-        return h.description ?? cap(h.transaction_type)
-    }
-  }
-
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const scoredIds = new Set(episodes.filter((e) => e.status === 'scored').map((e) => e.id))
-  const epNum = new Map(episodes.map((e) => [e.id, e.episode_number]))
-
-  // "Active" only while its episode is still to come — a played advantage on a
-  // scored episode has already applied and is spent, not active (#13).
-  const active = plays.filter((p) => p.episode_id !== null && !scoredIds.has(p.episode_id))
-  const used = plays.filter((p) => p.episode_id !== null && scoredIds.has(p.episode_id))
-  const owned = plays.filter((p) => p.episode_id === null)
-
-  // Aggregate duplicate owned advantages (#2)
-  const ownedCounts = new Map<string, number>()
-  for (const p of owned) ownedCounts.set(p.advantage_type, (ownedCounts.get(p.advantage_type) ?? 0) + 1)
-
-  // Owned advantages can't be played on the finale (#15)
-  const nextOpen = [...episodes]
-    .sort((a, b) => a.episode_number - b.episode_number)
-    .find((e) => e.status !== 'scored')
-  const finaleOnly = owned.length > 0 && nextOpen?.is_finale === true
-
-  function pretty(type: string) {
-    return type
-      .split('_')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ')
-  }
-  function withTarget(p: AdvantagePlay) {
-    const name = p.target_contestant_id ? contestantMap.get(p.target_contestant_id)?.name : undefined
-    return pretty(p.advantage_type) + (name ? ` · ${name}` : '')
-  }
-
-  return (
-    <SectionShell
-      title="Advantages"
-      defaultOpen={false}
-      right={
-        balance != null && (
-          <span className="text-xs font-semibold text-gray-500 bg-sand-100 border border-sand-200 px-2 py-0.5 rounded-full">
-            {balance} tokens
-          </span>
-        )
-      }
-    >
-      <div className="flex items-baseline gap-3 mb-3">
-        <span className="text-2xl font-bold text-gray-900">{balance ?? '—'}</span>
-        <span className="text-sm text-gray-500">tokens</span>
-        <button
-          onClick={toggleHistory}
-          className="text-sm text-ocean-600 hover:text-ocean-800 font-medium"
-        >
-          {history ? 'Hide history' : loadingHistory ? 'Loading…' : 'History'}
-        </button>
-      </div>
-      {history && (
-        <ul className="mb-4 space-y-1 text-sm border border-gray-100 rounded-lg p-3 bg-gray-50">
-          {history.length === 0 && <li className="text-gray-400">No token activity yet.</li>}
-          {history.map((h, i) => (
-            <li key={i} className="flex justify-between gap-3">
-              <span className="text-gray-600">
-                {txnDescription(h)}
-                {h.transaction_type !== 'weekly_allocation' &&
-                  h.transaction_type !== 'advantage_spend' &&
-                  h.episode_number != null && (
-                    <span className="text-gray-400"> · ep {h.episode_number}</span>
-                  )}
-              </span>
-              <span
-                className={`font-medium shrink-0 ${
-                  h.amount >= 0 ? 'text-green-600' : 'text-red-500'
-                }`}
-              >
-                {h.amount >= 0 ? '+' : ''}
-                {h.amount}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {(active.length > 0 || owned.length > 0 || used.length > 0) && (
-        <ul className="space-y-1 text-sm">
-          {active.map((p) => (
-            <li key={p.id} className="text-gray-700">
-              <span className="text-green-600 font-medium">Active</span> — {withTarget(p)}
-            </li>
-          ))}
-          {[...ownedCounts].map(([type, n]) => (
-            <li key={type} className="text-gray-500">
-              Owned — {pretty(type)}
-              {n > 1 && ` (×${n})`}
-            </li>
-          ))}
-          {used.map((p) => (
-            <li key={p.id} className="text-gray-400">
-              Used (ep {p.episode_id ? (epNum.get(p.episode_id) ?? '?') : '?'}) — {withTarget(p)}
-            </li>
-          ))}
-        </ul>
-      )}
-      {finaleOnly && (
-        <p className="text-xs text-amber-600 mt-2">Advantages can't be used in the finale.</p>
       )}
     </SectionShell>
   )

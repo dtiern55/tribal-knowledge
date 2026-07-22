@@ -8,7 +8,7 @@ import { CastPage } from './pages/CastPage'
 import { JoinPage } from './pages/JoinPage'
 import { ContestantPage } from './pages/ContestantPage'
 import { LoginPage } from './pages/LoginPage'
-import { MySeasonPage } from './pages/MySeasonPage'
+import { MyTribePage, MyVotesPage } from './pages/MySeasonPage'
 import { RulesPage } from './pages/RulesPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StandingsPage } from './pages/StandingsPage'
@@ -20,16 +20,16 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<ProtectedRoute><MySeasonPage /></ProtectedRoute>} />
+            <Route index element={<ProtectedRoute><MyTribePage /></ProtectedRoute>} />
             <Route path="login" element={<LoginPage />} />
             <Route path="join" element={<JoinPage />} />
             <Route
-              path="standings"
-              element={<ProtectedRoute><StandingsPage /></ProtectedRoute>}
+              path="my-votes"
+              element={<ProtectedRoute><MyVotesPage /></ProtectedRoute>}
             />
             <Route
-              path="my-season"
-              element={<ProtectedRoute><MySeasonPage /></ProtectedRoute>}
+              path="standings"
+              element={<ProtectedRoute><StandingsPage /></ProtectedRoute>}
             />
             <Route
               path="seasons/:seasonId/team/:userId"
