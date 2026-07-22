@@ -554,6 +554,23 @@ function RosterSection({
   const doubledRosterIds = new Set(activeDoubleRoster.map((p) => p.target_contestant_id))
   const doubleTargets = activeRoster.filter((p) => !doubledRosterIds.has(p.contestant_id))
 
+  // How many times Double Roster Points has been played on each contestant this
+  // season (#257) — drives the "×N Doubled" card stamp. Their roster points
+  // already fold the doubling in server-side.
+  const doubledCountByContestant = new Map<string, number>()
+  for (const p of plays) {
+    if (
+      p.advantage_type === 'double_roster_points' &&
+      p.episode_id != null &&
+      p.target_contestant_id
+    ) {
+      doubledCountByContestant.set(
+        p.target_contestant_id,
+        (doubledCountByContestant.get(p.target_contestant_id) ?? 0) + 1,
+      )
+    }
+  }
+
   // Whether the current selection differs from the saved roster (#94): drives
   // the save button's enabled/label state so it's clear a click is needed.
   const savedContestantIds = new Set(activeRoster.map((r) => r.contestant_id))
@@ -699,34 +716,10 @@ function RosterSection({
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
                 }
-                doubled={doubledRosterIds.has(pick.contestant_id)}
+                doubledCount={doubledCountByContestant.get(pick.contestant_id) ?? 0}
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
               />
             ))}
-            {/* Contestant rows show BASE points; a played double earns its
-                own line so the numbers above never silently inflate (#136). */}
-            {plays
-              .filter(
-                (p) =>
-                  p.advantage_type === 'double_roster_points' &&
-                  p.episode_id != null &&
-                  p.points_earned != null &&
-                  p.points_earned !== 0,
-              )
-              .map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
-                >
-                  <span className="text-ocean-800">
-                    Double Roster Points —{' '}
-                    <span className="font-medium">
-                      {contestantMap.get(p.target_contestant_id ?? '')?.name ?? '—'}
-                    </span>
-                  </span>
-                  <Points value={p.points_earned ?? undefined} />
-                </li>
-              ))}
           </ul>
 
           {nextOpenEpisode != null &&

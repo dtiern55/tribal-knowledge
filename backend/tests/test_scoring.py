@@ -372,8 +372,9 @@ def test_roster_points_by_contestant_splits_and_sums(db_conn):
         == scoring.roster_points(db_conn, season["id"])[str(user["id"])]
     )
 
-    # A played Double Roster must NOT inflate the breakdown (#136): the
-    # bonus is reported separately; only the standings total doubles.
+    # A played Double Roster folds into the breakdown now (#257 reverses #136):
+    # the contestant's shown points double, and the per-contestant sum still
+    # equals the standings total.
     insert_advantage_play(
         db_conn,
         user["id"],
@@ -382,10 +383,9 @@ def test_roster_points_by_contestant_splits_and_sums(db_conn):
         target_contestant_id=a["id"],
     )
     by_c = scoring.roster_points_by_contestant(db_conn, season["id"], user["id"])
-    assert by_c[str(a["id"])] == 15  # base, not 30
-    assert (
-        scoring.roster_points(db_conn, season["id"])[str(user["id"])] == 10
-    )  # 30 - 20
+    assert by_c[str(a["id"])] == 30  # doubled
+    total = scoring.roster_points(db_conn, season["id"])[str(user["id"])]
+    assert sum(by_c.values()) == total == 10  # 30 doubled - 20 swap
 
 
 @pytest.mark.integration
