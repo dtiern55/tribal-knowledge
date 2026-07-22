@@ -115,6 +115,16 @@ it happens — that's future knowledge, and it changes point values.)
     contestant sitting at 0 where you expected points, an unexpected token move.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
+## 8. Create the next episode (funds its weekly +10)
+
+Right after scoring episode N, create the **episode N+1** row:
+`POST {API}/seasons/{season_id}/episodes`. Grant-on-create (#217) grants every
+player that episode's `weekly_token_allocation` the moment the row exists — so
+the +10 for N+1 lands as soon as N is scored, and players go into N+1 with their
+episode-N earnings **plus** the fresh allocation. Use a placeholder
+`picks_lock_at` (a week out); Danny sets the real air/lock date in Admin when he
+schedules the watch. Skip only if N was the finale.
+
 ## Remember
 
 - **survivoR lag** gates everything: data lands a day+ after air. If it's
