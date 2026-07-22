@@ -365,7 +365,7 @@ function HeaderPoints({
   const total = standing?.total_points ?? 0
   const components = [
     { label: 'Roster', value: standing?.roster_points ?? 0 },
-    { label: 'Eliminations', value: standing?.elimination_points ?? 0 },
+    { label: 'Votes', value: standing?.elimination_points ?? 0 },
     { label: 'Finale', value: standing?.finale_points ?? 0 },
   ]
 
