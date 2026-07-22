@@ -233,6 +233,12 @@ export function RulesPage() {
             player holding an active idol.
           </li>
           <li>
+            <b>Quits &amp; removals</b> — if a castaway quits or is removed (medical,
+            DQ, etc.), it counts as an <b>elimination</b>. Anyone who predicted them in
+            the weekly vote still gets their <b>voted-correctly</b> points, same as a
+            normal vote-out.
+          </li>
+          <li>
             <b>Saving someone with an idol</b> — counts whether a castaway saves
             themselves or someone else. The person the idol is played for must{' '}
             <b>receive votes</b> (saving someone from a rock draw doesn't count), and
