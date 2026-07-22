@@ -1025,12 +1025,20 @@ function PicksSection({
                       return (
                         <span
                           key={p.id}
-                          className={`text-sm px-3 py-1.5 bg-white border rounded-lg font-medium ${
+                          className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-white border rounded-lg font-medium ${
                             stale
                               ? 'border-sand-200 text-gray-400 line-through'
                               : 'border-green-200 text-gray-800'
                           }`}
                         >
+                          {sc?.tribe_color && (
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: sc.tribe_color }}
+                              title={sc.tribe_name ?? undefined}
+                              aria-hidden
+                            />
+                          )}
                           {sc?.name ?? '—'}
                           {doubledIds.has(p.contestant_id) && (
                             <span className="text-ocean-600 font-semibold no-underline"> ×2</span>
