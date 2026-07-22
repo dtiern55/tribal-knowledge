@@ -300,16 +300,50 @@ function InstallSection() {
   )
 }
 
+/** Collapsed row that expands into its section on click (#238). */
+function Collapsible({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
+      >
+        {label}
+        <svg
+          viewBox="0 0 24 24"
+          className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && <div className="mt-4">{children}</div>}
+    </div>
+  )
+}
+
 export function ProfilePage() {
   return (
     <div className="max-w-sm mx-auto mt-8 space-y-8">
       <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">Profile</h1>
       <DisplayNameSection />
       <div className="border-t border-sand-200 pt-6">
-        <EmailSection />
+        <Collapsible label="Change email">
+          <EmailSection />
+        </Collapsible>
       </div>
       <div className="border-t border-sand-200 pt-6">
-        <PasswordSection />
+        <Collapsible label="Change password">
+          <PasswordSection />
+        </Collapsible>
       </div>
       <div className="border-t border-sand-200 pt-6">
         <InstallSection />
