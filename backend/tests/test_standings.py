@@ -35,6 +35,20 @@ def test_standings_lists_members_at_zero(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_completed_season_lists_only_participants(client, db_conn, current_user):
+    """A past season shows only members who actually played it (#235)."""
+    season = insert_season(db_conn, status="completed")
+    played = insert_user(db_conn, display_name="Played")
+    insert_user(db_conn, display_name="Never Played")  # signed up, no roster here
+    c = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, played["id"], season["id"], c["id"])
+
+    data = client.get(f"/seasons/{season['id']}/standings").json()
+    names = {e["display_name"] for e in data}
+    assert names == {"Played"}
+
+
+@pytest.mark.integration
 def test_standings_trend_reflects_last_episode(client, db_conn, current_user):
     """A overtakes B in the latest scored episode -> A up, B down."""
     season = insert_season(db_conn, merge_episode=7)
