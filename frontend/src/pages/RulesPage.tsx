@@ -218,6 +218,33 @@ export function RulesPage() {
         </ul>
       </Section>
 
+      <Section
+        title="Clarifications"
+        blurb="A few rulings on how specific points are judged."
+      >
+        <ul className="text-sm text-gray-700 space-y-3">
+          <li>
+            <b>Personal background story</b> — counts when the episode airs pre-game
+            footage or photos of a castaway and shares their life before the game.
+          </li>
+          <li>
+            <b>Voting correctly</b> — the castaway voted for the person who was voted
+            out. A <b>blindside</b> requires voting correctly <i>and</i> the eliminated
+            player holding an active idol.
+          </li>
+          <li>
+            <b>Saving someone with an idol</b> — counts whether a castaway saves
+            themselves or someone else. The person the idol is played for must{' '}
+            <b>receive votes</b> (saving someone from a rock draw doesn't count), and
+            points apply only if they would have been eliminated without it.{' '}
+            <b>Shared idol:</b> if a castaway hands their idol to an ally (e.g. to dodge
+            Knowledge Is Power) and the ally plays it to save someone, both split{' '}
+            <b>10 pts each</b> when it's judged a team effort — similar logic applies to
+            other shared advantages.
+          </li>
+        </ul>
+      </Section>
+
       {/* CC BY-SA attribution for episode schedule + contestant photos (#197/#187) */}
       <p className="text-xs text-gray-400 mt-8">
         Episode schedule and contestant photos via{' '}
