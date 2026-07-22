@@ -242,6 +242,10 @@ export function RulesPage() {
             <b>10 pts each</b> when it's judged a team effort — similar logic applies to
             other shared advantages.
           </li>
+          <li>
+            <b>Extra votes</b> can be used until only <b>one selection remains</b> — you
+            can never vote for every castaway still in the game.
+          </li>
         </ul>
       </Section>
 
