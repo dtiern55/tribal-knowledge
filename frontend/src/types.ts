@@ -17,10 +17,8 @@ export interface Season {
   roster_size: number
   roster_lock_episode: number | null
   merge_episode: number | null
-  winner_lock_episode: number | null
   swap_token_cost: number
   free_swaps: number
-  winner_mode: 'classic' | 'sole_survivor'
   ss_lock_episode: number | null
   max_swaps: number
   swap_lock_episode: number | null
@@ -59,7 +57,6 @@ export interface StandingEntry {
   display_name: string
   roster_points: number
   elimination_points: number
-  winner_points: number
   finale_points: number
   total_points: number
   trend: 'up' | 'down' | 'same' | null
@@ -102,14 +99,6 @@ export interface FinalePrediction {
   early_boot_contestant_id: string | null
   fire_loss_contestant_id: string | null
   winner_contestant_id: string | null
-  created_at: string
-}
-
-export interface WinnerPick {
-  id: string
-  user_id: string
-  season_id: string
-  winner_contestant_id: string
   created_at: string
 }
 

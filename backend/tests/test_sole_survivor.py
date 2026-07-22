@@ -13,16 +13,13 @@ from tests.helpers import (
     insert_scoring_event,
     insert_season,
     insert_user,
-    insert_winner_pick,
 )
 
 PAST = datetime.now(timezone.utc) - timedelta(hours=1)
 
 
 def _ss_season(conn, **kwargs):
-    return insert_season(
-        conn, winner_mode="sole_survivor", roster_lock_episode=1, **kwargs
-    )
+    return insert_season(conn, roster_lock_episode=1, **kwargs)
 
 
 @pytest.mark.integration
@@ -58,14 +55,6 @@ def test_finale_double_and_additive_placements(client, db_conn, current_user):
     )
     assert by_c[str(a["id"])] == 90
     assert by_c[str(b["id"])] == 20
-
-
-@pytest.mark.integration
-def test_winner_points_zero_in_ss_mode(db_conn, current_user):
-    season = _ss_season(db_conn)
-    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    insert_winner_pick(db_conn, current_user["id"], season["id"], winner["id"])
-    assert scoring.winner_points(db_conn, season["id"]) == {}
 
 
 @pytest.mark.integration
@@ -111,18 +100,6 @@ def test_designation_rules(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_designation_blocked_in_classic_mode(client, db_conn, current_user):
-    season = insert_season(db_conn, roster_lock_episode=1, merge_episode=3)
-    a = insert_contestant(db_conn, season["id"], "A")
-    insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
-    r = client.post(
-        f"/seasons/{season['id']}/sole-survivor", json={"contestant_id": str(a["id"])}
-    )
-    assert r.status_code == 400
-    assert "classic" in r.json()["detail"]
-
-
-@pytest.mark.integration
 def test_designation_hidden_from_others_until_lock(client, db_conn, current_user):
     """The flag is strategy until the designation locks — the roster may be
     visible while the flag is masked."""
@@ -151,24 +128,10 @@ def test_designation_hidden_from_others_until_lock(client, db_conn, current_user
 
 
 @pytest.mark.integration
-def test_winner_pick_blocked_in_ss_mode(client, db_conn, current_user):
-    season = _ss_season(db_conn, winner_lock_episode=2)
-    insert_episode(db_conn, season["id"], episode_number=2)
-    a = insert_contestant(db_conn, season["id"], "A")
-    r = client.post(
-        f"/seasons/{season['id']}/winner-picks",
-        json={"winner_contestant_id": str(a["id"])},
-    )
-    assert r.status_code == 400
-    assert "Sole Survivor" in r.json()["detail"]
-
-
-@pytest.mark.integration
 def test_ss_lock_falls_back_to_advantage_lock(client, db_conn, current_user):
     """Unset ss_lock defers to the advantage lock (2026-07-19 retiming)."""
     season = insert_season(
         db_conn,
-        winner_mode="sole_survivor",
         roster_lock_episode=1,
         merge_episode=3,
         advantage_lock_episode=6,
@@ -189,7 +152,6 @@ def test_ss_lock_falls_back_to_finale(client, db_conn, current_user):
     locks — even past the swap lock."""
     season = insert_season(
         db_conn,
-        winner_mode="sole_survivor",
         roster_lock_episode=1,
         merge_episode=3,
         swap_lock_episode=4,

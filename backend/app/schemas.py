@@ -12,11 +12,9 @@ class Season(BaseModel):
     roster_size: int
     roster_lock_episode: Optional[int]
     merge_episode: Optional[int]
-    winner_lock_episode: Optional[int]
     swap_token_cost: int
     free_swaps: int
     max_swaps: int
-    winner_mode: Literal["classic", "sole_survivor"]
     ss_lock_episode: Optional[int]
     swap_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
@@ -79,7 +77,6 @@ class StandingEntry(BaseModel):
     display_name: str
     roster_points: int
     elimination_points: int
-    winner_points: int
     finale_points: int
     total_points: int
     # Rank change vs the previous scored episode: "up" | "down" | "same".
@@ -178,11 +175,9 @@ class SeasonCreateRequest(BaseModel):
     # at create time instead of 400ing every roster submit later.
     roster_lock_episode: int = Field(default=1, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
-    winner_lock_episode: Optional[int] = Field(default=3, gt=0)
     swap_token_cost: int = Field(default=20, ge=0)
     free_swaps: int = Field(default=1, ge=0)
     weekly_token_allocation: int = Field(default=10, ge=0)
-    winner_mode: Literal["classic", "sole_survivor"] = "sole_survivor"
     ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
@@ -193,7 +188,6 @@ class SeasonUpdateRequest(BaseModel):
     roster_size: Optional[int] = Field(default=None, ge=1, le=10)
     roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
-    winner_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_token_cost: Optional[int] = Field(default=None, ge=0)
     free_swaps: Optional[int] = Field(default=None, ge=0)
     max_swaps: Optional[int] = Field(default=None, ge=0)
@@ -408,18 +402,6 @@ class JoinRequest(BaseModel):
 
 class ProfileUpdateRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=40)
-
-
-class WinnerPick(BaseModel):
-    id: UUID
-    user_id: UUID
-    season_id: UUID
-    winner_contestant_id: UUID
-    created_at: datetime
-
-
-class WinnerPickSubmitRequest(BaseModel):
-    winner_contestant_id: UUID
 
 
 class FinalePrediction(BaseModel):

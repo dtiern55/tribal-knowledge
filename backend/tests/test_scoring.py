@@ -12,7 +12,6 @@ from tests.helpers import (
     insert_scoring_event,
     insert_season,
     insert_user,
-    insert_winner_pick,
 )
 
 # --- roster_points ---
@@ -175,16 +174,16 @@ def test_episode_points_reconciles_with_standings(db_conn):
 
 @pytest.mark.integration
 def test_episode_points_finale_includes_outcomes(db_conn):
-    # The finale delta folds in winner-pick + placement points (they resolve then).
+    # The finale delta folds in roster-placement points (they resolve then).
     season = insert_season(db_conn, merge_episode=3)
     user = insert_user(db_conn)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
 
-    # winner pick Sole Survivor +100, plus roster placement +30.
-    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 130}
+    # Rostering the placement-1 finisher pays made_final_tribal +10 and
+    # sole_survivor_win +20.
+    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 30}
 
 
 # --- elimination_points ---
@@ -272,53 +271,6 @@ def test_elimination_points_double_wrong_target_no_effect(db_conn):
     )
 
     assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 15}
-
-
-# --- winner_points ---
-
-
-@pytest.mark.integration
-def test_winner_points_sole_survivor(db_conn):
-    season = insert_season(db_conn)
-    user = insert_user(db_conn)
-    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
-
-    assert scoring.winner_points(db_conn, season["id"]) == {str(user["id"]): 100}
-
-
-@pytest.mark.integration
-def test_winner_points_runner_up(db_conn):
-    season = insert_season(db_conn)
-    user = insert_user(db_conn)
-    winner = insert_contestant(db_conn, season["id"], "Winner", placement=2)
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
-
-    assert scoring.winner_points(db_conn, season["id"]) == {str(user["id"]): 60}
-
-
-@pytest.mark.integration
-def test_winner_points_missing_pick_scores_nothing(db_conn):
-    """A user who never made a winner pick is simply absent — no crash (#58)."""
-    season = insert_season(db_conn)
-    picker = insert_user(db_conn, display_name="Picker")
-    no_pick = insert_user(db_conn, display_name="No Pick")
-    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    insert_winner_pick(db_conn, picker["id"], season["id"], winner["id"])
-
-    points = scoring.winner_points(db_conn, season["id"])
-    assert points == {str(picker["id"]): 100}
-    assert str(no_pick["id"]) not in points
-
-
-@pytest.mark.integration
-def test_winner_points_no_placement_scores_nothing(db_conn):
-    season = insert_season(db_conn)
-    user = insert_user(db_conn)
-    winner = insert_contestant(db_conn, season["id"], "Winner")  # placement None
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
-
-    assert scoring.winner_points(db_conn, season["id"]) == {}
 
 
 # --- finale_points ---

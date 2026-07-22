@@ -28,12 +28,10 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
                 [str(season_id)],
             )
             scoring_events = cur.fetchall()
-            # Both mode's key sets live in every snapshot; show only the set
-            # this season actually scores with (#164).
+            # Classic winner-pick / placement outcomes were removed (#164 →
+            # Sole Survivor only); never surface their leftover keys.
             hidden = (
-                "('made_final_tribal', 'runner_up', 'sole_survivor_win')"
-                if season["winner_mode"] == "classic"
-                else "('winner_sole_survivor', 'winner_runner_up',"
+                "('winner_sole_survivor', 'winner_runner_up',"
                 " 'winner_2nd_runner_up', 'roster_placement_1',"
                 " 'roster_placement_2', 'roster_placement_3')"
             )

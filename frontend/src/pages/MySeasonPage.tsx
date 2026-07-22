@@ -21,7 +21,6 @@ import type {
   Season,
   StandingEntry,
   TokenLedgerEntry,
-  WinnerPick,
 } from '../types'
 
 export function MySeasonPage() {
@@ -102,7 +101,7 @@ export function MySeasonPage() {
         contestants={contestants}
         userId={userId}
       />
-      <PointsHeader standing={standing} season={season} />
+      <PointsHeader standing={standing} />
 
       <section id="roster" className="scroll-mt-20">
         <RosterSection
@@ -128,17 +127,13 @@ export function MySeasonPage() {
         />
       </section>
       <section id="predictions" className="scroll-mt-20">
-        {season.winner_mode === 'classic' ? (
-          <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
-        ) : (
-          <SoleSurvivorSection
-            season={season}
-            contestants={contestants}
-            episodes={episodes}
-            userId={userId}
-            rosterVersion={rosterVersion}
-          />
-        )}
+        <SoleSurvivorSection
+          season={season}
+          contestants={contestants}
+          episodes={episodes}
+          userId={userId}
+          rosterVersion={rosterVersion}
+        />
       </section>
       <section id="advantages" className="scroll-mt-20">
         <TokensSection
@@ -279,32 +274,15 @@ function ThisWeekHub({
 
 // ─── Points header ──────────────────────────────────────────────────────────
 
-function PointsHeader({
-  standing,
-  season,
-}: {
-  standing: StandingEntry | null
-  season: Season
-}) {
+function PointsHeader({ standing }: { standing: StandingEntry | null }) {
   const [expanded, setExpanded] = useState(false)
   const total = standing?.total_points ?? 0
 
+  // No winner-pick component — the Sole Survivor double lands inside roster
+  // points instead (#164).
   const components = [
     { label: 'Roster', value: standing?.roster_points ?? 0 },
     { label: 'Eliminations', value: standing?.elimination_points ?? 0 },
-    // ss-mode seasons have no winner-pick component — the Sole Survivor
-    // double lands inside roster points instead (#164).
-    ...(season.winner_mode === 'classic'
-      ? [
-          {
-            label: 'Winner',
-            value: standing?.winner_points ?? 0,
-            note: season.winner_lock_episode
-              ? `locks ep ${season.winner_lock_episode}`
-              : undefined,
-          },
-        ]
-      : []),
     { label: 'Finale', value: standing?.finale_points ?? 0 },
   ]
 
@@ -328,10 +306,7 @@ function PointsHeader({
         <ul className="mt-4 space-y-1 border-t border-gray-100 pt-3">
           {components.map((c) => (
             <li key={c.label} className="flex justify-between text-sm">
-              <span className="text-gray-600">
-                {c.label}
-                {c.note && <span className="text-gray-400"> · {c.note}</span>}
-              </span>
+              <span className="text-gray-600">{c.label}</span>
               <span className="font-medium text-gray-900">{c.value}</span>
             </li>
           ))}
@@ -1781,125 +1756,6 @@ function SoleSurvivorSection({
           </div>
           {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
           {saved && <p className="text-green-600 text-sm mt-2">Designated.</p>}
-        </>
-      )}
-    </div>
-  )
-}
-
-// ─── Winner section ─────────────────────────────────────────────────────────
-
-function WinnerSection({
-  season,
-  contestants,
-  episodes,
-  userId,
-}: {
-  season: Season
-  contestants: Contestant[]
-  episodes: Episode[]
-  userId: string
-}) {
-  const [winner, setWinner] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<WinnerPick>(`/seasons/${season.id}/winner-picks/${userId}`)
-      .then((p) => setWinner(p.winner_contestant_id))
-      .catch(() => {
-        // No pick yet — form starts empty
-      })
-  }, [season.id, userId])
-
-  const lockEpisode =
-    season.winner_lock_episode != null
-      ? (episodes.find((e) => e.episode_number === season.winner_lock_episode) ?? null)
-      : null
-  const windowOpen =
-    season.winner_lock_episode != null &&
-    season.status !== 'completed' &&
-    (lockEpisode == null ||
-      (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
-
-  const alive = contestants.filter((c) => c.eliminated_in_episode == null)
-  const pickedName = contestants.find((c) => c.id === winner)?.name
-
-  async function submitPick() {
-    if (!winner) return
-    setSubmitting(true)
-    setSubmitError(null)
-    setSaved(false)
-    try {
-      await api.post<WinnerPick>(`/seasons/${season.id}/winner-picks`, {
-        winner_contestant_id: winner,
-      })
-      setSaved(true)
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Submit failed')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div>
-      <SectionTitle>
-        Winner Pick{' '}
-        {lockEpisode && (
-          <LockBadge
-            lockAt={lockEpisode.picks_lock_at}
-            scored={lockEpisode.status === 'scored'}
-          />
-        )}
-      </SectionTitle>
-      {!windowOpen ? (
-        <p className="text-sm text-gray-600">
-          {winner ? (
-            <>
-              Your winner pick: <span className="font-medium text-gray-900">{pickedName}</span>
-            </>
-          ) : season.winner_lock_episode ? (
-            'Winner pick window has closed.'
-          ) : (
-            'Winner pick window has not opened yet.'
-          )}
-        </p>
-      ) : (
-        <>
-          <p className="text-xs text-gray-400 mb-3">
-            Locks before episode {season.winner_lock_episode}
-            {lockEpisode && <> ({formatCentral(lockEpisode.picks_lock_at)})</>} · changeable until
-            then
-          </p>
-          <div className="flex gap-2 flex-wrap items-center">
-            <select
-              value={winner}
-              onChange={(e) => {
-                setWinner(e.target.value)
-                setSaved(false)
-              }}
-              className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Select a winner…</option>
-              {alive.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={submitPick}
-              disabled={!winner || submitting}
-              className="px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
-            >
-              {submitting ? 'Saving…' : 'Save Pick'}
-            </button>
-          </div>
-          {submitError && <p className="text-red-600 text-sm mt-2">{submitError}</p>}
-          {saved && <p className="text-green-600 text-sm mt-2">Pick saved.</p>}
         </>
       )}
     </div>

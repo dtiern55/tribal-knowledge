@@ -334,17 +334,11 @@ def designate_sole_survivor(
     """Designate one active-roster contestant as your Sole Survivor (#164).
 
     Free and editable until the designation locks; their finale-episode
-    contribution to your roster score is doubled. Replaces the classic
-    winner pick in sole_survivor-mode seasons.
+    contribution to your roster score is doubled.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
             season = database.require_season(cur, season_id)
-            if season["winner_mode"] != "sole_survivor":
-                raise HTTPException(
-                    status_code=400,
-                    detail="This season uses classic winner picks",
-                )
             if season["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
