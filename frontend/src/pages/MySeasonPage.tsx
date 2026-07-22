@@ -943,7 +943,17 @@ function PicksSection({
           )
           const doubledIds = new Set(activeDoubles.map((p) => p.target_contestant_id))
           const undoubledSelected = [...epPending].filter((cid) => !doubledIds.has(cid))
-          const maxPicks = ep.max_elimination_picks + activeExtras.length
+          // You can never vote for every remaining castaway — cap at
+          // (still in the game − 1), even with extra votes (#240).
+          const stillIn = contestants.filter(
+            (c) =>
+              c.eliminated_in_episode == null ||
+              c.eliminated_in_episode >= ep.episode_number,
+          ).length
+          const maxPicks = Math.max(
+            0,
+            Math.min(ep.max_elimination_picks + activeExtras.length, stillIn - 1),
+          )
 
           return (
             <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
