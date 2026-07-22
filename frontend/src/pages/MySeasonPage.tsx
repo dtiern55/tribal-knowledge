@@ -955,6 +955,19 @@ function PicksSection({
             Math.min(ep.max_elimination_picks + activeExtras.length, stillIn - 1),
           )
 
+          // Only list castaways still in the game, grouped by tribe so the
+          // field is easy to scan (#249). Already-eliminated players aren't
+          // pickable, so they're hidden entirely rather than shown disabled.
+          const byTribe = new Map<string, Contestant[]>()
+          for (const c of contestants) {
+            if (c.eliminated_in_episode != null && c.eliminated_in_episode < ep.episode_number)
+              continue
+            const key = c.tribe_name ?? 'No tribe'
+            const group = byTribe.get(key)
+            if (group) group.push(c)
+            else byTribe.set(key, [c])
+          }
+
           return (
             <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
               <div className="flex items-center justify-between mb-1">
@@ -1007,34 +1020,48 @@ function PicksSection({
                     Vote for up to {maxPicks} to be eliminated · {epPending.size} / {maxPicks} selected
                     {activeExtras.length > 0 && ` · +${activeExtras.length} extra vote${activeExtras.length > 1 ? 's' : ''}`}
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-                    {contestants.map((c) => {
-                      const isOut = c.eliminated_in_episode != null
-                      const isSelected = epPending.has(c.id)
-                      const isDoubled = doubledIds.has(c.id)
-                      const maxed = !isSelected && epPending.size >= maxPicks
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => togglePick(ep.id, c.id, maxPicks)}
-                          disabled={maxed || isOut}
-                          className={[
-                            'flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
-                            isOut
-                              ? 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'
-                              : isSelected
-                                ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
-                                : maxed
-                                  ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                                  : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
-                          ].join(' ')}
-                        >
-                          <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                          {c.name}
-                          {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
-                        </button>
-                      )
-                    })}
+                  <div className="space-y-4 mb-4">
+                    {[...byTribe.entries()].map(([tribeName, members]) => (
+                      <div key={tribeName}>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          {members[0].tribe_color && (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: members[0].tribe_color }}
+                            />
+                          )}
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            {tribeName}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {members.map((c) => {
+                            const isSelected = epPending.has(c.id)
+                            const isDoubled = doubledIds.has(c.id)
+                            const maxed = !isSelected && epPending.size >= maxPicks
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => togglePick(ep.id, c.id, maxPicks)}
+                                disabled={maxed}
+                                className={[
+                                  'flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
+                                  isSelected
+                                    ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
+                                    : maxed
+                                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                                      : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
+                                ].join(' ')}
+                              >
+                                <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                                {c.name}
+                                {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
