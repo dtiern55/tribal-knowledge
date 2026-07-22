@@ -18,12 +18,23 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            database.require_season(cur, season_id)
+            season = database.require_season(cur, season_id)
             # Admin/service accounts (e.g. Producer) never compete — issue #50.
-            cur.execute(
-                "select id::text as id, display_name from profiles"
-                " where not is_admin"
-            )
+            # A past (completed) season shows only who actually played it (had a
+            # roster); an active/upcoming season shows every member (#235).
+            if season["status"] == "completed":
+                cur.execute(
+                    "select p.id::text as id, p.display_name from profiles p"
+                    " where not p.is_admin and exists ("
+                    "   select 1 from roster_picks rp"
+                    "   where rp.user_id = p.id and rp.season_id = %s)",
+                    [str(season_id)],
+                )
+            else:
+                cur.execute(
+                    "select id::text as id, display_name from profiles"
+                    " where not is_admin"
+                )
             profiles = cur.fetchall()
 
         roster = scoring.roster_points(conn, season_id)
