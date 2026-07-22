@@ -74,9 +74,8 @@ export function StandingsPage() {
   const season = seasons.find((s) => s.id === selectedId)
   if (!season) return <p className="text-gray-500">No season found.</p>
 
-  // Finale/Winner are 0 until the season ends — hide them until they matter.
+  // Finale is 0 until the season ends — hide it until it matters.
   const showFinale = entries.some((e) => e.finale_points !== 0)
-  const showWinner = entries.some((e) => e.winner_points !== 0)
 
   return (
     <div>
@@ -97,9 +96,6 @@ export function StandingsPage() {
               <th className="pb-2 font-semibold text-right hidden sm:table-cell">Elim</th>
               {showFinale && (
                 <th className="pb-2 font-semibold text-right hidden sm:table-cell">Finale</th>
-              )}
-              {showWinner && (
-                <th className="pb-2 font-semibold text-right hidden sm:table-cell">Winner</th>
               )}
               <th className="pb-2 font-semibold text-right">Total</th>
             </tr>
@@ -152,11 +148,6 @@ export function StandingsPage() {
                   {showFinale && (
                     <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
                       {entry.finale_points}
-                    </td>
-                  )}
-                  {showWinner && (
-                    <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
-                      {entry.winner_points}
                     </td>
                   )}
                   <td className="py-3 text-right font-bold text-ocean-800 whitespace-nowrap">

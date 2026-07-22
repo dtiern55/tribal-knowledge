@@ -23,7 +23,6 @@ from app.routers import (
     tokens,
     tribes,
     tvmaze,
-    winner_picks,
 )
 
 app = FastAPI(title="Tribal Knowledge")
@@ -54,7 +53,6 @@ app.include_router(roster.router)
 app.include_router(picks.router)
 app.include_router(finale_predictions.router)
 app.include_router(tokens.router)
-app.include_router(winner_picks.router)
 app.include_router(standings.router)
 app.include_router(league_settings.router)
 app.include_router(rules.router)

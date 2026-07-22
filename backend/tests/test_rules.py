@@ -18,7 +18,7 @@ def test_rules_returns_config(client, db_conn, current_user):
     assert by_type["votes_received"]["is_per_unit"] is True
 
     pred = {p["key"]: p for p in data["prediction_scores"]}
-    assert pred["winner_sole_survivor"]["point_value"] == 100
+    assert pred["sole_survivor_win"]["point_value"] == 20
 
     adv = {a["advantage_type"] for a in data["advantages"]}
     assert "double_vote_points" in adv

@@ -13,7 +13,7 @@ router = APIRouter(tags=["standings"])
 def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
     """Live leaderboard: every league member's points for the season.
 
-    Sums the four scoring components per user. Computed live, never cached.
+    Sums the three scoring components per user. Computed live, never cached.
     Ordered by total descending, then display name.
     """
     with database.get_db() as conn:
@@ -39,7 +39,6 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
 
         roster = scoring.roster_points(conn, season_id)
         elimination = scoring.elimination_points(conn, season_id)
-        winner = scoring.winner_points(conn, season_id)
         finale = scoring.finale_points(conn, season_id)
 
         # Trend arrow: rank now vs rank as of the previous scored episode
@@ -62,7 +61,6 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
         uid = p["id"]
         r = roster.get(uid, 0)
         e = elimination.get(uid, 0)
-        w = winner.get(uid, 0)
         f = finale.get(uid, 0)
         entries.append(
             StandingEntry(
@@ -70,9 +68,8 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                 display_name=p["display_name"],
                 roster_points=r,
                 elimination_points=e,
-                winner_points=w,
                 finale_points=f,
-                total_points=r + e + w + f,
+                total_points=r + e + f,
             )
         )
     entries.sort(key=lambda s: (-s.total_points, s.display_name))

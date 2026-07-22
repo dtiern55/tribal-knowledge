@@ -12,7 +12,6 @@ from tests.helpers import (
     insert_scoring_event,
     insert_season,
     insert_user,
-    insert_winner_pick,
 )
 
 
@@ -147,11 +146,9 @@ def test_standings_aggregates_components(client, db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], boot["id"])
     insert_elimination(db_conn, ep["id"], boot["id"])
 
-    # winner pick: contestant wins +100
+    # finale ballot: winner vote correct +30 (winner isn't rostered, so no
+    # roster-placement points).
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    insert_winner_pick(db_conn, user["id"], season["id"], winner["id"])
-
-    # finale ballot: winner vote correct +30
     insert_finale_prediction(db_conn, user["id"], season["id"], winner=winner["id"])
 
     r = client.get(f"/seasons/{season['id']}/standings")
@@ -159,9 +156,8 @@ def test_standings_aggregates_components(client, db_conn):
     entry = r.json()[0]
     assert entry["roster_points"] == 15
     assert entry["elimination_points"] == 15
-    assert entry["winner_points"] == 100
     assert entry["finale_points"] == 30
-    assert entry["total_points"] == 160
+    assert entry["total_points"] == 60
 
 
 @pytest.mark.integration

@@ -24,9 +24,9 @@ begin
   -- ----------------------------------------------------------------
   insert into seasons
     (id, name, season_number, roster_size, roster_lock_episode,
-     merge_episode, winner_lock_episode, status)
+     merge_episode, status)
   values
-    (v_season_id, 'Survivor: Practice Island', 99, 5, 2, 9, 3, 'active');
+    (v_season_id, 'Survivor: Practice Island', 99, 5, 2, 9, 'active');
 
   -- Season scoring snapshot (#170): seed runs after migrations, so the
   -- backfill has already passed — copy the templates for this season.

@@ -33,7 +33,6 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "status": kwargs.pop("status", "upcoming"),
         "roster_lock_episode": kwargs.pop("roster_lock_episode", None),
         "merge_episode": kwargs.pop("merge_episode", None),
-        "winner_lock_episode": kwargs.pop("winner_lock_episode", None),
         "swap_token_cost": kwargs.pop("swap_token_cost", 30),
         # 0 keeps most existing swap tests on the simple always-charged path;
         # the free-swap tests opt in explicitly (#159).
@@ -42,9 +41,6 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "swap_lock_episode": kwargs.pop("swap_lock_episode", None),
         "advantage_lock_episode": kwargs.pop("advantage_lock_episode", None),
         "weekly_token_allocation": kwargs.pop("weekly_token_allocation", 10),
-        # classic keeps the pre-#164 tests on the winner-pick path; the
-        # sole-survivor tests opt in explicitly.
-        "winner_mode": kwargs.pop("winner_mode", "classic"),
         "ss_lock_episode": kwargs.pop("ss_lock_episode", None),
     }
     with conn.cursor() as cur:
@@ -52,17 +48,17 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
             """
             insert into seasons
                 (name, season_number, roster_size, status,
-                 roster_lock_episode, merge_episode, winner_lock_episode,
+                 roster_lock_episode, merge_episode,
                  swap_token_cost, free_swaps, max_swaps, swap_lock_episode,
                  advantage_lock_episode, weekly_token_allocation,
-                 winner_mode, ss_lock_episode)
+                 ss_lock_episode)
             values
                 (%(name)s, %(season_number)s, %(roster_size)s, %(status)s,
                  %(roster_lock_episode)s, %(merge_episode)s,
-                 %(winner_lock_episode)s, %(swap_token_cost)s, %(free_swaps)s,
+                 %(swap_token_cost)s, %(free_swaps)s,
                  %(max_swaps)s, %(swap_lock_episode)s,
                  %(advantage_lock_episode)s, %(weekly_token_allocation)s,
-                 %(winner_mode)s, %(ss_lock_episode)s)
+                 %(ss_lock_episode)s)
             returning *
             """,
             params,
@@ -243,18 +239,6 @@ def insert_finale_prediction(
                 str(fire_loss) if fire_loss else None,
                 str(winner) if winner else None,
             ],
-        )
-        return cur.fetchone()
-
-
-def insert_winner_pick(conn, user_id, season_id, winner_contestant_id):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            insert into winner_picks (user_id, season_id, winner_contestant_id)
-            values (%s, %s, %s) returning *
-            """,
-            [str(user_id), str(season_id), str(winner_contestant_id)],
         )
         return cur.fetchone()
 
