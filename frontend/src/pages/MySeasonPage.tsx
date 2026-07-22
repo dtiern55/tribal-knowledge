@@ -95,45 +95,61 @@ export function MySeasonPage() {
         <p className="text-sm text-gray-500">My Tribe</p>
       </div>
 
+      <ThisWeekHub
+        season={season}
+        episodes={episodes}
+        plays={plays}
+        contestants={contestants}
+        userId={userId}
+      />
       <PointsHeader standing={standing} season={season} />
-      <RosterSection
-        season={season}
-        contestants={contestants}
-        episodes={episodes}
-        userId={userId}
-        rosterPoints={rosterPoints}
-        plays={plays}
-        setPlays={setPlays}
-        onRosterChange={() => setRosterVersion((v) => v + 1)}
-      />
-      <PicksSection
-        season={season}
-        contestants={contestants}
-        episodes={episodes}
-        userId={userId}
-        plays={plays}
-        setPlays={setPlays}
-        pickResults={pickResults}
-      />
-      {season.winner_mode === 'classic' ? (
-        <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
-      ) : (
-        <SoleSurvivorSection
+
+      <section id="roster" className="scroll-mt-20">
+        <RosterSection
           season={season}
           contestants={contestants}
           episodes={episodes}
           userId={userId}
-          rosterVersion={rosterVersion}
+          rosterPoints={rosterPoints}
+          plays={plays}
+          setPlays={setPlays}
+          onRosterChange={() => setRosterVersion((v) => v + 1)}
         />
-      )}
-      <TokensSection
-        balance={balance}
-        plays={plays}
-        contestants={contestants}
-        episodes={episodes}
-        seasonId={season.id}
-        userId={userId}
-      />
+      </section>
+      <section id="votes" className="scroll-mt-20">
+        <PicksSection
+          season={season}
+          contestants={contestants}
+          episodes={episodes}
+          userId={userId}
+          plays={plays}
+          setPlays={setPlays}
+          pickResults={pickResults}
+        />
+      </section>
+      <section id="predictions" className="scroll-mt-20">
+        {season.winner_mode === 'classic' ? (
+          <WinnerSection season={season} contestants={contestants} episodes={episodes} userId={userId} />
+        ) : (
+          <SoleSurvivorSection
+            season={season}
+            contestants={contestants}
+            episodes={episodes}
+            userId={userId}
+            rosterVersion={rosterVersion}
+          />
+        )}
+      </section>
+      <section id="advantages" className="scroll-mt-20">
+        <TokensSection
+          balance={balance}
+          plays={plays}
+          contestants={contestants}
+          episodes={episodes}
+          seasonId={season.id}
+          userId={userId}
+        />
+      </section>
     </div>
   )
 }
@@ -143,6 +159,121 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-3">
       {children}
     </h2>
+  )
+}
+
+// ─── This Week hub ──────────────────────────────────────────────────────────
+
+const ADV_LABELS: Record<string, string> = {
+  double_roster_points: 'Double Roster Points',
+  double_vote_points: 'Double Vote Points',
+  extra_vote: 'Extra Vote',
+  roster_swap: 'Roster Swap',
+}
+
+/**
+ * Action-first summary for the next open episode (#UI pass): countdown, whether
+ * this week's votes are locked in, and any advantages in play — so the top of
+ * the page answers "what do I do right now?" before the reference sections. Owns
+ * a tiny fetch of the open episode's picks so it stays decoupled from PicksSection.
+ */
+function ThisWeekHub({
+  season,
+  episodes,
+  plays,
+  contestants,
+  userId,
+}: {
+  season: Season
+  episodes: Episode[]
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
+  userId: string
+}) {
+  const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
+  const [voteCount, setVoteCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!nextOpen) {
+      setVoteCount(null)
+      return
+    }
+    let live = true
+    api
+      .get<EliminationPick[]>(`/episodes/${nextOpen.id}/picks/${userId}`)
+      .then((p) => live && setVoteCount(p.length))
+      .catch(() => live && setVoteCount(null))
+    return () => {
+      live = false
+    }
+  }, [nextOpen, userId])
+
+  if (!nextOpen) {
+    return (
+      <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm text-gray-500">
+        You're all caught up — no episode is open for picks right now.
+      </div>
+    )
+  }
+
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const inPlay = plays.filter((p) => p.episode_id === nextOpen.id)
+  const locked = voteCount != null && voteCount > 0
+  const voteLabel = nextOpen.is_finale ? 'Finale ballot' : 'Weekly votes'
+
+  return (
+    <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+      <div className="flex items-center gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+          This Week · Episode {nextOpen.episode_number}
+        </p>
+        <span className="ml-auto">
+          <LockBadge lockAt={nextOpen.picks_lock_at} />
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-gray-600">{voteLabel}</span>
+        <span className="ml-auto">
+          {voteCount == null ? (
+            <span className="text-xs text-gray-400">—</span>
+          ) : locked ? (
+            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+              Locked in
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
+              Not locked yet
+            </span>
+          )}
+        </span>
+      </div>
+
+      {inPlay.length > 0 && (
+        <div className="flex items-start gap-3 text-sm">
+          <span className="text-gray-600 shrink-0">In play</span>
+          <span className="ml-auto text-right font-medium text-gray-800">
+            {inPlay
+              .map((p) => {
+                const t = p.target_contestant_id
+                  ? contestantMap.get(p.target_contestant_id)?.name
+                  : null
+                return (ADV_LABELS[p.advantage_type] ?? p.advantage_type) + (t ? ` · ${t}` : '')
+              })
+              .join(', ')}
+          </span>
+        </div>
+      )}
+
+      <button
+        onClick={() =>
+          document.getElementById('votes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+        className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg hover:bg-ocean-700 transition-colors"
+      >
+        {locked ? 'Review your votes' : 'Review & lock votes'}
+      </button>
+    </div>
   )
 }
 
