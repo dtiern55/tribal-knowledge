@@ -11,6 +11,7 @@ import type {
   Episode,
   RosterPick,
   Season,
+  TokenLedgerEntry,
 } from '../types'
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -35,6 +36,36 @@ export function AdvantagesPage() {
 
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [history, setHistory] = useState<TokenLedgerEntry[] | null>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  function toggleHistory() {
+    if (!season || !userId) return
+    if (history) {
+      setHistory(null)
+      return
+    }
+    setLoadingHistory(true)
+    void api
+      .get<TokenLedgerEntry[]>(`/seasons/${season.id}/tokens/${userId}/history`)
+      .then(setHistory)
+      .finally(() => setLoadingHistory(false))
+  }
+
+  // Friendly ledger description — allocations read "Episode N tokens" (#97).
+  function txnDescription(h: TokenLedgerEntry): string {
+    const cap = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+    switch (h.transaction_type) {
+      case 'weekly_allocation':
+        return h.episode_number != null ? `Episode ${h.episode_number} tokens` : 'Token allocation'
+      case 'starting_allocation':
+        return 'Starting tokens'
+      case 'advantage_spend':
+        return h.description ? `Bought ${cap(h.description)}` : 'Bought advantage'
+      default:
+        return h.description ?? cap(h.transaction_type)
+    }
+  }
 
   useEffect(() => {
     if (!userId) return
@@ -144,10 +175,43 @@ export function AdvantagesPage() {
       <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
       <p className="text-sm text-gray-500 mb-6">Advantages</p>
 
-      <div className="flex items-center justify-between p-4 bg-white border border-sand-200 rounded-xl mb-6">
-        <span className="text-sm text-gray-500">Token balance</span>
+      <button
+        onClick={toggleHistory}
+        aria-expanded={history != null}
+        className="w-full flex items-center justify-between p-4 bg-white border border-sand-200 rounded-xl mb-2 text-left hover:border-sand-300"
+      >
+        <span className="text-sm text-gray-500">
+          Token balance
+          <span className="text-gray-400"> · {history ? 'hide' : loadingHistory ? 'loading…' : 'tap for history'}</span>
+        </span>
         <span className="text-xl font-semibold text-gray-900">{balance}</span>
-      </div>
+      </button>
+      {history && (
+        <ul className="mb-6 space-y-1 text-sm border border-sand-200 rounded-xl p-3 bg-gray-50">
+          {history.length === 0 && <li className="text-gray-400">No token activity yet.</li>}
+          {history.map((h, i) => (
+            <li key={i} className="flex justify-between gap-3">
+              <span className="text-gray-600">
+                {txnDescription(h)}
+                {h.transaction_type !== 'weekly_allocation' &&
+                  h.transaction_type !== 'advantage_spend' &&
+                  h.episode_number != null && (
+                    <span className="text-gray-400"> · ep {h.episode_number}</span>
+                  )}
+              </span>
+              <span
+                className={`font-medium shrink-0 ${
+                  h.amount >= 0 ? 'text-green-600' : 'text-red-500'
+                }`}
+              >
+                {h.amount >= 0 ? '+' : ''}
+                {h.amount}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!history && <div className="mb-6" />}
 
       {actionError && <p className="text-red-600 text-sm mb-4">{actionError}</p>}
 

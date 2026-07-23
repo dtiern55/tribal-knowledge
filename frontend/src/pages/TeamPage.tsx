@@ -135,19 +135,6 @@ export function TeamPage() {
       p.points_earned !== 0 &&
       p.advantage_type !== 'double_roster_points',
   )
-  const doubledCountByContestant = new Map<string, number>()
-  for (const p of plays) {
-    if (
-      p.advantage_type === 'double_roster_points' &&
-      p.episode_id != null &&
-      p.target_contestant_id
-    ) {
-      doubledCountByContestant.set(
-        p.target_contestant_id,
-        (doubledCountByContestant.get(p.target_contestant_id) ?? 0) + 1,
-      )
-    }
-  }
 
   return (
     <div>
@@ -184,7 +171,6 @@ export function TeamPage() {
               swappedInEpisode={
                 pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
               }
-              doubledCount={doubledCountByContestant.get(pick.contestant_id) ?? 0}
               right={<Points value={rosterPoints.get(pick.contestant_id)} />}
             />
           ))}

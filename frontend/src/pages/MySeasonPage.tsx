@@ -646,7 +646,6 @@ function RosterSection({
   // How many times Double Roster Points has been played on each contestant this
   // season (#257) — drives the "×N Doubled" card stamp. Their roster points
   // already fold the doubling in server-side.
-  const doubledCountByContestant = new Map<string, number>()
   // Per-contestant, per-episode doubled bonus for the expandable breakdown —
   // keyed contestant_id → (episode_number → bonus points).
   const epNumById = new Map(episodes.map((e) => [e.id, e.episode_number]))
@@ -657,10 +656,6 @@ function RosterSection({
       p.episode_id != null &&
       p.target_contestant_id
     ) {
-      doubledCountByContestant.set(
-        p.target_contestant_id,
-        (doubledCountByContestant.get(p.target_contestant_id) ?? 0) + 1,
-      )
       const epNum = epNumById.get(p.episode_id)
       if (epNum != null && p.points_earned) {
         const m = doubledByContestantEp.get(p.target_contestant_id) ?? new Map<number, number>()
@@ -816,7 +811,6 @@ function RosterSection({
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
                 }
-                doubledCount={doubledCountByContestant.get(pick.contestant_id) ?? 0}
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                 expanded={expandedId === pick.contestant_id}
                 onToggle={() => toggleExpand(pick.contestant_id)}
