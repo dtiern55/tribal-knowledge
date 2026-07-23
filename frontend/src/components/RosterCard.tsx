@@ -20,7 +20,7 @@ export function RosterCard({
   isSoleSurvivor = false,
   ssWindowOpen = false,
   swappedInEpisode = null,
-  doubled = false,
+  doubledCount = 0,
   right,
 }: {
   contestantId: string
@@ -28,7 +28,7 @@ export function RosterCard({
   isSoleSurvivor?: boolean
   ssWindowOpen?: boolean
   swappedInEpisode?: number | null
-  doubled?: boolean
+  doubledCount?: number
   right?: ReactNode
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
@@ -47,6 +47,14 @@ export function RosterCard({
           title={ssTitle}
         >
           Sole Survivor
+        </span>
+      )}
+      {doubledCount > 0 && (
+        <span
+          className={`${STAMP_BASE} left-auto -right-2 rotate-6 border-ocean-400 bg-ocean-50 text-ocean-600`}
+          title={`Double Roster Points played ×${doubledCount} — points shown are doubled`}
+        >
+          ×{doubledCount} Doubled
         </span>
       )}
       <Link
@@ -91,7 +99,6 @@ export function RosterCard({
             ⇄ ep {swappedInEpisode}
           </span>
         )}
-        {doubled && <span className="text-ocean-600 font-semibold">×2</span>}
       </Link>
       {right}
     </li>

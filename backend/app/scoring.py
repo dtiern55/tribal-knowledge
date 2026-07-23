@@ -225,11 +225,11 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
     """One user's roster points broken down per contestant (My Season, #52).
 
     Same rules as roster_points() but grouped by contestant and scoped to one
-    user: scoring-event points during each contestant's active range, plus
-    that contestant's historical swap penalty. BASE values only (#136):
-    Double Roster doubling is displayed as its own line via
-    advantage_bonus_by_play, so summing these equals the user's
-    roster_points total only when no doubles were played.
+    user: scoring-event points during each contestant's active range — doubled
+    by a played Double Roster Points (#257) and by the Sole Survivor finale
+    double — plus that contestant's historical swap penalty and placement.
+    Folds the Double Roster doubling in now (#257 reverses #136), so summing
+    these always equals the user's roster_points total.
     """
     points: dict[str, int] = {}
     with conn.cursor() as cur:
@@ -245,6 +245,7 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
                         else et.point_value
                       end)
                      * (case when et.is_per_unit then se.quantity else 1 end)
+                     * (case when dbl.id is not null then 2 else 1 end)
                      * (case when ep.is_finale and rp.is_sole_survivor
                         then 2 else 1 end)
                    ) as points
@@ -259,6 +260,11 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
              and rp.active_from_episode <= ep.episode_number
              and (rp.active_until_episode is null
                   or rp.active_until_episode >= ep.episode_number)
+            left join advantage_plays dbl
+              on dbl.advantage_type = 'double_roster_points'
+             and dbl.user_id = rp.user_id
+             and dbl.episode_id = se.episode_id
+             and dbl.target_contestant_id = se.contestant_id
             where s.id = %s and rp.user_id = %s
             group by se.contestant_id
             """,
