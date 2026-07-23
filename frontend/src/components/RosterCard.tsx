@@ -22,6 +22,9 @@ export function RosterCard({
   swappedInEpisode = null,
   doubledCount = 0,
   right,
+  expanded = false,
+  onToggle,
+  children,
 }: {
   contestantId: string
   contestant: Contestant | undefined
@@ -30,13 +33,18 @@ export function RosterCard({
   swappedInEpisode?: number | null
   doubledCount?: number
   right?: ReactNode
+  // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
+  // given, a chevron reveals `children` below the row.
+  expanded?: boolean
+  onToggle?: () => void
+  children?: ReactNode
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
   const ssTitle = 'Sole Survivor — finale points count double'
   return (
     <li
       className={[
-        'relative flex items-center justify-between p-3 rounded-lg border',
+        'relative flex flex-col p-3 rounded-lg border',
         outEp != null ? 'bg-gray-50 border-gray-200' : 'bg-white border-sand-200',
         isSoleSurvivor ? (ssWindowOpen ? 'ring-2 ring-amber-200' : 'ring-2 ring-amber-400') : '',
       ].join(' ')}
@@ -57,6 +65,7 @@ export function RosterCard({
           ×{doubledCount} Doubled
         </span>
       )}
+      <div className="flex items-center justify-between">
       <Link
         to={`/contestants/${contestantId}`}
         className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
@@ -100,7 +109,31 @@ export function RosterCard({
           </span>
         )}
       </Link>
-      {right}
+        <div className="flex items-center gap-2 shrink-0">
+          {right}
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              aria-expanded={expanded}
+              aria-label="Toggle episode breakdown"
+              className="-mr-1 p-1 text-gray-400 hover:text-gray-600"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+      {onToggle && expanded && children && (
+        <div className="mt-3 pt-3 border-t border-sand-100">{children}</div>
+      )}
     </li>
   )
 }

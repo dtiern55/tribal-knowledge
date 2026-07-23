@@ -12,6 +12,7 @@ import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
   Contestant,
+  ContestantPerformance,
   EliminationPick,
   Episode,
   FinalePrediction,
@@ -437,6 +438,80 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
+/**
+ * Per-episode breakdown for one rostered contestant (#257): base scoring events
+ * plus a "Doubled +N" line where you played Double Roster Points, scoped to your
+ * active range for the pick. ponytail: reconciles to the row total for the
+ * common case; swap penalties and finale placement/SS-double aren't per-episode
+ * scoring events, so they aren't itemized here.
+ */
+function RosterBreakdown({
+  perf,
+  activeFrom,
+  activeUntil,
+  doubledByEp,
+}: {
+  perf: ContestantPerformance | undefined
+  activeFrom: number
+  activeUntil: number | null
+  doubledByEp: Map<number, number>
+}) {
+  if (!perf) return <p className="text-xs text-gray-400">Loading…</p>
+  const eps = perf.episodes
+    .filter(
+      (e) =>
+        e.episode_number >= activeFrom &&
+        (activeUntil == null || e.episode_number <= activeUntil),
+    )
+    .sort((a, b) => a.episode_number - b.episode_number)
+  if (eps.length === 0)
+    return <p className="text-xs text-gray-400">No scored episodes yet.</p>
+  return (
+    <div className="space-y-2">
+      {eps.map((ep) => {
+        const bonus = doubledByEp.get(ep.episode_number) ?? 0
+        const total = ep.points + bonus
+        const events = ep.events.filter((e) => e.points !== 0)
+        return (
+          <div key={ep.episode_number} className="text-xs">
+            <div className="flex justify-between font-medium text-gray-700">
+              <span>Episode {ep.episode_number}</span>
+              <span
+                className={
+                  total > 0 ? 'text-green-600' : total < 0 ? 'text-red-500' : 'text-gray-400'
+                }
+              >
+                {total > 0 ? '+' : ''}
+                {total} pts
+              </span>
+            </div>
+            <ul className="mt-0.5 space-y-0.5 pl-3 text-gray-500">
+              {events.map((e, i) => (
+                <li key={i} className="flex justify-between gap-2">
+                  <span>
+                    {e.label}
+                    {e.quantity > 1 && ` ×${e.quantity}`}
+                  </span>
+                  <span className={e.points > 0 ? 'text-green-600' : 'text-red-500'}>
+                    {e.points > 0 ? '+' : ''}
+                    {e.points}
+                  </span>
+                </li>
+              ))}
+              {bonus !== 0 && (
+                <li className="flex justify-between gap-2 text-ocean-600 font-medium">
+                  <span>Doubled</span>
+                  <span>+{bonus}</span>
+                </li>
+              )}
+            </ul>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function RosterSection({
   season,
   contestants,
@@ -473,6 +548,20 @@ function RosterSection({
   const [dblTarget, setDblTarget] = useState('')
   const [advBusy, setAdvBusy] = useState(false)
   const [advError, setAdvError] = useState<string | null>(null)
+
+  // Tap-to-expand per-episode breakdown (#257): lazy-fetch each contestant's
+  // performance the first time its card is opened.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [perfs, setPerfs] = useState<Map<string, ContestantPerformance>>(new Map())
+  function toggleExpand(cid: string) {
+    setExpandedId((cur) => (cur === cid ? null : cid))
+    if (!perfs.has(cid)) {
+      api
+        .get<ContestantPerformance>(`/contestants/${cid}/performance`)
+        .then((p) => setPerfs((prev) => new Map(prev).set(cid, p)))
+        .catch(() => {})
+    }
+  }
 
   useEffect(() => {
     api
@@ -558,6 +647,10 @@ function RosterSection({
   // season (#257) — drives the "×N Doubled" card stamp. Their roster points
   // already fold the doubling in server-side.
   const doubledCountByContestant = new Map<string, number>()
+  // Per-contestant, per-episode doubled bonus for the expandable breakdown —
+  // keyed contestant_id → (episode_number → bonus points).
+  const epNumById = new Map(episodes.map((e) => [e.id, e.episode_number]))
+  const doubledByContestantEp = new Map<string, Map<number, number>>()
   for (const p of plays) {
     if (
       p.advantage_type === 'double_roster_points' &&
@@ -568,8 +661,15 @@ function RosterSection({
         p.target_contestant_id,
         (doubledCountByContestant.get(p.target_contestant_id) ?? 0) + 1,
       )
+      const epNum = epNumById.get(p.episode_id)
+      if (epNum != null && p.points_earned) {
+        const m = doubledByContestantEp.get(p.target_contestant_id) ?? new Map<number, number>()
+        m.set(epNum, (m.get(epNum) ?? 0) + p.points_earned)
+        doubledByContestantEp.set(p.target_contestant_id, m)
+      }
     }
   }
+  const EMPTY_EP_MAP = new Map<number, number>()
 
   // Whether the current selection differs from the saved roster (#94): drives
   // the save button's enabled/label state so it's clear a click is needed.
@@ -718,7 +818,16 @@ function RosterSection({
                 }
                 doubledCount={doubledCountByContestant.get(pick.contestant_id) ?? 0}
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
-              />
+                expanded={expandedId === pick.contestant_id}
+                onToggle={() => toggleExpand(pick.contestant_id)}
+              >
+                <RosterBreakdown
+                  perf={perfs.get(pick.contestant_id)}
+                  activeFrom={pick.active_from_episode}
+                  activeUntil={pick.active_until_episode}
+                  doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+                />
+              </RosterCard>
             ))}
           </ul>
 
