@@ -6,6 +6,7 @@ import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
 import { advantagesLocked, isEpisodeOpen, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterCard } from '../components/RosterCard'
+import { Torch } from '../components/Torch'
 import { VoteMark } from '../components/VoteMark'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
@@ -134,6 +135,7 @@ export function MyTribePage() {
           plays={d.plays}
           setPlays={d.setPlays}
           onRosterChange={d.bumpRoster}
+          rosterVersion={d.rosterVersion}
         />
       </section>
       <section id="predictions" className="scroll-mt-20">
@@ -143,6 +145,7 @@ export function MyTribePage() {
           episodes={d.episodes}
           userId={d.userId}
           rosterVersion={d.rosterVersion}
+          onRosterChange={d.bumpRoster}
         />
       </section>
     </div>
@@ -521,6 +524,7 @@ function RosterSection({
   plays,
   setPlays,
   onRosterChange,
+  rosterVersion,
 }: {
   season: Season
   contestants: Contestant[]
@@ -530,6 +534,7 @@ function RosterSection({
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
+  rosterVersion: number
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -574,7 +579,9 @@ function RosterSection({
         if (active.length) setSelected(new Set(active.map((p) => p.contestant_id)))
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
-  }, [season.id, userId])
+    // rosterVersion: refetch when a sibling section changes the roster (e.g. a
+    // Sole Survivor designation) so the SS stamp updates without a reload.
+  }, [season.id, userId, rosterVersion])
 
   // Deep-link from Advantages: /#swap scrolls the swap control into
   // view once the roster has rendered (#248). Ref-guarded so editing the roster
@@ -902,8 +909,11 @@ function RosterSection({
                     >
                       <Link
                         to={`/contestants/${pick.contestant_id}`}
-                        className="line-through hover:text-gray-600"
+                        className="flex items-center gap-2 hover:text-gray-600"
                       >
+                        <span className="shrink-0 grayscale opacity-70" title="Swapped out">
+                          <Torch lit={false} />
+                        </span>
                         {c?.name ?? '—'}
                       </Link>
                       <span className="text-xs flex items-center gap-2">
@@ -922,32 +932,29 @@ function RosterSection({
             </div>
           )}
 
-          {!windowOpen && season.status !== 'completed' && (
-            <div
-              id="swap"
-              ref={swapRef}
-              className="scroll-mt-20 p-4 bg-jungle-50 border border-jungle-100 rounded-xl"
-            >
-              <SectionTitle>Swap a Roster Pick</SectionTitle>
-              <p className="text-xs text-gray-400 mb-3">
-                {swapCredits} swap {swapCredits === 1 ? 'credit' : 'credits'} ready ·{' '}
-                {swapsUsed} of {season.max_swaps} used
-                {season.swap_lock_episode != null &&
-                  ` · swaps lock at episode ${season.swap_lock_episode}`}
-              </p>
-              {swapLocked ? (
-                <p className="text-sm text-gray-500">
-                  Roster swaps are locked for the rest of the season.
+          {/* Swap only appears when you can actually act on it (#swap redesign):
+              a credit ready, not locked/capped, and a valid drop+add available.
+              No credits / locked → nothing here; buy a credit on Advantages and
+              it reappears (the "use it" deep-link lands here since you'll have one). */}
+          {!windowOpen &&
+            season.status !== 'completed' &&
+            !swapLocked &&
+            !swapCapReached &&
+            swapCredits > 0 &&
+            upcomingEpisodes.length > 0 &&
+            swapCandidates.length > 0 && (
+              <div
+                id="swap"
+                ref={swapRef}
+                className="scroll-mt-20 p-4 bg-jungle-50 border border-jungle-100 rounded-xl"
+              >
+                <SectionTitle>Swap a Roster Pick</SectionTitle>
+                <p className="text-xs text-gray-400 mb-3">
+                  {swapCredits} swap {swapCredits === 1 ? 'credit' : 'credits'} ready ·{' '}
+                  {swapsUsed} of {season.max_swaps} used
+                  {season.swap_lock_episode != null &&
+                    ` · swaps lock at episode ${season.swap_lock_episode}`}
                 </p>
-              ) : swapCapReached ? (
-                <p className="text-sm text-gray-500">
-                  Swap limit reached — no swaps left this season.
-                </p>
-              ) : swapCredits === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No swap credits — buy one on the Advantages page to swap here.
-                </p>
-              ) : upcomingEpisodes.length > 0 && swapCandidates.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex gap-3 flex-wrap">
                     <select
@@ -997,11 +1004,8 @@ function RosterSection({
                     {swapping ? 'Swapping…' : 'Confirm Swap'}
                   </button>
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500">No swaps available right now.</p>
-              )}
-            </div>
-          )}
+              </div>
+            )}
         </div>
       ) : windowOpen ? (
         <div>
@@ -1838,12 +1842,14 @@ function SoleSurvivorSection({
   episodes,
   userId,
   rosterVersion,
+  onRosterChange,
 }: {
   season: Season
   contestants: Contestant[]
   episodes: Episode[]
   userId: string
   rosterVersion: number
+  onRosterChange: () => void
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [choice, setChoice] = useState('')
@@ -1890,6 +1896,7 @@ function SoleSurvivorSection({
       setRoster((rs) =>
         rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === choice })),
       )
+      onRosterChange() // refresh the roster section so the SS stamp moves (#no-reload)
       setSaved(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Designation failed')
