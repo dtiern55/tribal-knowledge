@@ -20,7 +20,6 @@ export function RosterCard({
   isSoleSurvivor = false,
   ssWindowOpen = false,
   swappedInEpisode = null,
-  doubledCount = 0,
   right,
   expanded = false,
   onToggle,
@@ -31,7 +30,6 @@ export function RosterCard({
   isSoleSurvivor?: boolean
   ssWindowOpen?: boolean
   swappedInEpisode?: number | null
-  doubledCount?: number
   right?: ReactNode
   // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
   // given, a chevron reveals `children` below the row.
@@ -55,14 +53,6 @@ export function RosterCard({
           title={ssTitle}
         >
           Sole Survivor
-        </span>
-      )}
-      {doubledCount > 0 && (
-        <span
-          className={`${STAMP_BASE} left-auto -right-2 rotate-6 border-ocean-400 bg-ocean-50 text-ocean-600`}
-          title={`Double Roster Points played ×${doubledCount} — points shown are doubled`}
-        >
-          ×{doubledCount} Doubled
         </span>
       )}
       <div className="flex items-center justify-between">
