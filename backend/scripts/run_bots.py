@@ -27,7 +27,6 @@ ENV = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(ENV)
 
 SKILLS = [100, 80, 60, 40, 20]
-COST = {"double_roster_points": 15, "double_vote_points": 10, "extra_vote": 20}
 
 
 def archetypes() -> list[dict]:
@@ -218,9 +217,17 @@ def balance(cur, uid, sid) -> int:
     return cur.fetchone()["b"]
 
 
-def buy_and_play(cur, uid, sid, episode_id, adv_type, target):
+def load_costs(cur) -> dict[str, int]:
+    """Live advantage buy costs straight from the DB — never hardcode them; they
+    retune (#258) and the bots exist to price advantages, so stale costs would
+    skew the whole calibration."""
+    cur.execute("select advantage_type, token_cost from advantage_types")
+    return {r["advantage_type"]: r["token_cost"] for r in cur.fetchall()}
+
+
+def buy_and_play(cur, uid, sid, episode_id, adv_type, target, costs):
     """Buy + play an advantage in one step if affordable; return True if done."""
-    cost = COST[adv_type]
+    cost = costs[adv_type]
     if balance(cur, uid, sid) < cost:
         return False
     cur.execute(
@@ -243,6 +250,7 @@ def buy_and_play(cur, uid, sid, episode_id, adv_type, target):
 def play(cur, episode_n: int):
     season = active_season(cur)
     sid = season["id"]
+    costs = load_costs(cur)
     cur.execute(
         "select * from episodes where season_id=%s and episode_number=%s",
         [sid, episode_n],
@@ -304,7 +312,7 @@ def play(cur, episode_n: int):
         plays = a["plays"]
         if "double_vote" in plays:
             # double the base vote (only pays off if the base pick was correct)
-            buy_and_play(cur, uid, sid, epid, "double_vote_points", base)
+            buy_and_play(cur, uid, sid, epid, "double_vote_points", base, costs)
         if "double_roster" in plays and roster:
             # double the real top scorer on a hit, else a random roster pick
             top = max(roster, key=lambda c: pts.get(c, 0))
@@ -313,9 +321,9 @@ def play(cur, episode_n: int):
                 if hits("roster")
                 else roster[int(rng(uid, episode_n, "rroll") * len(roster))]
             )
-            buy_and_play(cur, uid, sid, epid, "double_roster_points", target)
+            buy_and_play(cur, uid, sid, epid, "double_roster_points", target, costs)
         if "extra_vote" in plays:
-            if buy_and_play(cur, uid, sid, epid, "extra_vote", None):
+            if buy_and_play(cur, uid, sid, epid, "extra_vote", None, costs):
                 extra = pick("extra")
                 if extra != base:
                     add_pick(cur, uid, epid, extra)
