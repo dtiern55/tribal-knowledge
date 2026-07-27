@@ -9,6 +9,7 @@ pick). Bots get foresight (the known Cagayan results) — test instruments only.
 Usage (against PROD, service role):
     uv run python scripts/run_bots.py setup       # accounts, labels, rosters
     uv run python scripts/run_bots.py play <N>    # simulate a *scored* episode
+    uv run python scripts/run_bots.py swap        # swap all bots into the next open ep
 
 Writes directly to the DB with the service role, idempotent per episode.
 """
@@ -247,6 +248,145 @@ def buy_and_play(cur, uid, sid, episode_id, adv_type, target, costs):
     return True
 
 
+def next_open_ep(cur, sid):
+    cur.execute(
+        "select * from episodes where season_id=%s and status <> 'scored'"
+        " and picks_lock_at > now() order by episode_number limit 1",
+        [sid],
+    )
+    return cur.fetchone()
+
+
+def contestant_meta(cur, sid) -> dict:
+    """Season-total points per contestant + who's eliminated — drives which pick
+    a bot drops (weakest, dead weight first) and adds (strongest available)."""
+    cur.execute("select id::text cid from contestants where season_id=%s", [sid])
+    allc = [r["cid"] for r in cur.fetchall()]
+    cur.execute(
+        "select e.contestant_id::text cid from eliminations e"
+        " join contestants c on c.id = e.contestant_id where c.season_id=%s",
+        [sid],
+    )
+    elim = {r["cid"] for r in cur.fetchall()}
+    cur.execute(
+        """select se.contestant_id::text cid, coalesce(sum(
+             (case when s.merge_episode is not null
+                    and ep.episode_number >= s.merge_episode
+                    and et.postmerge_point_value is not null
+                   then et.postmerge_point_value else et.point_value end)
+             * (case when et.is_per_unit then se.quantity else 1 end)), 0) t
+           from scoring_events se
+           join episodes ep on ep.id = se.episode_id
+           join seasons s on s.id = ep.season_id
+           join scoring_event_types et on et.event_type = se.event_type
+           where s.id=%s group by se.contestant_id""",
+        [sid],
+    )
+    total = {r["cid"]: r["t"] for r in cur.fetchall()}
+    return {"all": allc, "elim": elim, "total": total}
+
+
+def try_swap(cur, uid, sid, season, nxt, meta) -> bool:
+    """Buy + execute one roster swap into the next open episode if the bot has
+    swaps left, it's affordable, and swaps aren't locked. Drops dead weight (an
+    eliminated pick, else the lowest scorer); adds the strongest still-in,
+    unrostered castaway. Idempotent per episode. Mirrors the /roster/swap flow."""
+    swap_ep = nxt["episode_number"]
+    swap_lock = season["swap_lock_episode"]
+    if swap_lock is None and season["merge_episode"] is not None:
+        swap_lock = season["merge_episode"] + 2
+    if nxt["is_finale"] or (swap_lock is not None and swap_ep >= swap_lock):
+        return False
+
+    # already swapped into this episode? (idempotent)
+    cur.execute(
+        "select 1 from advantage_plays where user_id=%s and season_id=%s"
+        " and advantage_type='roster_swap' and episode_id=%s",
+        [uid, sid, str(nxt["id"])],
+    )
+    if cur.fetchone():
+        return False
+
+    # swaps acquired = committed (closed picks) + held credits; cap at max_swaps
+    cur.execute(
+        "select count(*) n from roster_picks where user_id=%s and season_id=%s"
+        " and active_until_episode is not null",
+        [uid, sid],
+    )
+    committed = cur.fetchone()["n"]
+    cur.execute(
+        "select count(*) n from advantage_plays where user_id=%s and season_id=%s"
+        " and advantage_type='roster_swap' and episode_id is null",
+        [uid, sid],
+    )
+    acquired = committed + cur.fetchone()["n"]
+    if acquired >= season["max_swaps"]:
+        return False
+    cost = 0 if acquired < season["free_swaps"] else season["swap_token_cost"]
+    # A free swap is affordable at any balance; only paid ones need the tokens.
+    if cost > 0 and balance(cur, uid, sid) < cost:
+        return False
+
+    cur.execute(
+        "select id, contestant_id::text cid, active_from_episode from roster_picks"
+        " where user_id=%s and season_id=%s and active_until_episode is null",
+        [uid, sid],
+    )
+    active = cur.fetchall()
+    rostered = {p["cid"] for p in active}
+    droppable = [p for p in active if p["active_from_episode"] < swap_ep]
+    add_pool = [c for c in meta["all"] if c not in rostered and c not in meta["elim"]]
+    if not droppable or not add_pool:
+        return False
+    dead = [p for p in droppable if p["cid"] in meta["elim"]]
+    old = (
+        dead[0]
+        if dead
+        else min(droppable, key=lambda p: meta["total"].get(p["cid"], 0))
+    )
+    new = max(add_pool, key=lambda c: meta["total"].get(c, 0))
+
+    cur.execute(
+        "insert into advantage_plays (user_id, season_id, episode_id,"
+        " advantage_type, target_contestant_id, token_cost)"
+        " values (%s,%s,%s,'roster_swap',%s,%s) returning id",
+        [uid, sid, str(nxt["id"]), new, cost],
+    )
+    pid = cur.fetchone()["id"]
+    if cost > 0:
+        cur.execute(
+            "insert into token_transactions"
+            " (user_id, season_id, transaction_type, amount, advantage_play_id)"
+            " values (%s,%s,'advantage_spend',%s,%s)",
+            [uid, sid, -cost, pid],
+        )
+    cur.execute(
+        "update roster_picks set active_until_episode=%s where id=%s",
+        [swap_ep - 1, old["id"]],
+    )
+    cur.execute(
+        "insert into roster_picks"
+        " (user_id, season_id, contestant_id, active_from_episode)"
+        " values (%s,%s,%s,%s)",
+        [uid, sid, new, swap_ep],
+    )
+    return True
+
+
+def swap(cur):
+    """Every bot swaps into the next open episode while they have swaps left
+    (run weekly before the episode locks — the driver's play() does not swap)."""
+    season = active_season(cur)
+    sid = season["id"]
+    nxt = next_open_ep(cur, sid)
+    if not nxt:
+        sys.exit("No open episode to swap into")
+    meta = contestant_meta(cur, sid)
+    n = sum(try_swap(cur, b["id"], sid, season, nxt, meta) for b in load_bots(cur))
+    ep_n, name = nxt["episode_number"], season["name"]
+    print(f"swap: {n} bots swapped into episode {ep_n} of {name}")
+
+
 def play(cur, episode_n: int):
     season = active_season(cur)
     sid = season["id"]
@@ -333,7 +473,7 @@ def play(cur, episode_n: int):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "play"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "play", "swap"):
         sys.exit(__doc__)
     conn = db()
     try:
@@ -341,6 +481,8 @@ def main():
             if sys.argv[1] == "setup":
                 with httpx.Client(timeout=30) as http:
                     setup(cur, http)
+            elif sys.argv[1] == "swap":
+                swap(cur)
             else:
                 play(cur, int(sys.argv[2]))
         conn.commit()
