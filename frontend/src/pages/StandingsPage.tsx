@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ContestantAvatar } from '../components/ContestantAvatar'
 import { PageLoader } from '../components/PageLoader'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
@@ -126,7 +127,7 @@ export function StandingsPage() {
                       <Trend t={entry.trend} delta={entry.trend_delta} />
                     </span>
                   </td>
-                  <td className="py-3 font-medium whitespace-nowrap">
+                  <td className="py-3 font-medium">
                     <Link
                       to={`/seasons/${season.id}/team/${entry.user_id}`}
                       className="text-gray-900 hover:text-ocean-700"
@@ -136,6 +137,25 @@ export function StandingsPage() {
                     {isMe && (
                       <span className="ml-2 text-[11px] uppercase tracking-wide bg-jungle-600 text-white px-2 py-1 rounded">
                         You
+                      </span>
+                    )}
+                    {/* Who they have left, at a glance (#83). Empty until
+                        rosters lock — the API withholds it until then. */}
+                    {entry.active_survivors.length > 0 && (
+                      <span className="mt-1 flex items-center gap-1">
+                        {entry.active_survivors.map((s) => (
+                          <span key={s.contestant_id} title={s.name}>
+                            <ContestantAvatar
+                              name={s.name}
+                              imageUrl={s.image_url}
+                              tribeColor={null}
+                              tribeName={null}
+                            />
+                          </span>
+                        ))}
+                        <span className="ml-0.5 text-[11px] text-gray-500">
+                          {entry.active_survivors.length} left
+                        </span>
                       </span>
                     )}
                   </td>

@@ -81,6 +81,14 @@ class EliminationPick(BaseModel):
     created_at: datetime
 
 
+class StandingSurvivor(BaseModel):
+    """One still-in-the-game roster pick, for the standings glance (#83)."""
+
+    contestant_id: UUID
+    name: str
+    image_url: Optional[str] = None
+
+
 class StandingEntry(BaseModel):
     user_id: UUID
     display_name: str
@@ -95,6 +103,9 @@ class StandingEntry(BaseModel):
     trend_delta: int = 0
     # Points gained in the most recent scored episode (0 if none yet).
     last_episode_points: int = 0
+    # Rostered castaways still in the game. Empty until rosters lock — same
+    # visibility rule as the roster itself (#83/#160).
+    active_survivors: list[StandingSurvivor] = []
 
 
 class ContestantPoints(BaseModel):
