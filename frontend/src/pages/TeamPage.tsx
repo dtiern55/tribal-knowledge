@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
+import { RosterBreakdown } from '../components/RosterBreakdown'
+import {
+  doubledByContestantEpisode,
+  EMPTY_EP_MAP,
+  useRosterBreakdown,
+} from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
 import type {
@@ -47,11 +53,13 @@ export function TeamPage() {
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
+  const [episodes, setEpisodes] = useState<Episode[]>([])
   const [votes, setVotes] = useState<EpisodeVotes[]>([])
   const [name, setName] = useState<string>('')
   const [hidden, setHidden] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
 
   useEffect(() => {
     if (!seasonId || !userId) return
@@ -63,6 +71,7 @@ export function TeamPage() {
           api.get<Episode[]>(`/seasons/${seasonId}/episodes`),
         ])
         setContestants(cs)
+        setEpisodes(episodes)
         setName(standings.find((s) => s.user_id === userId)?.display_name ?? 'Team')
         try {
           setRoster(await api.get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`))
@@ -114,6 +123,7 @@ export function TeamPage() {
   if (error) return <p className="text-red-600">{error}</p>
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((r) => r.active_until_episode === null)
   // Original picks share the earliest start episode; later starts are swap-ins.
   const rosterBaseEp = Math.min(...roster.map((r) => r.active_from_episode))
@@ -173,7 +183,16 @@ export function TeamPage() {
                 pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
               }
               right={<Points value={rosterPoints.get(pick.contestant_id)} />}
-            />
+              expanded={expandedId === pick.contestant_id}
+              onToggle={() => toggleExpand(pick.contestant_id)}
+            >
+              <RosterBreakdown
+                perf={perfs.get(pick.contestant_id)}
+                activeFrom={pick.active_from_episode}
+                activeUntil={pick.active_until_episode}
+                doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+              />
+            </RosterCard>
           ))}
           {/* Non-roster advantage bonuses (e.g. Double Vote) still show as
               their own line; Double Roster now folds into the rows (#257). */}

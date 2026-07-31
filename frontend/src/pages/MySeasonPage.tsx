@@ -5,6 +5,12 @@ import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
 import { advantagesLocked, isEpisodeOpen, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { RosterBreakdown } from '../components/RosterBreakdown'
+import {
+  doubledByContestantEpisode,
+  EMPTY_EP_MAP,
+  useRosterBreakdown,
+} from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
 import { Torch } from '../components/Torch'
@@ -14,7 +20,6 @@ import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
   Contestant,
-  ContestantPerformance,
   EliminationPick,
   Episode,
   FinalePrediction,
@@ -394,113 +399,6 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
-/**
- * Per-episode breakdown for one rostered contestant (#257, #271): each episode
- * is its own collapsed row (total on the right, "2x Points" pill when you played
- * Double Roster Points there); expanding it itemizes the scoring events plus a
- * final "2x Contestant Pick Points" line for the bonus. Scoped to your active
- * range for the pick. ponytail: reconciles to the row total for the common case;
- * swap penalties and finale placement/SS-double aren't per-episode scoring
- * events, so they aren't itemized here.
- */
-function RosterBreakdown({
-  perf,
-  activeFrom,
-  activeUntil,
-  doubledByEp,
-}: {
-  perf: ContestantPerformance | undefined
-  activeFrom: number
-  activeUntil: number | null
-  doubledByEp: Map<number, number>
-}) {
-  const [openEps, setOpenEps] = useState<Set<number>>(new Set())
-  function toggle(n: number) {
-    setOpenEps((cur) => {
-      const next = new Set(cur)
-      if (!next.delete(n)) next.add(n)
-      return next
-    })
-  }
-  if (!perf) return <p className="text-xs text-gray-400">Loading…</p>
-  const eps = perf.episodes
-    .filter(
-      (e) =>
-        e.episode_number >= activeFrom &&
-        (activeUntil == null || e.episode_number <= activeUntil),
-    )
-    // Newest episode first — most recent is what you check after an airing.
-    .sort((a, b) => b.episode_number - a.episode_number)
-  if (eps.length === 0)
-    return <p className="text-xs text-gray-400">No scored episodes yet.</p>
-  return (
-    <div className="space-y-2">
-      {eps.map((ep) => {
-        const bonus = doubledByEp.get(ep.episode_number) ?? 0
-        const total = ep.points + bonus
-        const events = ep.events.filter((e) => e.points !== 0)
-        const open = openEps.has(ep.episode_number)
-        return (
-          <div key={ep.episode_number} className="text-xs">
-            <button
-              onClick={() => toggle(ep.episode_number)}
-              aria-expanded={open}
-              className="w-full flex items-center gap-2 text-left font-medium text-gray-700"
-            >
-              <span className="flex flex-col items-start gap-0.5">
-                <span>Episode {ep.episode_number}</span>
-                {bonus !== 0 && (
-                  <span className="rounded-full bg-ocean-50 border border-ocean-100 px-1.5 py-0.5 text-[10px] font-semibold text-ocean-700">
-                    2x Points
-                  </span>
-                )}
-              </span>
-              <span
-                className={`ml-auto ${
-                  total > 0 ? 'text-green-600' : total < 0 ? 'text-red-500' : 'text-gray-400'
-                }`}
-              >
-                {total} pts
-              </span>
-              <svg
-                viewBox="0 0 24 24"
-                className={`w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform ${
-                  open ? 'rotate-180' : ''
-                }`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-            {open && (
-              <ul className="mt-1 space-y-0.5 pl-3 text-gray-500">
-                {events.map((e, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span>
-                      {e.label}
-                      {e.quantity > 1 && ` ×${e.quantity}`}
-                    </span>
-                    <span className={e.points > 0 ? 'text-green-600' : 'text-red-500'}>
-                      {e.points} pts
-                    </span>
-                  </li>
-                ))}
-                {bonus !== 0 && (
-                  <li className="flex justify-between gap-2 text-ocean-600 font-medium">
-                    <span>2x Contestant Pick Points</span>
-                    <span>{bonus} pts</span>
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 function RosterSection({
   season,
@@ -543,17 +441,7 @@ function RosterSection({
 
   // Tap-to-expand per-episode breakdown (#257): lazy-fetch each contestant's
   // performance the first time its card is opened.
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [perfs, setPerfs] = useState<Map<string, ContestantPerformance>>(new Map())
-  function toggleExpand(cid: string) {
-    setExpandedId((cur) => (cur === cid ? null : cid))
-    if (!perfs.has(cid)) {
-      api
-        .get<ContestantPerformance>(`/contestants/${cid}/performance`)
-        .then((p) => setPerfs((prev) => new Map(prev).set(cid, p)))
-        .catch(() => {})
-    }
-  }
+  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
 
   useEffect(() => {
     api
@@ -637,28 +525,7 @@ function RosterSection({
   const doubledRosterIds = new Set(activeDoubleRoster.map((p) => p.target_contestant_id))
   const doubleTargets = activeRoster.filter((p) => !doubledRosterIds.has(p.contestant_id))
 
-  // How many times Double Roster Points has been played on each contestant this
-  // season (#257) — drives the "×N Doubled" card stamp. Their roster points
-  // already fold the doubling in server-side.
-  // Per-contestant, per-episode doubled bonus for the expandable breakdown —
-  // keyed contestant_id → (episode_number → bonus points).
-  const epNumById = new Map(episodes.map((e) => [e.id, e.episode_number]))
-  const doubledByContestantEp = new Map<string, Map<number, number>>()
-  for (const p of plays) {
-    if (
-      p.advantage_type === 'double_roster_points' &&
-      p.episode_id != null &&
-      p.target_contestant_id
-    ) {
-      const epNum = epNumById.get(p.episode_id)
-      if (epNum != null && p.points_earned) {
-        const m = doubledByContestantEp.get(p.target_contestant_id) ?? new Map<number, number>()
-        m.set(epNum, (m.get(epNum) ?? 0) + p.points_earned)
-        doubledByContestantEp.set(p.target_contestant_id, m)
-      }
-    }
-  }
-  const EMPTY_EP_MAP = new Map<number, number>()
+  const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
 
   // Whether the current selection differs from the saved roster (#94): drives
   // the save button's enabled/label state so it's clear a click is needed.
@@ -884,8 +751,7 @@ function RosterSection({
             )}
 
           {swappedRoster.length > 0 && (
-            <div>
-              <SectionTitle>Swapped Out</SectionTitle>
+            <SectionShell title="Swapped Out" defaultOpen={false}>
               <ul className="space-y-2">
                 {swappedRoster.map((pick) => {
                   const c = contestantMap.get(pick.contestant_id)
@@ -916,7 +782,7 @@ function RosterSection({
                   )
                 })}
               </ul>
-            </div>
+            </SectionShell>
           )}
 
           {/* Swap only appears when you can actually act on it (#swap redesign):
@@ -1298,11 +1164,12 @@ function PicksSection({
         {body}
       </div>
     ) : (
-      // ponytail: native <details> instead of another open/closed state hook.
-      <details key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
-        <summary className="cursor-pointer">{header}</summary>
+      // Flat row: the whole Past Episodes list already collapses as one
+      // section, so a second per-episode toggle is just extra clicking.
+      <div key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
+        {header}
         <div className="mt-2">{body}</div>
-      </details>
+      </div>
     )
   }
 
