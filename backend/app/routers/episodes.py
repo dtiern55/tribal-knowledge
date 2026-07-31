@@ -10,6 +10,19 @@ from app.schemas import Episode, EpisodeCreateRequest, EpisodeUpdateRequest
 
 router = APIRouter(tags=["episodes"])
 
+# Used when a season has no schedule and the caller omits the value — the
+# pre-#269 hand-set default.
+DEFAULT_ELIMINATION_PICKS = 3
+
+
+def resolve_max_elimination_picks(schedule: list[dict], episode_number: int) -> int:
+    """How many elimination picks an episode gets under the season's tier
+    schedule (#269): the highest tier whose from_episode has been reached."""
+    reached = [t for t in schedule if t["from_episode"] <= episode_number]
+    if not reached:
+        return DEFAULT_ELIMINATION_PICKS
+    return max(reached, key=lambda t: t["from_episode"])["picks"]
+
 
 @router.get("/seasons/{season_id}/episodes", response_model=list[Episode])
 def list_episodes(season_id: UUID, _: UUID = Depends(get_current_user)):
@@ -29,7 +42,7 @@ def create_episode(
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            database.require_season(cur, season_id)
+            season = database.require_season(cur, season_id)
             cur.execute(
                 "select 1 from episodes where season_id = %s and episode_number = %s",
                 [str(season_id), body.episode_number],
@@ -49,6 +62,10 @@ def create_episode(
                         detail="Season already has a finale episode",
                     )
             params = {**body.model_dump(), "season_id": str(season_id)}
+            if params["max_elimination_picks"] is None:
+                params["max_elimination_picks"] = resolve_max_elimination_picks(
+                    season["elimination_pick_schedule"], body.episode_number
+                )
             cur.execute(
                 """
                 insert into episodes
@@ -69,17 +86,11 @@ def create_episode(
             # lost by scoring before the next episode has been created, and no
             # manual season-start bootstrap is required. Skipped past the
             # advantage lock (nothing left to spend on) or when allocation is 0.
-            cur.execute(
-                "select weekly_token_allocation, advantage_lock_episode"
-                " from seasons where id = %s",
-                [str(season_id)],
-            )
-            srow = cur.fetchone()
-            amount = srow["weekly_token_allocation"]
+            amount = season["weekly_token_allocation"]
             if amount > 0 and not advantages_locked(
                 episode["episode_number"],
                 episode["is_finale"],
-                srow["advantage_lock_episode"],
+                season["advantage_lock_episode"],
             ):
                 cur.execute(
                     """

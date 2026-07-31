@@ -5,6 +5,14 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class EliminationPickTier(BaseModel):
+    """One step of a season's vote schedule: from this episode on, this many
+    elimination picks (#269). Applies until the next tier starts."""
+
+    from_episode: int = Field(gt=0)
+    picks: int = Field(ge=1, le=3)
+
+
 class Season(BaseModel):
     id: UUID
     name: str
@@ -19,6 +27,7 @@ class Season(BaseModel):
     swap_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
     weekly_token_allocation: int
+    elimination_pick_schedule: list[EliminationPickTier]
     status: str
     created_at: datetime
 
@@ -195,6 +204,7 @@ class SeasonUpdateRequest(BaseModel):
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
     weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
+    elimination_pick_schedule: Optional[list[EliminationPickTier]] = None
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 
 
@@ -297,7 +307,9 @@ class ContestantUpdateRequest(BaseModel):
 class EpisodeCreateRequest(BaseModel):
     episode_number: int = Field(gt=0)
     air_date: date
-    max_elimination_picks: int = Field(ge=1, le=3)
+    # Omit to take the season's elimination_pick_schedule (#269); an explicit
+    # value still wins, so a single episode can be overridden at create time.
+    max_elimination_picks: Optional[int] = Field(default=None, ge=1, le=3)
     is_finale: bool = False
     picks_lock_at: datetime
 
