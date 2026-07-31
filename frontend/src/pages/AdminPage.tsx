@@ -99,8 +99,19 @@ function SeasonSection({
   const [lockEp, setLockEp] = useState(String(season.roster_lock_episode ?? ''))
   const [swapCost, setSwapCost] = useState(String(season.swap_token_cost))
   const [status, setStatus] = useState(season.status)
+  // Edited as strings so a row can be half-typed; empty rows drop on save.
+  const [schedule, setSchedule] = useState(
+    season.elimination_pick_schedule.map((t) => ({
+      from_episode: String(t.from_episode),
+      picks: String(t.picks),
+    })),
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function setTier(i: number, field: 'from_episode' | 'picks', value: string) {
+    setSchedule(schedule.map((t, j) => (j === i ? { ...t, [field]: value } : t)))
+  }
 
   function save() {
     void run(setSaving, setError, async () => {
@@ -109,6 +120,10 @@ function SeasonSection({
         merge_episode: mergeEp ? Number(mergeEp) : null,
         roster_lock_episode: lockEp ? Number(lockEp) : null,
         swap_token_cost: Number(swapCost),
+        elimination_pick_schedule: schedule
+          .filter((t) => t.from_episode && t.picks)
+          .map((t) => ({ from_episode: Number(t.from_episode), picks: Number(t.picks) }))
+          .sort((a, b) => a.from_episode - b.from_episode),
         status,
       })
       onUpdated(updated)
@@ -126,6 +141,14 @@ function SeasonSection({
               Season #{season.season_number} · {season.status} · roster locks ep{' '}
               {season.roster_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} ·
               swaps cost {season.swap_token_cost} tkn
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Votes:{' '}
+              {season.elimination_pick_schedule.length
+                ? season.elimination_pick_schedule
+                    .map((t) => `ep ${t.from_episode}+ → ${t.picks}`)
+                    .join(' · ')
+                : 'no schedule (3 unless set per episode)'}
             </p>
           </div>
           <ActionBtn variant="secondary" onClick={() => setEditing(true)}>
@@ -185,6 +208,49 @@ function SeasonSection({
             onChange={(e) => setMergeEp(e.target.value)}
             className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
           />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs text-gray-500 mb-1">
+            Elimination picks schedule — new episodes take the last tier at or below
+            their number
+          </label>
+          <div className="space-y-1">
+            {schedule.map((tier, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">From ep</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={tier.from_episode}
+                  onChange={(e) => setTier(i, 'from_episode', e.target.value)}
+                  className="w-20 border border-sand-200 rounded-lg px-2 py-1 text-sm"
+                />
+                <span className="text-xs text-gray-500">votes</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={3}
+                  value={tier.picks}
+                  onChange={(e) => setTier(i, 'picks', e.target.value)}
+                  className="w-20 border border-sand-200 rounded-lg px-2 py-1 text-sm"
+                />
+                <ActionBtn
+                  variant="secondary"
+                  onClick={() => setSchedule(schedule.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </ActionBtn>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2">
+            <ActionBtn
+              variant="secondary"
+              onClick={() => setSchedule([...schedule, { from_episode: '', picks: '' }])}
+            >
+              Add tier
+            </ActionBtn>
+          </div>
         </div>
       </div>
       <ErrorMsg msg={error} />
@@ -1003,7 +1069,6 @@ function EpisodeProposalSection({
             episode_number: e.episode_number,
             air_date: e.air_date,
             picks_lock_at: e.picks_lock_at,
-            max_elimination_picks: 3,
             is_finale: e.is_finale,
           }),
         )
@@ -1036,8 +1101,8 @@ function EpisodeProposalSection({
         <div className="space-y-3">
           <p className="text-xs text-gray-400">
             {proposal.source} — review, uncheck anything wrong, then create.
-            Picks lock at air time; episodes are created with 3 max votes —
-            adjust per episode after. Data:{' '}
+            Picks lock at air time; max votes come from the season&apos;s
+            elimination picks schedule — adjust per episode after. Data:{' '}
             <a
               href="https://www.tvmaze.com"
               target="_blank"
@@ -1101,7 +1166,8 @@ function EpisodesSection({
   const [epNum, setEpNum] = useState('')
   const [airDate, setAirDate] = useState('')
   const [locksAt, setLocksAt] = useState('')
-  const [maxPicks, setMaxPicks] = useState('3')
+  // Blank = take the season's elimination picks schedule (#269).
+  const [maxPicks, setMaxPicks] = useState('')
   const [isFinale, setIsFinale] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
@@ -1112,7 +1178,7 @@ function EpisodesSection({
         episode_number: Number(epNum),
         air_date: airDate,
         picks_lock_at: centralLocalToUtc(locksAt),
-        max_elimination_picks: Number(maxPicks),
+        max_elimination_picks: maxPicks ? Number(maxPicks) : undefined,
         is_finale: isFinale,
       })
       onUpdated([...episodes, ep].sort((a, b) => a.episode_number - b.episode_number))
@@ -1120,7 +1186,7 @@ function EpisodesSection({
       setEpNum('')
       setAirDate('')
       setLocksAt('')
-      setMaxPicks('3')
+      setMaxPicks('')
       setIsFinale(false)
     })
   }
@@ -1213,6 +1279,7 @@ function EpisodesSection({
               <label className="block text-xs text-gray-400 mb-1">Max elim picks</label>
               <input
                 type="number"
+                placeholder="from schedule"
                 value={maxPicks}
                 onChange={(e) => setMaxPicks(e.target.value)}
                 className="w-full border border-sand-200 rounded px-2 py-1 text-sm"

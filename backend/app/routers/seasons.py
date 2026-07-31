@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from psycopg2.extras import Json
 
 from app import database
 from app.auth import get_current_admin, get_current_user
@@ -85,6 +86,11 @@ def update_season(
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if "elimination_pick_schedule" in fields:
+        # The column is jsonb and not-null; explicit null clears the schedule.
+        fields["elimination_pick_schedule"] = Json(
+            fields["elimination_pick_schedule"] or []
+        )
     with database.get_db() as conn:
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
