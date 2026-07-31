@@ -56,9 +56,11 @@ export function RosterCard({
         </span>
       )}
       <div className="flex items-center justify-between">
+      {/* The link fills the row so the dead space between the name and the
+          points is clickable too — only the chevron sits outside it. */}
       <Link
         to={`/contestants/${contestantId}`}
-        className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
+        className={`flex flex-1 items-center gap-2 font-medium hover:text-ocean-700 ${
           outEp != null ? 'text-gray-500' : 'text-gray-900'
         }`}
       >
@@ -98,9 +100,9 @@ export function RosterCard({
             ⇄ ep {swappedInEpisode}
           </span>
         )}
+        <span className="ml-auto pl-2">{right}</span>
       </Link>
         <div className="flex items-center gap-2 shrink-0">
-          {right}
           {onToggle && (
             <button
               onClick={onToggle}
