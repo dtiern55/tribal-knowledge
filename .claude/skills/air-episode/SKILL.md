@@ -115,7 +115,17 @@ it happens — that's future knowledge, and it changes point values.)
     contestant sitting at 0 where you expected points, an unexpected token move.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
-## 8. Create the next episode (funds its weekly +10)
+## 8. Close the episode out
+
+`POST {API}/episodes/{episode_id}/score` — flips status `upcoming` → `scored`
+(#49). Easy to forget, and skipping it is silent: points still show, but
+standings `trend` / `last_episode_points` keep reporting the *previous* scored
+episode (they read `max(episode_number) where status = 'scored'`), and unused
+extra-vote plays never get auto-unplayed (#157). Do this **before** step 9 —
+verify standings again after, since the trend arrows only become correct here.
+409 "already scored" means it's done; picks must be locked first.
+
+## 9. Create the next episode (funds its weekly +10)
 
 Right after scoring episode N, create the **episode N+1** row:
 `POST {API}/seasons/{season_id}/episodes`. Grant-on-create (#217) grants every
@@ -131,7 +141,7 @@ schedules the watch. Skip only if N was the finale.
   behind, this ritual waits or falls back to manual admin-UI entry.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, survivor moments, or tokens.
-- **Weekly player token allocation** is handled by **step 8** — creating episode
+- **Weekly player token allocation** is handled by **step 9** — creating episode
   N+1 grants its +10 (grant-on-create, #217). The manual
   `POST {API}/seasons/{season_id}/tokens/weekly-allocation` endpoint is only a
   backstop/override now, not the normal path.
