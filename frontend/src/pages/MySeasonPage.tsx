@@ -144,16 +144,6 @@ export function MyTribePage() {
           rosterVersion={d.rosterVersion}
         />
       </section>
-      <section id="predictions" className="scroll-mt-20">
-        <SoleSurvivorSection
-          season={d.season}
-          contestants={d.contestants}
-          episodes={d.episodes}
-          userId={d.userId}
-          rosterVersion={d.rosterVersion}
-          onRosterChange={d.bumpRoster}
-        />
-      </section>
     </div>
   )
 }
@@ -940,6 +930,14 @@ function RosterSection({
             : 'Roster submission window has closed.'}
         </p>
       )}
+      <SoleSurvivorLine
+        season={season}
+        contestants={contestants}
+        episodes={episodes}
+        userId={userId}
+        rosterVersion={rosterVersion}
+        onRosterChange={onRosterChange}
+      />
     </SectionShell>
   )
 }
@@ -1705,9 +1703,12 @@ function FinaleBallot({
   )
 }
 
-// ─── Sole Survivor section (#164) ───────────────────────────────────────────
+// ─── Sole Survivor line (#164) ──────────────────────────────────────────────
+//
+// Lives inside My Roster rather than owning a section: it's one designation
+// and one sentence, and it only ever concerns a castaway already listed above.
 
-function SoleSurvivorSection({
+function SoleSurvivorLine({
   season,
   contestants,
   episodes,
@@ -1777,19 +1778,19 @@ function SoleSurvivorSection({
   }
 
   return (
-    <SectionShell
-      title="Sole Survivor"
-      defaultOpen={false}
-      right={
-        lockEpisode && (
+    <div className="mt-4 pt-3 border-t border-sand-100">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Sole Survivor
+        </span>
+        {lockEpisode && (
           <LockBadge
             lockAt={lockEpisode.picks_lock_at}
             scored={lockEpisode.status === 'scored'}
           />
-        )
-      }
-    >
-      <p className="text-xs text-gray-500 mb-3">
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mb-2">
         Everything your Sole Survivor scores in the finale counts double for you.
       </p>
       {!windowOpen ? (
@@ -1838,6 +1839,6 @@ function SoleSurvivorSection({
           {saved && <p className="text-green-600 text-sm mt-2">Designated.</p>}
         </>
       )}
-    </SectionShell>
+    </div>
   )
 }
