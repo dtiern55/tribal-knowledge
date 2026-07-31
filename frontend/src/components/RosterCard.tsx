@@ -55,12 +55,18 @@ export function RosterCard({
           Sole Survivor
         </span>
       )}
-      <div className="flex items-center justify-between">
-      {/* The link fills the row so the dead space between the name and the
-          points is clickable too — only the chevron sits outside it. */}
+      {/* Tapping the row opens the breakdown — that's where your own scoring
+          lives, including 2x roster points. The name and avatar stay a link to
+          the contestant's own page; stopPropagation keeps it from also
+          expanding. The chevron remains the keyboard/screen-reader control. */}
+      <div
+        className={`flex items-center justify-between ${onToggle ? 'cursor-pointer' : ''}`}
+        onClick={onToggle}
+      >
       <Link
         to={`/contestants/${contestantId}`}
-        className={`flex flex-1 items-center gap-2 font-medium hover:text-ocean-700 ${
+        onClick={(e) => e.stopPropagation()}
+        className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
           outEp != null ? 'text-gray-500' : 'text-gray-900'
         }`}
       >
@@ -100,12 +106,15 @@ export function RosterCard({
             ⇄ ep {swappedInEpisode}
           </span>
         )}
-        <span className="ml-auto pl-2">{right}</span>
       </Link>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-auto pl-2">
+          {right}
           {onToggle && (
             <button
-              onClick={onToggle}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggle()
+              }}
               aria-expanded={expanded}
               aria-label="Toggle episode breakdown"
               className="-mr-1 p-1 text-gray-400 hover:text-gray-600"
