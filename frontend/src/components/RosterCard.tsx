@@ -10,9 +10,13 @@ const STAMP_BASE =
 
 /**
  * Roster row card (#190, #56): a torch in the leading column carries status —
- * lit while the contestant is in, snuffed once voted out. A gold SOLE SURVIVOR
- * corner stamp marks the designee (plus a gold ring — light while the
- * designation window is open, solid once locked). Voted-out cards go muted ash.
+ * lit while the contestant is in, snuffed once voted out. Voted-out cards go
+ * muted ash.
+ *
+ * The SOLE SURVIVOR stamp is two-state: quiet and outlined while the pick is
+ * still changeable, filling in gold once the designation locks. A permanently
+ * gold stamp read as "active now" all season, when the pick is really a bet
+ * that doesn't pay until the finale.
  */
 export function RosterCard({
   contestantId,
@@ -44,13 +48,17 @@ export function RosterCard({
       className={[
         'relative flex flex-col p-3 rounded-lg border',
         outEp != null ? 'bg-gray-50 border-gray-200' : 'bg-white border-sand-200',
-        isSoleSurvivor ? (ssWindowOpen ? 'ring-2 ring-amber-200' : 'ring-2 ring-amber-400') : '',
+        isSoleSurvivor ? (ssWindowOpen ? 'ring-2 ring-stone-200' : 'ring-2 ring-amber-400') : '',
       ].join(' ')}
     >
       {isSoleSurvivor && outEp == null && (
         <span
-          className={`${STAMP_BASE} border-amber-400 bg-amber-50 text-amber-700`}
-          title={ssTitle}
+          className={`${STAMP_BASE} ${
+            ssWindowOpen
+              ? 'border-stone-300 bg-white text-stone-500'
+              : 'border-amber-400 bg-amber-50 text-amber-700'
+          }`}
+          title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
         >
           Sole Survivor
         </span>
