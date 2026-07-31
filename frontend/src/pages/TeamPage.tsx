@@ -3,6 +3,7 @@ import { PageLoader } from '../components/PageLoader'
 import { useNavigate, useParams } from 'react-router'
 import { api } from '../lib/api'
 import { RosterCard } from '../components/RosterCard'
+import { SectionShell } from '../components/SectionShell'
 import type {
   AdvantagePlay,
   Contestant,
@@ -195,22 +196,21 @@ export function TeamPage() {
 
       {swaps.length > 0 && (
         <div className="mt-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-2">
-            Swaps
-          </h2>
-          <ul className="space-y-1 text-sm text-gray-600">
-            {swaps.map(({ out, into }) => (
-              <li key={out.id}>
-                {contestantMap.get(out.contestant_id)?.name ?? '—'}
-                {' → '}
-                {into ? (contestantMap.get(into.contestant_id)?.name ?? '—') : '?'}
-                <span className="text-gray-400">
-                  {' '}
-                  (episode {(out.active_until_episode ?? 0) + 1})
-                </span>
-              </li>
-            ))}
-          </ul>
+          <SectionShell title="Swaps" defaultOpen={false}>
+            <ul className="space-y-1 text-sm text-gray-600">
+              {swaps.map(({ out, into }) => (
+                <li key={out.id}>
+                  {contestantMap.get(out.contestant_id)?.name ?? '—'}
+                  {' → '}
+                  {into ? (contestantMap.get(into.contestant_id)?.name ?? '—') : '?'}
+                  <span className="text-gray-400">
+                    {' '}
+                    (episode {(out.active_until_episode ?? 0) + 1})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </SectionShell>
         </div>
       )}
 
