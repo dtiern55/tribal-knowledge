@@ -244,9 +244,23 @@ function ThisWeekHub({
   }, [nextOpen, userId])
 
   if (!nextOpen) {
+    // Picks closed and not scored yet is a real state, not "nothing happening"
+    // (#272). Latest such episode wins — an older unscored one isn't this week.
+    const locked = episodes.findLast(
+      (e) => e.status !== 'scored' && new Date(e.picks_lock_at) <= new Date(),
+    )
     return (
-      <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm text-gray-500">
-        You're all caught up — no episode is open for picks right now.
+      <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm">
+        {locked ? (
+          <>
+            <p className="font-semibold text-gray-900">Locked — Episode {locked.episode_number}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Picks closed {formatCentral(locked.picks_lock_at)}
+            </p>
+          </>
+        ) : (
+          <p className="text-gray-500">You're all caught up — no episodes left to play.</p>
+        )}
       </div>
     )
   }
@@ -1199,14 +1213,97 @@ function PicksSection({
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
   // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
-  const closedEpisodes = episodes
-    .filter(
-      (ep) =>
-        !isOpen(ep) &&
-        !ep.is_finale && // finale votes are the finale ballot, not weekly picks (#86)
-        ep.episode_number >= (season.roster_lock_episode ?? 1),
+  const weekly = episodes.filter(
+    (ep) =>
+      !ep.is_finale && // finale votes are the finale ballot, not weekly picks (#86)
+      ep.episode_number >= (season.roster_lock_episode ?? 1),
+  )
+  // The episode you're on: open for picks, or locked and awaiting scoring. It
+  // renders on its own above the collapsed past ones (#272).
+  const currentEp = weekly.find(isOpen) ?? weekly.findLast((ep) => ep.status !== 'scored')
+  const closedEpisodes = weekly.filter((ep) => !isOpen(ep) && ep.id !== currentEp?.id).reverse()
+
+  // Shared by the current locked episode and every past row.
+  function episodeRow(ep: Episode, current: boolean) {
+    const picks = picksByEpisode.get(ep.id) ?? []
+    const scored = ep.status === 'scored'
+    const header = (
+      <div className="flex items-center gap-2">
+        <span className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}>
+          Episode {ep.episode_number}
+        </span>
+        {/* Never show the raw DB status — a locked, unscored episode said
+            "upcoming", the opposite of true (#272). */}
+        <span
+          className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
+            scored ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+          }`}
+        >
+          {scored ? 'Scored' : 'Awaiting scoring'}
+        </span>
+      </div>
     )
-    .reverse()
+    const body =
+      picks.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {picks.map((p) => {
+            const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
+            const name = contestantMap.get(p.contestant_id)?.name ?? '—'
+            const doubled = plays.some(
+              (pl) =>
+                pl.episode_id === ep.id &&
+                pl.advantage_type === 'double_vote_points' &&
+                pl.target_contestant_id === p.contestant_id,
+            )
+            // Only scored episodes have a settled result to color
+            // (#53). Incorrect stays neutral, not red — most votes
+            // miss, and a wall of red feels bad (#135).
+            const cls = !scored
+              ? 'bg-white border-sand-200 text-gray-700'
+              : result?.correct
+                ? 'bg-green-50 border-green-300 text-green-800'
+                : 'bg-white border-sand-200 text-gray-500'
+            // Pick chip shows the BASE points; the double's own
+            // earnings render as a separate chip beside it (#136).
+            return (
+              <span key={p.id} className="contents">
+                <span className={`text-sm px-2 py-1 border rounded-md ${cls}`}>
+                  {scored && result?.correct && '✓ '}
+                  {name}
+                  {doubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
+                  {scored && result?.correct && result.points > 0 && (
+                    <span className="ml-1 font-semibold">+{result.points}</span>
+                  )}
+                </span>
+                {doubled && scored && result?.correct && result.points > 0 && (
+                  <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
+                    Double Vote Points <span className="font-semibold">+{result.points}</span>
+                  </span>
+                )}
+              </span>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400">No votes submitted</p>
+      )
+
+    return current ? (
+      <div key={ep.id} className="mb-6 p-4 bg-white border-2 border-ocean-500 rounded-xl">
+        {header}
+        <p className="text-xs text-gray-500 mt-0.5 mb-3">
+          Picks closed {formatCentral(ep.picks_lock_at)}
+        </p>
+        {body}
+      </div>
+    ) : (
+      // ponytail: native <details> instead of another open/closed state hook.
+      <details key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
+        <summary className="cursor-pointer">{header}</summary>
+        <div className="mt-2">{body}</div>
+      </details>
+    )
+  }
 
   return (
     <SectionShell
@@ -1214,7 +1311,7 @@ function PicksSection({
       prominent
       right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
     >
-      {!nextOpen && closedEpisodes.length === 0 && (
+      {!currentEp && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
 
@@ -1285,7 +1382,7 @@ function PicksSection({
           }
 
           return (
-            <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
+            <div className="mb-6 p-4 bg-white border-2 border-ocean-500 rounded-xl">
               <h3 className="font-semibold text-gray-900 mb-1">Episode {ep.episode_number}</h3>
               {confirmed ? (
                 <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
@@ -1523,84 +1620,16 @@ function PicksSection({
           )
         })()}
 
+      {currentEp && !isOpen(currentEp) && episodeRow(currentEp, true)}
+
       {closedEpisodes.length > 0 && (
-        <div>
-          {nextOpen && (
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-              Past Episodes
-            </h3>
-          )}
-          <div className="space-y-3">
-            {closedEpisodes.map((ep) => {
-              const picks = picksByEpisode.get(ep.id) ?? []
-              const scored = ep.status === 'scored'
-              return (
-                <div key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-700">Episode {ep.episode_number}</span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        scored ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {ep.status}
-                    </span>
-                  </div>
-                  {picks.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {picks.map((p) => {
-                        const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
-                        const name = contestantMap.get(p.contestant_id)?.name ?? '—'
-                        const doubled = plays.some(
-                          (pl) =>
-                            pl.episode_id === ep.id &&
-                            pl.advantage_type === 'double_vote_points' &&
-                            pl.target_contestant_id === p.contestant_id,
-                        )
-                        // Only scored episodes have a settled result to color
-                        // (#53). Incorrect stays neutral, not red — most votes
-                        // miss, and a wall of red feels bad (#135).
-                        const cls = !scored
-                          ? 'bg-white border-sand-200 text-gray-700'
-                          : result?.correct
-                            ? 'bg-green-50 border-green-300 text-green-800'
-                            : 'bg-white border-sand-200 text-gray-500'
-                        // Pick chip shows the BASE points; the double's own
-                        // earnings render as a separate chip beside it (#136).
-                        return (
-                          <span key={p.id} className="contents">
-                            <span
-                              className={`text-sm px-2 py-1 border rounded-md ${cls}`}
-                            >
-                              {scored && result?.correct && '✓ '}
-                              {name}
-                              {doubled && (
-                                <span className="text-ocean-600 font-semibold"> ×2</span>
-                              )}
-                              {scored && result?.correct && result.points > 0 && (
-                                <span className="ml-1 font-semibold">
-                                  +{result.points}
-                                </span>
-                              )}
-                            </span>
-                            {doubled && scored && result?.correct && result.points > 0 && (
-                              <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
-                                Double Vote Points{' '}
-                                <span className="font-semibold">+{result.points}</span>
-                              </span>
-                            )}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400">No votes submitted</p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <SectionShell
+          title="Past Episodes"
+          defaultOpen={false}
+          right={<span className="text-xs text-gray-400">{closedEpisodes.length}</span>}
+        >
+          <div className="space-y-3">{closedEpisodes.map((ep) => episodeRow(ep, false))}</div>
+        </SectionShell>
       )}
     </SectionShell>
   )
