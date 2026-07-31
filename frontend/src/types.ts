@@ -60,6 +60,12 @@ export interface Episode {
   created_at: string
 }
 
+export interface StandingSurvivor {
+  contestant_id: string
+  name: string
+  image_url: string | null
+}
+
 export interface StandingEntry {
   user_id: string
   display_name: string
@@ -70,6 +76,8 @@ export interface StandingEntry {
   trend: 'up' | 'down' | 'same' | null
   trend_delta: number
   last_episode_points: number
+  // Rostered castaways still in the game; empty until rosters lock.
+  active_survivors: StandingSurvivor[]
 }
 
 export interface RosterPick {

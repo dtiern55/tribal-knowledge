@@ -223,7 +223,7 @@ export function AdvantagesPage() {
       </h2>
       {inventory.length === 0 && inPlay.length === 0 && (
         <p className="text-sm text-gray-500 mb-8">
-          Nothing owned yet — buy an advantage below and it'll wait here until you use it.
+          Nothing owned.
         </p>
       )}
       <div className="space-y-2 mb-8">

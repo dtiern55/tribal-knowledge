@@ -624,6 +624,7 @@ function RosterSection({
     <SectionShell
       title="My Roster"
       prominent
+      collapsible={false}
       right={
         lockEpisode && (
           <LockBadge
@@ -1177,6 +1178,7 @@ function PicksSection({
     <SectionShell
       title="Weekly Votes"
       prominent
+      collapsible={false}
       right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
     >
       {!currentEp && closedEpisodes.length === 0 && (
