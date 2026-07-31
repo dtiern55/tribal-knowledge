@@ -71,12 +71,12 @@ export function CastPage() {
                 {c.name}
               </span>
               {c.placement != null ? (
-                <span className="text-[10px] uppercase tracking-wide bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] uppercase tracking-wide bg-amber-50 text-amber-700 px-2 py-1 rounded">
                   #{c.placement}
                 </span>
               ) : (
                 c.eliminated_in_episode != null && (
-                  <span className="text-[10px] uppercase tracking-wide text-stone-400">
+                  <span className="text-[11px] uppercase tracking-wide text-stone-400">
                     ep {c.eliminated_in_episode}
                   </span>
                 )
@@ -91,7 +91,7 @@ export function CastPage() {
                     ? 'text-green-600'
                     : c.total_points < 0
                       ? 'text-red-500'
-                      : 'text-gray-400'
+                      : 'text-gray-500'
                 }`}
               >
                 {c.total_points > 0 ? '+' : ''}

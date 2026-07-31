@@ -185,13 +185,13 @@ export function AdvantagesPage() {
       >
         <span className="text-sm text-gray-500">
           Token balance
-          <span className="text-gray-400"> · {history ? 'hide' : loadingHistory ? 'loading…' : 'tap for history'}</span>
+          <span className="text-gray-500"> · {history ? 'hide' : loadingHistory ? 'loading…' : 'tap for history'}</span>
         </span>
         <span className="text-xl font-semibold text-gray-900">{balance}</span>
       </button>
       {history && (
         <ul className="mb-6 space-y-1 text-sm border border-sand-200 rounded-xl p-3 bg-gray-50">
-          {history.length === 0 && <li className="text-gray-400">No token activity yet.</li>}
+          {history.length === 0 && <li className="text-gray-500">No token activity yet.</li>}
           {history.map((h, i) => (
             <li key={i} className="flex justify-between gap-3">
               <span className="text-gray-600">
@@ -199,7 +199,7 @@ export function AdvantagesPage() {
                 {h.transaction_type !== 'weekly_allocation' &&
                   h.transaction_type !== 'advantage_spend' &&
                   h.episode_number != null && (
-                    <span className="text-gray-400"> · ep {h.episode_number}</span>
+                    <span className="text-gray-500"> · ep {h.episode_number}</span>
                   )}
               </span>
               <span
@@ -218,11 +218,11 @@ export function AdvantagesPage() {
 
       {actionError && <p className="text-red-600 text-sm mb-4">{actionError}</p>}
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
         Your Advantages
       </h2>
       {inventory.length === 0 && inPlay.length === 0 && (
-        <p className="text-sm text-gray-400 mb-8">
+        <p className="text-sm text-gray-500 mb-8">
           Nothing owned yet — buy an advantage below and it'll wait here until you use it.
         </p>
       )}
@@ -251,7 +251,7 @@ export function AdvantagesPage() {
                 </span>
               </div>
               {locked ? (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-amber-700 mt-1">
                   {isSwap ? 'Swaps' : 'Advantages'} are locked for the rest of the season.
                 </p>
               ) : (
@@ -289,12 +289,12 @@ export function AdvantagesPage() {
                 <span className={`font-medium ${locked ? 'text-gray-500' : 'text-ocean-900'}`}>
                   {label(p.advantage_type)}
                   {p.target_contestant_id && (
-                    <span className={locked ? 'text-gray-400' : 'text-ocean-600'}>
+                    <span className={locked ? 'text-gray-500' : 'text-ocean-600'}>
                       {' '}
                       → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
                     </span>
                   )}
-                  <span className={locked ? 'text-gray-400' : 'text-ocean-400'}>
+                  <span className={locked ? 'text-gray-500' : 'text-ocean-400'}>
                     {' '}
                     · Episode {playEpisode(p)?.episode_number}
                   </span>
@@ -312,7 +312,7 @@ export function AdvantagesPage() {
                 )}
               </div>
               {locked ? (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-amber-700 mt-1">
                   {isSwap ? 'Swaps' : 'Advantages'} are locked for the rest of the season —
                   this one is committed.
                 </p>
@@ -327,12 +327,12 @@ export function AdvantagesPage() {
         })}
       </div>
 
-      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
         Shop
         {advLocked && <LockedBadge />}
       </h2>
       {lastPlayable && (
-        <p className="text-sm text-amber-600 mb-3">
+        <p className="text-sm text-amber-700 mb-3">
           ⚠️ This is the last episode to buy and play advantages — after this they lock.
         </p>
       )}
@@ -355,11 +355,11 @@ export function AdvantagesPage() {
                 {t.label}
                 {advLocked && <LockedBadge />}
               </p>
-              <span className="text-xs text-gray-400 shrink-0">{t.token_cost} tokens</span>
+              <span className="text-xs text-gray-500 shrink-0">{t.token_cost} tokens</span>
             </div>
             <p className="text-xs text-gray-500 mb-3">{DESCRIPTIONS[t.advantage_type] ?? ''}</p>
             {advLocked ? (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-amber-700">
                 Advantages are locked for the rest of the season.
               </p>
             ) : (
@@ -390,7 +390,7 @@ export function AdvantagesPage() {
               Roster Swap
               {swapLocked && <LockedBadge />}
             </p>
-            <span className="text-xs text-gray-400 shrink-0">
+            <span className="text-xs text-gray-500 shrink-0">
               {freeSwapsLeft > 0
                 ? `${freeSwapsLeft} free, then ${season.swap_token_cost} tokens`
                 : `${season.swap_token_cost} tokens`}
@@ -405,7 +405,7 @@ export function AdvantagesPage() {
             .
           </p>
           {swapLocked ? (
-            <p className="text-xs text-amber-600">
+            <p className="text-xs text-amber-700">
               Swaps are locked for the rest of the season.
             </p>
           ) : swapCapReached ? (
@@ -421,7 +421,7 @@ export function AdvantagesPage() {
               >
                 {busy === 'buy:roster_swap' ? 'Buying…' : 'Buy'}
               </button>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-500">
                 {swapCredits.length > 0 && `${swapCredits.length} ready · `}
                 {swapsAcquired} of {season.max_swaps} used
               </span>
@@ -441,20 +441,20 @@ export function AdvantagesPage() {
                 <span className="text-gray-700">
                   {label(p.advantage_type)}
                   {p.target_contestant_id && (
-                    <span className="text-gray-400">
+                    <span className="text-gray-500">
                       {' '}
                       → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
                     </span>
                   )}
-                  <span className="text-gray-400"> · Episode {playEpisode(p)?.episode_number}</span>
+                  <span className="text-gray-500"> · Episode {playEpisode(p)?.episode_number}</span>
                 </span>
-                <span className="text-xs text-gray-400 flex items-center gap-2 shrink-0">
+                <span className="text-xs text-gray-500 flex items-center gap-2 shrink-0">
                   {p.points_earned != null && (
                     <span
                       className={
                         p.points_earned > 0
                           ? 'text-green-600 font-medium'
-                          : 'text-gray-400'
+                          : 'text-gray-500'
                       }
                     >
                       {p.points_earned > 0 ? '+' : ''}

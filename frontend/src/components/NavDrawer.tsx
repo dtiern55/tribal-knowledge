@@ -135,10 +135,10 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
               <BookIcon />
               Rules
             </Link>
-            <div className={`${rowCls} cursor-default text-gray-400 hover:bg-transparent`}>
+            <div className={`${rowCls} cursor-default text-gray-500 hover:bg-transparent`}>
               <EnvelopeIcon />
               <span className="flex-1">Treemail</span>
-              <span className="rounded border border-sand-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+              <span className="rounded border border-sand-200 px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
                 Soon
               </span>
             </div>
@@ -146,10 +146,10 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
               <UserIcon />
               Profile
             </Link>
-            <div className={`${rowCls} cursor-default text-gray-400 hover:bg-transparent`}>
+            <div className={`${rowCls} cursor-default text-gray-500 hover:bg-transparent`}>
               <GearIcon />
               <span className="flex-1">Settings</span>
-              <span className="rounded border border-sand-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+              <span className="rounded border border-sand-200 px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
                 Soon
               </span>
             </div>

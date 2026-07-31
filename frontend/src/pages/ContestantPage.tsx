@@ -77,7 +77,7 @@ export function ContestantPage() {
                 <span className="font-medium text-gray-800">Episode {ep.episode_number}</span>
                 <span
                   className={`text-sm font-semibold ${
-                    ep.points > 0 ? 'text-green-600' : ep.points < 0 ? 'text-red-500' : 'text-gray-400'
+                    ep.points > 0 ? 'text-green-600' : ep.points < 0 ? 'text-red-500' : 'text-gray-500'
                   }`}
                 >
                   {ep.points > 0 ? '+' : ''}

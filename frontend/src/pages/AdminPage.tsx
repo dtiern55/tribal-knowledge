@@ -369,7 +369,7 @@ function ContestantsSection({
               <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
               {c.name}
               {c.placement != null && (
-                <span className="text-xs text-gray-400">#{c.placement}</span>
+                <span className="text-xs text-gray-500">#{c.placement}</span>
               )}
             </span>
             <ActionBtn variant="secondary" onClick={() => startEdit(c)}>
@@ -528,7 +528,7 @@ function ImportSection({
   const row = (key: string, label: string, done: boolean) => (
     <label key={key} className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={checked.has(key)} onChange={() => toggle(key)} />
-      <span className={done ? 'text-gray-400' : 'text-gray-700'}>
+      <span className={done ? 'text-gray-500' : 'text-gray-700'}>
         {label}
         {done && ' · already recorded'}
       </span>
@@ -553,7 +553,7 @@ function ImportSection({
         </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             {proposal.source} — review, uncheck anything wrong, then apply.
             Judgment calls and TV-moment tokens stay manual. Data:{' '}
             <a
@@ -573,7 +573,7 @@ function ImportSection({
           )}
           {proposal.eliminations.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs text-gray-400">Eliminations</p>
+              <p className="text-xs text-gray-500">Eliminations</p>
               {proposal.eliminations.map((e, i) =>
                 row(
                   `e:${i}`,
@@ -585,7 +585,7 @@ function ImportSection({
           )}
           {proposal.events.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs text-gray-400">Scoring events</p>
+              <p className="text-xs text-gray-500">Scoring events</p>
               {proposal.events.map((ev, i) =>
                 row(
                   `v:${i}`,
@@ -597,7 +597,7 @@ function ImportSection({
           )}
           {proposal.placements.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs text-gray-400">Placements</p>
+              <p className="text-xs text-gray-500">Placements</p>
               {proposal.placements.map((pl, i) =>
                 row(
                   `p:${i}`,
@@ -778,7 +778,7 @@ function EpisodePanel({
         <p className="text-xs font-semibold text-gray-500 mb-3">Edit Episode</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Episode #</label>
+            <label className="block text-xs text-gray-500 mb-1">Episode #</label>
             <input
               type="number"
               value={epNum}
@@ -787,7 +787,7 @@ function EpisodePanel({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Air date</label>
+            <label className="block text-xs text-gray-500 mb-1">Air date</label>
             <input
               type="date"
               value={airDate}
@@ -796,7 +796,7 @@ function EpisodePanel({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Picks lock at (CT)</label>
+            <label className="block text-xs text-gray-500 mb-1">Picks lock at (CT)</label>
             <input
               type="datetime-local"
               value={locksAt}
@@ -805,7 +805,7 @@ function EpisodePanel({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Max elim picks</label>
+            <label className="block text-xs text-gray-500 mb-1">Max elim picks</label>
             <input
               type="number"
               value={maxPicks}
@@ -837,7 +837,7 @@ function EpisodePanel({
       <div>
         <p className="text-xs font-semibold text-gray-500 mb-3">Eliminations</p>
         {!elimLoaded ? (
-          <p className="text-xs text-gray-400">Loading…</p>
+          <p className="text-xs text-gray-500">Loading…</p>
         ) : (
           <div className="space-y-2">
             {contestants.map((c) => {
@@ -879,14 +879,14 @@ function EpisodePanel({
           </div>
         )}
         <ErrorMsg msg={elimError} />
-        <p className="text-xs text-gray-400 mt-2">Changes save automatically.</p>
+        <p className="text-xs text-gray-500 mt-2">Changes save automatically.</p>
       </div>
 
       {/* Scoring events */}
       <div>
         <p className="text-xs font-semibold text-gray-500 mb-3">Scoring Events</p>
         {!eventsLoaded ? (
-          <p className="text-xs text-gray-400">Loading…</p>
+          <p className="text-xs text-gray-500">Loading…</p>
         ) : (
           <>
             {events.length > 0 && (
@@ -905,7 +905,7 @@ function EpisodePanel({
                     <button
                       onClick={() => removeEvent(ev.id)}
                       disabled={eventsBusy}
-                      className="text-gray-400 hover:text-red-500 text-xs disabled:opacity-40"
+                      className="text-gray-500 hover:text-red-500 text-xs disabled:opacity-40"
                     >
                       ✕
                     </button>
@@ -1099,7 +1099,7 @@ function EpisodeProposalSection({
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             {proposal.source} — review, uncheck anything wrong, then create.
             Picks lock at air time; max votes come from the season&apos;s
             elimination picks schedule — adjust per episode after. Data:{' '}
@@ -1121,7 +1121,7 @@ function EpisodeProposalSection({
                   checked={checked.has(e.episode_number)}
                   onChange={() => toggle(e.episode_number)}
                 />
-                <span className={e.exists ? 'text-gray-400' : 'text-gray-700'}>
+                <span className={e.exists ? 'text-gray-500' : 'text-gray-700'}>
                   Ep {e.episode_number} · {e.air_date} · locks{' '}
                   {utcToCentralLocal(e.picks_lock_at).replace('T', ' ')} CT
                   {e.is_finale && ' · finale'}
@@ -1224,7 +1224,7 @@ function EpisodesSection({
                 </span>
               )}
               {statusBadge(ep.status)}
-              <span className="text-xs text-gray-400">{ep.air_date}</span>
+              <span className="text-xs text-gray-500">{ep.air_date}</span>
             </div>
             <ActionBtn
               variant="secondary"
@@ -1249,7 +1249,7 @@ function EpisodesSection({
           <p className="text-xs font-semibold text-gray-500">Add Episode</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Episode #</label>
+              <label className="block text-xs text-gray-500 mb-1">Episode #</label>
               <input
                 type="number"
                 value={epNum}
@@ -1258,7 +1258,7 @@ function EpisodesSection({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Air date</label>
+              <label className="block text-xs text-gray-500 mb-1">Air date</label>
               <input
                 type="date"
                 value={airDate}
@@ -1267,7 +1267,7 @@ function EpisodesSection({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Picks lock at (CT)</label>
+              <label className="block text-xs text-gray-500 mb-1">Picks lock at (CT)</label>
               <input
                 type="datetime-local"
                 value={locksAt}
@@ -1276,7 +1276,7 @@ function EpisodesSection({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Max elim picks</label>
+              <label className="block text-xs text-gray-500 mb-1">Max elim picks</label>
               <input
                 type="number"
                 placeholder="from schedule"

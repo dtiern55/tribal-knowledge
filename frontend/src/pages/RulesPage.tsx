@@ -36,7 +36,7 @@ function EventRow({ e }: { e: RuleScoringEvent }) {
     <li className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0">
       <span className="text-sm text-gray-700">
         {e.label}
-        {e.is_per_unit && <span className="text-gray-400"> (per vote)</span>}
+        {e.is_per_unit && <span className="text-gray-500"> (per vote)</span>}
       </span>
       <span className="flex items-center gap-2 text-sm font-medium shrink-0">
         {e.point_value !== 0 || post != null ? (
@@ -193,7 +193,7 @@ export function RulesPage() {
               className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0"
             >
               <span className="text-sm text-gray-700">{a.label}</span>
-              <span className="text-sm font-medium text-amber-600 shrink-0">{a.token_cost} tkn</span>
+              <span className="text-sm font-medium text-amber-700 shrink-0">{a.token_cost} tkn</span>
             </li>
           ))}
         </ul>
@@ -241,7 +241,7 @@ export function RulesPage() {
       </Section>
 
       {/* CC BY-SA attribution for episode schedule + contestant photos (#197/#187) */}
-      <p className="text-xs text-gray-400 mt-8">
+      <p className="text-xs text-gray-500 mt-8">
         Episode schedule and contestant photos via{' '}
         <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer" className="underline">
           TVmaze
