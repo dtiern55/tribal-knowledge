@@ -429,7 +429,8 @@ function RosterBreakdown({
         e.episode_number >= activeFrom &&
         (activeUntil == null || e.episode_number <= activeUntil),
     )
-    .sort((a, b) => a.episode_number - b.episode_number)
+    // Newest episode first — most recent is what you check after an airing.
+    .sort((a, b) => b.episode_number - a.episode_number)
   if (eps.length === 0)
     return <p className="text-xs text-gray-400">No scored episodes yet.</p>
   return (
