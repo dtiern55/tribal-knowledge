@@ -10,6 +10,19 @@ function LockGlyph() {
   )
 }
 
+const base =
+  'inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-semibold'
+
+/** The stamped "Locked" chip — LockBadge's terminal state, used on its own
+ * where the lock is a rule rather than a deadline (advantages, swaps). */
+export function LockedBadge() {
+  return (
+    <span className={`${base} bg-gray-800 text-sand-100`}>
+      <LockGlyph /> Locked
+    </span>
+  )
+}
+
 /** Live lock-state chip (#56): calm while distant, amber inside a day,
  * ember pulse in the final hour, a stamped "Locked" after. */
 export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: boolean }) {
@@ -21,16 +34,8 @@ export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: 
 
   if (!lockAt) return null
   const ms = new Date(lockAt).getTime() - Date.now()
-  const base =
-    'inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-semibold'
 
-  if (scored || ms <= 0) {
-    return (
-      <span className={`${base} bg-gray-800 text-sand-100`}>
-        <LockGlyph /> Locked
-      </span>
-    )
-  }
+  if (scored || ms <= 0) return <LockedBadge />
   const mins = Math.floor(ms / 60_000)
   if (mins < 60) {
     return (
