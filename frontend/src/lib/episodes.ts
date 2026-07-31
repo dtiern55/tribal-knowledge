@@ -49,7 +49,9 @@ export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean 
 // backend app/locking.py.
 export function swapsLocked(season: Season, episodes: Episode[]): boolean {
   const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
-  if (!nextOpen) return false
+  // No open episode means play is over (finale locked, or season ended), so
+  // everything is locked — not unlocked (#283).
+  if (!nextOpen) return true
   const effectiveLock =
     season.swap_lock_episode ??
     (season.merge_episode != null ? season.merge_episode + 2 : null)
