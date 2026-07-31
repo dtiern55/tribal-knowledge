@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
+import { SectionShell } from '../components/SectionShell'
 import { api, getActiveSeason } from '../lib/api'
 import { advantagesLocked, isEpisodeOpen, swapsLocked } from '../lib/episodes'
 import { useAuth } from '../auth/useAuth'
@@ -370,10 +371,7 @@ export function AdvantagesPage() {
       </div>
 
       {spent.length > 0 && (
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-            Play History
-          </h2>
+        <SectionShell title="Play History" defaultOpen={false}>
           <ul className="space-y-2">
             {[...spent].reverse().map((p) => (
               <li
@@ -408,7 +406,7 @@ export function AdvantagesPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </SectionShell>
       )}
     </div>
   )
