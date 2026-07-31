@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { LockedBadge } from '../components/LockBadge'
 import { PageLoader } from '../components/PageLoader'
 import { SectionShell } from '../components/SectionShell'
 import { api, getActiveSeason } from '../lib/api'
@@ -216,7 +217,100 @@ export function AdvantagesPage() {
 
       {actionError && <p className="text-red-600 text-sm mb-4">{actionError}</p>}
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Shop</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        Your Advantages
+      </h2>
+      {inventory.length === 0 && inPlay.length === 0 && (
+        <p className="text-sm text-gray-400 mb-8">
+          Nothing owned yet — buy an advantage below and it'll wait here until you use it.
+        </p>
+      )}
+      <div className="space-y-2 mb-8">
+        {inventory.map((p) => {
+          // A swap credit follows the swap lock, everything else the advantage
+          // lock — either way the card greys out and stamps Locked (#273).
+          const isSwap = p.advantage_type === 'roster_swap'
+          const locked = isSwap ? swapLocked : advLocked
+          return (
+            <div
+              key={p.id}
+              className={`p-3 border rounded-lg text-sm ${
+                locked ? 'bg-gray-50 border-gray-200' : 'bg-white border-sand-200'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className={`font-medium ${locked ? 'text-gray-500' : 'text-gray-900'}`}>
+                  {label(p.advantage_type)}
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {locked && <LockedBadge />}
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                    owned
+                  </span>
+                </span>
+              </div>
+              {locked ? (
+                <p className="text-xs text-amber-600 mt-1">
+                  {isSwap ? 'Swaps' : 'Advantages'} are locked for the rest of the season.
+                </p>
+              ) : (
+                // Play everything on My Season (roster doubles in the roster
+                // section, vote doubles / extra votes in the Weekly Votes section).
+                // A swap credit deep-links straight to the swap control (#248).
+                <p className="text-xs text-gray-500 mt-1">
+                  Use it on the{' '}
+                  <Link
+                    to={isSwap ? '/#swap' : '/'}
+                    className="text-jungle-700 font-medium underline"
+                  >
+                    My Tribe page
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          )
+        })}
+
+        {inPlay.map((p) => (
+          <div
+            key={p.id}
+            className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-ocean-900">
+                {label(p.advantage_type)}
+                {p.target_contestant_id && (
+                  <span className="text-ocean-600">
+                    {' '}
+                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                  </span>
+                )}
+                <span className="text-ocean-400">
+                  {' '}
+                  · Episode {playEpisode(p)?.episode_number}
+                </span>
+              </span>
+              <button
+                onClick={() => void takeBack(p)}
+                disabled={busy === `unuse:${p.id}`}
+                className="shrink-0 px-2.5 py-1 border border-ocean-300 text-xs text-ocean-700 hover:bg-ocean-100 font-medium rounded-lg transition-colors"
+              >
+                {busy === `unuse:${p.id}` ? 'Taking back…' : '↩ Take back'}
+              </button>
+            </div>
+            <p className="text-xs text-ocean-500 mt-1">
+              Changed your mind? Take it back into inventory any time before
+              Episode {playEpisode(p)?.episode_number} locks — no tokens lost.
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        Shop
+        {advLocked && <LockedBadge />}
+      </h2>
       {advLocked ? (
         <p className="text-sm text-amber-600 mb-8">
           Advantages are locked for the rest of the season — the shop is closed.
@@ -248,10 +342,21 @@ export function AdvantagesPage() {
 
             {/* Swap credits are bought here like any advantage, then spent on
                 the My Tribe page (#202); pricing/cap stay per-season. */}
-            <div className="p-4 bg-white border border-sand-200 rounded-xl">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-semibold text-gray-900">Roster Swap</p>
-                <span className="text-xs text-gray-400">
+            <div
+              className={`p-4 border rounded-xl ${
+                swapLocked ? 'bg-gray-50 border-gray-200' : 'bg-white border-sand-200'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p
+                  className={`font-semibold flex items-center gap-2 ${
+                    swapLocked ? 'text-gray-500' : 'text-gray-900'
+                  }`}
+                >
+                  Roster Swap
+                  {swapLocked && <LockedBadge />}
+                </p>
+                <span className="text-xs text-gray-400 shrink-0">
                   {freeSwapsLeft > 0
                     ? `${freeSwapsLeft} free, then ${season.swap_token_cost} tokens`
                     : `${season.swap_token_cost} tokens`}
@@ -292,83 +397,6 @@ export function AdvantagesPage() {
           </div>
         </>
       )}
-
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        Your Advantages
-      </h2>
-      {inventory.length === 0 && inPlay.length === 0 && (
-        <p className="text-sm text-gray-400 mb-8">
-          Nothing owned yet — buy an advantage above and it'll wait here until you use it.
-        </p>
-      )}
-      <div className="space-y-2 mb-8">
-        {inventory.map((p) => (
-          <div
-            key={p.id}
-            className="p-3 bg-white border border-sand-200 rounded-lg text-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-900">{label(p.advantage_type)}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                owned
-              </span>
-            </div>
-            {advLocked ? (
-              <p className="text-xs text-amber-600 mt-1">
-                Advantages are locked for the rest of the season.
-              </p>
-            ) : (
-              // Play everything on My Season (roster doubles in the roster
-              // section, vote doubles / extra votes in the Weekly Votes section).
-              // A swap credit deep-links straight to the swap control (#248).
-              <p className="text-xs text-gray-500 mt-1">
-                Use it on the{' '}
-                <Link
-                  to={p.advantage_type === 'roster_swap' ? '/#swap' : '/'}
-                  className="text-jungle-700 font-medium underline"
-                >
-                  My Tribe page
-                </Link>
-                .
-              </p>
-            )}
-          </div>
-        ))}
-
-        {inPlay.map((p) => (
-          <div
-            key={p.id}
-            className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-ocean-900">
-                {label(p.advantage_type)}
-                {p.target_contestant_id && (
-                  <span className="text-ocean-600">
-                    {' '}
-                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
-                  </span>
-                )}
-                <span className="text-ocean-400">
-                  {' '}
-                  · Episode {playEpisode(p)?.episode_number}
-                </span>
-              </span>
-              <button
-                onClick={() => void takeBack(p)}
-                disabled={busy === `unuse:${p.id}`}
-                className="shrink-0 px-2.5 py-1 border border-ocean-300 text-xs text-ocean-700 hover:bg-ocean-100 font-medium rounded-lg transition-colors"
-              >
-                {busy === `unuse:${p.id}` ? 'Taking back…' : '↩ Take back'}
-              </button>
-            </div>
-            <p className="text-xs text-ocean-500 mt-1">
-              Changed your mind? Take it back into inventory any time before
-              Episode {playEpisode(p)?.episode_number} locks — no tokens lost.
-            </p>
-          </div>
-        ))}
-      </div>
 
       {spent.length > 0 && (
         <SectionShell title="Play History" defaultOpen={false}>
