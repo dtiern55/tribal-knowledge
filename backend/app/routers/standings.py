@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app import database, scoring
 from app.auth import get_current_user
+from app.locking import EPISODE_LOCKED_SQL
 from app.schemas import ScoringBreakdown, StandingEntry
 
 router = APIRouter(tags=["standings"])
@@ -56,6 +57,48 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
             else {}
         )
 
+        # Still-in-the-game roster picks, so standings show who each player has
+        # left at a glance (#83). Same visibility rule as the roster itself:
+        # nothing until the roster lock passes, otherwise this would leak picks
+        # while they're still being chosen.
+        survivors: dict[str, list[dict]] = {}
+        with conn.cursor() as cur:
+            rosters_visible = False
+            if season["roster_lock_episode"] is not None:
+                cur.execute(
+                    f"""
+                    select 1 from episodes
+                    where season_id = %s and episode_number = %s
+                      and {EPISODE_LOCKED_SQL}
+                    """,
+                    [str(season_id), season["roster_lock_episode"]],
+                )
+                rosters_visible = cur.fetchone() is not None
+            if rosters_visible:
+                cur.execute(
+                    """
+                    select rp.user_id::text as user_id,
+                           c.id::text as contestant_id, c.name, c.image_url
+                    from roster_picks rp
+                    join contestants c on c.id = rp.contestant_id
+                    where rp.season_id = %s
+                      and rp.active_until_episode is null
+                      and not exists (
+                        select 1 from eliminations e
+                        where e.contestant_id = c.id)
+                    order by c.name
+                    """,
+                    [str(season_id)],
+                )
+                for row in cur.fetchall():
+                    survivors.setdefault(row["user_id"], []).append(
+                        {
+                            "contestant_id": row["contestant_id"],
+                            "name": row["name"],
+                            "image_url": row["image_url"],
+                        }
+                    )
+
     entries = []
     for p in profiles:
         uid = p["id"]
@@ -70,6 +113,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                 elimination_points=e,
                 finale_points=f,
                 total_points=r + e + f,
+                active_survivors=survivors.get(uid, []),
             )
         )
     entries.sort(key=lambda s: (-s.total_points, s.display_name))
