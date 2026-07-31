@@ -49,7 +49,7 @@ export function RosterCard({
     >
       {isSoleSurvivor && outEp == null && (
         <span
-          className={`${STAMP_BASE} border-amber-400 bg-amber-50 text-amber-600`}
+          className={`${STAMP_BASE} border-amber-400 bg-amber-50 text-amber-700`}
           title={ssTitle}
         >
           Sole Survivor
@@ -88,11 +88,11 @@ export function RosterCard({
           {contestant?.name ?? '—'}
         </span>
         {outEp != null && (
-          <span className="text-[10px] uppercase tracking-wide text-stone-400">ep {outEp}</span>
+          <span className="text-[11px] uppercase tracking-wide text-stone-400">ep {outEp}</span>
         )}
         {isSoleSurvivor && outEp != null && (
           <span
-            className="text-[10px] uppercase tracking-widest text-amber-600 border border-amber-300 rounded px-1.5 py-0.5 font-semibold"
+            className="text-[11px] uppercase tracking-widest text-amber-700 border border-amber-300 rounded px-2 py-1 font-semibold"
             title={ssTitle}
           >
             SS
@@ -100,7 +100,7 @@ export function RosterCard({
         )}
         {swappedInEpisode != null && (
           <span
-            className="text-[10px] uppercase tracking-widest text-ocean-600 border border-ocean-200 rounded px-1.5 py-0.5"
+            className="text-[11px] uppercase tracking-widest text-ocean-600 border border-ocean-200 rounded px-2 py-1"
             title={`Swapped in from episode ${swappedInEpisode}`}
           >
             ⇄ ep {swappedInEpisode}
@@ -117,7 +117,7 @@ export function RosterCard({
               }}
               aria-expanded={expanded}
               aria-label="Toggle episode breakdown"
-              className="-mr-1 p-1 text-gray-400 hover:text-gray-600"
+              className="-mr-1 p-1 text-gray-500 hover:text-gray-600"
             >
               <svg
                 viewBox="0 0 24 24"

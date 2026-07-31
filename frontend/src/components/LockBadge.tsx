@@ -11,7 +11,7 @@ function LockGlyph() {
 }
 
 const base =
-  'inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-semibold'
+  'inline-flex items-center gap-1 text-[11px] uppercase tracking-wide px-2 py-1 rounded font-semibold'
 
 /** The stamped "Locked" chip — LockBadge's terminal state, used on its own
  * where the lock is a rule rather than a deadline (advantages, swaps). */
@@ -52,7 +52,7 @@ export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: 
     )
   }
   return (
-    <span className={`${base} bg-sand-100 text-gray-500`}>
+    <span className={`${base} bg-sand-100 text-gray-600`}>
       <LockGlyph /> Locks {formatCentral(lockAt)}
     </span>
   )

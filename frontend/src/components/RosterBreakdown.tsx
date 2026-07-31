@@ -29,7 +29,7 @@ export function RosterBreakdown({
       return next
     })
   }
-  if (!perf) return <p className="text-xs text-gray-400">Loading…</p>
+  if (!perf) return <p className="text-xs text-gray-500">Loading…</p>
   const eps = perf.episodes
     .filter(
       (e) =>
@@ -39,7 +39,7 @@ export function RosterBreakdown({
     // Newest episode first — most recent is what you check after an airing.
     .sort((a, b) => b.episode_number - a.episode_number)
   if (eps.length === 0)
-    return <p className="text-xs text-gray-400">No scored episodes yet.</p>
+    return <p className="text-xs text-gray-500">No scored episodes yet.</p>
   return (
     <div className="space-y-2">
       {eps.map((ep) => {
@@ -57,21 +57,21 @@ export function RosterBreakdown({
               <span className="flex flex-col items-start gap-0.5">
                 <span>Episode {ep.episode_number}</span>
                 {bonus !== 0 && (
-                  <span className="rounded-full bg-ocean-50 border border-ocean-100 px-1.5 py-0.5 text-[10px] font-semibold text-ocean-700">
+                  <span className="rounded-full bg-ocean-50 border border-ocean-100 px-1.5 py-0.5 text-[11px] font-semibold text-ocean-700">
                     2x Points
                   </span>
                 )}
               </span>
               <span
                 className={`ml-auto ${
-                  total > 0 ? 'text-green-600' : total < 0 ? 'text-red-500' : 'text-gray-400'
+                  total > 0 ? 'text-green-600' : total < 0 ? 'text-red-500' : 'text-gray-500'
                 }`}
               >
                 {total} pts
               </span>
               <svg
                 viewBox="0 0 24 24"
-                className={`w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform ${
+                className={`w-3.5 h-3.5 shrink-0 text-gray-500 transition-transform ${
                   open ? 'rotate-180' : ''
                 }`}
                 fill="none"

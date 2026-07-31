@@ -29,7 +29,7 @@ interface EpisodeVotes {
 
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
-  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-400'
+  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-500'
   return (
     <span className={`text-xs font-medium ${color}`}>
       {value > 0 ? '+' : ''}
@@ -200,7 +200,7 @@ export function TeamPage() {
                   {contestantMap.get(out.contestant_id)?.name ?? '—'}
                   {' → '}
                   {into ? (contestantMap.get(into.contestant_id)?.name ?? '—') : '?'}
-                  <span className="text-gray-400">
+                  <span className="text-gray-500">
                     {' '}
                     (episode {(out.active_until_episode ?? 0) + 1})
                   </span>
@@ -218,7 +218,7 @@ export function TeamPage() {
           <SectionShell
             title="Previous Votes"
             defaultOpen={false}
-            right={<span className="text-xs text-gray-400">{votes.length}</span>}
+            right={<span className="text-xs text-gray-500">{votes.length}</span>}
           >
             <div className="space-y-3">
               {votes.map(({ episode, picks, eliminatedIds }) => (
@@ -269,7 +269,7 @@ export function TeamPage() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400">No votes submitted</p>
+                    <p className="text-sm text-gray-500">No votes submitted</p>
                   )}
                 </div>
               ))}

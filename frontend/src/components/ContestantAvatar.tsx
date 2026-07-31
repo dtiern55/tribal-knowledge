@@ -8,7 +8,7 @@ function initials(name: string): string {
 }
 
 const sizeClass = {
-  sm: 'w-6 h-6 text-[10px]',
+  sm: 'w-6 h-6 text-[11px]',
   md: 'w-9 h-9 text-xs',
 } as const
 
@@ -39,7 +39,7 @@ export function ContestantAvatar({
     <img src={imageUrl} alt={name} className={base} />
   ) : (
     <span
-      className={`${base} bg-gray-200 text-gray-500 font-medium inline-flex items-center justify-center`}
+      className={`${base} bg-gray-200 text-gray-600 font-medium inline-flex items-center justify-center`}
       aria-hidden
     >
       {initials(name)}

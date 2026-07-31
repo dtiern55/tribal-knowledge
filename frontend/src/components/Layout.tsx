@@ -88,7 +88,7 @@ export function Layout() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] border-t-2 ${
+                `flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] border-t-2 ${
                   isActive
                     ? 'text-ember-600 border-ember-500 font-semibold'
                     : 'text-gray-500 border-transparent'

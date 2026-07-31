@@ -314,7 +314,7 @@ function Collapsible({ label, children }: { label: string; children: React.React
         {label}
         <svg
           viewBox="0 0 24 24"
-          className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           strokeWidth="2"

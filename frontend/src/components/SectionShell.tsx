@@ -32,6 +32,9 @@ export function SectionShell({
   }
   return (
     <div>
+      {/* Heading wraps the toggle (h2 > button) so sections sit correctly
+          under the page h1 and episode h3s below don't skip a level. */}
+      <h2>
       <button
         onClick={toggle}
         aria-expanded={open}
@@ -49,7 +52,7 @@ export function SectionShell({
         {right}
         <svg
           viewBox="0 0 24 24"
-          className={`ml-auto w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`ml-auto w-4 h-4 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
@@ -57,6 +60,7 @@ export function SectionShell({
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
+      </h2>
       {open && children}
     </div>
   )

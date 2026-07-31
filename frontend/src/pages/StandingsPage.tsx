@@ -114,12 +114,12 @@ export function StandingsPage() {
                     <span className="inline-flex items-center gap-1">
                       {i < RANK_CHIP.length ? (
                         <span
-                          className={`w-5 h-5 rounded-full text-[10px] font-semibold inline-flex items-center justify-center ${RANK_CHIP[i]}`}
+                          className={`w-5 h-5 rounded-full text-[11px] font-semibold inline-flex items-center justify-center ${RANK_CHIP[i]}`}
                         >
                           {i + 1}
                         </span>
                       ) : (
-                        <span className="text-gray-400 w-5 text-center">
+                        <span className="text-gray-500 w-5 text-center">
                           {i + 1}
                         </span>
                       )}
@@ -134,7 +134,7 @@ export function StandingsPage() {
                       {entry.display_name}
                     </Link>
                     {isMe && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide bg-jungle-600 text-white px-1.5 py-0.5 rounded">
+                      <span className="ml-2 text-[11px] uppercase tracking-wide bg-jungle-600 text-white px-2 py-1 rounded">
                         You
                       </span>
                     )}

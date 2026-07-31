@@ -1,0 +1,7 @@
+{
+  "detector": {
+    "ignoreRules": [
+      "ai-color-palette"
+    ]
+  }
+}
