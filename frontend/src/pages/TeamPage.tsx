@@ -123,6 +123,7 @@ export function TeamPage() {
   if (error) return <p className="text-red-600">{error}</p>
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((r) => r.active_until_episode === null)
   // Original picks share the earliest start episode; later starts are swap-ins.
@@ -138,8 +139,9 @@ export function TeamPage() {
       ),
     }))
   // Double Roster Points now folds into the roster rows (#257); other played
-  // advantages (e.g. Double Vote Points, which pays elimination points) still
-  // show as their own line here.
+  // advantages (e.g. Double Vote Points, which pays elimination points) get
+  // their own Play History-style section below (#284). Only scored plays are
+  // ever visible here, so there is no owned/in-play state to lock-badge.
   const bonuses = plays.filter(
     (p) =>
       p.points_earned != null &&
@@ -194,23 +196,47 @@ export function TeamPage() {
               />
             </RosterCard>
           ))}
-          {/* Non-roster advantage bonuses (e.g. Double Vote) still show as
-              their own line; Double Roster now folds into the rows (#257). */}
-          {bonuses.map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center justify-between p-3 bg-ocean-50 border border-ocean-100 rounded-lg text-sm"
-            >
-              <span className="text-ocean-800">
-                {ADVANTAGE_LABEL[p.advantage_type] ?? p.advantage_type} —{' '}
-                <span className="font-medium">
-                  {contestantMap.get(p.target_contestant_id ?? '')?.name ?? '—'}
-                </span>
-              </span>
-              <Points value={p.points_earned ?? undefined} />
-            </li>
-          ))}
         </ul>
+      )}
+
+      {/* Same shape as the Advantages page Play History (#273/#284): grouped
+          into its own collapsed section instead of sitting in the roster list. */}
+      {bonuses.length > 0 && (
+        <div className="mt-6">
+          <SectionShell
+            title="Advantage Plays"
+            defaultOpen={false}
+            right={<span className="text-xs text-gray-400">{bonuses.length}</span>}
+          >
+            <ul className="space-y-2">
+              {bonuses.map((p) => {
+                const epNumber = episodeMap.get(p.episode_id ?? '')?.episode_number
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
+                  >
+                    <span className="text-gray-700">
+                      {ADVANTAGE_LABEL[p.advantage_type] ?? p.advantage_type}
+                      {p.target_contestant_id && (
+                        <span className="text-gray-400">
+                          {' '}
+                          → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                        </span>
+                      )}
+                      {epNumber != null && (
+                        <span className="text-gray-400"> · Episode {epNumber}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0">
+                      <Points value={p.points_earned ?? undefined} />
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </SectionShell>
+        </div>
       )}
 
       {swaps.length > 0 && (
@@ -235,45 +261,50 @@ export function TeamPage() {
 
       {votes.length > 0 && (
         <div className="mt-10">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-3">
-            Previous Votes
-          </h2>
-          <div className="space-y-3">
-            {votes.map(({ episode, picks, eliminatedIds }) => (
-              <div
-                key={episode.id}
-                className="p-4 bg-gray-50 border border-gray-100 rounded-xl"
-              >
-                <p className="font-medium text-gray-700 mb-2">
-                  Episode {episode.episode_number}
-                </p>
-                {picks.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {picks.map((p) => {
-                      const correct = eliminatedIds.has(p.contestant_id)
-                      // Correct gets the green + check; incorrect stays
-                      // neutral — most votes miss, no red walls (#135).
-                      return (
-                        <span
-                          key={p.id}
-                          className={`text-sm px-2 py-1 border rounded-md ${
-                            correct
-                              ? 'bg-green-50 border-green-300 text-green-800'
-                              : 'bg-white border-sand-200 text-gray-500'
-                          }`}
-                        >
-                          {correct && '✓ '}
-                          {contestantMap.get(p.contestant_id)?.name ?? '—'}
-                        </span>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">No votes submitted</p>
-                )}
-              </div>
-            ))}
-          </div>
+          {/* Collapsed by default with flat rows inside, matching Past Episodes
+              on My Votes (#272/#280). */}
+          <SectionShell
+            title="Previous Votes"
+            defaultOpen={false}
+            right={<span className="text-xs text-gray-400">{votes.length}</span>}
+          >
+            <div className="space-y-3">
+              {votes.map(({ episode, picks, eliminatedIds }) => (
+                <div
+                  key={episode.id}
+                  className="p-4 bg-gray-50 border border-gray-100 rounded-xl"
+                >
+                  <p className="font-medium text-gray-700 mb-2">
+                    Episode {episode.episode_number}
+                  </p>
+                  {picks.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {picks.map((p) => {
+                        const correct = eliminatedIds.has(p.contestant_id)
+                        // Correct gets the green + check; incorrect stays
+                        // neutral — most votes miss, no red walls (#135).
+                        return (
+                          <span
+                            key={p.id}
+                            className={`text-sm px-2 py-1 border rounded-md ${
+                              correct
+                                ? 'bg-green-50 border-green-300 text-green-800'
+                                : 'bg-white border-sand-200 text-gray-500'
+                            }`}
+                          >
+                            {correct && '✓ '}
+                            {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">No votes submitted</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </SectionShell>
         </div>
       )}
     </div>
