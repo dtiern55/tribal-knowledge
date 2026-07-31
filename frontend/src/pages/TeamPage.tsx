@@ -38,10 +38,6 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
-const ADVANTAGE_LABEL: Record<string, string> = {
-  double_roster_points: 'Double Roster Points',
-  double_vote_points: 'Double Vote Points',
-}
 
 // Read-only view of another player's roster, reached from Standings (#83),
 // plus their votes for scored episodes (#134 — pre-scoring votes stay
@@ -123,7 +119,6 @@ export function TeamPage() {
   if (error) return <p className="text-red-600">{error}</p>
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((r) => r.active_until_episode === null)
   // Original picks share the earliest start episode; later starts are swap-ins.
@@ -142,12 +137,9 @@ export function TeamPage() {
   // advantages (e.g. Double Vote Points, which pays elimination points) get
   // their own Play History-style section below (#284). Only scored plays are
   // ever visible here, so there is no owned/in-play state to lock-badge.
-  const bonuses = plays.filter(
-    (p) =>
-      p.points_earned != null &&
-      p.points_earned !== 0 &&
-      p.advantage_type !== 'double_roster_points',
-  )
+  // Double Vote Points shows inline on the vote it doubled (#136); roster
+  // doubles already fold into the roster rows (#257).
+  const doubles = plays.filter((p) => p.advantage_type === 'double_vote_points')
 
   return (
     <div>
@@ -199,46 +191,6 @@ export function TeamPage() {
         </ul>
       )}
 
-      {/* Same shape as the Advantages page Play History (#273/#284): grouped
-          into its own collapsed section instead of sitting in the roster list. */}
-      {bonuses.length > 0 && (
-        <div className="mt-6">
-          <SectionShell
-            title="Advantage Plays"
-            defaultOpen={false}
-            right={<span className="text-xs text-gray-400">{bonuses.length}</span>}
-          >
-            <ul className="space-y-2">
-              {bonuses.map((p) => {
-                const epNumber = episodeMap.get(p.episode_id ?? '')?.episode_number
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
-                  >
-                    <span className="text-gray-700">
-                      {ADVANTAGE_LABEL[p.advantage_type] ?? p.advantage_type}
-                      {p.target_contestant_id && (
-                        <span className="text-gray-400">
-                          {' '}
-                          → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
-                        </span>
-                      )}
-                      {epNumber != null && (
-                        <span className="text-gray-400"> · Episode {epNumber}</span>
-                      )}
-                    </span>
-                    <span className="shrink-0">
-                      <Points value={p.points_earned ?? undefined} />
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </SectionShell>
-        </div>
-      )}
-
       {swaps.length > 0 && (
         <div className="mt-6">
           <SectionShell title="Swaps" defaultOpen={false}>
@@ -281,19 +233,37 @@ export function TeamPage() {
                     <div className="flex flex-wrap gap-2">
                       {picks.map((p) => {
                         const correct = eliminatedIds.has(p.contestant_id)
+                        // A played Double Vote Points rides on the pick it
+                        // doubled, same as My Votes (#136) — the double's own
+                        // earnings get their own chip beside it.
+                        const double = doubles.find(
+                          (d) =>
+                            d.episode_id === episode.id &&
+                            d.target_contestant_id === p.contestant_id,
+                        )
                         // Correct gets the green + check; incorrect stays
                         // neutral — most votes miss, no red walls (#135).
                         return (
-                          <span
-                            key={p.id}
-                            className={`text-sm px-2 py-1 border rounded-md ${
-                              correct
-                                ? 'bg-green-50 border-green-300 text-green-800'
-                                : 'bg-white border-sand-200 text-gray-500'
-                            }`}
-                          >
-                            {correct && '✓ '}
-                            {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                          <span key={p.id} className="contents">
+                            <span
+                              className={`text-sm px-2 py-1 border rounded-md ${
+                                correct
+                                  ? 'bg-green-50 border-green-300 text-green-800'
+                                  : 'bg-white border-sand-200 text-gray-500'
+                              }`}
+                            >
+                              {correct && '✓ '}
+                              {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                              {double && (
+                                <span className="text-ocean-600 font-semibold"> ×2</span>
+                              )}
+                            </span>
+                            {double != null && (double.points_earned ?? 0) > 0 && (
+                              <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
+                                Double Vote Points{' '}
+                                <span className="font-semibold">+{double.points_earned}</span>
+                              </span>
+                            )}
                           </span>
                         )
                       })}
