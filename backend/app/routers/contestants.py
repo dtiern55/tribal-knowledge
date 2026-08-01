@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
+from app.locking import advantages_locked
 from app.schemas import (
     CastMember,
     Contestant,
@@ -110,7 +111,7 @@ def get_contestant_performance(
             # Per-episode scoring events with their point value (pre/post-merge)
             cur.execute(
                 """
-                select ep.episode_number, et.label,
+                select ep.episode_number, ep.is_finale, et.label,
                        (case
                           when s.merge_episode is not null
                            and ep.episode_number >= s.merge_episode
@@ -137,7 +138,7 @@ def get_contestant_performance(
 
             cur.execute(
                 """
-                select ep.episode_number, el.elimination_type
+                select ep.episode_number, ep.is_finale, el.elimination_type
                 from eliminations el
                 join episodes ep on ep.id = el.episode_id
                 where el.contestant_id = %s
@@ -156,6 +157,7 @@ def get_contestant_performance(
                         "episode_number": row["episode_number"],
                         "points": 0,
                         "events": [],
+                        "is_finale": row["is_finale"],
                     },
                 )
                 stat["points"] += row["points"]
@@ -170,14 +172,50 @@ def get_contestant_performance(
             if elim_ep is not None:
                 by_ep.setdefault(
                     elim_ep,
-                    {"episode_number": elim_ep, "points": 0, "events": []},
+                    {
+                        "episode_number": elim_ep,
+                        "points": 0,
+                        "events": [],
+                        "is_finale": elim["is_finale"],
+                    },
                 )["eliminated_type"] = elim["elimination_type"]
+
+            # Token earning stops at the advantage cutoff (#102). Without this
+            # the page renders an event's token_value as though it were paid
+            # (#295) — on a locked episode nobody received anything.
+            cur.execute(
+                "select advantage_lock_episode from seasons where id = %s",
+                [str(c["season_id"])],
+            )
+            adv_lock = cur.fetchone()["advantage_lock_episode"]
+            for stat in by_ep.values():
+                stat["tokens_locked"] = advantages_locked(
+                    stat["episode_number"], stat["is_finale"], adv_lock
+                )
+
+            # Placement pays the players rostering them at the finale, not the
+            # contestant (#296) — surfaced so the page can say so.
+            placement_points = None
+            if c["placement"] in (1, 2, 3):
+                cur.execute(
+                    """
+                    select coalesce(sum(point_value), 0) as pts
+                    from season_prediction_score_types
+                    where season_id = %s
+                      and (key = 'made_final_tribal'
+                        or (key = 'runner_up' and %s = 2)
+                        or (key = 'sole_survivor_win' and %s = 1))
+                    """,
+                    [str(c["season_id"]), c["placement"], c["placement"]],
+                )
+                placement_points = cur.fetchone()["pts"]
 
             episodes = [by_ep[k] for k in sorted(by_ep)]
             return {
                 "name": c["name"],
                 "image_url": c["image_url"],
                 "placement": c["placement"],
+                "placement_points": placement_points,
                 "eliminated_in_episode": elim_ep,
                 "tribe_name": c["tribe_name"],
                 "tribe_color": c["tribe_color"],

@@ -278,12 +278,20 @@ class ContestantEpisodeStat(BaseModel):
     points: int
     events: list[ContestantEventStat]
     eliminated_type: Optional[str] = None
+    # Token earning stops at the advantage cutoff (#102), so an event's
+    # token_value here is a rule value nobody actually received (#295).
+    tokens_locked: bool = False
+    is_finale: bool = False
 
 
 class ContestantPerformance(BaseModel):
     name: str
     image_url: Optional[str] = None
     placement: Optional[int] = None
+    # What this finish pays the players rostering them at the finale (#296).
+    # None when the contestant didn't place top-3. This is a roster award, not
+    # part of the contestant's own total_points.
+    placement_points: Optional[int] = None
     eliminated_in_episode: Optional[int] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None

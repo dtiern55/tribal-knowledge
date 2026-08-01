@@ -222,12 +222,19 @@ export interface ContestantEpisodeStat {
   points: number
   events: ContestantEventStat[]
   eliminated_type: string | null
+  // Token earning stops at the advantage cutoff — an event's token_value on a
+  // locked episode is a rule value nobody received.
+  tokens_locked: boolean
+  is_finale: boolean
 }
 
 export interface ContestantPerformance {
   name: string
   image_url: string | null
   placement: number | null
+  // What this finish pays whoever rostered them at the finale — a roster
+  // award, not part of the contestant's own total_points.
+  placement_points: number | null
   eliminated_in_episode: number | null
   tribe_name: string | null
   tribe_color: string | null
