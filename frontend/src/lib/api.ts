@@ -49,7 +49,15 @@ export function pinSeason(id: string, seasons: Season[]) {
 }
 
 export function defaultSeason(seasons: Season[]): Season | null {
-  return seasons.find((s) => s.status === 'active') ?? seasons.at(-1) ?? null
+  // Falls back to the most recently *created* season, not the highest number:
+  // /seasons is ordered by season_number, and practice seasons are numbered
+  // 100+, so `at(-1)` sent everyone to Practice Island V the moment the real
+  // season was marked completed.
+  const newest = seasons.reduce<Season | null>(
+    (best, s) => (best == null || s.created_at > best.created_at ? s : best),
+    null,
+  )
+  return seasons.find((s) => s.status === 'active') ?? newest
 }
 
 /** The season every page operates on: the pinned Standings pick if it still
