@@ -11,12 +11,21 @@ const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
     keys: ['correct_elimination'],
   },
   {
+    title: 'Rostering a finalist',
+    blurb:
+      'If a castaway on your roster makes the end, you score their finish. This pays to ' +
+      'everyone who still has them at the finale — no designation required. First place ' +
+      'stacks both lines, so the winner is worth 30.',
+    keys: ['made_final_tribal', 'runner_up', 'sole_survivor_win'],
+  },
+  {
     title: 'Sole Survivor designation',
     blurb:
-      'Designate one castaway on your roster as your Sole Survivor before the designation ' +
-      'locks — everything they score in the finale episode counts double for you, ' +
-      'including these final-tribal bonuses.',
-    keys: ['made_final_tribal', 'runner_up', 'sole_survivor_win'],
+      'Separately, designate one castaway on your roster before the designation locks. ' +
+      'Everything they score in the finale episode counts double for you — both their ' +
+      'finale scoring events and the placement bonuses above. Designating the eventual ' +
+      'winner is worth 60 rather than 30.',
+    keys: [],
   },
   {
     title: 'Finale night ballot',
@@ -59,7 +68,7 @@ function Section({
 }: {
   title: string
   blurb?: string
-  children: React.ReactNode
+  children?: React.ReactNode
 }) {
   return (
     <div className="mb-6">
@@ -67,7 +76,11 @@ function Section({
         {title}
       </h2>
       {blurb && <p className="text-xs text-gray-500 mb-2">{blurb}</p>}
-      <div className="bg-white border border-sand-200 rounded-xl p-4">{children}</div>
+      {/* Blurb-only sections (e.g. the Sole Survivor multiplier) pass no rows —
+          skip the card rather than render an empty one. */}
+      {children ? (
+        <div className="bg-white border border-sand-200 rounded-xl p-4">{children}</div>
+      ) : null}
     </div>
   )
 }
@@ -166,10 +179,13 @@ export function RulesPage() {
 
       {PRED_GROUPS.map((g) => {
         const rows = prediction_scores.filter((p) => g.keys.includes(p.key))
-        if (rows.length === 0) return null
+        // A group with no keys is deliberately blurb-only (the Sole Survivor
+        // designation is a multiplier, not its own point value). A group that
+        // declares keys but matches none isn't in play this season — hide it.
+        if (rows.length === 0 && g.keys.length > 0) return null
         return (
           <Section key={g.title} title={g.title} blurb={g.blurb}>
-            <PredList rows={rows} />
+            {rows.length > 0 && <PredList rows={rows} />}
           </Section>
         )
       })}
