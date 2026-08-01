@@ -83,44 +83,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
         for row in cur.fetchall():
             points[row["user_id"]] = points.get(row["user_id"], 0) + row["penalty"]
 
-        # Placement points: rostering a 1st/2nd/3rd finisher at the finale earns
-        # the rosterer stacked finale values, doubled for a Sole Survivor
-        # designee (issue #87, #164).
-        cur.execute(
-            _PLACEMENT_SQL.format(group="rp.user_id", user_filter=""),
-            [str(season_id)],
-        )
-        for row in cur.fetchall():
-            points[row["key"]] = points.get(row["key"], 0) + row["points"]
-
     return points
-
-
-# Rostering a contestant who finished 1st/2nd/3rd, active at the finale (#87,
-# #164): placements pay as stacked finale values — Made Final Tribal for all
-# three, plus Runner-up or Sole Survivor on top — and a rostered designee's
-# placement points double with the rest of their finale contribution.
-# {group} is the grouping column (user or contestant); its value comes back
-# aliased as "key" so callers can merge it either way.
-_PLACEMENT_SQL = """
-    select {group}::text as key,
-           sum(pst.point_value
-               * (case when rp.is_sole_survivor then 2 else 1 end)) as points
-    from roster_picks rp
-    join contestants c on c.id = rp.contestant_id
-    join episodes fin on fin.season_id = rp.season_id and fin.is_finale = true
-    join season_prediction_score_types pst
-      on pst.season_id = rp.season_id
-     and ((pst.key = 'made_final_tribal' and c.placement in (1, 2, 3))
-       or (pst.key = 'runner_up' and c.placement = 2)
-       or (pst.key = 'sole_survivor_win' and c.placement = 1))
-    where rp.season_id = %s
-      and rp.active_from_episode <= fin.episode_number
-      and (rp.active_until_episode is null
-           or rp.active_until_episode >= fin.episode_number)
-    {user_filter}
-    group by {group}
-"""
 
 
 def elimination_points(conn, season_id: UUID) -> dict[str, int]:
@@ -286,16 +249,6 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
         for row in cur.fetchall():
             cid = row["contestant_id"]
             points[cid] = points.get(cid, 0) + row["penalty"]
-
-        # Placement points per contestant (issue #87), scoped to this user.
-        cur.execute(
-            _PLACEMENT_SQL.format(
-                group="rp.contestant_id", user_filter="and rp.user_id = %s"
-            ),
-            [str(season_id), str(user_id)],
-        )
-        for row in cur.fetchall():
-            points[row["key"]] = points.get(row["key"], 0) + row["points"]
 
     return points
 
@@ -540,16 +493,10 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
         )
         is_finale = cur.fetchone() is not None
 
-    # Finale ballot and roster placement both resolve at the finale.
+    # The finale ballot resolves at the finale. Placement no longer needs a
+    # special case — it's ordinary finale scoring events now.
     if is_finale:
         for uid, val in finale_points(conn, season_id).items():
             add(uid, val)
-        with conn.cursor() as cur:
-            cur.execute(
-                _PLACEMENT_SQL.format(group="rp.user_id", user_filter=""),
-                [str(season_id)],
-            )
-            for row in cur.fetchall():
-                add(row["key"], row["points"])
 
     return points

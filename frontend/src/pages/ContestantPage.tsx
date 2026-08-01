@@ -84,17 +84,6 @@ export function ContestantPage() {
                   {ep.points} pts
                 </span>
               </div>
-              {ep.is_finale && perf.placement != null && perf.placement <= 3 && (
-                <p className="mb-2 text-xs text-ocean-700 bg-ocean-50 border border-ocean-100 rounded-lg px-2 py-1.5">
-                  Placed #{perf.placement}
-                  {perf.placement_points != null && (
-                    <> — worth <b>+{perf.placement_points}</b></>
-                  )}{' '}
-                  to anyone rostering {perf.name} at the finale, doubled for whoever
-                  designated them as their Sole Survivor. That's a roster award, so it
-                  isn't in the totals on this page.
-                </p>
-              )}
               {events.length > 0 && (
                 <ul className="text-sm text-gray-600 space-y-0.5">
                   {/* Point-scoring events first, then token-only ones (item 2). */}

@@ -193,35 +193,54 @@ def get_contestant_performance(
                     stat["episode_number"], stat["is_finale"], adv_lock
                 )
 
-            # Placement pays the players rostering them at the finale, not the
-            # contestant (#296) — surfaced so the page can say so.
-            placement_points = None
-            if c["placement"] in (1, 2, 3):
-                cur.execute(
-                    """
-                    select coalesce(sum(point_value), 0) as pts
-                    from season_prediction_score_types
-                    where season_id = %s
-                      and (key = 'made_final_tribal'
-                        or (key = 'runner_up' and %s = 2)
-                        or (key = 'sole_survivor_win' and %s = 1))
-                    """,
-                    [str(c["season_id"]), c["placement"], c["placement"]],
-                )
-                placement_points = cur.fetchone()["pts"]
-
             episodes = [by_ep[k] for k in sorted(by_ep)]
             return {
                 "name": c["name"],
                 "image_url": c["image_url"],
                 "placement": c["placement"],
-                "placement_points": placement_points,
                 "eliminated_in_episode": elim_ep,
                 "tribe_name": c["tribe_name"],
                 "tribe_color": c["tribe_color"],
                 "total_points": sum(e["points"] for e in episodes),
                 "episodes": episodes,
             }
+
+
+# Finishing top-3 scores like anything else a contestant does: events on the
+# finale episode (#87/#164 reworked). Written here rather than as a step in the
+# scoring ritual, so setting a placement can't leave them un-recorded.
+_PLACEMENT_EVENTS = {
+    1: ("made_final_tribal", "won_season"),
+    2: ("made_final_tribal", "runner_up"),
+    3: ("made_final_tribal",),
+}
+
+
+def _sync_placement_events(cur, contestant) -> None:
+    """Rewrite a contestant's placement events to match their placement."""
+    cur.execute(
+        "select id from episodes where season_id = %s and is_finale = true",
+        [str(contestant["season_id"])],
+    )
+    finale = cur.fetchone()
+    if not finale:
+        return  # no finale yet — nothing to attach them to
+
+    types = tuple(_PLACEMENT_EVENTS.values())
+    all_types = sorted({t for group in types for t in group})
+    # Clear first so a corrected placement doesn't leave the old rows behind.
+    cur.execute(
+        "delete from scoring_events where episode_id = %s and contestant_id = %s"
+        " and event_type = any(%s)",
+        [str(finale["id"]), str(contestant["id"]), all_types],
+    )
+    for event_type in _PLACEMENT_EVENTS.get(contestant["placement"], ()):
+        cur.execute(
+            "insert into scoring_events"
+            " (episode_id, contestant_id, event_type, quantity, notes)"
+            " values (%s, %s, %s, 1, 'placement')",
+            [str(finale["id"]), str(contestant["id"]), event_type],
+        )
 
 
 @router.post(
@@ -309,4 +328,7 @@ def update_contestant(
                 f"update contestants set {set_clause} where id = %(id)s returning *",
                 params,
             )
-            return cur.fetchone()
+            row = cur.fetchone()
+            if "placement" in fields:
+                _sync_placement_events(cur, row)
+            return row
