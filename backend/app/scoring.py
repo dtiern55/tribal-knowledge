@@ -33,8 +33,16 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
     with conn.cursor() as cur:
         cur.execute(
             """
-            select rp.user_id::text as user_id,
-                   sum(
+            select user_id,
+                   -- Sole Survivor adds half the designee's FINALE total,
+                   -- once, rounded once. Multiplying each event row by 1.5
+                   -- would round per row and stop reconciling.
+                   sum(pts)
+                     + round(sum(case when ss then pts else 0 end) * 0.5)::int
+                     as points
+            from (
+              select rp.user_id::text as user_id,
+                     (ep.is_finale and rp.is_sole_survivor) as ss,
                      (case
                         when s.merge_episode is not null
                          and ep.episode_number >= s.merge_episode
@@ -44,9 +52,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
                       end)
                      * (case when et.is_per_unit then se.quantity else 1 end)
                      * (case when dbl.id is not null then 2 else 1 end)
-                     * (case when ep.is_finale and rp.is_sole_survivor
-                        then 2 else 1 end)
-                   ) as points
+                     as pts
             from scoring_events se
             join episodes ep on se.episode_id = ep.id
             join seasons s on ep.season_id = s.id
@@ -64,7 +70,8 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
             where s.id = %s
-            group by rp.user_id
+            ) x
+            group by user_id
             """,
             [str(season_id)],
         )
@@ -83,44 +90,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
         for row in cur.fetchall():
             points[row["user_id"]] = points.get(row["user_id"], 0) + row["penalty"]
 
-        # Placement points: rostering a 1st/2nd/3rd finisher at the finale earns
-        # the rosterer stacked finale values, doubled for a Sole Survivor
-        # designee (issue #87, #164).
-        cur.execute(
-            _PLACEMENT_SQL.format(group="rp.user_id", user_filter=""),
-            [str(season_id)],
-        )
-        for row in cur.fetchall():
-            points[row["key"]] = points.get(row["key"], 0) + row["points"]
-
     return points
-
-
-# Rostering a contestant who finished 1st/2nd/3rd, active at the finale (#87,
-# #164): placements pay as stacked finale values — Made Final Tribal for all
-# three, plus Runner-up or Sole Survivor on top — and a rostered designee's
-# placement points double with the rest of their finale contribution.
-# {group} is the grouping column (user or contestant); its value comes back
-# aliased as "key" so callers can merge it either way.
-_PLACEMENT_SQL = """
-    select {group}::text as key,
-           sum(pst.point_value
-               * (case when rp.is_sole_survivor then 2 else 1 end)) as points
-    from roster_picks rp
-    join contestants c on c.id = rp.contestant_id
-    join episodes fin on fin.season_id = rp.season_id and fin.is_finale = true
-    join season_prediction_score_types pst
-      on pst.season_id = rp.season_id
-     and ((pst.key = 'made_final_tribal' and c.placement in (1, 2, 3))
-       or (pst.key = 'runner_up' and c.placement = 2)
-       or (pst.key = 'sole_survivor_win' and c.placement = 1))
-    where rp.season_id = %s
-      and rp.active_from_episode <= fin.episode_number
-      and (rp.active_until_episode is null
-           or rp.active_until_episode >= fin.episode_number)
-    {user_filter}
-    group by {group}
-"""
 
 
 def elimination_points(conn, season_id: UUID) -> dict[str, int]:
@@ -235,8 +205,13 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
     with conn.cursor() as cur:
         cur.execute(
             """
-            select se.contestant_id::text as contestant_id,
-                   sum(
+            select contestant_id,
+                   sum(pts)
+                     + round(sum(case when ss then pts else 0 end) * 0.5)::int
+                     as points
+            from (
+              select se.contestant_id::text as contestant_id,
+                     (ep.is_finale and rp.is_sole_survivor) as ss,
                      (case
                         when s.merge_episode is not null
                          and ep.episode_number >= s.merge_episode
@@ -246,9 +221,7 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
                       end)
                      * (case when et.is_per_unit then se.quantity else 1 end)
                      * (case when dbl.id is not null then 2 else 1 end)
-                     * (case when ep.is_finale and rp.is_sole_survivor
-                        then 2 else 1 end)
-                   ) as points
+                     as pts
             from scoring_events se
             join episodes ep on se.episode_id = ep.id
             join seasons s on ep.season_id = s.id
@@ -266,7 +239,8 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
             where s.id = %s and rp.user_id = %s
-            group by se.contestant_id
+            ) x
+            group by contestant_id
             """,
             [str(season_id), str(user_id)],
         )
@@ -286,16 +260,6 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
         for row in cur.fetchall():
             cid = row["contestant_id"]
             points[cid] = points.get(cid, 0) + row["penalty"]
-
-        # Placement points per contestant (issue #87), scoped to this user.
-        cur.execute(
-            _PLACEMENT_SQL.format(
-                group="rp.contestant_id", user_filter="and rp.user_id = %s"
-            ),
-            [str(season_id), str(user_id)],
-        )
-        for row in cur.fetchall():
-            points[row["key"]] = points.get(row["key"], 0) + row["points"]
 
     return points
 
@@ -442,9 +406,10 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
     total minus this. Every point in the standings traces to exactly one
     episode, so summing this over all episodes reconciles with the three
     standings components (see the invariant test). Components: roster scoring
-    events (doubled where Double Roster Points was played) + swap penalties
-    charged that episode + correct elimination picks (doubled); at the finale,
-    also finale-ballot and roster-placement points, which resolve then.
+    events (doubled where Double Roster Points was played, plus 50% of a Sole
+    Survivor designee's finale total) + swap penalties charged that episode +
+    correct elimination picks (doubled); at the finale, also finale-ballot
+    points, which resolve then.
     """
     points: dict[str, int] = {}
 
@@ -454,7 +419,13 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
     with conn.cursor() as cur:
         cur.execute(
             """
-            select rp.user_id::text as user_id, sum(
+            select user_id,
+                   sum(pts)
+                     + round(sum(case when ss then pts else 0 end) * 0.5)::int
+                     as pts
+            from (
+              select rp.user_id::text as user_id,
+                     (ep.is_finale and rp.is_sole_survivor) as ss,
                 (case
                    when s.merge_episode is not null
                     and ep.episode_number >= s.merge_episode
@@ -463,9 +434,7 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
                  end)
                 * (case when et.is_per_unit then se.quantity else 1 end)
                 * (case when dbl.id is not null then 2 else 1 end)
-                * (case when ep.is_finale and rp.is_sole_survivor
-                   then 2 else 1 end)
-            ) as pts
+                     as pts
             from scoring_events se
             join episodes ep on ep.id = se.episode_id
             join seasons s on s.id = ep.season_id
@@ -482,7 +451,8 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
             where s.id = %s and ep.episode_number = %s
-            group by rp.user_id
+            ) x
+            group by user_id
             """,
             [str(season_id), episode_number],
         )
@@ -540,16 +510,10 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
         )
         is_finale = cur.fetchone() is not None
 
-    # Finale ballot and roster placement both resolve at the finale.
+    # The finale ballot resolves at the finale. Placement no longer needs a
+    # special case — it's ordinary finale scoring events now.
     if is_finale:
         for uid, val in finale_points(conn, season_id).items():
             add(uid, val)
-        with conn.cursor() as cur:
-            cur.execute(
-                _PLACEMENT_SQL.format(group="rp.user_id", user_filter=""),
-                [str(season_id)],
-            )
-            for row in cur.fetchall():
-                add(row["key"], row["points"])
 
     return points

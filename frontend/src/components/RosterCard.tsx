@@ -42,7 +42,7 @@ export function RosterCard({
   children?: ReactNode
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
-  const ssTitle = 'Sole Survivor — finale points count double'
+  const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
   return (
     <li
       className={[

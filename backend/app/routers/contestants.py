@@ -193,29 +193,11 @@ def get_contestant_performance(
                     stat["episode_number"], stat["is_finale"], adv_lock
                 )
 
-            # Placement pays the players rostering them at the finale, not the
-            # contestant (#296) — surfaced so the page can say so.
-            placement_points = None
-            if c["placement"] in (1, 2, 3):
-                cur.execute(
-                    """
-                    select coalesce(sum(point_value), 0) as pts
-                    from season_prediction_score_types
-                    where season_id = %s
-                      and (key = 'made_final_tribal'
-                        or (key = 'runner_up' and %s = 2)
-                        or (key = 'sole_survivor_win' and %s = 1))
-                    """,
-                    [str(c["season_id"]), c["placement"], c["placement"]],
-                )
-                placement_points = cur.fetchone()["pts"]
-
             episodes = [by_ep[k] for k in sorted(by_ep)]
             return {
                 "name": c["name"],
                 "image_url": c["image_url"],
                 "placement": c["placement"],
-                "placement_points": placement_points,
                 "eliminated_in_episode": elim_ep,
                 "tribe_name": c["tribe_name"],
                 "tribe_color": c["tribe_color"],
@@ -309,4 +291,6 @@ def update_contestant(
                 f"update contestants set {set_clause} where id = %(id)s returning *",
                 params,
             )
+            # Placement events are maintained by a DB trigger, so every writer
+            # stays consistent — not just this endpoint.
             return cur.fetchone()

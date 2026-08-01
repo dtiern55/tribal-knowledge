@@ -16,9 +16,13 @@ def test_rules_returns_config(client, db_conn, current_user):
     by_type = {e["event_type"]: e for e in data["scoring_events"]}
     assert by_type["win_individual_immunity"]["point_value"] == 15
     assert by_type["votes_received"]["is_per_unit"] is True
+    # Placement scores like any other contestant event now, not as a prediction.
+    assert by_type["won_season"]["point_value"] == 50
+    assert by_type["made_final_tribal"]["point_value"] == 30
 
     pred = {p["key"]: p for p in data["prediction_scores"]}
-    assert pred["sole_survivor_win"]["point_value"] == 20
+    assert pred["correct_winner_vote"]["point_value"] == 30
+    assert "sole_survivor_win" not in pred
 
     adv = {a["advantage_type"] for a in data["advantages"]}
     assert "double_vote_points" in adv

@@ -288,10 +288,6 @@ class ContestantPerformance(BaseModel):
     name: str
     image_url: Optional[str] = None
     placement: Optional[int] = None
-    # What this finish pays the players rostering them at the finale (#296).
-    # None when the contestant didn't place top-3. This is a roster award, not
-    # part of the contestant's own total_points.
-    placement_points: Optional[int] = None
     eliminated_in_episode: Optional[int] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None

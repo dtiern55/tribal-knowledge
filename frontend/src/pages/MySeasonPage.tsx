@@ -1791,7 +1791,7 @@ function SoleSurvivorLine({
         )}
       </div>
       <p className="text-xs text-gray-500 mb-2">
-        Everything your Sole Survivor scores in the finale counts double for you.
+        Your Sole Survivor's finale total is worth an extra 50% to you.
       </p>
       {!windowOpen ? (
         <p className="text-sm text-gray-600">

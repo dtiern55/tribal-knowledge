@@ -232,9 +232,6 @@ export interface ContestantPerformance {
   name: string
   image_url: string | null
   placement: number | null
-  // What this finish pays whoever rostered them at the finale — a roster
-  // award, not part of the contestant's own total_points.
-  placement_points: number | null
   eliminated_in_episode: number | null
   tribe_name: string | null
   tribe_color: string | null

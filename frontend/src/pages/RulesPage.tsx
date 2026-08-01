@@ -11,20 +11,11 @@ const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
     keys: ['correct_elimination'],
   },
   {
-    title: 'Rostering a finalist',
-    blurb:
-      'If a castaway on your roster makes the end, you score their finish. This pays to ' +
-      'everyone who still has them at the finale — no designation required. First place ' +
-      'stacks both lines, so the winner is worth 30.',
-    keys: ['made_final_tribal', 'runner_up', 'sole_survivor_win'],
-  },
-  {
     title: 'Sole Survivor designation',
     blurb:
-      'Separately, designate one castaway on your roster before the designation locks. ' +
-      'Everything they score in the finale episode counts double for you — both their ' +
-      'finale scoring events and the placement bonuses above. Designating the eventual ' +
-      'winner is worth 60 rather than 30.',
+      'Designate one castaway on your roster before the designation locks. Their whole ' +
+      'finale total is worth an extra 50% to you — including how they finish, so ' +
+      'designating the eventual winner pays 120 rather than 80.',
     keys: [],
   },
   {

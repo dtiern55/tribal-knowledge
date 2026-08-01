@@ -16,10 +16,16 @@ def advantages_locked(
     """Advantages can't be played and weekly tokens aren't granted from here on
     (extends #85). Configurable per season; NULL falls back to the finale.
     Keep the two callers (advantage use, episode scoring) in sync via this.
+
+    The finale is ALWAYS locked, whatever the season is configured with — a
+    cutoff set past the last episode used to leave the finale wide open. It's
+    a rule, not a setting, so it doesn't depend on getting the config right.
     """
+    if is_finale:
+        return True
     if advantage_lock_episode is not None:
         return episode_number >= advantage_lock_episode
-    return is_finale
+    return False
 
 
 def episode_locked(episode: dict) -> bool:
