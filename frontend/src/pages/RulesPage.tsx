@@ -13,9 +13,9 @@ const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
   {
     title: 'Sole Survivor designation',
     blurb:
-      'Designate one castaway on your roster before the designation locks. Everything ' +
-      'they score in the finale episode counts double for you — including how they ' +
-      'finish, so designating the eventual winner pays 60 rather than 30.',
+      'Designate one castaway on your roster before the designation locks. Their whole ' +
+      'finale total is worth an extra 50% to you — including how they finish, so ' +
+      'designating the eventual winner pays 120 rather than 80.',
     keys: [],
   },
   {

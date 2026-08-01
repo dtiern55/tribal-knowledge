@@ -127,8 +127,8 @@ def test_roster_points_includes_placement(db_conn):
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
 
-    # Rostering the Sole Survivor at the finale -> +30 (issue #87).
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 30}
+    # Rostering the winner at the finale -> 30 MFT + 50 won_season (#87).
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 80}
 
 
 @pytest.mark.integration
@@ -181,9 +181,9 @@ def test_episode_points_finale_includes_outcomes(db_conn):
     insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
 
-    # Rostering the placement-1 finisher pays made_final_tribal +10 and
-    # sole_survivor_win +20.
-    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 30}
+    # Rostering the placement-1 finisher pays made_final_tribal 30 and
+    # won_season 50.
+    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 80}
 
 
 # --- elimination_points ---

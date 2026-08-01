@@ -206,43 +206,6 @@ def get_contestant_performance(
             }
 
 
-# Finishing top-3 scores like anything else a contestant does: events on the
-# finale episode (#87/#164 reworked). Written here rather than as a step in the
-# scoring ritual, so setting a placement can't leave them un-recorded.
-_PLACEMENT_EVENTS = {
-    1: ("made_final_tribal", "won_season"),
-    2: ("made_final_tribal", "runner_up"),
-    3: ("made_final_tribal",),
-}
-
-
-def _sync_placement_events(cur, contestant) -> None:
-    """Rewrite a contestant's placement events to match their placement."""
-    cur.execute(
-        "select id from episodes where season_id = %s and is_finale = true",
-        [str(contestant["season_id"])],
-    )
-    finale = cur.fetchone()
-    if not finale:
-        return  # no finale yet — nothing to attach them to
-
-    types = tuple(_PLACEMENT_EVENTS.values())
-    all_types = sorted({t for group in types for t in group})
-    # Clear first so a corrected placement doesn't leave the old rows behind.
-    cur.execute(
-        "delete from scoring_events where episode_id = %s and contestant_id = %s"
-        " and event_type = any(%s)",
-        [str(finale["id"]), str(contestant["id"]), all_types],
-    )
-    for event_type in _PLACEMENT_EVENTS.get(contestant["placement"], ()):
-        cur.execute(
-            "insert into scoring_events"
-            " (episode_id, contestant_id, event_type, quantity, notes)"
-            " values (%s, %s, %s, 1, 'placement')",
-            [str(finale["id"]), str(contestant["id"]), event_type],
-        )
-
-
 @router.post(
     "/seasons/{season_id}/contestants",
     response_model=list[Contestant],
@@ -328,7 +291,6 @@ def update_contestant(
                 f"update contestants set {set_clause} where id = %(id)s returning *",
                 params,
             )
-            row = cur.fetchone()
-            if "placement" in fields:
-                _sync_placement_events(cur, row)
-            return row
+            # Placement events are maintained by a DB trigger, so every writer
+            # stays consistent — not just this endpoint.
+            return cur.fetchone()

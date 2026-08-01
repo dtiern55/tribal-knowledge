@@ -24,7 +24,7 @@ def _ss_season(conn, **kwargs):
 
 @pytest.mark.integration
 def test_finale_double_and_additive_placements(client, db_conn, current_user):
-    """Designee's finale contribution doubles: events and stacked placement
+    """Designee's finale contribution earns +50%: events and stacked placement
     values; the non-designated finalist earns base placement points."""
     season = _ss_season(db_conn, ss_lock_episode=3)
     insert_episode(db_conn, season["id"], episode_number=3)  # open: designation ok
@@ -42,19 +42,20 @@ def test_finale_double_and_additive_placements(client, db_conn, current_user):
     assert r.status_code == 200
     assert r.json()["is_sole_survivor"] is True
 
-    # 15-point finale event for the designee -> 30 with the double.
     insert_scoring_event(db_conn, fin["id"], a["id"], "win_individual_immunity")
 
-    # Designee: (15 event + 10 MFT + 20 SS win) * 2 = 90.
-    # Runner: 10 MFT + 10 runner-up = 20. Total 110.
+    # Designee: 15 event + 30 MFT + 50 won_season = 95 base, +50% = 47.5 -> 48.
+    # Runner: 30 MFT + 20 runner-up = 50. Total 95 + 48 + 50 = 193.
     assert scoring.roster_points(db_conn, season["id"]) == {
-        str(current_user["id"]): 110
+        str(current_user["id"]): 193
     }
     by_c = scoring.roster_points_by_contestant(
         db_conn, season["id"], current_user["id"]
     )
-    assert by_c[str(a["id"])] == 90
-    assert by_c[str(b["id"])] == 20
+    assert by_c[str(a["id"])] == 143
+    assert by_c[str(b["id"])] == 50
+    # Per-contestant always reconciles with the user total.
+    assert sum(by_c.values()) == 193
 
 
 @pytest.mark.integration
