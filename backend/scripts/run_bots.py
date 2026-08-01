@@ -10,6 +10,7 @@ Usage (against PROD, service role):
     uv run python scripts/run_bots.py setup       # accounts, labels, rosters
     uv run python scripts/run_bots.py play <N>    # simulate a *scored* episode
     uv run python scripts/run_bots.py swap        # swap all bots into the next open ep
+    uv run python scripts/run_bots.py ballot      # file every bot's finale ballot
 
 Writes directly to the DB with the service role, idempotent per episode.
 """
@@ -387,6 +388,89 @@ def swap(cur):
     print(f"swap: {n} bots swapped into episode {ep_n} of {name}")
 
 
+def ballot(cur):
+    """Every bot files its three-part finale ballot: winner, early boot, and
+    fire-making loss.
+
+    Runs after the finale is scored, the same way play() does — the bots are
+    scripted against known results and skill decides how often each of the
+    three picks lands. Without this the finale-prediction path never gets
+    exercised by anyone but the human player (found scoring Cagayan: 20 bots,
+    zero ballots).
+    """
+    season = active_season(cur)
+    sid = season["id"]
+    cur.execute("select * from episodes where season_id=%s and is_finale=true", [sid])
+    fin = cur.fetchone()
+    if not fin:
+        sys.exit("No finale episode in this season")
+    if fin["status"] != "scored":
+        sys.exit("Finale isn't scored yet — no results to script against")
+
+    cur.execute(
+        "select contestant_id::text cid, elimination_type from eliminations"
+        " where episode_id=%s",
+        [str(fin["id"])],
+    )
+    fin_elims = cur.fetchall()
+    # Scoring counts any finale voted_out as the early boot, and only a
+    # fire_making_loss as the fire loss (app/scoring.py finale_points).
+    boots = [r["cid"] for r in fin_elims if r["elimination_type"] == "voted_out"]
+    fires = [r["cid"] for r in fin_elims if r["elimination_type"] == "fire_making_loss"]
+    cur.execute(
+        "select id::text cid from contestants where season_id=%s and placement=1",
+        [sid],
+    )
+    row = cur.fetchone()
+    winners = [row["cid"]] if row else []
+    cur.execute("select id::text cid from contestants where season_id=%s", [sid])
+    allc = [r["cid"] for r in cur.fetchall()]
+
+    by_name = {a["name"]: a for a in archetypes()}
+    cur.execute(
+        "select id::text id, display_name from profiles where display_name = any(%s)",
+        [list(by_name)],
+    )
+    bots = cur.fetchall()
+
+    n = 0
+    for bot in bots:
+        a = by_name[bot["display_name"]]
+        uid = bot["id"]
+        cur.execute(
+            "select 1 from finale_predictions where user_id=%s and season_id=%s",
+            [uid, sid],
+        )
+        if cur.fetchone():
+            continue  # idempotent
+
+        def choose(kind, truth):
+            """The right answer on a hit, a wrong one on a miss. A season with
+            no fire-making (pre-S35, e.g. Cagayan) has no truth to hit, so
+            every bot misses that leg — which is correct, not a bug."""
+            hit = rng(uid, "ballot", kind) < a["skill"] / 100
+            pool = truth if (hit and truth) else [c for c in allc if c not in truth]
+            if not pool:
+                return None
+            return pool[int(rng(uid, "ballot", kind, "which") * len(pool)) % len(pool)]
+
+        cur.execute(
+            """insert into finale_predictions
+                 (user_id, season_id, winner_contestant_id,
+                  early_boot_contestant_id, fire_loss_contestant_id)
+               values (%s,%s,%s,%s,%s)""",
+            [
+                uid,
+                sid,
+                choose("winner", winners),
+                choose("boot", boots),
+                choose("fire", fires),
+            ],
+        )
+        n += 1
+    print(f"ballot: {n} bots filed a finale ballot for {season['name']}")
+
+
 def play(cur, episode_n: int):
     season = active_season(cur)
     sid = season["id"]
@@ -473,7 +557,7 @@ def play(cur, episode_n: int):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "play", "swap"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "play", "swap", "ballot"):
         sys.exit(__doc__)
     conn = db()
     try:
@@ -483,6 +567,8 @@ def main():
                     setup(cur, http)
             elif sys.argv[1] == "swap":
                 swap(cur)
+            elif sys.argv[1] == "ballot":
+                ballot(cur)
             else:
                 play(cur, int(sys.argv[2]))
         conn.commit()
