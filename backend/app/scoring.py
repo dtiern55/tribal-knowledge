@@ -10,12 +10,16 @@ A scoring/prediction value uses postmerge_point_value when it is set and the
 episode is post-merge, otherwise point_value.
 
 Double Roster Points / Double Vote Points (decision #12, 2026-07-06): a player
-spends tokens to double one contestant's roster-event or elimination-pick
-points for one episode. The play names the target contestant and episode
-directly (app/routers/advantage_plays.py), so roster_points/elimination_points
-just check for a matching advantage_plays row rather than reading a stored
-flag — this survives elimination_picks being deleted and reinserted on every
-resubmission (decision #38).
+spends tokens to double an episode's points. Double Roster names one rostered
+contestant; Double Vote covers the player's whole ballot for that episode
+(#303) and stores no target. Both are read from advantage_plays at scoring
+time rather than a stored flag — this survives elimination_picks being deleted
+and reinserted on every resubmission (decision #38).
+
+Double Vote plays from before #303 DO carry a target_contestant_id and doubled
+only that pick. The joins branch on `target_contestant_id is null` so those
+seasons keep scoring exactly as they did — completed seasons are time capsules
+(#170).
 """
 
 from uuid import UUID
@@ -98,9 +102,9 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
 
     A pick scores when the predicted contestant appears in that episode's
     eliminations; pre/post-merge rate comes from prediction_score_types, then
-    doubles if the user played Double Vote Points on that pick's contestant
-    for that episode. Finale episodes are excluded — there picks are scored
-    as a winner vote instead (#19).
+    doubles if the user played Double Vote Points that episode (#303 — every
+    pick, or just the named one for pre-#303 plays). Finale episodes are
+    excluded — there picks are scored as a winner vote instead (#19).
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -132,7 +136,8 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
               on dbl.advantage_type = 'double_vote_points'
              and dbl.user_id = pick.user_id
              and dbl.episode_id = pick.episode_id
-             and dbl.target_contestant_id = pick.contestant_id
+             and (dbl.target_contestant_id is null
+                  or dbl.target_contestant_id = pick.contestant_id)
             where s.id = %s and ep.is_finale = false
             group by pick.user_id
             """,
@@ -267,11 +272,12 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
 def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, int]:
     """Bonus points each played double actually earned (issue #85).
 
-    A double adds one extra copy of the target's points for that episode, so
+    A double adds one extra copy of the doubled points for that episode, so
     the bonus equals the un-doubled base: roster-event points for
-    double_roster_points, the elimination-pick value for double_vote_points.
-    extra_vote isn't included — there's no single pick to attribute. Keyed by
-    stringified advantage_plays.id.
+    double_roster_points, and for double_vote_points every correct pick that
+    episode (#303; pre-#303 plays name a target, so just that one).
+    extra_vote isn't included — there's no single pick to attribute (#304).
+    Keyed by stringified advantage_plays.id.
 
     Mirrors the roster/pick joins of roster_points()/elimination_points():
     a double only pays if the user actually rostered/picked the target, and
@@ -326,25 +332,27 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
 
         cur.execute(
             """
-            select ap.id::text as play_id,
-                   (case when el.contestant_id is null
-                          or pick.contestant_id is null then 0
-                     when s.merge_episode is not null
-                      and ep.episode_number >= s.merge_episode
-                     then %s else %s end) as bonus
+            select ap.id::text as play_id, coalesce(sum(
+                (case when el.contestant_id is null then 0
+                   when s.merge_episode is not null
+                    and ep.episode_number >= s.merge_episode
+                   then %s else %s end)
+            ), 0) as bonus
             from advantage_plays ap
             join episodes ep on ep.id = ap.episode_id
             join seasons s on s.id = ep.season_id
-            left join eliminations el
-              on el.episode_id = ap.episode_id
-             and el.contestant_id = ap.target_contestant_id
             left join elimination_picks pick
               on pick.user_id = ap.user_id
              and pick.episode_id = ap.episode_id
-             and pick.contestant_id = ap.target_contestant_id
+             and (ap.target_contestant_id is null
+                  or pick.contestant_id = ap.target_contestant_id)
+            left join eliminations el
+              on el.episode_id = ap.episode_id
+             and el.contestant_id = pick.contestant_id
             where ap.season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_vote_points'
               and ap.episode_id is not null
+            group by ap.id
             """,
             [post, pre, str(season_id), str(user_id)],
         )
@@ -494,7 +502,8 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
               on dbl.advantage_type = 'double_vote_points'
              and dbl.user_id = pick.user_id
              and dbl.episode_id = pick.episode_id
-             and dbl.target_contestant_id = pick.contestant_id
+             and (dbl.target_contestant_id is null
+                  or dbl.target_contestant_id = pick.contestant_id)
             where s.id = %s and ep.episode_number = %s and ep.is_finale = false
             group by pick.user_id
             """,

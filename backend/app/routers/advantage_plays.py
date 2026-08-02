@@ -15,9 +15,9 @@ from app.schemas import (
 
 router = APIRouter(tags=["advantage_plays"])
 
-# Advantages that double a named contestant's points for the episode they're
-# used in; extra_vote raises the pick limit instead and takes no target.
-_DOUBLE_TYPES = {"double_roster_points", "double_vote_points"}
+# The only advantage that names a target. double_vote_points covers the whole
+# ballot (#303) and extra_vote raises the pick limit — neither takes one.
+_TARGETED_TYPES = {"double_roster_points"}
 
 
 def _roster_swap_buy_cost(cur, user_id: UUID, season_id: UUID) -> int:
@@ -254,7 +254,7 @@ def use_advantage(
                     detail="Advantages can no longer be played this season",
                 )
 
-            if play["advantage_type"] in _DOUBLE_TYPES:
+            if play["advantage_type"] in _TARGETED_TYPES:
                 if body.target_contestant_id is None:
                     raise HTTPException(
                         status_code=400,
@@ -263,34 +263,19 @@ def use_advantage(
                             " target_contestant_id"
                         ),
                     )
-                if play["advantage_type"] == "double_roster_points":
-                    cur.execute(
-                        """
-                        select 1 from roster_picks
-                        where user_id = %s and season_id = %s and contestant_id = %s
-                          and active_until_episode is null
-                        """,
-                        [
-                            str(user_id),
-                            play["season_id"],
-                            str(body.target_contestant_id),
-                        ],
+                cur.execute(
+                    """
+                    select 1 from roster_picks
+                    where user_id = %s and season_id = %s and contestant_id = %s
+                      and active_until_episode is null
+                    """,
+                    [str(user_id), play["season_id"], str(body.target_contestant_id)],
+                )
+                if not cur.fetchone():
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Target contestant is not on your active roster",
                     )
-                    if not cur.fetchone():
-                        raise HTTPException(
-                            status_code=400,
-                            detail="Target contestant is not on your active roster",
-                        )
-                else:
-                    cur.execute(
-                        "select 1 from contestants where id = %s and season_id = %s",
-                        [str(body.target_contestant_id), play["season_id"]],
-                    )
-                    if not cur.fetchone():
-                        raise HTTPException(
-                            status_code=400,
-                            detail="Target contestant not in this season",
-                        )
             elif body.target_contestant_id is not None:
                 raise HTTPException(
                     status_code=400,
@@ -319,12 +304,16 @@ def use_advantage(
                     ],
                 )
             except pg_errors.UniqueViolation:
+                # Targeted doubles collide per target; a ballot-wide double
+                # collides per episode (#303).
+                scope = (
+                    "on that target this episode"
+                    if play["advantage_type"] in _TARGETED_TYPES
+                    else "this episode"
+                )
                 raise HTTPException(
                     status_code=409,
-                    detail=(
-                        f"{play['advantage_type']} is already in play on that"
-                        " target this episode"
-                    ),
+                    detail=f"{play['advantage_type']} is already in play {scope}",
                 )
             return cur.fetchone()
 

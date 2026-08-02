@@ -236,10 +236,17 @@ export function TeamPage() {
                         // A played Double Vote Points rides on the pick it
                         // doubled, same as My Votes (#136) — the double's own
                         // earnings get their own chip beside it.
+                        // Pre-#303 plays named one pick; a ballot-wide double
+                        // marks every pick and reports its total once, below.
                         const double = doubles.find(
                           (d) =>
                             d.episode_id === episode.id &&
                             d.target_contestant_id === p.contestant_id,
+                        )
+                        const ballot = doubles.find(
+                          (d) =>
+                            d.episode_id === episode.id &&
+                            d.target_contestant_id === null,
                         )
                         // Correct gets the green + check; incorrect stays
                         // neutral — most votes miss, no red walls (#135).
@@ -254,7 +261,7 @@ export function TeamPage() {
                             >
                               {correct && '✓ '}
                               {contestantMap.get(p.contestant_id)?.name ?? '—'}
-                              {double && (
+                              {(double || ballot) && (
                                 <span className="text-ocean-600 font-semibold"> ×2</span>
                               )}
                             </span>
@@ -267,6 +274,22 @@ export function TeamPage() {
                           </span>
                         )
                       })}
+                      {doubles
+                        .filter(
+                          (d) =>
+                            d.episode_id === episode.id &&
+                            d.target_contestant_id === null &&
+                            (d.points_earned ?? 0) > 0,
+                        )
+                        .map((d) => (
+                          <span
+                            key={d.id}
+                            className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700"
+                          >
+                            Double Vote Points{' '}
+                            <span className="font-semibold">+{d.points_earned}</span>
+                          </span>
+                        ))}
                     </div>
                   ) : (
                     <p className="text-sm text-gray-500">No votes submitted</p>
