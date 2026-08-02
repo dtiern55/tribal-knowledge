@@ -243,7 +243,9 @@ def test_elimination_points_excludes_finale(db_conn):
 
 
 @pytest.mark.integration
-def test_elimination_points_doubled_by_advantage(db_conn):
+def test_elimination_points_legacy_targeted_double(db_conn):
+    """Pre-#303 plays named one pick and must keep doubling only that one —
+    completed seasons are time capsules (#170)."""
     season = insert_season(db_conn, merge_episode=7)
     ep = insert_episode(db_conn, season["id"], episode_number=3)
     user = insert_user(db_conn)
@@ -257,7 +259,7 @@ def test_elimination_points_doubled_by_advantage(db_conn):
 
 
 @pytest.mark.integration
-def test_elimination_points_double_wrong_target_no_effect(db_conn):
+def test_elimination_points_legacy_double_wrong_target_no_effect(db_conn):
     season = insert_season(db_conn, merge_episode=7)
     ep = insert_episode(db_conn, season["id"], episode_number=3)
     user = insert_user(db_conn)
@@ -271,6 +273,73 @@ def test_elimination_points_double_wrong_target_no_effect(db_conn):
     )
 
     assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 15}
+
+
+@pytest.mark.integration
+def test_elimination_points_ballot_double_covers_every_pick(db_conn):
+    """#303: a target-less Double Vote Points doubles the whole ballot."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    hit_a = insert_contestant(db_conn, season["id"], "HitA")
+    hit_b = insert_contestant(db_conn, season["id"], "HitB")
+    miss = insert_contestant(db_conn, season["id"], "Miss")
+    for c in (hit_a, hit_b, miss):
+        insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
+    insert_elimination(db_conn, ep["id"], hit_a["id"])
+    insert_elimination(db_conn, ep["id"], hit_b["id"])
+    insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
+
+    # two correct pre-merge picks, 15 each -> 60 doubled; the miss stays 0
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 60}
+
+
+@pytest.mark.integration
+def test_elimination_points_ballot_double_pays_nothing_on_a_whiff(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    picked = insert_contestant(db_conn, season["id"], "Picked")
+    booted = insert_contestant(db_conn, season["id"], "Booted")
+    insert_elimination_pick(db_conn, user["id"], ep["id"], picked["id"])
+    insert_elimination(db_conn, ep["id"], booted["id"])
+    insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
+
+    assert scoring.elimination_points(db_conn, season["id"]) == {}
+
+
+@pytest.mark.integration
+def test_ballot_double_bonus_sums_every_correct_pick(db_conn):
+    """Play History must report the whole ballot's bonus, not one pick (#303)."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    hit_a = insert_contestant(db_conn, season["id"], "HitA")
+    hit_b = insert_contestant(db_conn, season["id"], "HitB")
+    miss = insert_contestant(db_conn, season["id"], "Miss")
+    for c in (hit_a, hit_b, miss):
+        insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
+    insert_elimination(db_conn, ep["id"], hit_a["id"])
+    insert_elimination(db_conn, ep["id"], hit_b["id"])
+    play = insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
+
+    bonus = scoring.advantage_bonus_by_play(db_conn, season["id"], user["id"])
+    assert bonus[str(play["id"])] == 30  # 15 + 15, the un-doubled base
+
+
+@pytest.mark.integration
+def test_ballot_double_bonus_is_zero_when_no_pick_lands(db_conn):
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    picked = insert_contestant(db_conn, season["id"], "Picked")
+    booted = insert_contestant(db_conn, season["id"], "Booted")
+    insert_elimination_pick(db_conn, user["id"], ep["id"], picked["id"])
+    insert_elimination(db_conn, ep["id"], booted["id"])
+    play = insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
+
+    bonus = scoring.advantage_bonus_by_play(db_conn, season["id"], user["id"])
+    assert bonus[str(play["id"])] == 0
 
 
 # --- finale_points ---

@@ -46,7 +46,7 @@ def test_list_advantage_types(client):
     assert r.status_code == 200
     by_type = {a["advantage_type"]: a for a in r.json()}
     assert by_type["double_roster_points"]["token_cost"] == 20
-    assert by_type["double_vote_points"]["token_cost"] == 10
+    assert by_type["double_vote_points"]["token_cost"] == 15
     assert by_type["extra_vote"]["token_cost"] == 5
     assert all(a["enabled"] for a in r.json())
 
@@ -236,13 +236,10 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
     c = insert_contestant(db_conn, season["id"])
     _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
-    r = client.post(
-        f"/advantage-plays/{play['id']}/use",
-        json={"target_contestant_id": str(c["id"])},
-    )
+    r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 200
-    # The user actually picked the target, and the pick came true (#115:
-    # without the pick, the double earns nothing and must report nothing).
+    # The double pays only on picks the user actually made (#115: without the
+    # pick, it earns nothing and must report nothing).
     insert_elimination_pick(db_conn, current_user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
 
@@ -262,10 +259,7 @@ def test_double_vote_on_unpicked_target_earns_zero(client, db_conn, current_user
     c = insert_contestant(db_conn, season["id"])
     _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
-    r = client.post(
-        f"/advantage-plays/{play['id']}/use",
-        json={"target_contestant_id": str(c["id"])},
-    )
+    r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 200
     insert_elimination(db_conn, ep["id"], c["id"])  # eliminated, but never picked
 
@@ -340,7 +334,8 @@ def test_use_double_roster_requires_rostered_target(client, db_conn, current_use
 
 
 @pytest.mark.integration
-def test_use_double_vote_with_season_contestant(client, db_conn, current_user):
+def test_use_double_vote_takes_no_target(client, db_conn, current_user):
+    """#303: it covers the whole ballot, so naming a contestant is an error."""
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"], "Target")
@@ -351,20 +346,40 @@ def test_use_double_vote_with_season_contestant(client, db_conn, current_user):
         f"/advantage-plays/{play['id']}/use",
         json={"target_contestant_id": str(c["id"])},
     )
+    assert r.status_code == 400
+    assert "does not take a" in r.json()["detail"]
+
+    r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 200
-    assert r.json()["target_contestant_id"] == str(c["id"])
+    assert r.json()["target_contestant_id"] is None
 
 
 @pytest.mark.integration
-def test_use_double_type_requires_target(client, db_conn, current_user):
+def test_double_roster_requires_target(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     _fund(db_conn, season["id"], current_user["id"])
-    play = _buy(client, season["id"], "double_vote_points")
+    play = _buy(client, season["id"], "double_roster_points")
 
     r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 400
     assert "target_contestant_id" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_second_double_vote_blocked_same_episode(client, db_conn, current_user):
+    """#303: a ballot-wide double must not stack — two would quadruple."""
+    season = insert_season(db_conn)
+    _open_episode(db_conn, season["id"])
+    _fund(db_conn, season["id"], current_user["id"], amount=200)
+    first = _buy(client, season["id"], "double_vote_points")
+    second = _buy(client, season["id"], "double_vote_points")
+    played = client.post(f"/advantage-plays/{first['id']}/use", json={})
+    assert played.status_code == 200
+
+    r = client.post(f"/advantage-plays/{second['id']}/use", json={})
+    assert r.status_code == 409
+    assert "already in play" in r.json()["detail"]
 
 
 @pytest.mark.integration
@@ -460,28 +475,21 @@ def test_use_other_users_play_not_found(client, db_conn, current_user):
 def test_unuse_returns_to_inventory(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    c = insert_contestant(db_conn, season["id"], "Target")
     _fund(db_conn, season["id"], current_user["id"])
     play = _buy(client, season["id"], "double_vote_points")
-    client.post(
-        f"/advantage-plays/{play['id']}/use",
-        json={"target_contestant_id": str(c["id"])},
-    )
+    client.post(f"/advantage-plays/{play['id']}/use", json={})
 
     r = client.delete(f"/advantage-plays/{play['id']}/use")
     assert r.status_code == 200
     assert r.json()["episode_id"] is None
     assert r.json()["target_contestant_id"] is None
 
-    # No token movement, and the advantage is usable again
+    # No token movement (the 15 was spent at buy), and it's usable again
     balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
         "balance"
     ]
-    assert balance == 40
-    r = client.post(
-        f"/advantage-plays/{play['id']}/use",
-        json={"target_contestant_id": str(c["id"])},
-    )
+    assert balance == 35
+    r = client.post(f"/advantage-plays/{play['id']}/use", json={})
     assert r.status_code == 200
 
 

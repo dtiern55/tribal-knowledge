@@ -965,7 +965,6 @@ function PicksSection({
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [errors, setErrors] = useState<Map<string, string>>(new Map())
-  const [doubleTarget, setDoubleTarget] = useState('')
   const [advBusy, setAdvBusy] = useState(false)
   const [advError, setAdvError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -1020,16 +1019,16 @@ function PicksSection({
     setPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
   }
 
-  async function applyPlay(play: AdvantagePlay, targetContestantId?: string) {
+  // Nothing played from Weekly Votes names a target any more (#303).
+  async function applyPlay(play: AdvantagePlay) {
     setAdvBusy(true)
     setAdvError(null)
     try {
       replacePlay(
         await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
-          target_contestant_id: targetContestantId ?? null,
+          target_contestant_id: null,
         }),
       )
-      setDoubleTarget('')
     } catch (e) {
       setAdvError(e instanceof Error ? e.message : 'Advantage failed')
     } finally {
@@ -1115,11 +1114,14 @@ function PicksSection({
           {picks.map((p) => {
             const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
             const name = contestantMap.get(p.contestant_id)?.name ?? '—'
+            // A ballot-wide double covers every pick (#303); pre-#303 plays
+            // named one contestant, so past seasons still render per-pick.
             const doubled = plays.some(
               (pl) =>
                 pl.episode_id === ep.id &&
                 pl.advantage_type === 'double_vote_points' &&
-                pl.target_contestant_id === p.contestant_id,
+                (pl.target_contestant_id === null ||
+                  pl.target_contestant_id === p.contestant_id),
             )
             // Only scored episodes have a settled result to color
             // (#53). Incorrect stays neutral, not red — most votes
@@ -1222,8 +1224,8 @@ function PicksSection({
           const activeDoubles = plays.filter(
             (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
           )
-          const doubledIds = new Set(activeDoubles.map((p) => p.target_contestant_id))
-          const undoubledSelected = [...epPending].filter((cid) => !doubledIds.has(cid))
+          // One ballot-wide double per episode (#303) — every pick counts ×2.
+          const ballotDoubled = activeDoubles.length > 0
           // You can never vote for every remaining castaway — cap at
           // (still in the game − 1), even with extra votes (#240).
           const stillIn = contestants.filter(
@@ -1289,7 +1291,7 @@ function PicksSection({
                             />
                           )}
                           {sc?.name ?? '—'}
-                          {doubledIds.has(p.contestant_id) && (
+                          {ballotDoubled && (
                             <span className="text-ocean-600 font-semibold no-underline"> ×2</span>
                           )}
                           {stale && (
@@ -1323,7 +1325,7 @@ function PicksSection({
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
-                            const isDoubled = doubledIds.has(c.id)
+                            const isDoubled = ballotDoubled && isSelected
                             const maxed = !isSelected && epPending.size >= maxPicks
                             return (
                               <button
@@ -1398,10 +1400,7 @@ function PicksSection({
                   {activeDoubles.map((d) => (
                     <div key={d.id} className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">
-                        Double Vote Points on{' '}
-                        <span className="font-medium">
-                          {contestantMap.get(d.target_contestant_id ?? '')?.name ?? '—'}
-                        </span>
+                        Double Vote Points in play — every vote this episode counts ×2
                       </span>
                       <button
                         onClick={() => void takeBackPlay(d)}
@@ -1412,38 +1411,20 @@ function PicksSection({
                       </button>
                     </div>
                   ))}
-                  {ownedDoubles.length > 0 &&
-                    (undoubledSelected.length > 0 ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-700 shrink-0">
-                          Double a vote{ownedDoubles.length > 1 ? ` (${ownedDoubles.length} owned)` : ''}:
-                        </span>
-                        <select
-                          value={doubleTarget}
-                          onChange={(e) => setDoubleTarget(e.target.value)}
-                          className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
-                        >
-                          <option value="">Choose…</option>
-                          {undoubledSelected.map((cid) => (
-                            <option key={cid} value={cid}>
-                              {contestantMap.get(cid)?.name ?? '—'}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => void applyPlay(ownedDoubles[0], doubleTarget)}
-                          disabled={advBusy || !doubleTarget}
-                          className="px-3 py-1 bg-amber-700 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
-                        >
-                          Double ×2
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">
-                        You own {ownedDoubles.length} Double Vote Points — select more votes to
-                        double.
-                      </p>
-                    ))}
+                  {ownedDoubles.length > 0 && !ballotDoubled && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">
+                        You own {ownedDoubles.length} Double Vote Points
+                      </span>
+                      <button
+                        onClick={() => void applyPlay(ownedDoubles[0])}
+                        disabled={advBusy}
+                        className="px-3 py-1 bg-amber-700 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
+                      >
+                        Play one (all votes ×2)
+                      </button>
+                    </div>
+                  )}
                   {advError && <p className="text-red-600 text-xs">{advError}</p>}
                 </div>
               )}

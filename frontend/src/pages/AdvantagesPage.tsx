@@ -18,7 +18,7 @@ import type {
 
 const DESCRIPTIONS: Record<string, string> = {
   double_roster_points: "Double one roster contestant's points for an episode.",
-  double_vote_points: "Double one elimination pick's points for an episode.",
+  double_vote_points: 'Double the points from all your elimination picks for an episode.',
   extra_vote: 'Make one additional elimination pick in an episode.',
 }
 
