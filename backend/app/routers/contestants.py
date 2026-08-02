@@ -70,7 +70,8 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                 join seasons s on s.id = c.season_id
                 left join scoring_events se on se.contestant_id = c.id
                 left join episodes ep on ep.id = se.episode_id
-                left join scoring_event_types et on et.event_type = se.event_type
+                left join season_scoring_event_types et
+                  on et.event_type = se.event_type and et.season_id = s.id
                 where c.season_id = %s
                 group by c.id, c.name, c.image_url, c.placement
                 order by total_points desc, c.name
@@ -128,7 +129,8 @@ def get_contestant_performance(
                 from scoring_events se
                 join episodes ep on ep.id = se.episode_id
                 join seasons s on s.id = ep.season_id
-                join scoring_event_types et on et.event_type = se.event_type
+                join season_scoring_event_types et
+                  on et.event_type = se.event_type and et.season_id = s.id
                 where se.contestant_id = %s
                 order by ep.episode_number
                 """,
