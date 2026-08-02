@@ -47,6 +47,29 @@ def test_votes_received_scores_zero(db_conn):
 
 
 @pytest.mark.integration
+def test_scoring_event_uses_postmerge_value(db_conn):
+    """#300: a correct vote at tribal pays 3 pre-merge, 5 post.
+
+    First scoring event anywhere with a real pre/post split — the branch has
+    existed since decision #10 but only votes_received (0/0) ever hit it, and
+    identical values prove nothing.
+    """
+    season = insert_season(db_conn, merge_episode=7)
+    pre = insert_episode(db_conn, season["id"], episode_number=6)
+    post = insert_episode(db_conn, season["id"], episode_number=7)
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
+    insert_scoring_event(db_conn, pre["id"], c["id"], "vote_correctly_at_tribal")
+    insert_scoring_event(db_conn, post["id"], c["id"], "vote_correctly_at_tribal")
+
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 8}
+    # The merge episode itself is post-merge (>=, decision #10).
+    assert scoring.episode_points(db_conn, season["id"], 7) == {str(user["id"]): 5}
+    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 3}
+
+
+@pytest.mark.integration
 def test_roster_points_respects_active_range(db_conn):
     season = insert_season(db_conn, merge_episode=7)
     ep2 = insert_episode(db_conn, season["id"], episode_number=2)
