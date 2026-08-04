@@ -13,7 +13,8 @@ just echoing it back. Now the commissioner supplies the BEHAVIOUR and survivoR
 supplies the OUTCOME, and the interaction is what we learn from.
 
 Usage (from backend/):
-    uv run python scripts/run_bots.py setup            # accounts, labels, draft
+    uv run python scripts/run_bots.py setup            # accounts + persona labels
+    uv run python scripts/run_bots.py draft            # opening rosters (needs read)
     uv run python scripts/run_bots.py week 2           # picks + plays for ep 2
     uv run python scripts/run_bots.py ballot           # finale ballot
 
@@ -207,14 +208,13 @@ def load_bots(cur) -> list[dict]:
 
 
 def setup(cur, http):
-    """Accounts, persona labels, and the opening draft.
+    """Accounts and persona labels. Needs no read — run it any time.
 
-    The draft is weighted by the read's desirability order, so the popular
-    castaways are over-rostered and the unpopular ones barely owned — which is
-    what makes a mid-season boot actually hurt the league.
+    Deliberately separate from `draft`: labelling is static config, while the
+    draft is a per-season call that can't be made until the premiere has been
+    watched. Bundling them left the bots wearing a previous season's names
+    while waiting on a read they didn't need.
     """
-    season = active_season(cur)
-    read = load_read(season)
     arche = archetypes()
     cur.execute(
         "insert into profiles (id, display_name, is_admin)"
@@ -240,9 +240,28 @@ def setup(cur, http):
             " setup will not leave bots half-configured."
         )
 
+    for a, bot in zip(arche, bots):
+        cur.execute(
+            "update profiles set display_name = %s where id = %s",
+            [a["name"], bot["id"]],
+        )
+        print(f"  {bot['display_name']:<26} → {a['name']:<20} {a['style']}")
+    print(f"setup: {len(arche)} bots labelled")
+
+
+def draft(cur):
+    """Draft every bot's opening roster from the read's desirability order.
+
+    Run after the premiere, before the roster lock. Popular castaways get
+    over-rostered and the unpopular ones barely owned, which is what makes a
+    mid-season boot actually hurt the league.
+    """
+    season = active_season(cur)
+    read = load_read(season)
+    arche = archetypes()
+    bots = load_bots(cur)
     lock_ep = season["roster_lock_episode"] or 1
-    # The draft happens at roster lock, after the premiere has aired, so
-    # anyone already voted out is off the board — nobody drafts a dead slot.
+    # Anyone already voted out is off the board — nobody drafts a dead slot.
     everyone = alive_ids(cur, season["id"])
     wanted = [
         c
@@ -252,29 +271,27 @@ def setup(cur, http):
     # Desirability order: the read first, then anyone it didn't mention.
     pool = wanted + [c for c in everyone if c not in wanted]
 
+    n = 0
     for a, bot in zip(arche, bots):
-        cur.execute(
-            "update profiles set display_name = %s where id = %s",
-            [a["name"], bot["id"]],
-        )
         cur.execute(
             "select count(*) n from roster_picks where user_id=%s and season_id=%s",
             [bot["id"], season["id"]],
         )
-        if cur.fetchone()["n"] == 0:
-            picks = biased_order(pool, a["spread"], bot["id"], "draft")[
-                : season["roster_size"]
-            ]
-            for cid in picks:
-                cur.execute(
-                    """insert into roster_picks
-                    (user_id, season_id, contestant_id, active_from_episode,
-                     swap_penalty_points)
-                    values (%s,%s,%s,%s,0)""",
-                    [bot["id"], season["id"], cid, lock_ep],
-                )
-        print(f"  {a['name']:<20} {a['style']:<11} roster ok")
-    print(f"setup: {len(arche)} bots drafted for {season['name']}")
+        if cur.fetchone()["n"]:
+            continue
+        picks = biased_order(pool, a["spread"], bot["id"], "draft")[
+            : season["roster_size"]
+        ]
+        for cid in picks:
+            cur.execute(
+                """insert into roster_picks
+                (user_id, season_id, contestant_id, active_from_episode,
+                 swap_penalty_points)
+                values (%s,%s,%s,%s,0)""",
+                [bot["id"], season["id"], cid, lock_ep],
+            )
+        n += 1
+    print(f"draft: {n} bots rostered for {season['name']}")
 
 
 # ── one week ───────────────────────────────────────────────────────────────
@@ -568,7 +585,7 @@ def ballot(cur):
 
 
 def main():
-    cmds = ("setup", "week", "ballot")
+    cmds = ("setup", "draft", "week", "ballot")
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         sys.exit(f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]")
     conn = db()
@@ -577,6 +594,8 @@ def main():
             if sys.argv[1] == "setup":
                 with httpx.Client(timeout=30) as http:
                     setup(cur, http)
+            elif sys.argv[1] == "draft":
+                draft(cur)
             elif sys.argv[1] == "ballot":
                 ballot(cur)
             else:
