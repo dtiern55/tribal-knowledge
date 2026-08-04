@@ -8,9 +8,11 @@ run against a season nobody has watched yet.
 ```json
 {
   "draft": ["Most Wanted", "Next", "..."],
+  "avoid": ["Nobody would pick them after that premiere"],
   "episodes": {
     "2": {
       "likely_boots":   ["Most likely", "Next", "Third"],
+      "confidence":     "high | medium | low",
       "double_targets": ["Who the room would double"],
       "note":           "free text, echoed back when the week runs"
     }
@@ -31,9 +33,13 @@ Notes from building it:
 - **`draft` order drives ownership.** Naming someone first gets them rostered
   by nearly everyone, which is what makes their boot cascade through the
   league. That's realistic — use it deliberately.
-- **`double_targets` and list length steer the advantage split.** A short
-  `likely_boots` list reads as "the room is confident", which pushes the flex
-  personas onto the vote double; a wide field pushes them back to their roster
-  stars.
+- **`confidence` steers the advantage split**, and it defaults to `medium`.
+  `high` pushes the flex personas onto the vote double, `low` sends them to
+  their roster stars, `medium` splits them. State it — it used to be inferred
+  from how many names `likely_boots` held, which conflated "how many people
+  could go" with "how sure am I": a read covering two tribes looked uncertain
+  purely because it was long.
+- **`double_targets` decides who a roster double lands on** — bots only double
+  a castaway they actually roster, so naming a whole tribe is fine.
 - Names are matched case- and punctuation-insensitively. An unrecognised name
   stops the run rather than being silently dropped.

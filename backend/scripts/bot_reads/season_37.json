@@ -1,6 +1,5 @@
 {
   "_note": "Danny's pre-episode reads for Survivor: David vs. Goliath. Written after watching each episode, before the next one airs. Never contains results.",
-
   "draft": [
     "Christian Hubicki",
     "Mike White",
@@ -8,8 +7,9 @@
     "Dan Rengering",
     "Angelina Keeley"
   ],
-  "avoid": ["Natalie Cole"],
-
+  "avoid": [
+    "Natalie Cole"
+  ],
   "episodes": {
     "2": {
       "likely_boots": [
@@ -32,7 +32,8 @@
         "Natalia Azoqa",
         "Natalie Cole"
       ],
-      "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength."
+      "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength.",
+      "confidence": "medium"
     }
   }
 }
