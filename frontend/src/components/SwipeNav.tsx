@@ -20,7 +20,7 @@ export function SwipeNavBar({
   return (
     <div className="flex items-center gap-2 mt-8">
       <button
-        onClick={() => prev && navigate(prev)}
+        onClick={() => prev && navigate(prev, { replace: true })}
         disabled={!prev}
         aria-label={prevLabel ? `Previous: ${prevLabel}` : 'Previous'}
         className={cls}
@@ -29,7 +29,7 @@ export function SwipeNavBar({
         <span className="truncate">{prevLabel ?? 'Previous'}</span>
       </button>
       <button
-        onClick={() => next && navigate(next)}
+        onClick={() => next && navigate(next, { replace: true })}
         disabled={!next}
         aria-label={nextLabel ? `Next: ${nextLabel}` : 'Next'}
         className={`${cls} justify-end`}
