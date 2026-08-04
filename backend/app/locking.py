@@ -57,3 +57,18 @@ def next_open_episode(cur, season_id: str) -> dict | None:
         [season_id],
     )
     return cur.fetchone()
+
+
+def used_weekly_play(cur, user_id, episode_id) -> bool:
+    """Has this player already spent their one advantage play this episode?
+
+    #307: the allowance is one play per player per episode, whatever it was
+    spent on — a double or a paid roster swap. Callers must already hold the
+    user/season advisory lock, since this is a count-then-insert.
+    """
+    cur.execute(
+        "select 1 from advantage_plays"
+        " where user_id = %s and episode_id = %s limit 1",
+        [str(user_id), str(episode_id)],
+    )
+    return cur.fetchone() is not None

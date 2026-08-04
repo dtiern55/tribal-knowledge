@@ -352,11 +352,10 @@ class AdvantagePlay(BaseModel):
     created_at: datetime
 
 
-class AdvantageBuyRequest(BaseModel):
+class AdvantagePlayRequest(BaseModel):
+    """Spending the week's one advantage play (#307) — no separate buy step."""
+
     advantage_type: str
-
-
-class AdvantageUseRequest(BaseModel):
     target_contestant_id: Optional[UUID] = None
 
 

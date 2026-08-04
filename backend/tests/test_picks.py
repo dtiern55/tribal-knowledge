@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tests.helpers import (
-    grant_tokens,
+    insert_advantage_play,
     insert_contestant,
     insert_elimination,
     insert_episode,
@@ -104,20 +104,16 @@ def test_submit_picks_too_many(client, db_conn):
 
 @pytest.mark.integration
 def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
+    """Extra Vote is retired (#307) but its pick-limit machinery is kept, so
+    it can come back without being rebuilt. The play is inserted directly
+    because the advantage can no longer be chosen from the menu."""
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"], max_picks=1)
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
     insert_contestant(db_conn, season["id"], "Player C")  # keeps cap above 2
 
-    grant_tokens(db_conn, current_user["id"], season["id"], amount=20)
-    play = client.post(
-        f"/seasons/{season['id']}/advantage-plays",
-        json={"advantage_type": "extra_vote"},
-    )
-    assert play.status_code == 201
-    used = client.post(f"/advantage-plays/{play.json()['id']}/use", json={})
-    assert used.status_code == 200
+    insert_advantage_play(db_conn, current_user["id"], ep["id"], "extra_vote")
 
     r = client.post(
         f"/episodes/{ep['id']}/picks",

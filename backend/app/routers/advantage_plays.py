@@ -1,58 +1,22 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from psycopg2 import errors as pg_errors
 
 from app import database, scoring
 from app.auth import get_current_user
-from app.locking import advantages_locked, episode_locked, next_open_episode
-from app.schemas import (
-    AdvantageBuyRequest,
-    AdvantagePlay,
-    AdvantageType,
-    AdvantageUseRequest,
+from app.locking import (
+    advantages_locked,
+    episode_locked,
+    next_open_episode,
+    used_weekly_play,
 )
+from app.schemas import AdvantagePlay, AdvantagePlayRequest, AdvantageType
 
 router = APIRouter(tags=["advantage_plays"])
 
 # The only advantage that names a target. double_vote_points covers the whole
 # ballot (#303) and extra_vote raises the pick limit — neither takes one.
 _TARGETED_TYPES = {"double_roster_points"}
-
-
-def _roster_swap_buy_cost(cur, user_id: UUID, season_id: UUID) -> int:
-    """Price a roster_swap credit from the season's swap economics (#202).
-
-    Committed swaps (closed roster rows) plus credits already held both count
-    against max_swaps; the first free_swaps of them are free. Callers must
-    already hold the user/season advisory lock so this count-then-cap is safe.
-    """
-    cur.execute(
-        "select free_swaps, swap_token_cost, max_swaps from seasons where id = %s",
-        [str(season_id)],
-    )
-    season = cur.fetchone()
-    cur.execute(
-        "select count(*) as n from roster_picks"
-        " where user_id = %s and season_id = %s"
-        " and active_until_episode is not null",
-        [str(user_id), str(season_id)],
-    )
-    committed = cur.fetchone()["n"]
-    cur.execute(
-        "select count(*) as n from advantage_plays"
-        " where user_id = %s and season_id = %s"
-        " and advantage_type = 'roster_swap' and episode_id is null",
-        [str(user_id), str(season_id)],
-    )
-    held = cur.fetchone()["n"]
-    acquired = committed + held
-    if acquired >= season["max_swaps"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Swap limit reached ({season['max_swaps']} per season)",
-        )
-    return 0 if acquired < season["free_swaps"] else season["swap_token_cost"]
 
 
 @router.get("/advantage-types", response_model=list[AdvantageType])
@@ -113,102 +77,115 @@ def list_user_advantage_plays(
     response_model=AdvantagePlay,
     status_code=201,
 )
-def buy_advantage(
+def play_advantage(
     season_id: UUID,
-    body: AdvantageBuyRequest,
+    body: AdvantagePlayRequest,
     user_id: UUID = Depends(get_current_user),
 ):
-    """Buy an advantage into inventory (issue #47, buy → hold → use).
+    """Spend this episode's advantage play (#307).
 
-    Tokens are spent here, once and finally. The advantage binds to an
-    episode (and target) later, via the use endpoint. Stockpiling multiple
-    unused copies of the same type is allowed.
+    Every player gets exactly one play per episode — no buying, no inventory,
+    no balance. It always lands on the currently-open episode, and it is
+    reversible until that episode locks (see take_back_advantage).
+
+    The one-play rule is enforced here rather than by a unique constraint:
+    64 user-episodes in the practice seasons already hold multiple plays from
+    the token era, so the index could never be created. The advisory lock
+    below makes the count-then-insert safe.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
-            # Guards the balance check below against a concurrent double-spend.
+            # Serializes the one-play check below against a concurrent play.
             database.lock_user_season(cur, user_id, season_id)
 
-            # No buying once advantages are locked (#102) or once no open
-            # episode remains (#120) — either way a bought advantage could
-            # never be played, so the tokens would just burn.
             episode = next_open_episode(cur, str(season_id))
             if episode is None:
                 raise HTTPException(
                     status_code=400,
-                    detail="Advantages can no longer be bought this season",
+                    detail="No open episode to play an advantage in",
                 )
-
-            if body.advantage_type == "roster_swap":
-                # Swap credits price off the season's swap economics, not the
-                # flat advantage_types cost, and use their own cap (#202).
-                cost = _roster_swap_buy_cost(cur, user_id, season_id)
-            else:
-                cur.execute(
-                    "select advantage_lock_episode from seasons where id = %s",
-                    [str(season_id)],
-                )
-                adv_lock = cur.fetchone()["advantage_lock_episode"]
-                if advantages_locked(
-                    episode["episode_number"], episode["is_finale"], adv_lock
-                ):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Advantages can no longer be bought this season",
-                    )
-
-                cur.execute(
-                    "select token_cost from advantage_types"
-                    " where advantage_type = %s and enabled = true",
-                    [body.advantage_type],
-                )
-                advantage = cur.fetchone()
-                if not advantage:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Unknown advantage type: {body.advantage_type}",
-                    )
-                cost = advantage["token_cost"]
 
             cur.execute(
-                """
-                select coalesce(sum(amount), 0) as balance
-                from token_transactions
-                where user_id = %s and season_id = %s
-                """,
-                [str(user_id), str(season_id)],
+                "select advantage_lock_episode from seasons where id = %s",
+                [str(season_id)],
             )
-            balance = cur.fetchone()["balance"]
-            if balance < cost:
+            adv_lock = cur.fetchone()["advantage_lock_episode"]
+            if advantages_locked(
+                episode["episode_number"], episode["is_finale"], adv_lock
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Insufficient tokens: balance {balance}, cost {cost}",
+                    detail="Advantages can no longer be played this season",
+                )
+
+            cur.execute(
+                "select token_cost from advantage_types"
+                " where advantage_type = %s and enabled = true",
+                [body.advantage_type],
+            )
+            if not cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown advantage type: {body.advantage_type}",
+                )
+
+            if used_weekly_play(cur, user_id, episode["id"]):
+                raise HTTPException(
+                    status_code=409,
+                    detail="You have already used your advantage this episode",
+                )
+
+            if body.advantage_type in _TARGETED_TYPES:
+                if body.target_contestant_id is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"{body.advantage_type} requires a" " target_contestant_id"
+                        ),
+                    )
+                cur.execute(
+                    """
+                    select 1 from roster_picks
+                    where user_id = %s and season_id = %s and contestant_id = %s
+                      and active_until_episode is null
+                    """,
+                    [str(user_id), str(season_id), str(body.target_contestant_id)],
+                )
+                if not cur.fetchone():
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Target contestant is not on your active roster",
+                    )
+            elif body.target_contestant_id is not None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"{body.advantage_type} does not take a" " target_contestant_id"
+                    ),
                 )
 
             cur.execute(
                 """
                 insert into advantage_plays
-                    (user_id, season_id, advantage_type, token_cost)
-                values (%s, %s, %s, %s)
+                    (user_id, season_id, episode_id, advantage_type,
+                     target_contestant_id, token_cost)
+                values (%s, %s, %s, %s, %s, 0)
                 returning *
                 """,
-                [str(user_id), str(season_id), body.advantage_type, cost],
+                [
+                    str(user_id),
+                    str(season_id),
+                    episode["id"],
+                    body.advantage_type,
+                    (
+                        str(body.target_contestant_id)
+                        if body.target_contestant_id
+                        else None
+                    ),
+                ],
             )
-            play = cur.fetchone()
-
-            if cost > 0:
-                cur.execute(
-                    """
-                    insert into token_transactions
-                        (user_id, season_id, transaction_type,
-                         amount, advantage_play_id)
-                    values (%s, %s, 'advantage_spend', %s, %s)
-                    """,
-                    [str(user_id), str(season_id), -cost, play["id"]],
-                )
-
-            return play
+            return cur.fetchone()
 
 
 def _get_own_play(cur, play_id: UUID, user_id: UUID) -> dict:
@@ -220,114 +197,17 @@ def _get_own_play(cur, play_id: UUID, user_id: UUID) -> dict:
     return play
 
 
-@router.post("/advantage-plays/{play_id}/use", response_model=AdvantagePlay)
-def use_advantage(
-    play_id: UUID,
-    body: AdvantageUseRequest,
-    user_id: UUID = Depends(get_current_user),
-):
-    """Bind an owned advantage to the currently-open episode. Reversible
-    until that episode locks (see unuse_advantage).
+@router.delete("/advantage-plays/{play_id}", status_code=204)
+def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)):
+    """Take this episode's play back while the episode is still open (#307).
+
+    There is no inventory to return to any more — the play is simply undone
+    and the week's allowance is free again. A roster_swap play can't be taken
+    back here: the swap it paid for has already happened.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
             play = _get_own_play(cur, play_id, user_id)
-            if play["episode_id"] is not None:
-                raise HTTPException(status_code=409, detail="Advantage already in play")
-
-            episode = next_open_episode(cur, play["season_id"])
-            if not episode:
-                raise HTTPException(
-                    status_code=400, detail="No open episode to use this advantage in"
-                )
-            # Advantages lock late-game (issue #85; cutoff configurable per season).
-            cur.execute(
-                "select advantage_lock_episode from seasons where id = %s",
-                [play["season_id"]],
-            )
-            adv_lock = cur.fetchone()["advantage_lock_episode"]
-            if advantages_locked(
-                episode["episode_number"], episode["is_finale"], adv_lock
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Advantages can no longer be played this season",
-                )
-
-            if play["advantage_type"] in _TARGETED_TYPES:
-                if body.target_contestant_id is None:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"{play['advantage_type']} requires a"
-                            " target_contestant_id"
-                        ),
-                    )
-                cur.execute(
-                    """
-                    select 1 from roster_picks
-                    where user_id = %s and season_id = %s and contestant_id = %s
-                      and active_until_episode is null
-                    """,
-                    [str(user_id), play["season_id"], str(body.target_contestant_id)],
-                )
-                if not cur.fetchone():
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Target contestant is not on your active roster",
-                    )
-            elif body.target_contestant_id is not None:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"{play['advantage_type']} does not take a"
-                        " target_contestant_id"
-                    ),
-                )
-
-            try:
-                cur.execute(
-                    """
-                    update advantage_plays
-                    set episode_id = %s, target_contestant_id = %s
-                    where id = %s
-                    returning *
-                    """,
-                    [
-                        episode["id"],
-                        (
-                            str(body.target_contestant_id)
-                            if body.target_contestant_id
-                            else None
-                        ),
-                        str(play_id),
-                    ],
-                )
-            except pg_errors.UniqueViolation:
-                # Targeted doubles collide per target; a ballot-wide double
-                # collides per episode (#303).
-                scope = (
-                    "on that target this episode"
-                    if play["advantage_type"] in _TARGETED_TYPES
-                    else "this episode"
-                )
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"{play['advantage_type']} is already in play {scope}",
-                )
-            return cur.fetchone()
-
-
-@router.delete("/advantage-plays/{play_id}/use", response_model=AdvantagePlay)
-def unuse_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)):
-    """Take a used advantage back into inventory while its episode is still
-    open. No token movement — tokens were spent at purchase.
-    """
-    with database.get_db() as conn:
-        with conn.cursor() as cur:
-            play = _get_own_play(cur, play_id, user_id)
-            if play["episode_id"] is None:
-                raise HTTPException(status_code=400, detail="Advantage is not in play")
 
             cur.execute("select * from episodes where id = %s", [play["episode_id"]])
             episode = cur.fetchone()
@@ -337,43 +217,10 @@ def unuse_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)):
                     detail="Episode has locked; the advantage is spent",
                 )
 
-            if play["advantage_type"] == "extra_vote":
-                # Taking back an extra vote must not strand an over-limit
-                # pick set (decision on #47): drop a pick first.
-                cur.execute(
-                    """
-                    select count(*) as n from elimination_picks
-                    where user_id = %s and episode_id = %s
-                    """,
-                    [str(user_id), play["episode_id"]],
+            if play["advantage_type"] == "roster_swap":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Undo the roster swap itself to get this play back",
                 )
-                picks_n = cur.fetchone()["n"]
-                cur.execute(
-                    """
-                    select count(*) as n from advantage_plays
-                    where user_id = %s and episode_id = %s
-                      and advantage_type = 'extra_vote'
-                    """,
-                    [str(user_id), play["episode_id"]],
-                )
-                limit_after = episode["max_elimination_picks"] + cur.fetchone()["n"] - 1
-                if picks_n > limit_after:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            "Drop an elimination pick first: taking back the"
-                            f" extra vote leaves {picks_n} picks but a limit"
-                            f" of {limit_after}"
-                        ),
-                    )
 
-            cur.execute(
-                """
-                update advantage_plays
-                set episode_id = null, target_contestant_id = null
-                where id = %s
-                returning *
-                """,
-                [str(play_id)],
-            )
-            return cur.fetchone()
+            cur.execute("delete from advantage_plays where id = %s", [str(play_id)])

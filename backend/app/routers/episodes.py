@@ -80,6 +80,12 @@ def create_episode(
             )
             episode = cur.fetchone()
 
+            # INERT since #307: tokens buy nothing now (one free advantage
+            # play per week replaced them) and weekly_token_allocation
+            # defaults to 0, so this no-ops for every new season. Kept, not
+            # deleted, so the economy can be switched back on for a season if
+            # the weekly-play experiment doesn't hold up.
+            #
             # Fund the episode the moment its row exists (#217): one weekly
             # allocation per player per episode, granted here rather than when
             # the prior episode is scored — so a grant can never be silently

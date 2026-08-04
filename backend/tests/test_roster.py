@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tests.helpers import (
-    grant_tokens,
     insert_contestant,
     insert_elimination,
     insert_episode,
@@ -23,16 +22,6 @@ def _make_season_with_roster(conn, roster_size=3, lock_episode=2, **season_kwarg
         insert_contestant(conn, season["id"], f"Player {i}") for i in range(roster_size)
     ]
     return season, contestants
-
-
-def _buy_swap(client, season_id):
-    """Buy a roster_swap credit — swaps consume one now (#202)."""
-    r = client.post(
-        f"/seasons/{season_id}/advantage-plays",
-        json={"advantage_type": "roster_swap"},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()
 
 
 @pytest.mark.integration
@@ -163,16 +152,14 @@ def test_submit_roster_duplicate_contestant_ids(client, db_conn):
 @pytest.mark.integration
 def test_swap_roster_pick(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1
     )
-    grant_tokens(db_conn, current_user["id"], season["id"], amount=100)
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
         f"/seasons/{season['id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
-    _buy_swap(client, season["id"])  # charges the 30-token cost here now (#202)
     r = client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
@@ -189,53 +176,22 @@ def test_swap_roster_pick(client, db_conn, current_user):
     roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
     old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert old["active_until_episode"] == 2
-    # Swaps no longer dock points (2026-07-18): the cost comes from tokens
+    # Swaps don't dock points, and the first one each season is free (#307):
+    # no tokens, and crucially no advantage play either.
     assert old["swap_penalty_points"] == 0
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
-        "balance"
-    ]
-    assert balance == 70  # 100 funded - default 30 swap cost (spent at buy)
-
-
-@pytest.mark.integration
-def test_swap_uses_configured_token_cost(client, db_conn, current_user):
-    season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2, swap_token_cost=10
-    )
-    grant_tokens(db_conn, current_user["id"], season["id"], amount=10)
-    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
-    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
-    client.post(
-        f"/seasons/{season['id']}/roster",
-        json={"contestant_ids": [str(c["id"]) for c in contestants]},
-    )
-    _buy_swap(client, season["id"])  # the 10-token cost is charged at buy (#202)
-    client.post(
-        f"/seasons/{season['id']}/roster/swap",
-        json={
-            "old_contestant_id": str(contestants[0]["id"]),
-            "new_contestant_id": str(new_contestant["id"]),
-            "episode_id": str(ep3["id"]),
-        },
-    )
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
-        "balance"
-    ]
-    assert balance == 0  # exact-cost credit allowed
-    history = client.get(
-        f"/seasons/{season['id']}/tokens/{current_user['id']}/history"
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
     ).json()
-    spend_row = next(e for e in history if e["transaction_type"] == "advantage_spend")
-    assert spend_row["amount"] == -10
+    assert plays == []
 
 
 @pytest.mark.integration
-def test_first_swap_free_then_charged(client, db_conn, current_user):
-    # 1 free swap per season, later ones cost tokens (#159).
+def test_first_swap_free_then_costs_the_weekly_play(client, db_conn, current_user):
+    """#307: one free swap a season; after that a swap spends that week's
+    advantage play. No cap — you can swap as often as you'll pay for."""
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2, free_swaps=1, swap_token_cost=20
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1
     )
-    grant_tokens(db_conn, current_user["id"], season["id"], amount=20)
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
     new2 = insert_contestant(db_conn, season["id"], "New 2")
@@ -244,13 +200,11 @@ def test_first_swap_free_then_charged(client, db_conn, current_user):
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
 
-    def balance():
+    def plays():
         return client.get(
-            f"/seasons/{season['id']}/tokens/{current_user['id']}"
-        ).json()["balance"]
+            f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+        ).json()
 
-    _buy_swap(client, season["id"])  # first credit is free
-    assert balance() == 20
     r = client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
@@ -259,10 +213,8 @@ def test_first_swap_free_then_charged(client, db_conn, current_user):
         },
     )
     assert r.status_code == 200
-    assert balance() == 20  # free swap: nothing charged
+    assert plays() == []  # free: the week's play is untouched
 
-    _buy_swap(client, season["id"])  # second credit pays full price
-    assert balance() == 0
     r = client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
@@ -271,7 +223,40 @@ def test_first_swap_free_then_charged(client, db_conn, current_user):
         },
     )
     assert r.status_code == 200
-    assert balance() == 0
+    charged = plays()
+    assert [p["advantage_type"] for p in charged] == ["roster_swap"]
+    assert charged[0]["target_contestant_id"] == str(new2["id"])
+
+
+@pytest.mark.integration
+def test_swap_blocked_when_weekly_play_already_used(client, db_conn, current_user):
+    """The paid swap and the doubles draw on the same one play."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=0
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new1 = insert_contestant(db_conn, season["id"], "New 1")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    assert (
+        client.post(
+            f"/seasons/{season['id']}/advantage-plays",
+            json={"advantage_type": "double_vote_points"},
+        ).status_code
+        == 201
+    )
+
+    r = client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new1["id"]),
+        },
+    )
+    assert r.status_code == 400
+    assert "already used this episode" in r.json()["detail"]
 
 
 @pytest.mark.integration
@@ -318,37 +303,6 @@ def test_swap_blocked_into_finale(client, db_conn):
     )
     assert r.status_code == 400
     assert "locked" in r.json()["detail"]
-
-
-@pytest.mark.integration
-def test_swap_cap_reached(client, db_conn):
-    # max_swaps=1: the cap is enforced when buying the credit now (#202).
-    season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2, max_swaps=1, swap_token_cost=0
-    )
-    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
-    new1 = insert_contestant(db_conn, season["id"], "New 1")
-    client.post(
-        f"/seasons/{season['id']}/roster",
-        json={"contestant_ids": [str(c["id"]) for c in contestants]},
-    )
-    _buy_swap(client, season["id"])
-    first = client.post(
-        f"/seasons/{season['id']}/roster/swap",
-        json={
-            "old_contestant_id": str(contestants[0]["id"]),
-            "new_contestant_id": str(new1["id"]),
-            "episode_id": str(ep3["id"]),
-        },
-    )
-    assert first.status_code == 200
-    # One swap committed already fills max_swaps=1: no second credit can be bought.
-    second = client.post(
-        f"/seasons/{season['id']}/advantage-plays",
-        json={"advantage_type": "roster_swap"},
-    )
-    assert second.status_code == 400
-    assert "Swap limit" in second.json()["detail"]
 
 
 @pytest.mark.integration
@@ -406,7 +360,6 @@ def test_swap_re_add_past_contestant(client, db_conn):
         f"/seasons/{season['id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
-    _buy_swap(client, season["id"])
     client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
@@ -584,14 +537,12 @@ def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2
     )
-    grant_tokens(db_conn, current_user["id"], season["id"], amount=100)
     insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
         f"/seasons/{season['id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
-    _buy_swap(client, season["id"])
     r = client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
@@ -607,38 +558,3 @@ def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
             " where locktype = 'advisory' and pid = pg_backend_pid()"
         )
         assert cur.fetchone()["n"] == 1
-
-
-@pytest.mark.integration
-def test_swap_credit_buy_insufficient_tokens_rejected(client, db_conn, current_user):
-    """Swap credits cost tokens (#202): without the balance, no credit — and
-    without a credit, no swap."""
-    season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2
-    )
-    insert_episode(db_conn, season["id"], episode_number=3)
-    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
-    client.post(
-        f"/seasons/{season['id']}/roster",
-        json={"contestant_ids": [str(c["id"]) for c in contestants]},
-    )
-    # No tokens funded: buying the 30-token credit fails.
-    buy = client.post(
-        f"/seasons/{season['id']}/advantage-plays",
-        json={"advantage_type": "roster_swap"},
-    )
-    assert buy.status_code == 400
-    assert "Insufficient tokens" in buy.json()["detail"]
-    # And the swap itself refuses without a credit in hand.
-    r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
-        json={
-            "old_contestant_id": str(contestants[0]["id"]),
-            "new_contestant_id": str(new_contestant["id"]),
-        },
-    )
-    assert r.status_code == 400
-    assert "Buy a roster swap" in r.json()["detail"]
-    # nothing changed: roster intact
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
-    assert all(p["active_until_episode"] is None for p in roster)

@@ -28,6 +28,7 @@ import type {
   ScoringBreakdown,
   Season,
   StandingEntry,
+  TokenLedgerEntry,
 } from '../types'
 
 // My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
@@ -105,20 +106,82 @@ function useMySeasonData() {
   }
 }
 
-export function MyTribePage() {
+
+/**
+ * The week's single advantage play (#307).
+ *
+ * Every player gets exactly one play per episode — spend it on a roster
+ * double, a vote double, or a paid roster swap. Both sections of this page
+ * read the same play, so whichever surface it was spent on, the other one
+ * knows and says so.
+ */
+function useWeeklyPlay(
+  season: Season,
+  episodes: Episode[],
+  plays: AdvantagePlay[],
+  setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>,
+) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const openEpisode = episodes.find((e) => isEpisodeOpen(e, season))
+  const play = openEpisode ? plays.find((p) => p.episode_id === openEpisode.id) : undefined
+  const locked = openEpisode ? advantagesLocked(openEpisode, season) : true
+
+  async function spend(advantageType: string, targetContestantId?: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      const created = await api.post<AdvantagePlay>(
+        `/seasons/${season.id}/advantage-plays`,
+        {
+          advantage_type: advantageType,
+          target_contestant_id: targetContestantId ?? null,
+        },
+      )
+      setPlays((prev) => [...prev, created])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Advantage failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function takeBack(target: AdvantagePlay) {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.delete(`/advantage-plays/${target.id}`)
+      setPlays((prev) => prev.filter((p) => p.id !== target.id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Take back failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return { openEpisode, play, locked, busy, error, spend, takeBack }
+}
+
+export function MySeasonPage() {
   const d = useMySeasonData()
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-red-600">{d.error}</p>
   if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
 
   const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
+  const pickResults = new Map(
+    d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
+  )
 
+  // One page you have to visit each week (#307): what's due, your roster,
+  // your votes. Both roster and votes carry a button for the same single
+  // advantage play, so the trade-off is visible wherever you are.
   return (
     <div className="space-y-10">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{d.season.name}</h1>
-          <p className="text-sm text-gray-500">My Tribe</p>
+          <p className="text-sm text-gray-500">My Season</p>
         </div>
         <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
       </div>
@@ -144,36 +207,136 @@ export function MyTribePage() {
           rosterVersion={d.rosterVersion}
         />
       </section>
+
+      <section id="votes" className="scroll-mt-20">
+        <PicksSection
+          season={d.season}
+          contestants={d.contestants}
+          episodes={d.episodes}
+          userId={d.userId}
+          plays={d.plays}
+          setPlays={d.setPlays}
+          pickResults={pickResults}
+        />
+      </section>
+
+      <PlayHistorySection
+        season={d.season}
+        userId={d.userId}
+        plays={d.plays}
+        contestants={d.contestants}
+        episodes={d.episodes}
+      />
     </div>
   )
 }
 
-export function MyVotesPage() {
-  const d = useMySeasonData()
-  if (d.loading) return <PageLoader />
-  if (d.error) return <p className="text-red-600">{d.error}</p>
-  if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
 
-  const pickResults = new Map(
-    d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
-  )
+/**
+ * Everything you've already played, tucked out of the way (#307).
+ *
+ * The token ledger only renders for seasons that actually had one — tokens
+ * are retired, but Cagayan/S49/S50 keep a real history and stay readable
+ * forever (#170).
+ */
+function PlayHistorySection({
+  season,
+  userId,
+  plays,
+  contestants,
+  episodes,
+}: {
+  season: Season
+  userId: string
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
+  episodes: Episode[]
+}) {
+  const [ledger, setLedger] = useState<TokenLedgerEntry[] | null>(null)
+
+  useEffect(() => {
+    let live = true
+    api
+      .get<TokenLedgerEntry[]>(`/seasons/${season.id}/tokens/${userId}/history`)
+      .then((h) => live && setLedger(h))
+      .catch(() => live && setLedger([]))
+    return () => {
+      live = false
+    }
+  }, [season.id, userId])
+
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
+  const spent = plays.filter((p) => {
+    const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
+    return ep != null && !isEpisodeOpen(ep, season)
+  })
+  if (spent.length === 0 && (ledger == null || ledger.length === 0)) return null
 
   return (
-    <div className="space-y-10">
-      <div>
-        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{d.season.name}</h1>
-        <p className="text-sm text-gray-500">My Votes</p>
-      </div>
-      <PicksSection
-        season={d.season}
-        contestants={d.contestants}
-        episodes={d.episodes}
-        userId={d.userId}
-        plays={d.plays}
-        setPlays={d.setPlays}
-        pickResults={pickResults}
-      />
-    </div>
+    <SectionShell title="Play History" defaultOpen={false}>
+      {spent.length > 0 && (
+        <ul className="space-y-2">
+          {[...spent].reverse().map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
+            >
+              <span className="text-gray-700">
+                {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
+                {p.target_contestant_id && (
+                  <span className="text-gray-500">
+                    {' '}
+                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                  </span>
+                )}
+                <span className="text-gray-500">
+                  {' '}
+                  · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
+                </span>
+              </span>
+              {p.points_earned != null && (
+                <span
+                  className={`text-xs shrink-0 ${
+                    p.points_earned > 0 ? 'text-green-600 font-medium' : 'text-gray-500'
+                  }`}
+                >
+                  {p.points_earned > 0 ? '+' : ''}
+                  {p.points_earned} pts
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {ledger != null && ledger.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+            Token ledger (retired)
+          </p>
+          <ul className="space-y-1.5">
+            {ledger.map((h, i) => (
+              <li
+                key={`${h.created_at}:${i}`}
+                className="flex items-center justify-between text-sm text-gray-600"
+              >
+                <span>
+                  {h.description ?? h.transaction_type.replace(/_/g, ' ')}
+                  {h.episode_number != null && (
+                    <span className="text-gray-400"> · Episode {h.episode_number}</span>
+                  )}
+                </span>
+                <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
+                  {h.amount > 0 ? '+' : ''}
+                  {h.amount}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </SectionShell>
   )
 }
 
@@ -426,8 +589,6 @@ function RosterSection({
 
   // Double Roster Points, playable inline here as well as on Advantages (#81).
   const [dblTarget, setDblTarget] = useState('')
-  const [advBusy, setAdvBusy] = useState(false)
-  const [advError, setAdvError] = useState<string | null>(null)
 
   // Tap-to-expand per-episode breakdown (#257): lazy-fetch each contestant's
   // performance the first time its card is opened.
@@ -495,25 +656,18 @@ function RosterSection({
   // Swap gating (issue #84). A swapped-out pick = one swap used. Swaps now
   // spend a credit bought on the Advantages page (#202).
   const swapsUsed = swappedRoster.length
-  const swapCredits = plays.filter(
-    (p) => p.episode_id === null && p.advantage_type === 'roster_swap',
-  ).length
   const swapLocked = swapsLocked(season, episodes)
-  const swapCapReached = swapsUsed >= season.max_swaps
 
-  // Double Roster Points target the next open episode's roster scoring (#81).
-  const nextOpenEpisode = episodes.find((e) => isEpisodeOpen(e, season))
-  const ownedDoubleRoster = plays.filter(
-    (p) => p.episode_id === null && p.advantage_type === 'double_roster_points',
+  // Double Roster Points target the next open episode's roster scoring (#81),
+  // and draw on the same single weekly play as the vote double and paid
+  // swaps (#307).
+  const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+  const nextOpenEpisode = weekly.openEpisode
+  const rosterDouble =
+    weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
+  const doubleTargets = activeRoster.filter(
+    (p) => p.contestant_id !== rosterDouble?.target_contestant_id,
   )
-  const activeDoubleRoster = plays.filter(
-    (p) =>
-      nextOpenEpisode != null &&
-      p.episode_id === nextOpenEpisode.id &&
-      p.advantage_type === 'double_roster_points',
-  )
-  const doubledRosterIds = new Set(activeDoubleRoster.map((p) => p.target_contestant_id))
-  const doubleTargets = activeRoster.filter((p) => !doubledRosterIds.has(p.contestant_id))
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
 
@@ -577,38 +731,6 @@ function RosterSection({
     }
   }
 
-  function replacePlay(updated: AdvantagePlay) {
-    setPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
-  }
-
-  async function playDoubleRoster(play: AdvantagePlay, targetContestantId: string) {
-    setAdvBusy(true)
-    setAdvError(null)
-    try {
-      replacePlay(
-        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
-          target_contestant_id: targetContestantId,
-        }),
-      )
-      setDblTarget('')
-    } catch (e) {
-      setAdvError(e instanceof Error ? e.message : 'Advantage failed')
-    } finally {
-      setAdvBusy(false)
-    }
-  }
-
-  async function takeBackDoubleRoster(play: AdvantagePlay) {
-    setAdvBusy(true)
-    setAdvError(null)
-    try {
-      replacePlay(await api.delete<AdvantagePlay>(`/advantage-plays/${play.id}/use`))
-    } catch (e) {
-      setAdvError(e instanceof Error ? e.message : 'Take back failed')
-    } finally {
-      setAdvBusy(false)
-    }
-  }
 
   return (
     <SectionShell
@@ -677,69 +799,62 @@ function RosterSection({
             ))}
           </ul>
 
-          {nextOpenEpisode != null &&
-            !nextOpenEpisode.is_finale &&
-            (ownedDoubleRoster.length > 0 || activeDoubleRoster.length > 0) && (
-              <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                  Advantages · Episode {nextOpenEpisode.episode_number}
+          {nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
+            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                Your play · Episode {nextOpenEpisode.episode_number}
+              </p>
+              {rosterDouble ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">
+                    Doubling{' '}
+                    <span className="font-medium">
+                      {contestantMap.get(rosterDouble.target_contestant_id ?? '')?.name ?? '—'}
+                    </span>{' '}
+                    this episode
+                  </span>
+                  <button
+                    onClick={() => void weekly.takeBack(rosterDouble)}
+                    disabled={weekly.busy}
+                    className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                  >
+                    Take back
+                  </button>
+                </div>
+              ) : weekly.play ? (
+                /* Spent elsewhere — say where, and how to get it back (#307). */
+                <p className="text-sm text-gray-600">
+                  {weekly.play.advantage_type === 'roster_swap'
+                    ? 'Your play went on a roster swap this episode.'
+                    : 'Your play is on your votes this episode — take it back there to use it here.'}
                 </p>
-                {activeDoubleRoster.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700">
-                      Double Roster Points on{' '}
-                      <span className="font-medium">
-                        {contestantMap.get(d.target_contestant_id ?? '')?.name ?? '—'}
-                      </span>
-                    </span>
-                    <button
-                      onClick={() => void takeBackDoubleRoster(d)}
-                      disabled={advBusy}
-                      className="text-xs text-amber-700 hover:text-amber-900 font-medium"
-                    >
-                      Take back
-                    </button>
-                  </div>
-                ))}
-                {ownedDoubleRoster.length > 0 &&
-                  (doubleTargets.length > 0 ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-700 shrink-0">
-                        Double roster pts
-                        {ownedDoubleRoster.length > 1
-                          ? ` (${ownedDoubleRoster.length} owned)`
-                          : ''}
-                        :
-                      </span>
-                      <select
-                        value={dblTarget}
-                        onChange={(e) => setDblTarget(e.target.value)}
-                        className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
-                      >
-                        <option value="">Choose…</option>
-                        {doubleTargets.map((p) => (
-                          <option key={p.id} value={p.contestant_id}>
-                            {contestantMap.get(p.contestant_id)?.name ?? '—'}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => void playDoubleRoster(ownedDoubleRoster[0], dblTarget)}
-                        disabled={advBusy || !dblTarget}
-                        className="px-3 py-1 bg-amber-700 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
-                      >
-                        Double ×2
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      You own {ownedDoubleRoster.length} Double Roster Points — every active
-                      pick is already doubled this episode.
-                    </p>
-                  ))}
-                {advError && <p className="text-red-600 text-xs">{advError}</p>}
-              </div>
-            )}
+              ) : doubleTargets.length > 0 ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <select
+                    value={dblTarget}
+                    onChange={(e) => setDblTarget(e.target.value)}
+                    className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
+                    aria-label="Contestant to double"
+                  >
+                    <option value="">Choose a castaway…</option>
+                    {doubleTargets.map((p) => (
+                      <option key={p.id} value={p.contestant_id}>
+                        {contestantMap.get(p.contestant_id)?.name ?? '—'}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => void weekly.spend('double_roster_points', dblTarget)}
+                    disabled={weekly.busy || !dblTarget}
+                    className="px-3 py-2 bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
+                  >
+                    Double ×2
+                  </button>
+                </div>
+              ) : null}
+              {weekly.error && <p className="text-red-600 text-xs">{weekly.error}</p>}
+            </div>
+          )}
 
           {swappedRoster.length > 0 && (
             <SectionShell title="Swapped Out" defaultOpen={false}>
@@ -776,15 +891,12 @@ function RosterSection({
             </SectionShell>
           )}
 
-          {/* Swap only appears when you can actually act on it (#swap redesign):
-              a credit ready, not locked/capped, and a valid drop+add available.
-              No credits / locked → nothing here; buy a credit on Advantages and
-              it reappears (the "use it" deep-link lands here since you'll have one). */}
+          {/* Swaps are uncapped now (#307): the first free_swaps of the season
+              are free — they don't even cost the week's advantage play — and
+              every one after that spends the play instead. */}
           {!windowOpen &&
             season.status !== 'completed' &&
             !swapLocked &&
-            !swapCapReached &&
-            swapCredits > 0 &&
             upcomingEpisodes.length > 0 &&
             swapCandidates.length > 0 && (
               <div
@@ -794,8 +906,15 @@ function RosterSection({
               >
                 <SectionTitle>Swap a Roster Pick</SectionTitle>
                 <p className="text-xs text-gray-500 mb-3">
-                  {swapCredits} swap {swapCredits === 1 ? 'credit' : 'credits'} ready ·{' '}
-                  {swapsUsed} of {season.max_swaps} used
+                  {swapsUsed < season.free_swaps
+                    ? `Free swap${season.free_swaps - swapsUsed > 1 ? 's' : ''} left: ${
+                        season.free_swaps - swapsUsed
+                      }`
+                    : weekly.play?.advantage_type === 'roster_swap'
+                      ? 'Your advantage play already went on a swap this episode.'
+                      : weekly.play
+                        ? 'Your advantage play is on a double this episode — take it back above to swap.'
+                        : 'This will use your advantage play for the episode.'}
                   {season.swap_lock_episode != null &&
                     ` · swaps lock at episode ${season.swap_lock_episode}`}
                 </p>
@@ -965,8 +1084,6 @@ function PicksSection({
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [errors, setErrors] = useState<Map<string, string>>(new Map())
-  const [advBusy, setAdvBusy] = useState(false)
-  const [advError, setAdvError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
 
   useEffect(() => {
@@ -1015,39 +1132,6 @@ function PicksSection({
     })
   }
 
-  function replacePlay(updated: AdvantagePlay) {
-    setPlays((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
-  }
-
-  // Nothing played from Weekly Votes names a target any more (#303).
-  async function applyPlay(play: AdvantagePlay) {
-    setAdvBusy(true)
-    setAdvError(null)
-    try {
-      replacePlay(
-        await api.post<AdvantagePlay>(`/advantage-plays/${play.id}/use`, {
-          target_contestant_id: null,
-        }),
-      )
-    } catch (e) {
-      setAdvError(e instanceof Error ? e.message : 'Advantage failed')
-    } finally {
-      setAdvBusy(false)
-    }
-  }
-
-  async function takeBackPlay(play: AdvantagePlay) {
-    setAdvBusy(true)
-    setAdvError(null)
-    try {
-      replacePlay(await api.delete<AdvantagePlay>(`/advantage-plays/${play.id}/use`))
-    } catch (e) {
-      setAdvError(e instanceof Error ? e.message : 'Take back failed')
-    } finally {
-      setAdvBusy(false)
-    }
-  }
-
   function cancelEdit(episodeId: string) {
     const saved = picksByEpisode.get(episodeId) ?? []
     setPending((prev) => new Map(prev).set(episodeId, new Set(saved.map((p) => p.contestant_id))))
@@ -1075,6 +1159,7 @@ function PicksSection({
     }
   }
 
+  const play = useWeeklyPlay(season, episodes, plays, setPlays)
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
   // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
@@ -1210,22 +1295,10 @@ function PicksSection({
           const hasSavedPicks = savedPicks.length > 0
           const confirmed = hasSavedPicks && !editing
 
-          // Multiple owned advantages can be played per episode (#14):
-          // extra votes stack; doubles apply to distinct targets.
-          const ownedExtras = plays.filter(
-            (p) => p.episode_id === null && p.advantage_type === 'extra_vote',
-          )
-          const activeExtras = plays.filter(
-            (p) => p.episode_id === ep.id && p.advantage_type === 'extra_vote',
-          )
-          const ownedDoubles = plays.filter(
-            (p) => p.episode_id === null && p.advantage_type === 'double_vote_points',
-          )
-          const activeDoubles = plays.filter(
-            (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
-          )
-          // One ballot-wide double per episode (#303) — every pick counts ×2.
-          const ballotDoubled = activeDoubles.length > 0
+          // One play per episode (#307); on the ballot it doubles every pick
+          // (#303). Extra votes are retired, so the pick limit is the
+          // episode's own.
+          const ballotDoubled = play.play?.advantage_type === 'double_vote_points'
           // You can never vote for every remaining castaway — cap at
           // (still in the game − 1), even with extra votes (#240).
           const stillIn = contestants.filter(
@@ -1235,7 +1308,7 @@ function PicksSection({
           ).length
           const maxPicks = Math.max(
             0,
-            Math.min(ep.max_elimination_picks + activeExtras.length, stillIn - 1),
+            Math.min(ep.max_elimination_picks, stillIn - 1),
           )
 
           // Only list castaways still in the game, grouped by tribe so the
@@ -1306,7 +1379,6 @@ function PicksSection({
                 <>
                   <p className="text-xs text-gray-500 mb-4">
                     Vote for up to {maxPicks} to be eliminated · {epPending.size} / {maxPicks} selected
-                    {activeExtras.length > 0 && ` · +${activeExtras.length} extra vote${activeExtras.length > 1 ? 's' : ''}`}
                   </p>
                   <div className="space-y-4 mb-4">
                     {[...byTribe.entries()].map(([tribeName, members]) => (
@@ -1354,78 +1426,44 @@ function PicksSection({
                 </>
               )}
 
-              {advantagesLocked(ep, season)
-                ? (ownedExtras.length > 0 || ownedDoubles.length > 0) && (
-                    <p className="mb-4 text-xs text-amber-700">
-                      Advantages are locked for the rest of the season.
-                    </p>
-                  )
-                : (ownedExtras.length > 0 ||
-                    activeExtras.length > 0 ||
-                    ownedDoubles.length > 0 ||
-                    activeDoubles.length > 0) && (
-                    <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                        Advantages
-                      </p>
-                  {activeExtras.length > 0 && (
+              {!play.locked && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                    Your play · Episode {ep.episode_number}
+                  </p>
+                  {ballotDoubled ? (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">
-                        {activeExtras.length} Extra Vote{activeExtras.length > 1 ? 's' : ''} in
-                        play — you can vote for {activeExtras.length} more this episode
+                        Every vote this episode counts ×2
                       </span>
                       <button
-                        onClick={() => void takeBackPlay(activeExtras[activeExtras.length - 1])}
-                        disabled={advBusy}
-                        className="text-xs text-amber-700 hover:text-amber-900 font-medium"
-                      >
-                        Take one back
-                      </button>
-                    </div>
-                  )}
-                  {ownedExtras.length > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">
-                        You own {ownedExtras.length} Extra Vote{ownedExtras.length > 1 ? 's' : ''}
-                      </span>
-                      <button
-                        onClick={() => void applyPlay(ownedExtras[0])}
-                        disabled={advBusy}
-                        className="px-3 py-1 bg-amber-700 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
-                      >
-                        Play one (+1 vote)
-                      </button>
-                    </div>
-                  )}
-                  {activeDoubles.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">
-                        Double Vote Points in play — every vote this episode counts ×2
-                      </span>
-                      <button
-                        onClick={() => void takeBackPlay(d)}
-                        disabled={advBusy}
+                        onClick={() => void play.takeBack(play.play!)}
+                        disabled={play.busy}
                         className="text-xs text-amber-700 hover:text-amber-900 font-medium"
                       >
                         Take back
                       </button>
                     </div>
-                  ))}
-                  {ownedDoubles.length > 0 && !ballotDoubled && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">
-                        You own {ownedDoubles.length} Double Vote Points
-                      </span>
-                      <button
-                        onClick={() => void applyPlay(ownedDoubles[0])}
-                        disabled={advBusy}
-                        className="px-3 py-1 bg-amber-700 text-white text-xs font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
-                      >
-                        Play one (all votes ×2)
-                      </button>
-                    </div>
+                  ) : play.play ? (
+                    /* Spent elsewhere — say where, and how to get it back (#307). */
+                    <p className="text-sm text-gray-600">
+                      {play.play.advantage_type === 'roster_swap'
+                        ? 'Your play went on a roster swap this episode.'
+                        : `Your play is on ${
+                            contestantMap.get(play.play.target_contestant_id ?? '')?.name ??
+                            'your roster'
+                          } this week — take it back on My Roster to use it here.`}
+                    </p>
+                  ) : (
+                    <button
+                      onClick={() => void play.spend('double_vote_points')}
+                      disabled={play.busy}
+                      className="w-full px-4 py-2 bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
+                    >
+                      Double all my votes ×2
+                    </button>
                   )}
-                  {advError && <p className="text-red-600 text-xs">{advError}</p>}
+                  {play.error && <p className="text-red-600 text-xs">{play.error}</p>}
                 </div>
               )}
 
