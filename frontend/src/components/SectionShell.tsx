@@ -33,17 +33,18 @@ export function SectionShell({
     })
   }
   const shown = collapsible ? open : true
-  const label = (
-    <span
-      className={`text-xs font-semibold uppercase tracking-wide ${
-        prominent ? 'text-ocean-800' : 'text-gray-500'
-      }`}
-    >
+  // The weekly essentials read as headings; supporting sections stay as
+  // small uppercase labels. Colour alone wasn't enough of a difference —
+  // My Roster and Sole Survivor looked like peers.
+  const label = prominent ? (
+    <span className="font-display text-lg tracking-wide text-ocean-800">{title}</span>
+  ) : (
+    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
       {title}
     </span>
   )
-  const bar = `w-full flex items-center gap-2 pl-2 border-l-2 ${shown ? 'mb-3' : ''} ${
-    prominent ? 'border-ocean-500' : 'border-ember-500'
+  const bar = `w-full flex items-center gap-2 ${shown ? 'mb-3' : ''} ${
+    prominent ? 'pl-3 border-l-4 border-ocean-500' : 'pl-2 border-l-2 border-ember-500'
   }`
   return (
     <div>

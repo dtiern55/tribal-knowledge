@@ -84,9 +84,9 @@ export function StandingsPage() {
         <h1 className="font-display text-3xl tracking-wide text-ocean-800">Standings</h1>
         <span className="text-sm text-gray-500">{season.name}</span>
       </div>
-      <p className="text-sm text-gray-500 mb-6">
-        {season.status === 'completed' ? 'Final standings' : 'Standings'}
-      </p>
+      {season.status === 'completed' && (
+        <p className="text-sm text-gray-500 mb-6">Final standings</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

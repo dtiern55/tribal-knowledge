@@ -197,7 +197,10 @@ class SeasonCreateRequest(BaseModel):
     merge_episode: Optional[int] = Field(default=None, gt=0)
     swap_token_cost: int = Field(default=20, ge=0)
     free_swaps: int = Field(default=1, ge=0)
-    weekly_token_allocation: int = Field(default=10, ge=0)
+    # Tokens are retired (#307). Kept so a season can switch the economy back
+    # on deliberately; the default must be 0 or every new season silently
+    # accrues an allowance that buys nothing (DvG banked 2,730 of them).
+    weekly_token_allocation: int = Field(default=0, ge=0)
     ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 

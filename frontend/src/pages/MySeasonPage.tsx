@@ -181,7 +181,6 @@ export function MySeasonPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{d.season.name}</h1>
-          <p className="text-sm text-gray-500">My Season</p>
         </div>
         <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
       </div>
@@ -419,6 +418,27 @@ function ThisWeekHub({
         ) : (
           <p className="text-gray-500">You're all caught up — no episodes left to play.</p>
         )}
+      </div>
+    )
+  }
+
+  // A watch-only premiere hasn't aired yet, but isEpisodeOpen skips every
+  // episode below the roster lock — so nextOpen points at episode 2 and the
+  // card reads "This Week · Episode 2" before anyone has seen episode 1.
+  // Nothing is pickable until the premiere is scored, so say that instead.
+  const premiere = episodes.find(
+    (e) => e.episode_number < (season.roster_lock_episode ?? 1) && e.status !== 'scored',
+  )
+  if (premiere) {
+    return (
+      <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">
+          Episode {premiere.episode_number} · watch only
+        </p>
+        <p className="text-sm text-gray-700">
+          Nothing to pick yet — watch the premiere and get a feel for the cast.
+          Rosters open once it's scored.
+        </p>
       </div>
     )
   }
@@ -978,8 +998,7 @@ function RosterSection({
               : `Pick ${season.roster_size} castaways for your season roster.`}
           </p>
           <p className="text-xs text-gray-500 mb-4">
-            Lock-in before episode {season.roster_lock_episode} · {selected.size} /{' '}
-            {season.roster_size} selected
+            {selected.size} / {season.roster_size} selected
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {contestants.map((c) => {
