@@ -1,24 +1,53 @@
-"""Practice-league bot driver (see design/bot-personas.md).
+"""Practice-league bot driver — persona-based, forward-looking (#307 era).
 
-Twenty outcome-scripted bots calibrate the advantages: 5 Double-Roster, 5
-Double-Vote, 5 Extra-Vote specialists + 5 generalists, one per skill tier
-(100/80/60/40/20%). Skill = the rate at which a bot succeeds at whatever it
-attempts (predicting the boot, doubling the true top scorer, landing the extra
-pick). Bots get foresight (the known Cagayan results) — test instruments only.
+Seventeen bots plus the human make an 18-player league. Each bot has a
+PERSONA, not a skill dial, and acts on the commissioner's pre-episode read of
+what the room would do. Nothing here knows the result: picks are made BEFORE
+the episode airs, exactly like a real player's, so the driver can run against
+a season nobody has watched yet.
 
-Usage (against PROD, service role):
-    uv run python scripts/run_bots.py setup       # accounts, labels, rosters
-    uv run python scripts/run_bots.py play <N>    # simulate a *scored* episode
-    uv run python scripts/run_bots.py swap        # swap all bots into the next open ep
-    uv run python scripts/run_bots.py ballot      # file every bot's finale ballot
+That's the whole point of the rewrite. The old driver was handed the answer
+and used a skill percentage to decide how often to use it, which made every
+measurement of player behaviour circular — bots "predicting" the boot were
+just echoing it back. Now the commissioner supplies the BEHAVIOUR and survivoR
+supplies the OUTCOME, and the interaction is what we learn from.
+
+Usage (from backend/):
+    uv run python scripts/run_bots.py setup            # accounts, labels, draft
+    uv run python scripts/run_bots.py week 2           # picks + plays for ep 2
+    uv run python scripts/run_bots.py ballot           # finale ballot
+
+`week N` runs BEFORE episode N airs. Import and score the episode afterwards
+with scripts/import_episode.py, then run `week N+1`.
+
+The read file (scripts/bot_reads/season_<n>.json) is the commissioner's input:
+
+    {
+      "draft": ["Mike White", "John Hennigan", ...],       // desirability order
+      "episodes": {
+        "2": {
+          "likely_boots":    ["Jessica Peet", "Pat Cusack", "Natalia Azoqa"],
+          "double_targets":  ["Mike White"],
+          "note":            "Goliath looks like a powerhouse"
+        }
+      },
+      "finale": { "winner": [...], "early_boot": [...], "fire_loss": [...] }
+    }
+
+Names are matched loosely (case and punctuation insensitive) against the
+season's contestants; anything unrecognised is reported rather than ignored.
 
 Writes directly to the DB with the service role, idempotent per episode.
 """
 
 import hashlib
+import json
+import math
 import os
+import re
 import secrets
 import sys
+from pathlib import Path
 
 import httpx
 import psycopg2
@@ -28,36 +57,36 @@ from dotenv import load_dotenv
 ENV = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(ENV)
 
-SKILLS = [100, 80, 60, 40, 20]
+READS_DIR = Path(__file__).resolve().parent / "bot_reads"
+
+# The league Danny signed off on (2026-08-04). `spread` controls how far down
+# the read's likely-boot list a bot will wander: small hugs the consensus,
+# large spreads out. Nobody skips their weekly play.
+#
+#   flex        — reads the week: doubles a roster star if they hold one,
+#                 otherwise doubles the ballot
+#   roster      — always doubles a rostered castaway
+#   vote        — always doubles the ballot
+#   contrarian  — picks off-consensus, and doubles the ballot when the room
+#                 looks confident (a short likely-boot list)
+PERSONAS = [
+    ("Consensus", 4, 0.6, "flex"),
+    ("Reader", 6, 1.8, "flex"),
+    ("Contrarian", 2, 2.5, "contrarian"),
+    ("Roster Loyalist", 3, 1.0, "roster"),
+    ("Vote Gambler", 2, 0.5, "vote"),
+]
 
 
 def archetypes() -> list[dict]:
-    """The 20 bots: (group, skill, display_name). Two flavor labels for UI edge
-    cases (emoji, very long name) ride on generalist tiers."""
     out = []
-    for group, label in [
-        ("double_roster", "Roster×2"),
-        ("double_vote", "Vote×2"),
-        ("extra_vote", "Extra Vote"),
-        ("generalist", "All-Rounder"),
-    ]:
-        for skill in SKILLS:
-            name = f"{label} · {skill}%"
-            if group == "generalist" and skill == 80:
-                name += " 🔥"
-            if group == "generalist" and skill == 20:
-                # A near-max-length name (40-char limit) for UI wrap coverage.
-                name = "All-Rounder · 20% — long-ish name test"
+    for label, count, spread, style in PERSONAS:
+        for i in range(1, count + 1):
             out.append(
                 {
-                    "group": group,
-                    "skill": skill,
-                    "name": name,
-                    "plays": (
-                        ["double_roster", "double_vote", "extra_vote"]
-                        if group == "generalist"
-                        else [group]
-                    ),
+                    "name": f"{label} {i}" if count > 1 else label,
+                    "spread": spread,
+                    "style": style,
                 }
             )
     return out
@@ -67,6 +96,26 @@ def rng(*parts) -> float:
     """Deterministic 0..1 from a stable seed — reproducible bot luck."""
     h = hashlib.sha256("·".join(str(p) for p in parts).encode()).hexdigest()
     return int(h[:8], 16) / 0xFFFFFFFF
+
+
+def norm(name: str) -> str:
+    return re.sub(r"[^a-z]", "", name.lower())
+
+
+def biased_order(items: list, spread: float, *seed) -> list:
+    """Deterministic shuffle biased toward the front of `items`.
+
+    An exponential race: each item's key is its rank penalty minus log(u).
+    spread → 0 always takes the list in order; large spread approaches a
+    uniform shuffle. This is what makes bots agree with each other without
+    being identical — real leagues read the same edit and cluster, which the
+    old independent-coin-flip bots could never reproduce.
+    """
+    keyed = []
+    for i, it in enumerate(items):
+        u = max(rng(*seed, it), 1e-9)
+        keyed.append((i / max(spread, 0.01) - math.log(u), it))
+    return [it for _, it in sorted(keyed, key=lambda kv: kv[0])]
 
 
 def db():
@@ -88,6 +137,34 @@ def active_season(cur) -> dict:
     if not s:
         sys.exit("No active season")
     return s
+
+
+def load_read(season) -> dict:
+    path = READS_DIR / f"season_{season['season_number']}.json"
+    if not path.exists():
+        sys.exit(
+            f"No read file at {path}\n"
+            "Create it with the commissioner's pre-episode read — see the"
+            " module docstring for the shape."
+        )
+    return json.loads(path.read_text())
+
+
+def resolve(cur, sid, names: list[str], label: str) -> list[str]:
+    """Read-file names → contestant ids, loudly on a miss.
+
+    A typo silently dropping a name would quietly change every bot's picks,
+    so an unknown name stops the run instead.
+    """
+    cur.execute("select id::text cid, name from contestants where season_id=%s", [sid])
+    by_norm = {norm(r["name"]): r["cid"] for r in cur.fetchall()}
+    out, missing = [], []
+    for n in names:
+        cid = by_norm.get(norm(n))
+        (out if cid else missing).append(cid or n)
+    if missing:
+        sys.exit(f"{label}: not in this season's cast: {missing}")
+    return out
 
 
 # ── setup ──────────────────────────────────────────────────────────────────
@@ -127,10 +204,15 @@ def load_bots(cur) -> list[dict]:
 
 
 def setup(cur, http):
+    """Accounts, persona labels, and the opening draft.
+
+    The draft is weighted by the read's desirability order, so the popular
+    castaways are over-rostered and the unpopular ones barely owned — which is
+    what makes a mid-season boot actually hurt the league.
+    """
     season = active_season(cur)
+    read = load_read(season)
     arche = archetypes()
-    # Adopt any bot auth users left profile-less by an earlier failed run
-    # (accounts are created via the API, outside our transaction).
     cur.execute(
         "insert into profiles (id, display_name, is_admin)"
         " select u.id, 'bot', false from auth.users u"
@@ -143,16 +225,16 @@ def setup(cur, http):
         bots = load_bots(cur)
 
     lock_ep = season["roster_lock_episode"] or 1
-    cur.execute("select id from contestants where season_id = %s", [season["id"]])
-    all_ids = [r["id"] for r in cur.fetchall()]
-    # castaways still in the game after the last scored episode
-    cur.execute(
-        """select c.id from contestants c
-                   where c.season_id = %s and not exists (
-                     select 1 from eliminations e where e.contestant_id = c.id)""",
-        [season["id"]],
-    )
-    alive = [r["id"] for r in cur.fetchall()]
+    # The draft happens at roster lock, after the premiere has aired, so
+    # anyone already voted out is off the board — nobody drafts a dead slot.
+    everyone = alive_ids(cur, season["id"])
+    wanted = [
+        c
+        for c in resolve(cur, season["id"], read.get("draft", []), "draft")
+        if c in everyone
+    ]
+    # Desirability order: the read first, then anyone it didn't mention.
+    pool = wanted + [c for c in everyone if c not in wanted]
 
     for a, bot in zip(arche, bots):
         cur.execute(
@@ -160,93 +242,26 @@ def setup(cur, http):
             [a["name"], bot["id"]],
         )
         cur.execute(
-            "select count(*) n from roster_picks where user_id = %s and season_id = %s",
+            "select count(*) n from roster_picks where user_id=%s and season_id=%s",
             [bot["id"], season["id"]],
         )
         if cur.fetchone()["n"] == 0:
-            pool = sorted(alive or all_ids, key=lambda cid: rng(bot["id"], cid))[
+            picks = biased_order(pool, a["spread"], bot["id"], "draft")[
                 : season["roster_size"]
             ]
-            for cid in pool:
+            for cid in picks:
                 cur.execute(
                     """insert into roster_picks
                     (user_id, season_id, contestant_id, active_from_episode,
                      swap_penalty_points)
-                    values (%s, %s, %s, %s, 0)""",
+                    values (%s,%s,%s,%s,0)""",
                     [bot["id"], season["id"], cid, lock_ep],
                 )
-        print(f"  {a['name']:60}  roster ok")
-    print(f"setup: {len(arche)} bots labeled + rostered for {season['name']}")
+        print(f"  {a['name']:<20} {a['style']:<11} roster ok")
+    print(f"setup: {len(arche)} bots drafted for {season['name']}")
 
 
-# ── play one episode ───────────────────────────────────────────────────────
-
-
-def episode_points(cur, episode_id) -> dict:
-    """Per-contestant gameplay points for one episode (mirrors the cast calc)."""
-    cur.execute(
-        """
-        select se.contestant_id::text as cid, coalesce(sum(
-          (case when s.merge_episode is not null
-                 and ep.episode_number >= s.merge_episode
-                 and et.postmerge_point_value is not null
-                then et.postmerge_point_value else et.point_value end)
-          * (case when et.is_per_unit then se.quantity else 1 end)), 0) as pts
-        from scoring_events se
-        join episodes ep on ep.id = se.episode_id
-        join seasons s on s.id = ep.season_id
-        join scoring_event_types et on et.event_type = se.event_type
-        where se.episode_id = %s group by se.contestant_id""",
-        [str(episode_id)],
-    )
-    return {r["cid"]: r["pts"] for r in cur.fetchall()}
-
-
-def add_pick(cur, uid, epid, cid):
-    cur.execute(
-        "insert into elimination_picks (user_id, episode_id, contestant_id)"
-        " values (%s, %s, %s)",
-        [uid, str(epid), cid],
-    )
-
-
-def balance(cur, uid, sid) -> int:
-    cur.execute(
-        "select coalesce(sum(amount),0) b from token_transactions"
-        " where user_id=%s and season_id=%s",
-        [uid, sid],
-    )
-    return cur.fetchone()["b"]
-
-
-def load_costs(cur) -> dict[str, int]:
-    """Live advantage buy costs straight from the DB — never hardcode them; they
-    retune (#258) and the bots exist to price advantages, so stale costs would
-    skew the whole calibration."""
-    cur.execute("select advantage_type, token_cost from advantage_types")
-    return {r["advantage_type"]: r["token_cost"] for r in cur.fetchall()}
-
-
-def buy_and_play(cur, uid, sid, episode_id, adv_type, target, costs):
-    """Buy + play an advantage in one step if affordable; return True if done."""
-    cost = costs[adv_type]
-    if balance(cur, uid, sid) < cost:
-        return False
-    cur.execute(
-        """insert into advantage_plays
-        (user_id, season_id, episode_id, advantage_type,
-         target_contestant_id, token_cost)
-        values (%s,%s,%s,%s,%s,%s) returning id""",
-        [uid, sid, str(episode_id), adv_type, target, cost],
-    )
-    pid = cur.fetchone()["id"]
-    cur.execute(
-        """insert into token_transactions
-        (user_id, season_id, transaction_type, amount, advantage_play_id)
-        values (%s,%s,'advantage_spend',%s,%s)""",
-        [uid, sid, -cost, pid],
-    )
-    return True
+# ── one week ───────────────────────────────────────────────────────────────
 
 
 def next_open_ep(cur, sid):
@@ -258,323 +273,303 @@ def next_open_ep(cur, sid):
     return cur.fetchone()
 
 
-def contestant_meta(cur, sid) -> dict:
-    """Season-total points per contestant + who's eliminated — drives which pick
-    a bot drops (weakest, dead weight first) and adds (strongest available)."""
-    cur.execute("select id::text cid from contestants where season_id=%s", [sid])
-    allc = [r["cid"] for r in cur.fetchall()]
+def alive_ids(cur, sid) -> list[str]:
     cur.execute(
-        "select e.contestant_id::text cid from eliminations e"
-        " join contestants c on c.id = e.contestant_id where c.season_id=%s",
+        """select c.id::text cid from contestants c
+           where c.season_id=%s and not exists (
+             select 1 from eliminations e where e.contestant_id = c.id)""",
         [sid],
     )
-    elim = {r["cid"] for r in cur.fetchall()}
+    return [r["cid"] for r in cur.fetchall()]
+
+
+def used_play(cur, uid, epid) -> bool:
     cur.execute(
-        """select se.contestant_id::text cid, coalesce(sum(
-             (case when s.merge_episode is not null
-                    and ep.episode_number >= s.merge_episode
-                    and et.postmerge_point_value is not null
-                   then et.postmerge_point_value else et.point_value end)
-             * (case when et.is_per_unit then se.quantity else 1 end)), 0) t
-           from scoring_events se
-           join episodes ep on ep.id = se.episode_id
-           join seasons s on s.id = ep.season_id
-           join scoring_event_types et on et.event_type = se.event_type
-           where s.id=%s group by se.contestant_id""",
-        [sid],
+        "select 1 from advantage_plays where user_id=%s and episode_id=%s",
+        [uid, str(epid)],
     )
-    total = {r["cid"]: r["t"] for r in cur.fetchall()}
-    return {"all": allc, "elim": elim, "total": total}
+    return cur.fetchone() is not None
 
 
-def try_swap(cur, uid, sid, season, nxt, meta) -> bool:
-    """Buy + execute one roster swap into the next open episode if the bot has
-    swaps left, it's affordable, and swaps aren't locked. Drops dead weight (an
-    eliminated pick, else the lowest scorer); adds the strongest still-in,
-    unrostered castaway. Idempotent per episode. Mirrors the /roster/swap flow."""
-    swap_ep = nxt["episode_number"]
-    swap_lock = season["swap_lock_episode"]
-    if swap_lock is None and season["merge_episode"] is not None:
-        swap_lock = season["merge_episode"] + 2
-    if nxt["is_finale"] or (swap_lock is not None and swap_ep >= swap_lock):
-        return False
-
-    # already swapped into this episode? (idempotent)
+def active_roster(cur, uid, sid) -> list[dict]:
     cur.execute(
-        "select 1 from advantage_plays where user_id=%s and season_id=%s"
-        " and advantage_type='roster_swap' and episode_id=%s",
-        [uid, sid, str(nxt["id"])],
+        "select id, contestant_id::text cid, active_from_episode af"
+        " from roster_picks where user_id=%s and season_id=%s"
+        " and active_until_episode is null",
+        [uid, sid],
     )
-    if cur.fetchone():
-        return False
+    return cur.fetchall()
 
-    # swaps acquired = committed (closed picks) + held credits; cap at max_swaps
+
+def swaps_committed(cur, uid, sid) -> int:
     cur.execute(
         "select count(*) n from roster_picks where user_id=%s and season_id=%s"
         " and active_until_episode is not null",
         [uid, sid],
     )
-    committed = cur.fetchone()["n"]
-    cur.execute(
-        "select count(*) n from advantage_plays where user_id=%s and season_id=%s"
-        " and advantage_type='roster_swap' and episode_id is null",
-        [uid, sid],
-    )
-    acquired = committed + cur.fetchone()["n"]
-    if acquired >= season["max_swaps"]:
-        return False
-    cost = 0 if acquired < season["free_swaps"] else season["swap_token_cost"]
-    # A free swap is affordable at any balance; only paid ones need the tokens.
-    if cost > 0 and balance(cur, uid, sid) < cost:
-        return False
+    return cur.fetchone()["n"]
 
-    cur.execute(
-        "select id, contestant_id::text cid, active_from_episode from roster_picks"
-        " where user_id=%s and season_id=%s and active_until_episode is null",
-        [uid, sid],
-    )
-    active = cur.fetchall()
-    rostered = {p["cid"] for p in active}
-    droppable = [p for p in active if p["active_from_episode"] < swap_ep]
-    add_pool = [c for c in meta["all"] if c not in rostered and c not in meta["elim"]]
-    if not droppable or not add_pool:
-        return False
-    dead = [p for p in droppable if p["cid"] in meta["elim"]]
-    old = (
-        dead[0]
-        if dead
-        else min(droppable, key=lambda p: meta["total"].get(p["cid"], 0))
-    )
-    new = max(add_pool, key=lambda c: meta["total"].get(c, 0))
 
-    cur.execute(
-        "insert into advantage_plays (user_id, season_id, episode_id,"
-        " advantage_type, target_contestant_id, token_cost)"
-        " values (%s,%s,%s,'roster_swap',%s,%s) returning id",
-        [uid, sid, str(nxt["id"]), new, cost],
-    )
-    pid = cur.fetchone()["id"]
-    if cost > 0:
+def do_swap(cur, uid, sid, ep, old_pick, new_cid, charged):
+    """Mirrors POST /roster/swap: close the old row, open the new one, and
+    spend the week's play if this swap is past the free allowance."""
+    if charged:
         cur.execute(
-            "insert into token_transactions"
-            " (user_id, season_id, transaction_type, amount, advantage_play_id)"
-            " values (%s,%s,'advantage_spend',%s,%s)",
-            [uid, sid, -cost, pid],
+            """insert into advantage_plays
+            (user_id, season_id, episode_id, advantage_type,
+             target_contestant_id, token_cost)
+            values (%s,%s,%s,'roster_swap',%s,0)""",
+            [uid, sid, str(ep["id"]), new_cid],
         )
     cur.execute(
         "update roster_picks set active_until_episode=%s where id=%s",
-        [swap_ep - 1, old["id"]],
+        [ep["episode_number"] - 1, old_pick["id"]],
     )
     cur.execute(
         "insert into roster_picks"
         " (user_id, season_id, contestant_id, active_from_episode)"
         " values (%s,%s,%s,%s)",
-        [uid, sid, new, swap_ep],
+        [uid, sid, new_cid, ep["episode_number"]],
     )
-    return True
 
 
-def swap(cur):
-    """Every bot swaps into the next open episode while they have swaps left
-    (run weekly before the episode locks — the driver's play() does not swap)."""
-    season = active_season(cur)
-    sid = season["id"]
-    nxt = next_open_ep(cur, sid)
-    if not nxt:
-        sys.exit("No open episode to swap into")
-    meta = contestant_meta(cur, sid)
-    n = sum(try_swap(cur, b["id"], sid, season, nxt, meta) for b in load_bots(cur))
-    ep_n, name = nxt["episode_number"], season["name"]
-    print(f"swap: {n} bots swapped into episode {ep_n} of {name}")
+def week(cur, episode_n: int):
+    """Make every bot's picks, swaps and advantage play for one episode.
 
-
-def ballot(cur):
-    """Every bot files its three-part finale ballot: winner, early boot, and
-    fire-making loss.
-
-    Runs after the finale is scored, the same way play() does — the bots are
-    scripted against known results and skill decides how often each of the
-    three picks lands. Without this the finale-prediction path never gets
-    exercised by anyone but the human player (found scoring Cagayan: 20 bots,
-    zero ballots).
+    Runs BEFORE the episode airs. Order matters: a swap can consume the
+    week's play, so swaps resolve first and the advantage choice sees what's
+    left — the same trade-off a human faces on the page.
     """
     season = active_season(cur)
     sid = season["id"]
-    cur.execute("select * from episodes where season_id=%s and is_finale=true", [sid])
-    fin = cur.fetchone()
-    if not fin:
-        sys.exit("No finale episode in this season")
-    if fin["status"] != "scored":
-        sys.exit("Finale isn't scored yet — no results to script against")
-
-    cur.execute(
-        "select contestant_id::text cid, elimination_type from eliminations"
-        " where episode_id=%s",
-        [str(fin["id"])],
-    )
-    fin_elims = cur.fetchall()
-    # Scoring counts any finale voted_out as the early boot, and only a
-    # fire_making_loss as the fire loss (app/scoring.py finale_points).
-    boots = [r["cid"] for r in fin_elims if r["elimination_type"] == "voted_out"]
-    fires = [r["cid"] for r in fin_elims if r["elimination_type"] == "fire_making_loss"]
-    cur.execute(
-        "select id::text cid from contestants where season_id=%s and placement=1",
-        [sid],
-    )
-    row = cur.fetchone()
-    winners = [row["cid"]] if row else []
-    cur.execute("select id::text cid from contestants where season_id=%s", [sid])
-    allc = [r["cid"] for r in cur.fetchall()]
-
-    by_name = {a["name"]: a for a in archetypes()}
-    cur.execute(
-        "select id::text id, display_name from profiles where display_name = any(%s)",
-        [list(by_name)],
-    )
-    bots = cur.fetchall()
-
-    n = 0
-    for bot in bots:
-        a = by_name[bot["display_name"]]
-        uid = bot["id"]
-        cur.execute(
-            "select 1 from finale_predictions where user_id=%s and season_id=%s",
-            [uid, sid],
+    read = load_read(season)
+    ep_read = (read.get("episodes") or {}).get(str(episode_n))
+    if not ep_read:
+        sys.exit(
+            f"No read for episode {episode_n} in"
+            f" season_{season['season_number']}.json"
         )
-        if cur.fetchone():
-            continue  # idempotent
 
-        def choose(kind, truth):
-            """The right answer on a hit, a wrong one on a miss. A season with
-            no fire-making (pre-S35, e.g. Cagayan) has no truth to hit, so
-            every bot misses that leg — which is correct, not a bug."""
-            hit = rng(uid, "ballot", kind) < a["skill"] / 100
-            pool = truth if (hit and truth) else [c for c in allc if c not in truth]
-            if not pool:
-                return None
-            return pool[int(rng(uid, "ballot", kind, "which") * len(pool)) % len(pool)]
-
-        cur.execute(
-            """insert into finale_predictions
-                 (user_id, season_id, winner_contestant_id,
-                  early_boot_contestant_id, fire_loss_contestant_id)
-               values (%s,%s,%s,%s,%s)""",
-            [
-                uid,
-                sid,
-                choose("winner", winners),
-                choose("boot", boots),
-                choose("fire", fires),
-            ],
-        )
-        n += 1
-    print(f"ballot: {n} bots filed a finale ballot for {season['name']}")
-
-
-def play(cur, episode_n: int):
-    season = active_season(cur)
-    sid = season["id"]
-    costs = load_costs(cur)
     cur.execute(
         "select * from episodes where season_id=%s and episode_number=%s",
         [sid, episode_n],
     )
     ep = cur.fetchone()
     if not ep:
-        sys.exit(f"Episode {episode_n} does not exist")
-    if ep["status"] != "scored":
-        sys.exit(f"Episode {episode_n} isn't scored yet — no results to script against")
-    epid = ep["id"]
+        sys.exit(f"Episode {episode_n} doesn't exist in {season['name']}")
+    nxt = next_open_ep(cur, sid)
+    if not nxt or nxt["episode_number"] != episode_n:
+        open_n = nxt["episode_number"] if nxt else None
+        sys.exit(
+            f"Episode {episode_n} isn't the open one (open: {open_n}) —"
+            " bots only act on the episode that accepts picks"
+        )
 
-    cur.execute(
-        "select contestant_id::text cid from eliminations where episode_id=%s",
-        [str(epid)],
+    boots = resolve(cur, sid, ep_read.get("likely_boots", []), "likely_boots")
+    targets = set(
+        resolve(cur, sid, ep_read.get("double_targets", []), "double_targets")
     )
-    boots = [r["cid"] for r in cur.fetchall()]
-    if not boots:
-        sys.exit(f"Episode {episode_n} recorded no boot")
-    pts = episode_points(cur, epid)
-    cur.execute("select id::text cid from contestants where season_id=%s", [sid])
-    wrong_pool = [r["cid"] for r in cur.fetchall() if r["cid"] not in boots]
+    alive = alive_ids(cur, sid)
+    boots = [c for c in boots if c in alive]
+    others = [c for c in alive if c not in boots]
+    # Can never vote for every remaining castaway (#240)
+    max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
+
+    swap_lock = season["swap_lock_episode"]
+    if swap_lock is None and season["merge_episode"] is not None:
+        swap_lock = season["merge_episode"] + 2
+    swaps_open = not ep["is_finale"] and not (
+        swap_lock is not None and episode_n >= swap_lock
+    )
 
     by_name = {a["name"]: a for a in archetypes()}
-    cur.execute(
-        "select id::text id, display_name from profiles where display_name = any(%s)",
-        [list(by_name)],
-    )
-    bots = cur.fetchall()
+    picks_made = swaps_made = plays_made = 0
+    tally = {"double_roster_points": 0, "double_vote_points": 0, "roster_swap": 0}
 
-    for bot in bots:
-        a = by_name[bot["display_name"]]
+    for bot in load_bots(cur):
+        a = by_name.get(bot["display_name"])
+        if not a:
+            continue
+        uid = bot["id"]
+
+        # --- swap out dead weight (an eliminated castaway) ---
+        if swaps_open and not used_play(cur, uid, ep["id"]):
+            roster = active_roster(cur, uid, sid)
+            held = {p["cid"] for p in roster}
+            dead = [p for p in roster if p["cid"] not in alive and p["af"] < episode_n]
+            committed = swaps_committed(cur, uid, sid)
+            free = committed < season["free_swaps"]
+            # A loyalist won't give up their double for a swap; everyone else
+            # will once the slot is genuinely dead.
+            willing = free or a["style"] != "roster"
+            add_pool = [c for c in alive if c not in held]
+            if dead and willing and add_pool:
+                want = [c for c in add_pool if c in targets] or add_pool
+                new = biased_order(want, a["spread"], uid, episode_n, "swapin")[0]
+                do_swap(cur, uid, sid, ep, dead[0], new, charged=not free)
+                swaps_made += 1
+                if not free:
+                    tally["roster_swap"] += 1
+
+        # --- elimination picks, sampled from the read ---
+        cur.execute(
+            "select count(*) n from elimination_picks"
+            " where user_id=%s and episode_id=%s",
+            [uid, str(ep["id"])],
+        )
+        if cur.fetchone()["n"] == 0 and max_picks:
+            if a["style"] == "contrarian":
+                # deliberately off-consensus: the field first, the crowd's
+                # names only if there's room left
+                order = biased_order(others, a["spread"], uid, episode_n, "pick")
+                order += biased_order(boots, a["spread"], uid, episode_n, "pick2")
+            else:
+                order = biased_order(
+                    boots + others, a["spread"], uid, episode_n, "pick"
+                )
+            for cid in order[:max_picks]:
+                cur.execute(
+                    "insert into elimination_picks (user_id, episode_id, contestant_id)"
+                    " values (%s,%s,%s)",
+                    [uid, str(ep["id"]), cid],
+                )
+                picks_made += 1
+
+        # --- the week's one advantage play ---
+        if not used_play(cur, uid, ep["id"]):
+            held = {p["cid"] for p in active_roster(cur, uid, sid)}
+            star = [c for c in held if c in targets]
+            confident = len(boots) <= 2
+            if a["style"] == "roster":
+                choice = "double_roster_points"
+            elif a["style"] == "vote":
+                choice = "double_vote_points"
+            elif a["style"] == "contrarian":
+                choice = "double_vote_points" if confident else "double_roster_points"
+            else:
+                # flex reads the week: when the room is confident about the
+                # boot, back your ballot; otherwise back a roster star if you
+                # hold one. Without the confidence term this collapses to
+                # "roster double every week", because the draft over-rosters
+                # the same names the read names as targets.
+                if confident:
+                    choice = "double_vote_points"
+                else:
+                    choice = "double_roster_points" if star else "double_vote_points"
+            # a quarter of the time a flex/contrarian bot goes the other way
+            wobbly = a["style"] in ("flex", "contrarian")
+            if wobbly and rng(uid, episode_n, "flip") < 0.25:
+                choice = (
+                    "double_vote_points"
+                    if choice == "double_roster_points"
+                    else "double_roster_points"
+                )
+            target = None
+            if choice == "double_roster_points":
+                pool = star or [c for c in held if c in alive]
+                if not pool:
+                    choice, target = "double_vote_points", None
+                else:
+                    target = biased_order(pool, a["spread"], uid, episode_n, "dbl")[0]
+            cur.execute(
+                """insert into advantage_plays
+                (user_id, season_id, episode_id, advantage_type,
+                 target_contestant_id, token_cost)
+                values (%s,%s,%s,%s,%s,0)""",
+                [uid, sid, str(ep["id"]), choice, target],
+            )
+            plays_made += 1
+            tally[choice] += 1
+
+    print(f"week {episode_n} of {season['name']}:")
+    print(f"  {picks_made} picks, {swaps_made} swaps, {plays_made} plays")
+    print(
+        "  plays: "
+        + ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in tally.items() if v)
+    )
+    if ep_read.get("note"):
+        print(f"  read: {ep_read['note']}")
+
+
+# ── finale ballot ──────────────────────────────────────────────────────────
+
+
+def ballot(cur):
+    """Every bot files a three-part finale ballot from the read's finale block.
+
+    Forward-looking like everything else: the read is who the ROOM would back,
+    not who actually won.
+    """
+    season = active_season(cur)
+    sid = season["id"]
+    read = load_read(season)
+    fin_read = read.get("finale")
+    if not fin_read:
+        sys.exit("No 'finale' block in the read file")
+    cur.execute("select * from episodes where season_id=%s and is_finale", [sid])
+    fin = cur.fetchone()
+    if not fin:
+        sys.exit("No finale episode in this season")
+
+    alive = alive_ids(cur, sid)
+    fields = {}
+    for key in ("winner", "early_boot", "fire_loss"):
+        ids = resolve(cur, sid, fin_read.get(key, []), f"finale.{key}")
+        fields[key] = [c for c in ids if c in alive] or alive
+
+    by_name = {a["name"]: a for a in archetypes()}
+    n = 0
+    for bot in load_bots(cur):
+        a = by_name.get(bot["display_name"])
+        if not a:
+            continue
         uid = bot["id"]
         cur.execute(
-            "select 1 from elimination_picks where user_id=%s and episode_id=%s",
-            [uid, str(epid)],
-        )
-        if cur.fetchone():
-            continue  # idempotent
-
-        cur.execute(
-            """select contestant_id::text cid from roster_picks
-            where user_id=%s and season_id=%s and active_until_episode is null""",
+            "select 1 from finale_predictions where user_id=%s and season_id=%s",
             [uid, sid],
         )
-        roster = [r["cid"] for r in cur.fetchall()]
-
-        def hits(kind) -> bool:
-            return rng(uid, episode_n, kind) < a["skill"] / 100
-
-        def pick(kind) -> str:
-            """A boot on a hit, a random non-boot on a miss."""
-            if hits(kind) or not wrong_pool:
-                return boots[int(rng(uid, episode_n, kind, "b") * len(boots))]
-            return wrong_pool[int(rng(uid, episode_n, kind, "w") * len(wrong_pool))]
-
-        base = pick("vote")
-        add_pick(cur, uid, epid, base)
-
-        plays = a["plays"]
-        if "double_vote" in plays:
-            # double the base vote (only pays off if the base pick was correct)
-            buy_and_play(cur, uid, sid, epid, "double_vote_points", base, costs)
-        if "double_roster" in plays and roster:
-            # double the real top scorer on a hit, else a random roster pick
-            top = max(roster, key=lambda c: pts.get(c, 0))
-            target = (
-                top
-                if hits("roster")
-                else roster[int(rng(uid, episode_n, "rroll") * len(roster))]
-            )
-            buy_and_play(cur, uid, sid, epid, "double_roster_points", target, costs)
-        if "extra_vote" in plays:
-            if buy_and_play(cur, uid, sid, epid, "extra_vote", None, costs):
-                extra = pick("extra")
-                if extra != base:
-                    add_pick(cur, uid, epid, extra)
-    print(
-        f"play: simulated {len(bots)} bots for episode {episode_n} of {season['name']}"
-    )
+        if cur.fetchone():
+            continue
+        chosen = {
+            k: biased_order(v, a["spread"], uid, "finale", k)[0]
+            for k, v in fields.items()
+        }
+        cur.execute(
+            """insert into finale_predictions
+            (user_id, season_id, winner_contestant_id,
+             early_boot_contestant_id, fire_loss_contestant_id)
+            values (%s,%s,%s,%s,%s)""",
+            [
+                uid,
+                sid,
+                chosen["winner"],
+                chosen["early_boot"],
+                chosen["fire_loss"],
+            ],
+        )
+        n += 1
+    print(f"ballot: {n} bots filed for {season['name']}")
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "play", "swap", "ballot"):
-        sys.exit(__doc__)
+    cmds = ("setup", "week", "ballot")
+    if len(sys.argv) < 2 or sys.argv[1] not in cmds:
+        sys.exit(f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]")
     conn = db()
     try:
         with conn.cursor() as cur:
             if sys.argv[1] == "setup":
                 with httpx.Client(timeout=30) as http:
                     setup(cur, http)
-            elif sys.argv[1] == "swap":
-                swap(cur)
             elif sys.argv[1] == "ballot":
                 ballot(cur)
             else:
-                play(cur, int(sys.argv[2]))
+                if len(sys.argv) < 3:
+                    sys.exit("usage: run_bots.py week <episode_number>")
+                week(cur, int(sys.argv[2]))
         conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
