@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { useNavigate, useParams } from 'react-router'
+import { SwipeNavBar } from '../components/SwipeNav'
+import { useSwipeNav } from '../lib/swipe'
 import { api } from '../lib/api'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
@@ -44,6 +46,7 @@ function Points({ value }: { value: number | undefined }) {
 // private, enforced server-side).
 export function TeamPage() {
   const { seasonId, userId } = useParams()
+  const [siblings, setSiblings] = useState<StandingEntry[]>([])
   const navigate = useNavigate()
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
@@ -69,6 +72,9 @@ export function TeamPage() {
         setContestants(cs)
         setEpisodes(episodes)
         setName(standings.find((s) => s.user_id === userId)?.display_name ?? 'Team')
+        // Kept for swipe order — left/right walks the standings, so it
+        // matches the list you tapped through from.
+        setSiblings(standings)
         try {
           setRoster(await api.get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`))
           // Same 403-until-lock rule as the roster; roster points only for
@@ -114,6 +120,13 @@ export function TeamPage() {
     }
     void load()
   }, [seasonId, userId])
+
+  const idx = siblings.findIndex((p) => p.user_id === userId)
+  const prevP = idx > 0 ? siblings[idx - 1] : undefined
+  const nextP = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
+  const href = (p?: StandingEntry) =>
+    p && `/seasons/${seasonId}/team/${p.user_id}`
+  useSwipeNav(href(prevP), href(nextP))
 
   if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
@@ -300,6 +313,12 @@ export function TeamPage() {
           </SectionShell>
         </div>
       )}
+      <SwipeNavBar
+        prev={href(prevP)}
+        next={href(nextP)}
+        prevLabel={prevP?.display_name}
+        nextLabel={nextP?.display_name}
+      />
     </div>
   )
 }
