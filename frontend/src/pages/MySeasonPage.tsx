@@ -431,8 +431,8 @@ function ThisWeekHub({
   )
   if (premiere) {
     return (
-      <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">
+      <div className="p-5 bg-ocean-50 border border-ocean-200 rounded-xl">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-1">
           Episode {premiere.episode_number} · watch only
         </p>
         <p className="text-sm text-gray-700">
@@ -449,9 +449,9 @@ function ThisWeekHub({
   const voteLabel = nextOpen.is_finale ? 'Finale ballot' : 'Weekly votes'
 
   return (
-    <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+    <div className="p-5 bg-ocean-50 border border-ocean-200 rounded-xl space-y-3">
       <div className="flex items-center gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
           This Week · Episode {nextOpen.episode_number}
         </p>
         <span className="ml-auto">
@@ -476,18 +476,34 @@ function ThisWeekHub({
         </span>
       </div>
 
-      {inPlay.length > 0 && (
+      {/* Always shown, played or not (#307): an unused play is the thing
+          most worth telling someone about, and it used to be invisible. */}
+      {!advantagesLocked(nextOpen, season) && (
         <div className="flex items-start gap-3 text-sm">
-          <span className="text-gray-600 shrink-0">In play</span>
-          <span className="ml-auto text-right font-medium text-gray-800">
-            {inPlay
-              .map((p) => {
-                const t = p.target_contestant_id
-                  ? contestantMap.get(p.target_contestant_id)?.name
-                  : null
-                return (ADV_LABELS[p.advantage_type] ?? p.advantage_type) + (t ? ` · ${t}` : '')
-              })
-              .join(', ')}
+          <span className="text-gray-600 shrink-0">Advantage</span>
+          <span className="ml-auto text-right">
+            {inPlay.length > 0 ? (
+              <span className="font-medium text-gray-800">
+                {inPlay
+                  .map((p) => {
+                    const t = p.target_contestant_id
+                      ? contestantMap.get(p.target_contestant_id)?.name
+                      : null
+                    return (
+                      (ADV_LABELS[p.advantage_type] ?? p.advantage_type) +
+                      (t ? ` · ${t}` : '')
+                    )
+                  })
+                  .join(', ')}
+              </span>
+            ) : (
+              /* Ember, the torch accent — the one thing on this card worth
+                 chasing. Amber would read as a warning; ocean disappeared
+                 into the card. */
+              <span className="text-xs font-semibold text-ember-700 bg-ember-100 border border-ember-200 px-2 py-0.5 rounded-full">
+                Not played yet
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -820,8 +836,8 @@ function RosterSection({
           </ul>
 
           {nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
-            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            <div className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
                 Your play · Episode {nextOpenEpisode.episode_number}
               </p>
               {rosterDouble ? (
@@ -836,7 +852,7 @@ function RosterSection({
                   <button
                     onClick={() => void weekly.takeBack(rosterDouble)}
                     disabled={weekly.busy}
-                    className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                    className="text-xs text-ocean-700 hover:text-ocean-900 font-medium"
                   >
                     Take back
                   </button>
@@ -853,7 +869,7 @@ function RosterSection({
                   <select
                     value={dblTarget}
                     onChange={(e) => setDblTarget(e.target.value)}
-                    className="flex-1 min-w-0 border border-amber-200 rounded-lg px-2 py-1 text-sm bg-white"
+                    className="flex-1 min-w-0 border border-ocean-200 rounded-lg px-2 py-1 text-sm bg-white"
                     aria-label="Contestant to double"
                   >
                     <option value="">Choose a castaway…</option>
@@ -866,7 +882,7 @@ function RosterSection({
                   <button
                     onClick={() => void weekly.spend('double_roster_points', dblTarget)}
                     disabled={weekly.busy || !dblTarget}
-                    className="px-3 py-2 bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
+                    className="px-3 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
                   >
                     Double ×2
                   </button>
@@ -1068,14 +1084,20 @@ function RosterSection({
             : 'Roster submission window has closed.'}
         </p>
       )}
-      <SoleSurvivorLine
-        season={season}
-        contestants={contestants}
-        episodes={episodes}
-        userId={userId}
-        rosterVersion={rosterVersion}
-        onRosterChange={onRosterChange}
-      />
+      {/* Hidden until the merge (#307 follow-up): the designation doubles a
+          castaway's FINALE contribution, so picking one in episode 2 is a
+          throwaway guess that only clutters the weekly page. It appears the
+          week merge_episode is set, and still locks with the advantages. */}
+      {season.merge_episode != null && (
+        <SoleSurvivorLine
+          season={season}
+          contestants={contestants}
+          episodes={episodes}
+          userId={userId}
+          rosterVersion={rosterVersion}
+          onRosterChange={onRosterChange}
+        />
+      )}
     </SectionShell>
   )
 }
@@ -1446,8 +1468,8 @@ function PicksSection({
               )}
 
               {!play.locked && (
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                <div className="mb-4 p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
                     Your play · Episode {ep.episode_number}
                   </p>
                   {ballotDoubled ? (
@@ -1458,7 +1480,7 @@ function PicksSection({
                       <button
                         onClick={() => void play.takeBack(play.play!)}
                         disabled={play.busy}
-                        className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                        className="text-xs text-ocean-700 hover:text-ocean-900 font-medium"
                       >
                         Take back
                       </button>
@@ -1477,7 +1499,7 @@ function PicksSection({
                     <button
                       onClick={() => void play.spend('double_vote_points')}
                       disabled={play.busy}
-                      className="w-full px-4 py-2 bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
+                      className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
                     >
                       Double all my votes ×2
                     </button>
@@ -1868,7 +1890,7 @@ function SoleSurvivorLine({
             <button
               onClick={designate}
               disabled={!choice || saving}
-              className="px-4 py-2 bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-amber-800 transition-colors"
+              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
             >
               {saving ? 'Saving…' : 'Designate'}
             </button>

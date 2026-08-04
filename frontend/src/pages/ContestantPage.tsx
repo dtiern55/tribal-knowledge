@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { useNavigate, useParams } from 'react-router'
+import { SwipeNavBar } from '../components/SwipeNav'
+import { useSwipeNav } from '../lib/swipe'
+import { getActiveSeason } from '../lib/api'
+import type { Contestant } from '../types'
 import { api } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import type { ContestantPerformance } from '../types'
@@ -9,6 +13,9 @@ export function ContestantPage() {
   const { contestantId } = useParams()
   const navigate = useNavigate()
   const [perf, setPerf] = useState<ContestantPerformance | null>(null)
+  // Sibling order for swiping — the Cast page's order, so left/right walks
+  // the list you came from.
+  const [cast, setCast] = useState<Contestant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,6 +27,25 @@ export function ContestantPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
   }, [contestantId])
+
+  useEffect(() => {
+    let live = true
+    void getActiveSeason()
+      .then((s) => s && api.get<Contestant[]>(`/seasons/${s.id}/cast`))
+      .then((c) => live && c && setCast(c))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+
+  const idx = cast.findIndex((c) => c.id === contestantId)
+  const prevC = idx > 0 ? cast[idx - 1] : undefined
+  const nextC = idx >= 0 && idx < cast.length - 1 ? cast[idx + 1] : undefined
+  useSwipeNav(
+    prevC && `/contestants/${prevC.id}`,
+    nextC && `/contestants/${nextC.id}`,
+  )
 
   if (loading) return <PageLoader />
   if (error) return <p className="text-red-600">{error}</p>
@@ -132,6 +158,12 @@ export function ContestantPage() {
           })}
         </div>
       )}
+      <SwipeNavBar
+        prev={prevC && `/contestants/${prevC.id}`}
+        next={nextC && `/contestants/${nextC.id}`}
+        prevLabel={prevC?.name}
+        nextLabel={nextC?.name}
+      />
     </div>
   )
 }
