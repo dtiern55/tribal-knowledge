@@ -50,14 +50,14 @@ def test_cast_lists_base_scores(client, db_conn):
     insert_scoring_event(
         db_conn, ep["id"], star["id"], "win_individual_immunity"
     )  # +15
-    insert_scoring_event(db_conn, ep["id"], star["id"], "use_extra_vote")  # +10 tkn
+    insert_scoring_event(db_conn, ep["id"], star["id"], "cry_on_camera")  # +5 tkn
     insert_elimination(db_conn, ep["id"], dud["id"])
 
     cast = client.get(f"/seasons/{season['id']}/cast").json()
     assert [c["name"] for c in cast] == ["Star", "Dud"]  # sorted by points desc
     star_row = cast[0]
     assert star_row["total_points"] == 15
-    assert star_row["total_tokens"] == 10
+    assert star_row["total_tokens"] == 5
     assert cast[1]["total_points"] == 0
     assert cast[1]["eliminated_in_episode"] == 2
 
@@ -83,9 +83,9 @@ def test_contestant_performance_token_only_event(client, db_conn):
     season = insert_season(db_conn, merge_episode=7)
     ep = insert_episode(db_conn, season["id"], episode_number=2)
     c = insert_contestant(db_conn, season["id"], "Star")
-    insert_scoring_event(db_conn, ep["id"], c["id"], "use_extra_vote")  # 0 pts / 10 tkn
+    insert_scoring_event(db_conn, ep["id"], c["id"], "cry_on_camera")  # 0 pts / 5 tkn
 
     r = client.get(f"/contestants/{c['id']}/performance")
     ev = r.json()["episodes"][0]["events"][0]
     assert ev["points"] == 0
-    assert ev["token_value"] == 10
+    assert ev["token_value"] == 5

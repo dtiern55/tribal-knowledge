@@ -15,13 +15,18 @@ router = APIRouter(tags=["scoring_events"])
     response_model=list[ScoringEventType],
 )
 def list_scoring_event_types(season_id: UUID, _: UUID = Depends(get_current_user)):
-    """The season's event types and display labels (#170: season snapshot)."""
+    """The season's event types and display labels (#170: season snapshot).
+
+    Retired types (#307) are hidden so they can't be entered on new episodes.
+    Scoring never filters on `enabled` — events already recorded, and whole
+    seasons snapshotted before a retirement, must keep scoring as they did.
+    """
     with database.get_db() as conn:
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
             cur.execute(
                 "select event_type, label from season_scoring_event_types"
-                " where season_id = %s order by label",
+                " where season_id = %s and enabled order by label",
                 [str(season_id)],
             )
             return cur.fetchall()
@@ -88,10 +93,13 @@ def set_scoring_events(
                     )
 
                 event_types = list({e.event_type for e in body})
+                # `and enabled` (#307): a retired type can't be entered on a
+                # new episode. Seasons snapshotted before a retirement still
+                # carry enabled = true, so their history stays re-enterable.
                 cur.execute(
                     "select event_type, token_value, is_per_unit"
                     " from season_scoring_event_types"
-                    " where season_id = %s and event_type = any(%s)",
+                    " where season_id = %s and event_type = any(%s) and enabled",
                     [str(episode["season_id"]), event_types],
                 )
                 for row in cur.fetchall():

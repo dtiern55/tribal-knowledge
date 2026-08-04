@@ -23,7 +23,7 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 "select event_type, label, point_value, postmerge_point_value,"
                 " token_value, is_per_unit from season_scoring_event_types"
-                " where season_id = %s"
+                " where season_id = %s and enabled"
                 " order by point_value desc, token_value desc, label",
                 [str(season_id)],
             )
