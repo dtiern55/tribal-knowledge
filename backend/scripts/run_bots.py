@@ -423,6 +423,15 @@ def week(cur, episode_n: int):
     alive = alive_ids(cur, sid)
     boots = [c for c in boots if c in alive]
     others = [c for c in alive if c not in boots]
+    # How sure the room is about the boot — stated, not inferred. Deriving it
+    # from len(likely_boots) conflated "how many people could go" with "how
+    # sure am I", so a read listing both tribes read as uncertain and pushed
+    # every flex bot onto their roster star.
+    confidence = (ep_read.get("confidence") or "medium").lower()
+    if confidence not in ("high", "medium", "low"):
+        sys.exit(f"confidence must be high, medium or low — got {confidence!r}")
+    confident = confidence == "high"
+    unsure = confidence == "low"
     # Can never vote for every remaining castaway (#240)
     max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
 
@@ -490,7 +499,6 @@ def week(cur, episode_n: int):
         if not used_play(cur, uid, ep["id"]):
             held = {p["cid"] for p in active_roster(cur, uid, sid)}
             star = [c for c in held if c in targets]
-            confident = len(boots) <= 2
             if a["style"] == "roster":
                 choice = "double_roster_points"
             elif a["style"] == "vote":
@@ -505,8 +513,16 @@ def week(cur, episode_n: int):
                 # the same names the read names as targets.
                 if confident:
                     choice = "double_vote_points"
-                else:
+                elif unsure:
                     choice = "double_roster_points" if star else "double_vote_points"
+                else:
+                    # Middling week: split on whether this bot's star is one
+                    # the room is actually backing, rather than all-or-nothing.
+                    choice = (
+                        "double_roster_points"
+                        if star and rng(uid, episode_n, "lean") < 0.5
+                        else "double_vote_points"
+                    )
             # a quarter of the time a flex/contrarian bot goes the other way
             wobbly = a["style"] in ("flex", "contrarian")
             if wobbly and rng(uid, episode_n, "flip") < 0.25:
