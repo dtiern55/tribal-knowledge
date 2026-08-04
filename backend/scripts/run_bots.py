@@ -268,8 +268,16 @@ def draft(cur):
         for c in resolve(cur, season["id"], read.get("draft", []), "draft")
         if c in everyone
     ]
-    # Desirability order: the read first, then anyone it didn't mention.
-    pool = wanted + [c for c in everyone if c not in wanted]
+    # Desirability order: the read's wanted list, then everyone unmentioned,
+    # then anyone the read explicitly flags as unwanted after a rough
+    # premiere — they still get drafted occasionally, just last.
+    shunned = [
+        c
+        for c in resolve(cur, season["id"], read.get("avoid", []), "avoid")
+        if c in everyone
+    ]
+    middle = [c for c in everyone if c not in wanted and c not in shunned]
+    pool = wanted + middle + shunned
 
     n = 0
     for a, bot in zip(arche, bots):
@@ -298,9 +306,19 @@ def draft(cur):
 
 
 def next_open_ep(cur, sid):
+    """The episode currently open for picks — mirrors app/locking.py.
+
+    The roster_lock_episode clause matters: a watch-only premiere is never
+    open, so without it the driver reports episode 1 while the app is already
+    taking picks for episode 2.
+    """
     cur.execute(
-        "select * from episodes where season_id=%s and status <> 'scored'"
-        " and picks_lock_at > now() order by episode_number limit 1",
+        """
+        select e.* from episodes e join seasons s on s.id = e.season_id
+        where e.season_id=%s and e.status <> 'scored' and e.picks_lock_at > now()
+          and e.episode_number >= coalesce(s.roster_lock_episode, 1)
+        order by e.episode_number limit 1
+        """,
         [sid],
     )
     return cur.fetchone()

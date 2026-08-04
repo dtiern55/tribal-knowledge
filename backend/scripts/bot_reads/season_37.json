@@ -1,0 +1,38 @@
+{
+  "_note": "Danny's pre-episode reads for Survivor: David vs. Goliath. Written after watching each episode, before the next one airs. Never contains results.",
+
+  "draft": [
+    "Christian Hubicki",
+    "Mike White",
+    "Gabby Pascuzzi",
+    "Dan Rengering",
+    "Angelina Keeley"
+  ],
+  "avoid": ["Natalie Cole"],
+
+  "episodes": {
+    "2": {
+      "likely_boots": [
+        "Natalie Cole",
+        "Carl Boudreaux",
+        "Bi Nguyen",
+        "Davie Rickenbacker",
+        "Nick Wilson",
+        "Elizabeth Olson"
+      ],
+      "double_targets": [
+        "Mike White",
+        "Dan Rengering",
+        "Angelina Keeley",
+        "John Hennigan",
+        "Alec Merlino",
+        "Alison Raybould",
+        "Kara Kay",
+        "Jeremy Crawford",
+        "Natalia Azoqa",
+        "Natalie Cole"
+      ],
+      "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength."
+    }
+  }
+}
