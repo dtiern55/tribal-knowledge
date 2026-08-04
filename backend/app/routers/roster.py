@@ -5,7 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, next_open_episode
+from app.locking import EPISODE_LOCKED_SQL, next_open_episode, used_weekly_play
 from app.schemas import (
     RosterPick,
     RosterSubmitRequest,
@@ -262,27 +262,38 @@ def swap_roster_pick(
                     detail="Contestant has already been on this roster",
                 )
 
-            # A swap consumes one pre-bought roster_swap credit (#202). The
-            # per-season cap and free/paid pricing were settled when the credit
-            # was bought on the Advantages page, so nothing is charged here.
-            # The old pick's swap_penalty_points stays 0; nonzero values on
-            # closed rows are the pre-token-era record scoring still sums.
+            # The first free_swaps of the season are free and cost nothing at
+            # all — notably NOT this week's advantage play, which is what
+            # makes them free. Every swap after that spends the play instead
+            # (#307), so there is no cap: swap as often as you like, but each
+            # one costs you that week's advantage. seasons.max_swaps is
+            # vestigial. The old pick's swap_penalty_points stays 0; nonzero
+            # values on closed rows are the pre-token-era record scoring
+            # still sums.
             cur.execute(
-                """
-                select id from advantage_plays
-                where user_id = %s and season_id = %s
-                  and advantage_type = 'roster_swap' and episode_id is null
-                order by created_at
-                limit 1
-                for update
-                """,
+                "select count(*) as n from roster_picks"
+                " where user_id = %s and season_id = %s"
+                " and active_until_episode is not null",
                 [str(user_id), str(season_id)],
             )
-            credit = cur.fetchone()
-            if not credit:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Buy a roster swap on the Advantages page first",
+            committed = cur.fetchone()["n"]
+            charged = committed >= season["free_swaps"]
+            if charged:
+                if used_weekly_play(cur, user_id, episode["id"]):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Your advantage play is already used this episode"
+                            " — take it back to swap again"
+                        ),
+                    )
+                cur.execute(
+                    """
+                    insert into advantage_plays
+                        (user_id, season_id, episode_id, advantage_type, token_cost)
+                    values (%s, %s, %s, 'roster_swap', 0)
+                    """,
+                    [str(user_id), str(season_id), episode["id"]],
                 )
 
             cur.execute(
@@ -310,17 +321,17 @@ def swap_roster_pick(
             )
             new_pick = cur.fetchone()
 
-            # Spend the credit: bind it to the episode the swap takes effect in,
-            # tagged with the incoming contestant (keeps it distinct from any
-            # other swap that same episode under the per-target unique index).
-            cur.execute(
-                """
-                update advantage_plays
-                set episode_id = %s, target_contestant_id = %s
-                where id = %s
-                """,
-                [episode["id"], str(body.new_contestant_id), credit["id"]],
-            )
+            if charged:
+                # Tag the play with the incoming contestant so Play History
+                # can say what the swap bought.
+                cur.execute(
+                    """
+                    update advantage_plays set target_contestant_id = %s
+                    where user_id = %s and episode_id = %s
+                      and advantage_type = 'roster_swap'
+                    """,
+                    [str(body.new_contestant_id), str(user_id), episode["id"]],
+                )
 
             return new_pick
 

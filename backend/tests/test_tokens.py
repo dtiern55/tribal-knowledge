@@ -242,12 +242,17 @@ def test_delete_scoring_event_blocked_if_tokens_spent(client, db_conn, current_u
     )
     event_id = r.json()[0]["id"]
 
-    # Spend all 5 on an extra_vote: balance is now 0
-    buy = client.post(
-        f"/seasons/{season['id']}/advantage-plays",
-        json={"advantage_type": "extra_vote"},
-    )
-    assert buy.status_code == 201
+    # Spend the 5: advantage plays are free now (#307), so the only way a
+    # balance goes down is a legacy spend row like this one.
+    with db_conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into token_transactions
+                (user_id, season_id, transaction_type, amount)
+            values (%s, %s, 'advantage_spend', -5)
+            """,
+            [str(current_user["id"]), str(season["id"])],
+        )
 
     r = client.delete(f"/scoring-events/{event_id}")
     assert r.status_code == 409
