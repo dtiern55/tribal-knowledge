@@ -46,15 +46,29 @@ def full_names(season: int) -> dict[str, str]:
     return out
 
 
+def _norm(name: str) -> str:
+    """Casefolded, punctuation-free name for comparison."""
+    return re.sub(r"[^a-z]", "", name.lower())
+
+
 def tvmaze_person(query: str) -> tuple[str, str] | None:
-    """(person name, portrait url) of the best TVmaze match with an image."""
+    """(person name, portrait url) of the TVmaze match with an image whose
+    name actually matches the query.
+
+    TVmaze search is fuzzy and returns near-misses first, so taking the top
+    hit put Elizabeth Olsen, Kary Osmond and Nick Wilton on the DvG cast
+    (2026-08-04). A credit check can't disambiguate — TVmaze holds portraits
+    for reality contestants with no cast credits at all — so the name has to
+    match exactly, and anything else falls through to the wiki cast photo,
+    which is right by construction.
+    """
     r = httpx.get(
         f"{TVMAZE_API}/search/people", params={"q": query}, headers=UA, timeout=30
     )
     r.raise_for_status()
     for hit in r.json():
         person = hit["person"]
-        if person.get("image"):
+        if person.get("image") and _norm(person["name"]) == _norm(query):
             # full-res original: face detection needs the pixels
             return person["name"], person["image"]["original"]
     return None
@@ -131,6 +145,14 @@ def main() -> None:
     parser.add_argument(
         "--api", default=os.environ.get("API_URL", "http://127.0.0.1:8000")
     )
+    parser.add_argument(
+        "--wiki",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="force the wiki cast photo for this contestant, for exact-name"
+        " collisions with a more famous person (repeatable)",
+    )
     args = parser.parse_args()
     load_dotenv()
 
@@ -179,7 +201,8 @@ def main() -> None:
             print(f"  {c['name']:<24} already set, skipping")
             continue
         full = names.get(c["name"].lower(), c["name"])
-        match = tvmaze_person(full)
+        forced_wiki = any(_norm(w) == _norm(c["name"]) for w in args.wiki)
+        match = None if forced_wiki else tvmaze_person(full)
         if match:
             person, src = match
             label = f"TVmaze: {person}"
