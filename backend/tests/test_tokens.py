@@ -11,6 +11,21 @@ from tests.helpers import (
 )
 
 
+def _relive(db_conn, season_id, event_type="cry_on_camera"):
+    """Re-enable a retired token event on this season's snapshot (#307).
+
+    Television moments are the only remaining token-only events, and they're
+    retired globally. A season snapshotted while they were live still carries
+    enabled = true, which is the case these tests cover.
+    """
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update season_scoring_event_types set enabled = true"
+            " where season_id = %s and event_type = %s",
+            [str(season_id), event_type],
+        )
+
+
 @pytest.mark.integration
 def test_balance_starts_at_zero(client, db_conn, current_user):
     season = insert_season(db_conn)
@@ -75,17 +90,18 @@ def test_scoring_events_accrue_gameplay_tokens(client, db_conn, current_user):
         db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
     )
 
-    # steal_immunity_idol earns 20 tokens
+    # cry_on_camera earns 5 tokens
+    _relive(db_conn, season["id"])
     r = client.post(
         f"/episodes/{ep['id']}/scoring-events",
-        json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
+        json=[{"contestant_id": str(c["id"]), "event_type": "cry_on_camera"}],
     )
     assert r.status_code == 200
 
     balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
         "balance"
     ]
-    assert balance == 20
+    assert balance == 5
 
 
 @pytest.mark.integration
@@ -98,9 +114,10 @@ def test_scoring_events_grant_no_tokens_past_cutoff(client, db_conn, current_use
         db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
     )
 
+    _relive(db_conn, season["id"])
     r = client.post(
         f"/episodes/{ep['id']}/scoring-events",
-        json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
+        json=[{"contestant_id": str(c["id"]), "event_type": "cry_on_camera"}],
     )
     assert r.status_code == 200  # event still recorded
     balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
@@ -139,12 +156,13 @@ def test_deleting_scoring_event_clears_its_tokens(client, db_conn, current_user)
         db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
     )
 
+    _relive(db_conn, season["id"])
     created = client.post(
         f"/episodes/{ep['id']}/scoring-events",
-        json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
+        json=[{"contestant_id": str(c["id"]), "event_type": "cry_on_camera"}],
     ).json()
     url = f"/seasons/{season['id']}/tokens/{current_user['id']}"
-    assert client.get(url).json()["balance"] == 20  # steal_immunity_idol grants 20
+    assert client.get(url).json()["balance"] == 5  # cry_on_camera grants 5
 
     client.delete(f"/scoring-events/{created[0]['id']}")
     assert client.get(url).json()["balance"] == 0
@@ -172,6 +190,7 @@ def test_token_history_describes_gameplay_event(client, db_conn, current_user):
     ep = insert_episode(db_conn, season["id"], episode_number=1)
     c = insert_contestant(db_conn, season["id"], "Earner")
     insert_roster_pick(db_conn, current_user["id"], season["id"], c["id"])
+    _relive(db_conn, season["id"], "survivor_moment")
     client.post(
         f"/episodes/{ep['id']}/scoring-events",
         json=[{"contestant_id": str(c["id"]), "event_type": "survivor_moment"}],
@@ -215,14 +234,15 @@ def test_delete_scoring_event_blocked_if_tokens_spent(client, db_conn, current_u
     insert_roster_pick(
         db_conn, current_user["id"], season["id"], c["id"], active_from_episode=1
     )
-    # steal_immunity_idol grants 20 tokens to the rosterer
+    # cry_on_camera grants 5 tokens to the rosterer
+    _relive(db_conn, season["id"])
     r = client.post(
         f"/episodes/{ep['id']}/scoring-events",
-        json=[{"contestant_id": str(c["id"]), "event_type": "steal_immunity_idol"}],
+        json=[{"contestant_id": str(c["id"]), "event_type": "cry_on_camera"}],
     )
     event_id = r.json()[0]["id"]
 
-    # Spend all 20 on an extra_vote: balance is now 0
+    # Spend all 5 on an extra_vote: balance is now 0
     buy = client.post(
         f"/seasons/{season['id']}/advantage-plays",
         json={"advantage_type": "extra_vote"},

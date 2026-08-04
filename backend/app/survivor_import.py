@@ -248,7 +248,7 @@ def build_proposal(
 
     warnings.append(
         "Judgment calls not proposed: blindside_with_active_idol, "
-        "fake_idol_played, survivor_moment, background/cry/cuss, TV-moment tokens"
+        "fake_idol_played, steal_immunity_idol"
     )
     return {
         "eliminations": eliminations,

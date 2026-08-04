@@ -47,6 +47,29 @@ def test_votes_received_scores_zero(db_conn):
 
 
 @pytest.mark.integration
+def test_retired_event_types_still_score(db_conn):
+    """#307: disabling a type stops it being ENTERED, never stops it scoring.
+
+    A season snapshotted while a type was live must keep paying it, or
+    retiring television moments would silently rewrite finished seasons (#170).
+    """
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
+    insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update season_scoring_event_types set enabled = false"
+            " where season_id = %s and event_type = 'win_individual_immunity'",
+            [str(season["id"])],
+        )
+
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+
+
+@pytest.mark.integration
 def test_scoring_event_uses_postmerge_value(db_conn):
     """#300: a correct vote at tribal pays 3 pre-merge, 5 post.
 

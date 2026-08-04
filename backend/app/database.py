@@ -65,9 +65,9 @@ def snapshot_scoring_config(cur, season_id) -> None:
         """
         insert into season_scoring_event_types
             (season_id, event_type, label, point_value, postmerge_point_value,
-             token_value, is_per_unit)
+             token_value, is_per_unit, enabled)
         select %s, event_type, label, point_value, postmerge_point_value,
-               token_value, is_per_unit
+               token_value, is_per_unit, enabled
         from scoring_event_types
         """,
         [str(season_id)],
