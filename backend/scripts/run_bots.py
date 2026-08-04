@@ -1,6 +1,6 @@
 """Practice-league bot driver — persona-based, forward-looking (#307 era).
 
-Seventeen bots plus the human make an 18-player league. Each bot has a
+Twenty bots plus the human make a 21-player league. Each bot has a
 PERSONA, not a skill dial, and acts on the commissioner's pre-episode read of
 what the room would do. Nothing here knows the result: picks are made BEFORE
 the episode airs, exactly like a real player's, so the driver can run against
@@ -59,7 +59,10 @@ load_dotenv(ENV)
 
 READS_DIR = Path(__file__).resolve().parent / "bot_reads"
 
-# The league Danny signed off on (2026-08-04). `spread` controls how far down
+# The league Danny signed off on (2026-08-04): 20 bots + the human = 21,
+# sized to the bot accounts already carrying history from earlier seasons.
+# Two contrarians exactly, as specified; the rest scale.
+# `spread` controls how far down
 # the read's likely-boot list a bot will wander: small hugs the consensus,
 # large spreads out. Nobody skips their weekly play.
 #
@@ -70,10 +73,10 @@ READS_DIR = Path(__file__).resolve().parent / "bot_reads"
 #   contrarian  — picks off-consensus, and doubles the ballot when the room
 #                 looks confident (a short likely-boot list)
 PERSONAS = [
-    ("Consensus", 4, 0.6, "flex"),
-    ("Reader", 6, 1.8, "flex"),
+    ("Consensus", 5, 0.6, "flex"),
+    ("Reader", 7, 1.8, "flex"),
     ("Contrarian", 2, 2.5, "contrarian"),
-    ("Roster Loyalist", 3, 1.0, "roster"),
+    ("Roster Loyalist", 4, 1.0, "roster"),
     ("Vote Gambler", 2, 0.5, "vote"),
 ]
 
@@ -223,6 +226,19 @@ def setup(cur, http):
     while len(bots) < len(arche):
         create_bot_account(cur, http)
         bots = load_bots(cur)
+    if len(bots) > len(arche):
+        # zip() would quietly pair only the first len(arche) and leave the
+        # rest carrying a previous season's name with no roster — and an
+        # active season's standings lists every profile, so they'd sit there
+        # at zero all season. Surplus bots can't just be deleted either:
+        # their history is what completed seasons still score (#170).
+        surplus = [b["display_name"] for b in bots[len(arche) :]]
+        sys.exit(
+            f"{len(bots)} bot accounts but {len(arche)} personas.\n"
+            f"Unassigned: {surplus}\n"
+            "Widen PERSONAS to cover them, or retire the accounts first —"
+            " setup will not leave bots half-configured."
+        )
 
     lock_ep = season["roster_lock_episode"] or 1
     # The draft happens at roster lock, after the premiere has aired, so
