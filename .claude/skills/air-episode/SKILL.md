@@ -68,7 +68,8 @@ Show Danny one readable block:
 - **Review flags** — split `warnings` into:
   - *auto-mapped, verify* — ambiguous mappings the importer wants confirmed.
   - *judgment calls survivoR never provides* — `blindside_with_active_idol`,
-    `fake_idol_played`, `survivor_moment`, background/cry/cuss, TV-moment tokens.
+    `fake_idol_played`, `steal_immunity_idol`. (Television moments retired
+    with the token economy — see #307.)
 - *(Optional context)* the episode's TVMaze summary, if quick to fetch.
 
 ## 4. Take Danny's rulings
@@ -91,7 +92,7 @@ Skip anything already recorded (same contestant + type), then:
 
 - `POST {API}/episodes/{episode_id}/eliminations` — `[{contestant_id, elimination_type}, ...]`
 - `POST {API}/episodes/{episode_id}/scoring-events` — `[{contestant_id, event_type, quantity, notes}, ...]`
-  (scoring-events auto-grant contestant tokens up to the advantage cutoff, #102)
+  (scoring events are points-only now; the token grant path is inert — #307)
 - Finale placements: `PATCH {API}/contestants/{contestant_id}` — `{placement}`
 
 Use a traceable `notes` like `import: {source}` on applied events.
@@ -109,10 +110,10 @@ it happens — that's future knowledge, and it changes point values.)
 ## 7. Verify & score
 
 - `GET {API}/seasons/{season_id}/cast` and `.../standings`. Show Danny:
-  - per-contestant point/token deltas for this episode,
+  - per-contestant point deltas for this episode,
   - the new standings order,
   - and **flag anything suspicious**: a voted-out contestant not marked out, a
-    contestant sitting at 0 where you expected points, an unexpected token move.
+    contestant sitting at 0 where you expected points.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
 ## 8. Close the episode out
@@ -125,25 +126,29 @@ extra-vote plays never get auto-unplayed (#157). Do this **before** step 9 —
 verify standings again after, since the trend arrows only become correct here.
 409 "already scored" means it's done; picks must be locked first.
 
-## 9. Create the next episode (funds its weekly +10)
+## 9. Bot week (practice seasons only)
 
-Right after scoring episode N, create the **episode N+1** row:
-`POST {API}/seasons/{season_id}/episodes`. Grant-on-create (#217) grants every
-player that episode's `weekly_token_allocation` the moment the row exists — so
-the +10 for N+1 lands as soon as N is scored, and players go into N+1 with their
-episode-N earnings **plus** the fresh allocation. Use a placeholder
-`picks_lock_at` (a week out); Danny sets the real air/lock date in Admin when he
-schedules the watch. Skip only if N was the finale.
+If the season is bot-driven, take the commissioner's read for episode N+1 —
+`likely_boots`, `confidence`, `double_targets` — append it to
+`backend/scripts/bot_reads/season_<n>.json`, then:
+
+```
+uv run python scripts/run_bots.py week {N+1}
+```
+
+Bots pick BEFORE the episode airs, so this runs after scoring N and before
+N+1 locks. Never run it after the fact: the whole point is that nothing in
+the pipeline knows the result before the commissioner does.
 
 ## Remember
 
 - **survivoR lag** gates everything: data lands a day+ after air. If it's
   behind, this ritual waits or falls back to manual admin-UI entry.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
-  idols, survivor moments, or tokens.
-- **Weekly player token allocation** is handled by **step 9** — creating episode
-  N+1 grants its +10 (grant-on-create, #217). The manual
-  `POST {API}/seasons/{season_id}/tokens/weekly-allocation` endpoint is only a
-  backstop/override now, not the normal path.
+  idols, or steals.
+- **Tokens are retired (#307).** Players get one free advantage play per
+  episode instead, so there is no allocation to grant and nothing to create
+  episode N+1 *for* — create it whenever the schedule is known. Episode rows
+  for a full season are usually made up front at setup.
 - Fine-grained fixes after applying are easy: scoring events are additive with
   per-item delete (`DELETE {API}/scoring-events/{id}`) in the admin UI.
