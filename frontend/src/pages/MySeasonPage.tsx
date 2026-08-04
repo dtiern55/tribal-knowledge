@@ -910,9 +910,11 @@ function RosterSection({
                     ? `Free swap${season.free_swaps - swapsUsed > 1 ? 's' : ''} left: ${
                         season.free_swaps - swapsUsed
                       }`
-                    : weekly.play
-                      ? 'Your advantage play is already used this episode — take it back to swap.'
-                      : 'This will use your advantage play for the episode.'}
+                    : weekly.play?.advantage_type === 'roster_swap'
+                      ? 'Your advantage play already went on a swap this episode.'
+                      : weekly.play
+                        ? 'Your advantage play is on a double this episode — take it back above to swap.'
+                        : 'This will use your advantage play for the episode.'}
                   {season.swap_lock_episode != null &&
                     ` · swaps lock at episode ${season.swap_lock_episode}`}
                 </p>
