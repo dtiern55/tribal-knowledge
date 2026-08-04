@@ -3,9 +3,7 @@ import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { NavDrawer } from './NavDrawer'
 import {
-  BallotIcon,
   GearIcon,
-  IdolIcon,
   MenuIcon,
   PalmIcon,
   TrophyIcon,
@@ -14,10 +12,10 @@ import {
 
 // Primary destinations. On desktop they sit inline in the top bar; on phones
 // they become a fixed bottom tab bar (thumb-reachable, can't overflow).
+// Roster, votes and the weekly advantage play are one page now (#307), so
+// there is a single weekly destination instead of three.
 const PRIMARY = [
-  { to: '/', label: 'My Tribe', Icon: PalmIcon, end: true },
-  { to: '/my-votes', label: 'My Votes', Icon: BallotIcon, end: false },
-  { to: '/advantages', label: 'Advantages', Icon: IdolIcon, end: false },
+  { to: '/', label: 'My Season', Icon: PalmIcon, end: true },
   { to: '/standings', label: 'Standings', Icon: TrophyIcon, end: false },
   { to: '/cast', label: 'Cast', Icon: UsersIcon, end: false },
 ]
