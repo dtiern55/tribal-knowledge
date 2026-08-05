@@ -280,27 +280,30 @@ def test_other_users_picks_hidden_until_lock(client, db_conn):
 
 
 @pytest.mark.integration
-def test_other_users_picks_visible_only_after_scored(client, db_conn):
-    """#134: locked-but-unscored stays private; scored is visible."""
+def test_other_users_picks_open_at_lock(client, db_conn):
+    """Private while picks are open, visible once the episode LOCKS (#36).
+
+    Not once it's scored: nobody can act on a locked pick, and waiting for
+    scoring hid the league from itself for the whole episode.
+    """
     from tests.helpers import insert_elimination_pick, insert_user
 
     season = insert_season(db_conn)
-    ep = insert_episode(
-        db_conn,
-        season["id"],
-        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
-    )
+    ep = _open_episode(db_conn, season["id"])
     contestant = insert_contestant(db_conn, season["id"])
     other = insert_user(db_conn, display_name="Other")
     insert_elimination_pick(db_conn, other["id"], ep["id"], contestant["id"])
 
     r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
-    assert r.status_code == 403  # locked, but not yet scored
+    assert r.status_code == 403  # still open for picks
 
     with db_conn.cursor() as cur:
-        cur.execute("update episodes set status = 'scored' where id = %s", [ep["id"]])
+        cur.execute(
+            "update episodes set picks_lock_at = %s where id = %s",
+            [datetime.now(timezone.utc) - timedelta(hours=1), ep["id"]],
+        )
     r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
-    assert r.status_code == 200
+    assert r.status_code == 200  # locked, still unscored
     assert len(r.json()) == 1
 
 

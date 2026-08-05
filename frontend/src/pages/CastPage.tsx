@@ -38,16 +38,16 @@ export function CastPage() {
       <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
       <ul className="space-y-2">
         {cast.map((c) => (
-          <li
-            key={c.id}
-            className="flex items-center justify-between p-3 bg-white border border-sand-200 rounded-lg"
-          >
+          <li key={c.id}>
+            {/* The whole row is the link, not just the name — a name-sized tap
+                target on a phone is a miss most of the time. */}
             <Link
               to={`/contestants/${c.id}`}
-              className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
+              className={`flex items-center justify-between gap-2 p-3 bg-white border border-sand-200 rounded-lg font-medium hover:border-ocean-300 hover:text-ocean-700 transition-colors ${
                 c.eliminated_in_episode != null ? 'text-gray-500' : 'text-gray-900'
               }`}
             >
+              <span className="flex items-center gap-2 min-w-0">
               <span
                 className="shrink-0"
                 title={
@@ -80,7 +80,7 @@ export function CastPage() {
                   </span>
                 )
               )}
-            </Link>
+              </span>
             {/* Fixed-width right-aligned columns so rows line up whether or
                 not tokens exist (#133); tokens deliberately quieter. */}
             <span className="flex items-center text-sm shrink-0">
@@ -100,6 +100,7 @@ export function CastPage() {
                 {c.total_tokens > 0 ? `+${c.total_tokens} tkn` : ''}
               </span>
             </span>
+            </Link>
           </li>
         ))}
       </ul>
