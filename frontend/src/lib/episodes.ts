@@ -31,6 +31,15 @@ export function isEpisodeOpen(ep: Episode, season: Season, episodes: Episode[]):
   return openEpisode(episodes, season)?.id === ep.id
 }
 
+// Has THIS episode stopped accepting entries — locked or scored? Independent
+// of which episode is currently open, so it stays false for future episodes.
+// `isEpisodeOpen` answers "is this the one open episode", which is a much
+// narrower question: negating it would call every future episode closed.
+// Mirrors backend app/locking.py EPISODE_LOCKED_SQL.
+export function episodeClosed(ep: Episode): boolean {
+  return ep.status === 'scored' || new Date(ep.picks_lock_at) <= new Date()
+}
+
 // Advantages can't be played from advantage_lock_episode onward (extends #85);
 // when unset the cutoff is the finale. Mirrors backend app/locking.py.
 export function advantagesLocked(ep: Episode, season: Season): boolean {
