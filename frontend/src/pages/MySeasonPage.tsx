@@ -52,6 +52,9 @@ function useMySeasonData() {
   // that keep their own roster copy refetch instead of going stale (#219-era
   // pre-lock roster edits).
   const [rosterVersion, setRosterVersion] = useState(0)
+  // Same trick for votes: This Week reads the pick count itself, so it needs
+  // telling when the votes section saves (#272 follow-up).
+  const [picksVersion, setPicksVersion] = useState(0)
 
   useEffect(() => {
     if (!userId) return
@@ -104,6 +107,8 @@ function useMySeasonData() {
     error,
     rosterVersion,
     bumpRoster: () => setRosterVersion((v) => v + 1),
+    picksVersion,
+    bumpPicks: () => setPicksVersion((v) => v + 1),
   }
 }
 
@@ -192,6 +197,7 @@ export function MySeasonPage() {
         plays={d.plays}
         contestants={d.contestants}
         userId={d.userId}
+        picksVersion={d.picksVersion}
       />
 
       <section id="roster" className="scroll-mt-20">
@@ -217,6 +223,7 @@ export function MySeasonPage() {
           plays={d.plays}
           setPlays={d.setPlays}
           pickResults={pickResults}
+          onPicksChange={d.bumpPicks}
         />
       </section>
 
@@ -368,12 +375,14 @@ function ThisWeekHub({
   plays,
   contestants,
   userId,
+  picksVersion,
 }: {
   season: Season
   episodes: Episode[]
   plays: AdvantagePlay[]
   contestants: Contestant[]
   userId: string
+  picksVersion: number
 }) {
   const nextOpen = openEpisode(episodes, season)
   const [voteCount, setVoteCount] = useState<number | null>(null)
@@ -391,7 +400,10 @@ function ThisWeekHub({
     return () => {
       live = false
     }
-  }, [nextOpen, userId])
+    // picksVersion: the votes section is a sibling, so saving there is
+    // invisible here without it — the card sat on "Not locked yet" until a
+    // manual refresh.
+  }, [nextOpen, userId, picksVersion])
 
   // Declared before the early return: the locked-episode branch names the
   // castaway a played double was aimed at.
@@ -1128,6 +1140,7 @@ function PicksSection({
   plays,
   setPlays,
   pickResults,
+  onPicksChange,
 }: {
   season: Season
   contestants: Contestant[]
@@ -1136,6 +1149,7 @@ function PicksSection({
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
+  onPicksChange: () => void
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
@@ -1208,6 +1222,7 @@ function PicksSection({
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
       setEditing(false)
+      onPicksChange()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Submit failed'
       setErrors((prev) => new Map(prev).set(episodeId, msg))

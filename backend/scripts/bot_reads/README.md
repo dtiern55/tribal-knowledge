@@ -12,6 +12,7 @@ run against a season nobody has watched yet.
   "episodes": {
     "2": {
       "likely_boots":   ["Most likely", "Next", "Third"],
+      "safe":           ["Nobody would vote for them this week"],
       "confidence":     "high | medium | low",
       "double_targets": ["Who the room would double"],
       "note":           "free text, echoed back when the week runs"
@@ -39,6 +40,14 @@ Notes from building it:
   from how many names `likely_boots` held, which conflated "how many people
   could go" with "how sure am I": a read covering two tribes looked uncertain
   purely because it was long.
+- **`safe` keeps someone off ballots entirely.** Names not in `likely_boots`
+  still get votes from the spread and contrarian personas, since they land in
+  the leftover field. If the read says nobody would vote for them, say so here.
+- **Bots only swap off an eliminated castaway.** There's no reason to burn a
+  swap while your five are all alive, so a name appearing in `likely_boots`
+  never triggers one — only a slot that's actually dead does. A free swap
+  covers it; past that it costs the week's play, which a Roster Loyalist
+  won't pay.
 - **`double_targets` decides who a roster double lands on** — bots only double
   a castaway they actually roster, so naming a whole tribe is fine.
 - Names are matched case- and punctuation-insensitively. An unrecognised name

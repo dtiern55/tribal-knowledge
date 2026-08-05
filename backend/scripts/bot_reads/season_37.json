@@ -34,6 +34,33 @@
       ],
       "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength.",
       "confidence": "medium"
+    },
+    "3": {
+      "likely_boots": [
+        "Natalie Cole",
+        "Carl Boudreaux",
+        "Bi Nguyen",
+        "Lyrsa Torres",
+        "Nick Wilson"
+      ],
+      "safe": [
+        "Mike White",
+        "Christian Hubicki"
+      ],
+      "confidence": "low",
+      "double_targets": [
+        "Alec Merlino",
+        "Alison Raybould",
+        "Angelina Keeley",
+        "Dan Rengering",
+        "Jeremy Crawford",
+        "John Hennigan",
+        "Kara Kay",
+        "Mike White",
+        "Natalia Azoqa",
+        "Natalie Cole"
+      ],
+      "note": "No strong read. Nobody votes Mike or Christian; outside those it's pretty split. Doubles still favour Goliath."
     }
   }
 }
