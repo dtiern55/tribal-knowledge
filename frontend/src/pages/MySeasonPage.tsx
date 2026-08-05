@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
@@ -381,7 +381,6 @@ function ThisWeekHub({
   contestants: Contestant[]
   userId: string
 }) {
-  const navigate = useNavigate()
   const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
   const [voteCount, setVoteCount] = useState<number | null>(null)
 
@@ -507,13 +506,6 @@ function ThisWeekHub({
           </span>
         </div>
       )}
-
-      <button
-        onClick={() => navigate('/my-votes')}
-        className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg hover:bg-ocean-700 transition-colors"
-      >
-        {locked ? 'Review your votes' : 'Review & lock votes'}
-      </button>
     </div>
   )
 }
