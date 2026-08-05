@@ -1,14 +1,34 @@
 import type { Episode, Season } from '../types'
 
-// An episode accepts picks/advantage plays until it locks or is scored.
-// Episodes before the season's roster_lock_episode are watch-only and never
-// open (decision #51). Mirrors backend app/locking.py — keep in sync.
-export function isEpisodeOpen(ep: Episode, season: Season): boolean {
-  return (
-    ep.status !== 'scored' &&
-    new Date(ep.picks_lock_at) > new Date() &&
-    ep.episode_number >= (season.roster_lock_episode ?? 1)
-  )
+// The one episode open for picks: the lowest unscored one at or after the
+// roster lock, and only while its own lock is still ahead. Once that passes
+// the episode is airing and NOTHING is open until it's scored — you can't
+// call episode N+1's boot before knowing episode N's. Mirrors backend
+// app/locking.py — keep in sync.
+export function openEpisode(episodes: Episode[], season: Season): Episode | undefined {
+  const pending = episodes
+    .filter(
+      (e) =>
+        e.status !== 'scored' && e.episode_number >= (season.roster_lock_episode ?? 1),
+    )
+    .sort((a, b) => a.episode_number - b.episode_number)[0]
+  return pending && new Date(pending.picks_lock_at) > new Date() ? pending : undefined
+}
+
+// The episode that has locked but isn't scored — airing right now.
+export function airingEpisode(episodes: Episode[], season: Season): Episode | undefined {
+  return episodes
+    .filter(
+      (e) =>
+        e.status !== 'scored' &&
+        e.episode_number >= (season.roster_lock_episode ?? 1) &&
+        new Date(e.picks_lock_at) <= new Date(),
+    )
+    .sort((a, b) => a.episode_number - b.episode_number)[0]
+}
+
+export function isEpisodeOpen(ep: Episode, season: Season, episodes: Episode[]): boolean {
+  return openEpisode(episodes, season)?.id === ep.id
 }
 
 // Advantages can't be played from advantage_lock_episode onward (extends #85);
@@ -48,7 +68,7 @@ export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean 
 // back to merge + 2, and the finale never accepts swaps (#84, #163). Mirrors
 // backend app/locking.py.
 export function swapsLocked(season: Season, episodes: Episode[]): boolean {
-  const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
+  const nextOpen = openEpisode(episodes, season)
   // No open episode means play is over (finale locked, or season ended), so
   // everything is locked — not unlocked (#283).
   if (!nextOpen) return true

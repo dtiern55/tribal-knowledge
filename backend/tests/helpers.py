@@ -261,3 +261,11 @@ def grant_tokens(conn, user_id, season_id, amount=50):
             [str(user_id), str(season_id), amount],
         )
         return cur.fetchone()
+
+
+def score_episode(conn, episode_id):
+    """Mark an episode scored — the next one only opens once this is done (#11)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "update episodes set status = 'scored' where id = %s", [str(episode_id)]
+        )

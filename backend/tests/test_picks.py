@@ -9,6 +9,7 @@ from tests.helpers import (
     insert_elimination,
     insert_episode,
     insert_season,
+    score_episode,
 )
 
 
@@ -205,6 +206,35 @@ def test_submit_picks_invalid_contestant(client, db_conn):
 
 
 @pytest.mark.integration
+def test_next_episode_stays_shut_until_this_one_is_scored(client, db_conn):
+    """#11: an episode that has locked but isn't scored is AIRING, and nothing
+    opens behind it — you can't call episode N+1's boot before knowing N's."""
+    season = insert_season(db_conn)
+    ep1 = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    ep2 = _open_episode(db_conn, season["id"], episode_number=2)
+    c = insert_contestant(db_conn, season["id"])
+    insert_contestant(db_conn, season["id"], "B")
+    insert_contestant(db_conn, season["id"], "C")
+
+    r = client.post(
+        f"/episodes/{ep2['id']}/picks", json={"contestant_ids": [str(c["id"])]}
+    )
+    assert r.status_code == 400
+    assert "no episode is currently open" in r.json()["detail"].lower()
+
+    score_episode(db_conn, ep1["id"])
+    r = client.post(
+        f"/episodes/{ep2['id']}/picks", json={"contestant_ids": [str(c["id"])]}
+    )
+    assert r.status_code == 200
+
+
+@pytest.mark.integration
 def test_submit_picks_already_eliminated(client, db_conn):
     season = insert_season(db_conn)
     ep1 = insert_episode(
@@ -218,6 +248,9 @@ def test_submit_picks_already_eliminated(client, db_conn):
     insert_contestant(db_conn, season["id"], "B")  # keep others in so the cap
     insert_contestant(db_conn, season["id"], "C")  # isn't what rejects the pick
     insert_elimination(db_conn, ep1["id"], contestant["id"])
+    # Episode 2 only opens once episode 1 is scored (#11) — otherwise the
+    # rejection would be "nothing is open", not "already eliminated".
+    score_episode(db_conn, ep1["id"])
     r = client.post(
         f"/episodes/{ep2['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},

@@ -19,6 +19,7 @@ from tests.helpers import (
     insert_roster_pick,
     insert_season,
     insert_user,
+    score_episode,
 )
 
 
@@ -116,6 +117,8 @@ def test_play_allowed_again_in_the_next_episode(client, db_conn, current_user):
     )
     _open_episode(db_conn, season["id"], episode_number=2)
     insert_advantage_play(db_conn, current_user["id"], ep1["id"], "double_vote_points")
+    # Episode 2 is only open once episode 1 is scored (#11).
+    score_episode(db_conn, ep1["id"])
 
     play = _play(client, season["id"], "double_vote_points")
     assert play["episode_id"] != str(ep1["id"])
