@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
-import { advantagesLocked, airingEpisode, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { advantagesLocked, airingEpisode, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
   doubledByContestantEpisode,
@@ -268,7 +268,7 @@ function PlayHistorySection({
   const episodeMap = new Map(episodes.map((e) => [e.id, e]))
   const spent = plays.filter((p) => {
     const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-    return ep != null && !isEpisodeOpen(ep, season, episodes)
+    return ep != null && episodeClosed(ep)
   })
   if (spent.length === 0 && (ledger == null || ledger.length === 0)) return null
 
@@ -1207,8 +1207,14 @@ function PicksSection({
   )
   // The episode you're on: open for picks, or locked and awaiting scoring. It
   // renders on its own above the collapsed past ones (#272).
-  const currentEp = weekly.find(isOpen) ?? weekly.findLast((ep) => ep.status !== 'scored')
-  const closedEpisodes = weekly.filter((ep) => !isOpen(ep) && ep.id !== currentEp?.id).reverse()
+  const currentEp =
+    weekly.find(isOpen) ??
+    weekly.find((ep) => episodeClosed(ep) && ep.status !== 'scored')
+  // Past = actually closed. `!isOpen` would sweep in every FUTURE episode,
+  // since only one episode is ever open.
+  const closedEpisodes = weekly
+    .filter((ep) => episodeClosed(ep) && ep.id !== currentEp?.id)
+    .reverse()
 
   // Shared by the current locked episode and every past row.
   function episodeRow(ep: Episode, current: boolean) {
@@ -1311,7 +1317,7 @@ function PicksSection({
           it stays visible after lock as the stamped ballot (#189). */}
       {(() => {
         const fin = episodes.find((e) => e.is_finale)
-        const show = fin && (nextOpen?.id === fin.id || !isOpen(fin))
+        const show = fin && (nextOpen?.id === fin.id || episodeClosed(fin))
         return show ? (
           <FinaleBallot
             season={season}
