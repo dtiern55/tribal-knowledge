@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { useNavigate, useParams } from 'react-router'
 import { SwipeNavBar } from '../components/SwipeNav'
+import { ADV_LABELS } from '../lib/advantages'
+import { episodeClosed } from '../lib/episodes'
 import { useSwipeNav } from '../lib/swipe'
 import { api } from '../lib/api'
 import { RosterBreakdown } from '../components/RosterBreakdown'
@@ -42,7 +44,7 @@ function Points({ value }: { value: number | undefined }) {
 
 
 // Read-only view of another player's roster, reached from Standings (#83),
-// plus their votes for scored episodes (#134 — pre-scoring votes stay
+// plus their votes for every locked episode (pre-lock votes stay
 // private, enforced server-side).
 export function TeamPage() {
   const { seasonId, userId } = useParams()
@@ -92,12 +94,15 @@ export function TeamPage() {
           setHidden(true) // 403 until rosters lock
         }
 
-        const scored = episodes
-          .filter((e) => e.status === 'scored')
+        // Locked, not just scored: once picks lock nobody can act on what
+        // they see, and checking on the league mid-episode is half the fun.
+        // The API opens other players' picks at the same moment.
+        const visible = episodes
+          .filter(episodeClosed)
           .sort((a, b) => b.episode_number - a.episode_number)
         setVotes(
           await Promise.all(
-            scored.map(async (episode) => {
+            visible.map(async (episode) => {
               const [picks, eliminations] = await Promise.all([
                 api
                   .get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`)
@@ -242,6 +247,22 @@ export function TeamPage() {
                   <p className="font-medium text-gray-700 mb-2">
                     Episode {episode.episode_number}
                   </p>
+                  {/* What they spent their play on. Roster doubles otherwise
+                      only surface as points, which don't exist yet while the
+                      episode is still unscored. */}
+                  {(() => {
+                    const p = plays.find((x) => x.episode_id === episode.id)
+                    return p ? (
+                      <p className="text-xs text-ocean-700 mb-2">
+                        {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
+                        {p.target_contestant_id
+                          ? ` · ${contestantMap.get(p.target_contestant_id)?.name ?? '—'}`
+                          : ''}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400 mb-2">No advantage played</p>
+                    )
+                  })()}
                   {picks.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {picks.map((p) => {

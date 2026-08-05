@@ -29,12 +29,16 @@ def get_picks(
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
-            # Other players' picks stay hidden until the episode is scored
-            # (#134) — post-lock but pre-scoring they're still private.
-            if str(user_id) != str(current_user) and episode["status"] != "scored":
+            # Other players' picks open up as soon as the episode LOCKS, not
+            # when it's scored. Once picks are locked nobody can act on what
+            # they see, and the commissioner may not score until the next day —
+            # so the old scored-only rule (#134) hid the league from itself for
+            # the whole episode. Restores the original visibility rule (#36):
+            # private until the corresponding lock passes.
+            if str(user_id) != str(current_user) and not episode_locked(episode):
                 raise HTTPException(
                     status_code=403,
-                    detail="Picks are hidden until the episode is scored",
+                    detail="Picks are hidden until the episode locks",
                 )
             cur.execute(
                 """

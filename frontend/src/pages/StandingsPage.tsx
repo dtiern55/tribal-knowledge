@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { PageLoader } from '../components/PageLoader'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { Season, StandingEntry } from '../types'
@@ -42,6 +42,7 @@ const RANK_CHIP = [
 ]
 
 export function StandingsPage() {
+  const navigate = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id
   const [seasons, setSeasons] = useState<Season[]>([])
@@ -107,7 +108,8 @@ export function StandingsPage() {
               return (
                 <tr
                   key={entry.user_id}
-                  className={`border-b border-sand-100 ${
+                  onClick={() => navigate(`/seasons/${season.id}/team/${entry.user_id}`)}
+                  className={`border-b border-sand-100 cursor-pointer ${
                     isMe ? 'bg-ocean-50' : 'hover:bg-sand-100/60'
                   }`}
                 >

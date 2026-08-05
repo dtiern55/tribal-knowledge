@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { Link, useLocation } from 'react-router'
+import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
@@ -355,13 +356,6 @@ function ordinal(n: number): string {
 
 // ─── This Week hub ──────────────────────────────────────────────────────────
 
-const ADV_LABELS: Record<string, string> = {
-  double_roster_points: 'Double Roster Points',
-  double_vote_points: 'Double Vote Points',
-  extra_vote: 'Extra Vote',
-  roster_swap: 'Roster Swap',
-}
-
 /**
  * Action-first summary for the next open episode (#UI pass): countdown, whether
  * this week's votes are locked in, and any advantages in play — so the top of
@@ -399,21 +393,48 @@ function ThisWeekHub({
     }
   }, [nextOpen, userId])
 
+  // Declared before the early return: the locked-episode branch names the
+  // castaway a played double was aimed at.
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+
   if (!nextOpen) {
     // Locked-but-unscored is a real state, not "nothing happening" (#272) —
     // and now it's also why nothing else is open: the next episode stays shut
     // until this one is scored, so nobody calls its boot early.
     const airing = airingEpisode(episodes, season)
+    // "Locked", not "airing": scoring may not happen until the next day, and
+    // by then "is airing" is wrong.
+    const played = airing ? plays.filter((p) => p.episode_id === airing.id) : []
     return (
       <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm">
         {airing ? (
           <>
             <p className="font-semibold text-gray-900">
-              Episode {airing.episode_number} is airing
+              Episode {airing.episode_number} locked
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
               Picks locked {formatCentral(airing.picks_lock_at)} · everything's in
             </p>
+            {/* What you committed stays on screen after the lock — it's the
+                thing you most want to re-check while the episode plays. */}
+            <div className="flex items-start gap-3 mt-2">
+              <span className="text-gray-600 shrink-0">Advantage</span>
+              <span className="ml-auto text-right font-medium text-gray-800">
+                {played.length > 0
+                  ? played
+                      .map((p) => {
+                        const t = p.target_contestant_id
+                          ? contestantMap.get(p.target_contestant_id)?.name
+                          : null
+                        return (
+                          (ADV_LABELS[p.advantage_type] ?? p.advantage_type) +
+                          (t ? ` · ${t}` : '')
+                        )
+                      })
+                      .join(', ')
+                  : 'None played'}
+              </span>
+            </div>
             <p className="text-sm text-gray-600 mt-2">
               Episode {airing.episode_number + 1} opens once this one is scored.
             </p>
@@ -446,7 +467,6 @@ function ThisWeekHub({
     )
   }
 
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const inPlay = plays.filter((p) => p.episode_id === nextOpen.id)
   const locked = voteCount != null && voteCount > 0
   const voteLabel = nextOpen.is_finale ? 'Finale ballot' : 'Weekly votes'
