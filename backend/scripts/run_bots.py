@@ -48,6 +48,7 @@ import os
 import re
 import secrets
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -339,13 +340,18 @@ def next_open_ep(cur, sid):
     cur.execute(
         """
         select e.* from episodes e join seasons s on s.id = e.season_id
-        where e.season_id=%s and e.status <> 'scored' and e.picks_lock_at > now()
+        where e.season_id=%s and e.status <> 'scored'
           and e.episode_number >= coalesce(s.roster_lock_episode, 1)
         order by e.episode_number limit 1
         """,
         [sid],
     )
-    return cur.fetchone()
+    ep = cur.fetchone()
+    if ep is None:
+        return None
+    # Locked but unscored means it's airing — nothing is open until it's
+    # scored, same as the app.
+    return ep if ep["picks_lock_at"] > datetime.now(timezone.utc) else None
 
 
 def alive_ids(cur, sid) -> list[str]:

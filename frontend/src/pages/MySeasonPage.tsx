@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
-import { advantagesLocked, isEpisodeOpen, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { advantagesLocked, airingEpisode, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
   doubledByContestantEpisode,
@@ -123,9 +123,9 @@ function useWeeklyPlay(
 ) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const openEpisode = episodes.find((e) => isEpisodeOpen(e, season))
-  const play = openEpisode ? plays.find((p) => p.episode_id === openEpisode.id) : undefined
-  const locked = openEpisode ? advantagesLocked(openEpisode, season) : true
+  const ep = openEpisode(episodes, season)
+  const play = ep ? plays.find((p) => p.episode_id === ep.id) : undefined
+  const locked = ep ? advantagesLocked(ep, season) : true
 
   async function spend(advantageType: string, targetContestantId?: string) {
     setBusy(true)
@@ -159,7 +159,7 @@ function useWeeklyPlay(
     }
   }
 
-  return { openEpisode, play, locked, busy, error, spend, takeBack }
+  return { openEpisode: ep, play, locked, busy, error, spend, takeBack }
 }
 
 export function MySeasonPage() {
@@ -268,7 +268,7 @@ function PlayHistorySection({
   const episodeMap = new Map(episodes.map((e) => [e.id, e]))
   const spent = plays.filter((p) => {
     const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-    return ep != null && !isEpisodeOpen(ep, season)
+    return ep != null && !isEpisodeOpen(ep, season, episodes)
   })
   if (spent.length === 0 && (ledger == null || ledger.length === 0)) return null
 
@@ -381,7 +381,7 @@ function ThisWeekHub({
   contestants: Contestant[]
   userId: string
 }) {
-  const nextOpen = episodes.find((e) => isEpisodeOpen(e, season))
+  const nextOpen = openEpisode(episodes, season)
   const [voteCount, setVoteCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -400,18 +400,22 @@ function ThisWeekHub({
   }, [nextOpen, userId])
 
   if (!nextOpen) {
-    // Picks closed and not scored yet is a real state, not "nothing happening"
-    // (#272). Latest such episode wins — an older unscored one isn't this week.
-    const locked = episodes.findLast(
-      (e) => e.status !== 'scored' && new Date(e.picks_lock_at) <= new Date(),
-    )
+    // Locked-but-unscored is a real state, not "nothing happening" (#272) —
+    // and now it's also why nothing else is open: the next episode stays shut
+    // until this one is scored, so nobody calls its boot early.
+    const airing = airingEpisode(episodes, season)
     return (
       <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm">
-        {locked ? (
+        {airing ? (
           <>
-            <p className="font-semibold text-gray-900">Locked — Episode {locked.episode_number}</p>
+            <p className="font-semibold text-gray-900">
+              Episode {airing.episode_number} is airing
+            </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Picks closed {formatCentral(locked.picks_lock_at)}
+              Picks locked {formatCentral(airing.picks_lock_at)} · everything's in
+            </p>
+            <p className="text-sm text-gray-600 mt-2">
+              Episode {airing.episode_number + 1} opens once this one is scored.
             </p>
           </>
         ) : (
@@ -1137,7 +1141,7 @@ function PicksSection({
       const elimEp = new Map(contestants.map((c) => [c.id, c.eliminated_in_episode]))
       const pendingMap = new Map<string, Set<string>>()
       for (const ep of episodes) {
-        if (isEpisodeOpen(ep, season)) {
+        if (isEpisodeOpen(ep, season, episodes)) {
           const saved = picksMap.get(ep.id) ?? []
           const live = saved.filter((p) => {
             const out = elimEp.get(p.contestant_id)
@@ -1152,7 +1156,7 @@ function PicksSection({
   }, [episodes, season, userId, contestants])
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const isOpen = (ep: Episode) => isEpisodeOpen(ep, season)
+  const isOpen = (ep: Episode) => isEpisodeOpen(ep, season, episodes)
 
   function togglePick(episodeId: string, contestantId: string, maxPicks: number) {
     setPending((prev) => {
@@ -1312,6 +1316,7 @@ function PicksSection({
           <FinaleBallot
             season={season}
             contestants={contestants}
+            episodes={episodes}
             finaleEp={fin}
             userId={userId}
           />
@@ -1560,11 +1565,13 @@ function PicksSection({
 function FinaleBallot({
   season,
   contestants,
+  episodes,
   finaleEp,
   userId,
 }: {
   season: Season
   contestants: Contestant[]
+  episodes: Episode[]
   finaleEp: Episode
   userId: string
 }) {
@@ -1578,7 +1585,7 @@ function FinaleBallot({
   const [hasSaved, setHasSaved] = useState(false)
   const [editing, setEditing] = useState(false)
 
-  const locked = !isEpisodeOpen(finaleEp, season)
+  const locked = !isEpisodeOpen(finaleEp, season, episodes)
 
   useEffect(() => {
     api
