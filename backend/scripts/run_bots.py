@@ -451,9 +451,17 @@ def week(cur, episode_n: int):
     targets = set(
         resolve(cur, sid, ep_read.get("double_targets", []), "double_targets")
     )
+    # Castaways the room simply won't vote for this week. Without this they
+    # fall into `others` and the spread/contrarian personas hand them votes
+    # anyway, which contradicts a read that says nobody would.
+    safe = set(resolve(cur, sid, ep_read.get("safe", []), "safe"))
+    # The draft's avoid list still applies to swap-ins: sorting the pool by
+    # fewest owners otherwise picks whoever nobody wants, precisely because
+    # nobody wants them.
+    shunned = set(resolve(cur, sid, read.get("avoid", []), "avoid"))
     alive = alive_ids(cur, sid)
-    boots = [c for c in boots if c in alive]
-    others = [c for c in alive if c not in boots]
+    boots = [c for c in boots if c in alive and c not in safe]
+    others = [c for c in alive if c not in boots and c not in safe]
     # How sure the room is about the boot — stated, not inferred. Deriving it
     # from len(likely_boots) conflated "how many people could go" with "how
     # sure am I", so a read listing both tribes read as uncertain and pushed
@@ -473,6 +481,13 @@ def week(cur, episode_n: int):
         swap_lock is not None and episode_n >= swap_lock
     )
 
+    cur.execute(
+        """select contestant_id::text cid, count(*) n from roster_picks
+           where season_id=%s and active_until_episode is null group by 1""",
+        [sid],
+    )
+    owned = {r["cid"]: r["n"] for r in cur.fetchall()}
+
     by_name = {a["name"]: a for a in archetypes()}
     picks_made = swaps_made = plays_made = 0
     tally = {"double_roster_points": 0, "double_vote_points": 0, "roster_swap": 0}
@@ -487,17 +502,27 @@ def week(cur, episode_n: int):
         if swaps_open and not used_play(cur, uid, ep["id"]):
             roster = active_roster(cur, uid, sid)
             held = {p["cid"] for p in roster}
-            dead = [p for p in roster if p["cid"] not in alive and p["af"] < episode_n]
+            swappable = [p for p in roster if p["af"] < episode_n]
+            # Only a corpse is worth a swap. Danny's rule (2026-08-05): there
+            # is never a reason to burn one unless your team is down to four
+            # or fewer — which is exactly what holding an eliminated castaway
+            # means. Dropping someone merely *likely* to go bails on players
+            # who often survive, and spends a finite resource on a guess.
+            dead = [p for p in swappable if p["cid"] not in alive]
             committed = swaps_committed(cur, uid, sid)
             free = committed < season["free_swaps"]
-            # A loyalist won't give up their double for a swap; everyone else
-            # will once the slot is genuinely dead.
-            willing = free or a["style"] != "roster"
             add_pool = [c for c in alive if c not in held]
-            if dead and willing and add_pool:
-                want = [c for c in add_pool if c in targets] or add_pool
+            # Loyalists never trade their double for a paid swap.
+            out = dead[0] if dead and (free or a["style"] != "roster") else None
+            if out and add_pool:
+                # Order by how few people already own them, or every bot picks
+                # whoever sorts first and the whole league swaps in one name.
+                pool = [c for c in add_pool if c not in shunned] or add_pool
+                want = [c for c in pool if c in targets] or pool
+                want = sorted(want, key=lambda c: owned.get(c, 0))
                 new = biased_order(want, a["spread"], uid, episode_n, "swapin")[0]
-                do_swap(cur, uid, sid, ep, dead[0], new, charged=not free)
+                owned[new] = owned.get(new, 0) + 1
+                do_swap(cur, uid, sid, ep, out, new, charged=not free)
                 swaps_made += 1
                 if not free:
                     tally["roster_swap"] += 1
