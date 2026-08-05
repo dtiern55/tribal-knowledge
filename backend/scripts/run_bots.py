@@ -261,6 +261,7 @@ def draft(cur):
     arche = archetypes()
     bots = load_bots(cur)
     lock_ep = season["roster_lock_episode"] or 1
+    require_history_scored(cur, str(season["id"]), lock_ep)
     # Anyone already voted out is off the board — nobody drafts a dead slot.
     everyone = alive_ids(cur, season["id"])
     wanted = [
@@ -303,6 +304,29 @@ def draft(cur):
 
 
 # ── one week ───────────────────────────────────────────────────────────────
+
+
+def require_history_scored(cur, sid, upto: int):
+    """Refuse to act while an earlier episode is still unscored.
+
+    Bots read who's alive from the eliminations table, so running before an
+    episode is imported makes a voted-out castaway look available — David vs.
+    Goliath drafted and voted for a castaway who left in the premiere because
+    the draft ran before episode 1 was scored.
+    """
+    cur.execute(
+        "select episode_number from episodes where season_id=%s"
+        " and episode_number < %s and status <> 'scored'"
+        " order by episode_number",
+        [sid, upto],
+    )
+    stale = [r["episode_number"] for r in cur.fetchall()]
+    if stale:
+        sys.exit(
+            f"Episode(s) {stale} aren't scored yet.\n"
+            "Import and score them first — until then the bots can't see who's"
+            " already out, and will draft or vote for them."
+        )
 
 
 def next_open_ep(cur, sid):
@@ -401,6 +425,7 @@ def week(cur, episode_n: int):
             f" season_{season['season_number']}.json"
         )
 
+    require_history_scored(cur, str(sid), episode_n)
     cur.execute(
         "select * from episodes where season_id=%s and episode_number=%s",
         [sid, episode_n],
