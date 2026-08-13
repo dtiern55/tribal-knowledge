@@ -393,6 +393,13 @@ class EpisodeResultWeeklyPlay(BaseModel):
     bonus_points: int
 
 
+class EpisodeResultInsight(BaseModel):
+    id: UUID
+    label: str
+    value: str
+    detail: Optional[str] = None
+
+
 class EpisodeResult(BaseModel):
     episode_id: UUID
     episode_number: int
@@ -409,6 +416,26 @@ class EpisodeResult(BaseModel):
     current_rank: Optional[int] = None
     prior_rank: Optional[int] = None
     rank_delta: Optional[int] = None
+    insights: list[EpisodeResultInsight] = Field(default_factory=list)
+
+
+class EpisodeInsightConfigEntry(BaseModel):
+    insight_type: Literal[
+        "pick_popularity",
+        "multiple_correct_ballots",
+        "performance_vs_median",
+        "weekly_play_usage",
+    ]
+    contestant_id: Optional[UUID] = None
+    advantage_type: Optional[
+        Literal["double_roster_points", "double_vote_points", "roster_swap"]
+    ] = None
+
+
+class EpisodeInsightConfig(EpisodeInsightConfigEntry):
+    id: UUID
+    episode_id: UUID
+    display_order: int
 
 
 class RevealAcknowledgementRequest(BaseModel):

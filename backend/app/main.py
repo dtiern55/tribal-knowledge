@@ -9,6 +9,7 @@ from app.routers import (
     advantage_plays,
     contestants,
     eliminations,
+    episode_insights,
     episode_results,
     episodes,
     finale_predictions,
@@ -47,6 +48,7 @@ app.include_router(me.router)
 app.include_router(advantage_plays.router)
 app.include_router(seasons.router)
 app.include_router(episodes.router)
+app.include_router(episode_insights.router)
 app.include_router(episode_results.router)
 app.include_router(contestants.router)
 app.include_router(eliminations.router)
