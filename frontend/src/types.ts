@@ -140,6 +140,63 @@ export interface AdvantagePlay {
   created_at: string
 }
 
+export interface EpisodeResultContestant {
+  contestant_id: string
+  name: string
+  image_url: string | null
+}
+
+export interface EpisodeResultElimination extends EpisodeResultContestant {
+  elimination_type: string
+}
+
+export interface EpisodeResultBallotPick extends EpisodeResultContestant {
+  prediction_type: 'elimination' | 'early_boot' | 'fire_loss' | 'winner'
+  correct: boolean
+  points: number
+}
+
+export interface EpisodeResultRosterMember extends EpisodeResultContestant {
+  points: number
+}
+
+export interface EpisodeResultWeeklyPlay {
+  advantage_play_id: string
+  advantage_type: string
+  target_contestant_id: string | null
+  target_name: string | null
+  bonus_points: number
+}
+
+/** Optional editorial facts are added by #333. Reveal deliberately accepts
+ * an absent/empty collection so no placeholder insight module leaks into the
+ * base result experience. */
+export interface EpisodeResultInsight {
+  id: string
+  label: string
+  value: string
+  detail?: string | null
+}
+
+export interface EpisodeResult {
+  episode_id: string
+  episode_number: number
+  is_finale: boolean
+  eliminated: EpisodeResultElimination[]
+  ballot: EpisodeResultBallotPick[]
+  roster: EpisodeResultRosterMember[]
+  roster_points: number
+  roster_adjustment_points: number
+  ballot_points: number
+  weekly_plays: EpisodeResultWeeklyPlay[]
+  weekly_play_bonus: number
+  total_points: number
+  current_rank: number | null
+  prior_rank: number | null
+  rank_delta: number | null
+  insights?: EpisodeResultInsight[]
+}
+
 export interface ScoringEventType {
   event_type: string
   label: string

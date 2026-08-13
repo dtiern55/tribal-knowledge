@@ -1,9 +1,10 @@
 import type { Session } from '@supabase/supabase-js'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow } from '../lib/mySeasonState'
-import type { Episode, Season } from '../types'
+import type { Episode, EpisodeResult, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { MySeasonPage } from './MySeasonPage'
 
@@ -33,10 +34,54 @@ function episode(number: number, status: string, lock: string): Episode {
   }
 }
 
-function arrange(episodes: Episode[]) {
+function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
+  return {
+    episode_id: 'episode-2',
+    episode_number: 2,
+    is_finale: false,
+    eliminated: [
+      { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, elimination_type: 'voted_out' },
+      { contestant_id: 'cast-2', name: 'Charlie', image_url: null, elimination_type: 'voted_out' },
+    ],
+    ballot: [
+      { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, prediction_type: 'elimination', correct: true, points: 15 },
+      { contestant_id: 'cast-2', name: 'Charlie', image_url: null, prediction_type: 'elimination', correct: true, points: 15 },
+      { contestant_id: 'cast-3', name: 'Venus', image_url: null, prediction_type: 'elimination', correct: false, points: 0 },
+    ],
+    roster: [
+      { contestant_id: 'cast-4', name: 'Tiffany', image_url: null, points: 15 },
+    ],
+    roster_points: 15,
+    roster_adjustment_points: 0,
+    ballot_points: 30,
+    weekly_plays: [
+      {
+        advantage_play_id: 'play-1',
+        advantage_type: 'double_vote_points',
+        target_contestant_id: null,
+        target_name: null,
+        bonus_points: 30,
+      },
+    ],
+    weekly_play_bonus: 30,
+    total_points: 75,
+    current_rank: 2,
+    prior_rank: 5,
+    rank_delta: 3,
+    ...overrides,
+  }
+}
+
+function arrange(
+  episodes: Episode[],
+  automaticResult?: EpisodeResult,
+  replayResult?: EpisodeResult,
+) {
   vi.mocked(getActiveSeason).mockResolvedValue(season)
   vi.mocked(api.get).mockImplementation(async (path: string) => {
     if (path.endsWith('/episodes')) return episodes
+    if (path.endsWith('/reveal')) return automaticResult
+    if (path.includes('/episode-results/')) return replayResult
     if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
     return []
   })
@@ -115,6 +160,7 @@ describe('MySeasonPage state shell', () => {
         ]
       }
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
       if (path.includes('/advantage-plays/')) {
         return [{ id: 'play-1', episode_id: 'episode-2', advantage_type: 'double_vote_points', target_contestant_id: null }]
       }
@@ -128,5 +174,122 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.getByText('Charlie')).toBeVisible()
     expect(screen.getByText('Double Vote Points')).toBeVisible()
+  })
+
+  it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {
+    const user = userEvent.setup()
+    arrange(
+      [
+        episode(1, 'scored', '2026-08-01T00:00:00Z'),
+        episode(2, 'scored', '2026-08-08T00:00:00Z'),
+        episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+      ],
+      result({
+        insights: [
+          { id: 'popular-pick', label: 'League call', value: '72%', detail: 'picked Kenzie' },
+        ],
+      }),
+    )
+    vi.mocked(api.post)
+      .mockRejectedValueOnce(new Error('Still saving'))
+      .mockResolvedValueOnce({})
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('2 castaways were eliminated')
+    expect(dialog).toHaveTextContent('You called 2 of 3 ballot picks correctly.')
+    expect(screen.getByRole('heading', { name: 'Roster earnings' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Ballot earnings' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Weekly play' })).toBeVisible()
+    expect(dialog).toHaveTextContent('Up 3 spots to #2')
+    expect(screen.getByRole('heading', { name: 'Episode insight' })).toBeVisible()
+    expect(dialog).toHaveTextContent('72%')
+    expect(dialog).toHaveTextContent('Roster + ballot + weekly play+75 pts')
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Still saving')
+    expect(screen.getByRole('dialog')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: /^Weekly Votes/ })).toBeVisible()
+    expect(api.post).toHaveBeenCalledWith(
+      '/seasons/season-1/reveal-acknowledgement',
+      { episode_id: 'episode-2' },
+    )
+  })
+
+  it('replays a scored Episode History result without acknowledging it', async () => {
+    const user = userEvent.setup()
+    arrange(
+      [
+        episode(1, 'scored', '2026-08-01T00:00:00Z'),
+        episode(2, 'scored', '2026-08-08T00:00:00Z'),
+        episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+      ],
+      undefined,
+      result({ current_rank: null, prior_rank: null, rank_delta: null }),
+    )
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await screen.findByRole('heading', { name: /^Weekly Votes/ })
+    await user.click(screen.getByRole('button', { name: /Episode History/ }))
+    await user.click(screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Episode 2 replay')
+    expect(dialog).not.toHaveTextContent(/ranked|spots to|Held at/)
+    await user.click(screen.getByRole('button', { name: 'Back to My Season' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Weekly Votes/ })).toBeVisible()
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('continues an automatic reveal to Intermission when no next episode exists', async () => {
+    const user = userEvent.setup()
+    arrange(
+      [
+        episode(1, 'scored', '2026-08-01T00:00:00Z'),
+        episode(2, 'scored', '2026-08-08T00:00:00Z'),
+      ],
+      result({
+        eliminated: [],
+        ballot: [],
+        ballot_points: 0,
+        weekly_plays: [],
+        weekly_play_bonus: 0,
+        total_points: 15,
+        current_rank: 1,
+        prior_rank: null,
+        rank_delta: null,
+      }),
+    )
+    vi.mocked(api.post).mockResolvedValue({})
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByText('No one was eliminated')).toBeVisible()
+    expect(screen.getByText('You did not submit a ballot for this episode.')).toBeVisible()
+    expect(screen.getByText('No weekly play was used. Your base score is unchanged.')).toBeVisible()
+    expect(screen.getByText('Now ranked #1')).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Episode insight' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('heading', { name: 'Between episodes' })).toBeVisible()
+  })
+
+  it('continues the finale reveal to Complete when the season is completed', async () => {
+    const user = userEvent.setup()
+    arrange(
+      [
+        episode(1, 'scored', '2026-08-01T00:00:00Z'),
+        { ...episode(2, 'scored', '2026-08-08T00:00:00Z'), is_finale: true },
+      ],
+      result({ is_finale: true }),
+    )
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, status: 'completed' })
+    vi.mocked(api.post).mockResolvedValue({})
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('heading', { name: 'Season complete' })).toBeVisible()
   })
 })
