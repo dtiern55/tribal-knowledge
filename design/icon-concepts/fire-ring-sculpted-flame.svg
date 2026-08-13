@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Three-seat fire ring — sculpted flame</title>
+  <rect width="512" height="512" rx="96" fill="#14628c"/>
+
+  <circle
+    cx="256"
+    cy="256"
+    r="166"
+    fill="none"
+    stroke="#f3e3c3"
+    stroke-width="62"
+    stroke-linecap="round"
+    stroke-dasharray="247 100.67"
+    stroke-dashoffset="-50.33"
+    transform="rotate(30 256 256)"
+  />
+
+  <!-- A broad, carved canopy shelters a separate inner ember. -->
+  <path
+    fill="#d5621b"
+    d="M256 105
+       C277 151 316 186 322 230
+       C326 261 316 284 302 303
+       C290 280 274 262 256 253
+       C238 262 222 280 210 303
+       C196 284 186 261 190 230
+       C196 186 235 151 256 105Z"
+  />
+  <path
+    fill="#d5621b"
+    d="M256 249
+       C269 272 286 291 286 315
+       C286 336 274 352 256 361
+       C238 352 226 336 226 315
+       C226 291 243 272 256 249Z"
+  />
+</svg>
