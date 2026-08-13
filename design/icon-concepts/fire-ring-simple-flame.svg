@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Three-seat fire ring — simple flame control</title>
+  <rect width="512" height="512" rx="96" fill="#14628c"/>
+
+  <circle
+    cx="256"
+    cy="256"
+    r="166"
+    fill="none"
+    stroke="#f3e3c3"
+    stroke-width="62"
+    stroke-linecap="round"
+    stroke-dasharray="247 100.67"
+    stroke-dashoffset="-50.33"
+    transform="rotate(30 256 256)"
+  />
+
+  <path
+    fill="#d5621b"
+    d="M256 360
+       C204 357 171 326 171 281
+       C171 242 196 219 222 194
+       C249 168 260 137 250 103
+       C303 134 329 177 318 216
+       C313 235 300 249 295 264
+       C312 252 322 232 323 211
+       C360 244 369 294 345 328
+       C326 353 294 363 256 360Z"
+  />
+  <path
+    fill="#14628c"
+    d="M267 334
+       C242 316 237 291 248 269
+       C258 250 279 234 286 210
+       C303 238 300 260 287 279
+       C277 294 271 311 276 329
+       C273 331 270 333 267 334Z"
+  />
+</svg>
