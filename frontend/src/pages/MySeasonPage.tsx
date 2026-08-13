@@ -6,6 +6,7 @@ import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { MySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar } from '../components/ContestantAvatar'
+import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
 import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterBreakdown } from '../components/RosterBreakdown'
@@ -25,6 +26,7 @@ import type {
   Contestant,
   EliminationPick,
   Episode,
+  EpisodeResult,
   FinalePrediction,
   PickResult,
   RosterPick,
@@ -57,6 +59,7 @@ function useMySeasonData() {
   // Same trick for votes: This Week reads the pick count itself, so it needs
   // telling when the votes section saves (#272 follow-up).
   const [picksVersion, setPicksVersion] = useState(0)
+  const [automaticResult, setAutomaticResult] = useState<EpisodeResult | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -69,12 +72,13 @@ function useMySeasonData() {
         }
         setSeason(active)
 
-        const [cs, eps, standings, bd, ownPlays] = await Promise.all([
+        const [cs, eps, standings, bd, ownPlays, unseenResult] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
           api.get<Episode[]>(`/seasons/${active.id}/episodes`),
           api.get<StandingEntry[]>(`/seasons/${active.id}/standings`),
           api.get<ScoringBreakdown>(`/seasons/${active.id}/scoring-breakdown/${userId}`),
           api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
+          api.get<EpisodeResult | undefined>(`/seasons/${active.id}/reveal`),
         ])
         setContestants(cs)
         setEpisodes(eps)
@@ -85,6 +89,7 @@ function useMySeasonData() {
         setStanding(standings.find((s) => s.user_id === userId) ?? null)
         setBreakdown(bd)
         setPlays(ownPlays)
+        setAutomaticResult(unseenResult ?? null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
       } finally {
@@ -111,6 +116,8 @@ function useMySeasonData() {
     bumpRoster: () => setRosterVersion((v) => v + 1),
     picksVersion,
     bumpPicks: () => setPicksVersion((v) => v + 1),
+    automaticResult,
+    setAutomaticResult,
   }
 }
 
@@ -172,6 +179,9 @@ function useWeeklyPlay(
 
 export function MySeasonPage() {
   const d = useMySeasonData()
+  const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
+  const [replayLoading, setReplayLoading] = useState<string | null>(null)
+  const [replayError, setReplayError] = useState<string | null>(null)
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-red-600">{d.error}</p>
   if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
@@ -182,8 +192,38 @@ export function MySeasonPage() {
   )
   const state = resolveMySeasonState(d.season, d.episodes)
 
+  async function openReplay(episode: Episode) {
+    setReplayLoading(episode.id)
+    setReplayError(null)
+    try {
+      const result = await api.get<EpisodeResult>(
+        `/seasons/${d.season!.id}/episode-results/${episode.id}`,
+      )
+      setReplayResult(result)
+    } catch (error) {
+      setReplayError(error instanceof Error ? error.message : 'Could not load episode result')
+    } finally {
+      setReplayLoading(null)
+    }
+  }
+
+  async function acknowledgeResult() {
+    if (!d.automaticResult) return
+    await api.post(`/seasons/${d.season!.id}/reveal-acknowledgement`, {
+      episode_id: d.automaticResult.episode_id,
+    })
+    d.setAutomaticResult(null)
+  }
+
+  const visibleResult = replayResult ?? d.automaticResult
+
   return (
-    <div className="space-y-10">
+    <>
+      <div
+        className="space-y-10"
+        aria-hidden={visibleResult ? true : undefined}
+        inert={visibleResult ? true : undefined}
+      >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{d.season.name}</h1>
@@ -260,15 +300,28 @@ export function MySeasonPage() {
       {state.kind === 'complete' && <CompleteState />}
 
       {state.kind !== 'watch_only' && (
-        <PlayHistorySection
+        <EpisodeHistorySection
           season={d.season}
           userId={d.userId}
           plays={d.plays}
           contestants={d.contestants}
           episodes={d.episodes}
+          onReplay={openReplay}
+          replayLoading={replayLoading}
+          replayError={replayError}
         />
       )}
-    </div>
+
+      </div>
+      {visibleResult && (
+        <EpisodeResultReveal
+          result={visibleResult}
+          mode={replayResult ? 'replay' : 'automatic'}
+          onContinue={replayResult ? undefined : acknowledgeResult}
+          onClose={replayResult ? () => setReplayResult(null) : undefined}
+        />
+      )}
+    </>
   )
 }
 
@@ -454,18 +507,24 @@ function LockedState({
  * are retired, but Cagayan/S49/S50 keep a real history and stay readable
  * forever (#170).
  */
-function PlayHistorySection({
+function EpisodeHistorySection({
   season,
   userId,
   plays,
   contestants,
   episodes,
+  onReplay,
+  replayLoading,
+  replayError,
 }: {
   season: Season
   userId: string
   plays: AdvantagePlay[]
   contestants: Contestant[]
   episodes: Episode[]
+  onReplay: (episode: Episode) => Promise<void>
+  replayLoading: string | null
+  replayError: string | null
 }) {
   const [ledger, setLedger] = useState<TokenLedgerEntry[] | null>(null)
 
@@ -486,12 +545,58 @@ function PlayHistorySection({
     const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
     return ep != null && episodeClosed(ep)
   })
-  if (spent.length === 0 && (ledger == null || ledger.length === 0)) return null
+  const scoredEpisodes = episodes
+    .filter(
+      (episode) =>
+        episode.status === 'scored' &&
+        season.roster_lock_episode != null &&
+        episode.episode_number >= season.roster_lock_episode,
+    )
+    .sort((a, b) => b.episode_number - a.episode_number)
+  if (
+    scoredEpisodes.length === 0 &&
+    spent.length === 0 &&
+    (ledger == null || ledger.length === 0)
+  ) return null
 
   return (
-    <SectionShell title="Play History" defaultOpen={false}>
-      {spent.length > 0 && (
+    <SectionShell
+      title="Episode History"
+      defaultOpen={false}
+      right={<span className="text-xs text-gray-500">{scoredEpisodes.length}</span>}
+    >
+      {scoredEpisodes.length > 0 && (
         <ul className="space-y-2">
+          {scoredEpisodes.map((episode) => (
+            <li key={episode.id}>
+              <button
+                type="button"
+                onClick={() => void onReplay(episode)}
+                disabled={replayLoading != null}
+                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-sand-200 bg-sand-50 p-3 text-left text-sm hover:border-ocean-300 hover:bg-ocean-50 disabled:opacity-50"
+              >
+                <span className="min-w-0">
+                  <span className="block font-semibold text-gray-900">
+                    {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
+                  </span>
+                  <span className="block text-xs text-gray-500">View your scored result</span>
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-ocean-700">
+                  {replayLoading === episode.id ? 'Loading…' : 'Replay'}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {replayError && <p role="alert" className="mt-2 text-sm text-red-700">{replayError}</p>}
+
+      {spent.length > 0 && (
+        <div className={scoredEpisodes.length > 0 ? 'mt-5 border-t border-sand-200 pt-4' : ''}>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Weekly plays
+          </p>
+          <ul className="space-y-2">
           {[...spent].reverse().map((p) => (
             <li
               key={p.id}
@@ -522,7 +627,8 @@ function PlayHistorySection({
               )}
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       )}
 
       {ledger != null && ledger.length > 0 && (
