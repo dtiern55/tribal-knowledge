@@ -107,7 +107,9 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByText('No weekly play used')).toBeVisible()
     expect(screen.getByText('Awaiting league scoring')).toBeVisible()
     expect(screen.getByText(/episode is over, but league scoring/i)).toBeVisible()
-    expect(screen.getByRole('region', { name: 'Results are pending' })).toHaveAttribute('data-variant', 'delayed')
+    const lockedState = screen.getByRole('region', { name: 'Results are pending' })
+    expect(lockedState).toHaveAttribute('data-variant', 'delayed')
+    expect(lockedState.querySelector('[class*="lg:grid-cols"]')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weekly Votes' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Edit|Save ballot|Use on ballot|Confirm Swap/ })).not.toBeInTheDocument()
@@ -136,7 +138,10 @@ describe('MySeasonPage state shell', () => {
     const ballot = await screen.findByRole('heading', { name: 'Your ballot' })
     const weeklyPlay = screen.getByRole('heading', { name: /Weekly play/ })
     const roster = screen.getByRole('heading', { name: /^Active Roster/ })
+    const layout = ballot.closest('[data-layout="open-desktop"]')
 
+    expect(layout).toHaveClass('lg:grid')
+    expect(screen.getByRole('complementary', { name: 'Episode decisions' })).toBeVisible()
     expect(ballot.compareDocumentPosition(weeklyPlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
@@ -186,8 +191,16 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
 
     expect(within(ballot).getAllByRole('button', { name: /for ballot/ })).toHaveLength(18)
-    await user.click(within(ballot).getByRole('button', { name: 'Select Kenzie for ballot' }))
-    await user.click(within(ballot).getByRole('button', { name: 'Select Charlie for ballot' }))
+    const kenzie = within(ballot).getByRole('button', { name: 'Select Kenzie for ballot' })
+    const charlie = within(ballot).getByRole('button', { name: 'Select Charlie for ballot' })
+    await user.click(kenzie)
+    await user.click(charlie)
+    expect(within(kenzie).getByText('1')).toBeVisible()
+    expect(within(charlie).getByText('2')).toBeVisible()
+    const desktopSummary = screen.getByRole('heading', { name: 'Current ballot' }).closest('section')!
+    expect(within(desktopSummary).getByText('Episode 2 · 2 of 2 selected')).toBeVisible()
+    expect(within(desktopSummary).getByRole('list').children[0]).toHaveTextContent('1Kenzie')
+    expect(within(desktopSummary).getByRole('list').children[1]).toHaveTextContent('2Charlie')
     expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Select Venus for ballot' })).toBeDisabled()
 
@@ -197,9 +210,9 @@ describe('MySeasonPage state shell', () => {
       contestant_ids: ['cast-1', 'cast-2'],
     })
 
-    await user.click(screen.getByRole('button', { name: 'Edit ballot' }))
-    expect(screen.getByText('2 of 2 selected')).toBeVisible()
-    expect(screen.getByRole('button', { name: /Save ballot/ })).toBeDisabled()
+    await user.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
+    expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
   })
 
   it('keeps the weekly play distinct and explains both doubles and free swaps', async () => {
@@ -384,6 +397,8 @@ describe('MySeasonPage state shell', () => {
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Episode 2 replay')
     expect(dialog).not.toHaveTextContent(/ranked|spots to|Held at/)
+    expect(dialog.querySelector('article')).toHaveClass('max-w-5xl')
+    expect(screen.getByRole('heading', { name: 'Roster earnings' }).closest('section')?.parentElement).toHaveClass('lg:grid-cols-3')
     await user.click(screen.getByRole('button', { name: 'Back to My Season' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Between episodes' })).toBeVisible()

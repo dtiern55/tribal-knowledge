@@ -96,9 +96,7 @@ export function EpisodeResultReveal({
       aria-labelledby="episode-result-title"
     >
       <article
-        className={`reveal-enter mx-auto w-full overflow-hidden rounded-2xl bg-sand-50 shadow-2xl ${
-          result.insights && result.insights.length > 0 ? 'max-w-5xl' : 'max-w-2xl'
-        }`}
+        className="reveal-enter mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-sand-50 shadow-2xl"
       >
         <header className="relative overflow-hidden bg-gradient-to-br from-ocean-900 via-ocean-800 to-jungle-800 px-5 py-6 text-white sm:px-8 sm:py-8">
           <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-ember-500/20 blur-2xl" />
@@ -123,7 +121,7 @@ export function EpisodeResultReveal({
               id="episode-result-title"
               ref={headingRef}
               tabIndex={-1}
-              className="mt-5 font-display text-3xl tracking-wide outline-none sm:text-4xl"
+              className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
               {result.eliminated.length === 0
                 ? 'No one was eliminated'
@@ -180,7 +178,13 @@ export function EpisodeResultReveal({
                 : ''
             }
           >
-          <div className="space-y-5">
+          <div
+            className={
+              result.insights && result.insights.length > 0
+                ? 'space-y-5'
+                : 'space-y-5 lg:grid lg:grid-cols-3 lg:items-start lg:gap-4 lg:space-y-0'
+            }
+          >
           <ResultLane title="Roster earnings" total={rosterLane}>
             {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
               <p className="text-sm text-gray-500">No active roster members scored this episode.</p>
