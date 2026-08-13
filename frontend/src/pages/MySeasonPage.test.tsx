@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
@@ -129,7 +129,7 @@ describe('MySeasonPage state shell', () => {
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    const ballot = await screen.findByRole('heading', { name: /^Weekly Votes/ })
+    const ballot = await screen.findByRole('heading', { name: 'Your ballot' })
     const weeklyPlay = screen.getByRole('heading', { name: /Weekly play/ })
     const roster = screen.getByRole('heading', { name: /^Active Roster/ })
 
@@ -137,7 +137,133 @@ describe('MySeasonPage state shell', () => {
     expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Past Episodes' })).not.toBeInTheDocument()
-    expect(screen.getByRole('complementary')).toHaveClass('lg:sticky', 'lg:top-24')
+    expect(screen.queryByText('This Week')).not.toBeInTheDocument()
+  })
+
+  it('supports a variable ballot limit, tribe grouping, selection, save, and edit', async () => {
+    const user = userEvent.setup()
+    const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: '/kenzie.jpg', tribe_color: '#7651a1', tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: '/charlie.jpg', tribe_color: '#4ca56a', tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_color: '#f28b39', tribe_name: 'Nami', eliminated_in_episode: null },
+          ...Array.from({ length: 15 }, (_, index) => ({
+            id: `cast-extra-${index}`,
+            name: `Castaway ${index + 4}`,
+            image_url: null,
+            tribe_color: ['#7651a1', '#4ca56a', '#f28b39'][index % 3],
+            tribe_name: ['Yanu', 'Siga', 'Nami'][index % 3],
+            eliminated_in_episode: null,
+          })),
+          { id: 'cast-out', name: 'Earlier Boot', image_url: null, tribe_color: '#7651a1', tribe_name: 'Yanu', eliminated_in_episode: 1 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+    vi.mocked(api.post).mockResolvedValue([
+      { id: 'pick-1', contestant_id: 'cast-1' },
+      { id: 'pick-2', contestant_id: 'cast-2' },
+    ])
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const ballot = await screen.findByRole('region', { name: 'Your ballot' })
+    expect(within(ballot).getByRole('heading', { name: 'Yanu' })).toBeVisible()
+    expect(within(ballot).getByRole('heading', { name: 'Siga' })).toBeVisible()
+    expect(within(ballot).getByRole('heading', { name: 'Nami' })).toBeVisible()
+    expect(within(ballot).queryByText('Earlier Boot')).not.toBeInTheDocument()
+    expect(within(ballot).getByText('0 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
+
+    expect(within(ballot).getAllByRole('button', { name: /for ballot/ })).toHaveLength(18)
+    await user.click(within(ballot).getByRole('button', { name: 'Select Kenzie for ballot' }))
+    await user.click(within(ballot).getByRole('button', { name: 'Select Charlie for ballot' }))
+    expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: 'Select Venus for ballot' })).toBeDisabled()
+
+    await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
+    expect(await screen.findByText('Ballot saved for Episode 2')).toBeVisible()
+    expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
+      contestant_ids: ['cast-1', 'cast-2'],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Edit ballot' }))
+    expect(screen.getByText('2 of 2 selected')).toBeVisible()
+    expect(screen.getByRole('button', { name: /Save ballot/ })).toBeDisabled()
+  })
+
+  it('keeps the weekly play distinct and explains both doubles and free swaps', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByRole('heading', { name: /Weekly play/ })).toBeVisible()
+    expect(screen.getByText('Double Roster Points')).toBeVisible()
+    expect(screen.getByText('Double Vote Points')).toBeVisible()
+    expect(screen.getByText(/every correct pick on this episode's ballot/i)).toBeVisible()
+    expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
+    expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
+    expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
+  })
+
+  it('marks a roster swap as the weekly play after free swaps are used', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: 2, swap_penalty_points: 0 },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 3, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByText('This will use your advantage play for the episode. · swaps lock at episode 10')).toBeVisible()
   })
 
   it('limits broadcast styling to the short window after lock without changing state', () => {
@@ -214,7 +340,7 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: /^Weekly Votes/ })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Your ballot' })).toBeVisible()
     expect(api.post).toHaveBeenCalledWith(
       '/seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
@@ -227,14 +353,13 @@ describe('MySeasonPage state shell', () => {
       [
         episode(1, 'scored', '2026-08-01T00:00:00Z'),
         episode(2, 'scored', '2026-08-08T00:00:00Z'),
-        episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
       ],
       undefined,
       result({ current_rank: null, prior_rank: null, rank_delta: null }),
     )
     renderWithApp(<MySeasonPage />, { auth })
 
-    await screen.findByRole('heading', { name: /^Weekly Votes/ })
+    await screen.findByRole('heading', { name: 'Between episodes' })
     await user.click(screen.getByRole('button', { name: /Episode History/ }))
     await user.click(screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }))
 
@@ -243,7 +368,7 @@ describe('MySeasonPage state shell', () => {
     expect(dialog).not.toHaveTextContent(/ranked|spots to|Held at/)
     await user.click(screen.getByRole('button', { name: 'Back to My Season' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /^Weekly Votes/ })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Between episodes' })).toBeVisible()
     expect(api.post).not.toHaveBeenCalled()
   })
 

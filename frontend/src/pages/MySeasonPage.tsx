@@ -4,7 +4,6 @@ import { Link, useLocation } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
-import type { MySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
@@ -56,9 +55,6 @@ function useMySeasonData() {
   // that keep their own roster copy refetch instead of going stale (#219-era
   // pre-lock roster edits).
   const [rosterVersion, setRosterVersion] = useState(0)
-  // Same trick for votes: This Week reads the pick count itself, so it needs
-  // telling when the votes section saves (#272 follow-up).
-  const [picksVersion, setPicksVersion] = useState(0)
   const [automaticResult, setAutomaticResult] = useState<EpisodeResult | null>(null)
 
   useEffect(() => {
@@ -114,8 +110,6 @@ function useMySeasonData() {
     error,
     rosterVersion,
     bumpRoster: () => setRosterVersion((v) => v + 1),
-    picksVersion,
-    bumpPicks: () => setPicksVersion((v) => v + 1),
     automaticResult,
     setAutomaticResult,
   }
@@ -233,17 +227,6 @@ export function MySeasonPage() {
 
       {state.kind === 'watch_only' && <WatchOnlyState episode={state.episode} />}
 
-      {state.kind === 'open' && (
-        <ThisWeekHub
-          state={state}
-          season={d.season}
-          plays={d.plays}
-          contestants={d.contestants}
-          userId={d.userId}
-          picksVersion={d.picksVersion}
-        />
-      )}
-
       {state.kind === 'locked' && (
         <LockedState
           episode={state.episode}
@@ -255,8 +238,8 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)] lg:items-start lg:gap-6">
-          <section id="votes" className="min-w-0 scroll-mt-20">
+        <div className="mx-auto max-w-4xl space-y-12">
+          <section id="votes" className="scroll-mt-20">
             <PicksSection
               season={d.season}
               contestants={d.contestants}
@@ -265,12 +248,11 @@ export function MySeasonPage() {
               plays={d.plays}
               setPlays={d.setPlays}
               pickResults={pickResults}
-              onPicksChange={d.bumpPicks}
               activeOnly
             />
           </section>
 
-          <aside className="mt-10 min-w-0 space-y-8 lg:sticky lg:top-24 lg:mt-0">
+          <div className="space-y-12">
             <WeeklyPlaySection
               season={d.season}
               episodes={d.episodes}
@@ -294,14 +276,14 @@ export function MySeasonPage() {
                 compact
               />
             </section>
-          </aside>
+          </div>
         </div>
       )}
 
       {state.kind === 'intermission' && <IntermissionState />}
       {state.kind === 'complete' && <CompleteState />}
 
-      {state.kind !== 'watch_only' && (
+      {state.kind !== 'watch_only' && state.kind !== 'open' && (
         <EpisodeHistorySection
           season={d.season}
           userId={d.userId}
@@ -675,159 +657,6 @@ function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd']
   const v = n % 100
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
-}
-
-// ─── This Week hub ──────────────────────────────────────────────────────────
-
-/**
- * Action-first summary for the next open episode (#UI pass): countdown, whether
- * this week's votes are locked in, and any advantages in play — so the top of
- * the page answers "what do I do right now?" before the reference sections. Owns
- * a tiny fetch of the open episode's picks so it stays decoupled from PicksSection.
- */
-function ThisWeekHub({
-  state,
-  season,
-  plays,
-  contestants,
-  userId,
-  picksVersion,
-}: {
-  state: Extract<MySeasonState, { kind: 'open' | 'locked' }>
-  season: Season
-  plays: AdvantagePlay[]
-  contestants: Contestant[]
-  userId: string
-  picksVersion: number
-}) {
-  const currentEpisode = state.episode
-  const [voteCount, setVoteCount] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (state.kind !== 'open') {
-      setVoteCount(null)
-      return
-    }
-    let live = true
-    api
-      .get<EliminationPick[]>(`/episodes/${currentEpisode.id}/picks/${userId}`)
-      .then((p) => live && setVoteCount(p.length))
-      .catch(() => live && setVoteCount(null))
-    return () => {
-      live = false
-    }
-    // picksVersion: the votes section is a sibling, so saving there is
-    // invisible here without it — the card sat on "Not locked yet" until a
-    // manual refresh.
-  }, [state.kind, currentEpisode, userId, picksVersion])
-
-  // Declared before the early return: the locked-episode branch names the
-  // castaway a played double was aimed at.
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-
-  if (state.kind === 'locked') {
-    const lockedEpisode = state.episode
-    const played = plays.filter((p) => p.episode_id === lockedEpisode.id)
-    return (
-      <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm">
-        <p className="font-semibold text-gray-900">
-          Episode {lockedEpisode.episode_number} locked
-        </p>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Picks locked {formatCentral(lockedEpisode.picks_lock_at)} · everything is in
-        </p>
-        <div className="flex items-start gap-3 mt-2">
-          <span className="text-gray-600 shrink-0">Weekly play</span>
-          <span className="ml-auto text-right font-medium text-gray-800">
-            {played.length > 0
-              ? played
-                  .map((p) => {
-                    const target = p.target_contestant_id
-                      ? contestantMap.get(p.target_contestant_id)?.name
-                      : null
-                    return (
-                      (ADV_LABELS[p.advantage_type] ?? p.advantage_type) +
-                      (target ? ` · ${target}` : '')
-                    )
-                  })
-                  .join(', ')
-              : 'None used'}
-          </span>
-        </div>
-        <p className="text-sm text-gray-600 mt-2">
-          Results will appear after this episode is scored.
-        </p>
-      </div>
-    )
-  }
-
-  const nextOpen = currentEpisode
-
-  const inPlay = plays.filter((p) => p.episode_id === nextOpen.id)
-  const locked = voteCount != null && voteCount > 0
-  const voteLabel = nextOpen.is_finale ? 'Finale ballot' : 'Weekly votes'
-
-  return (
-    <div className="p-5 bg-ocean-50 border border-ocean-200 rounded-xl space-y-3">
-      <div className="flex items-center gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
-          This Week · Episode {nextOpen.episode_number}
-        </p>
-        <span className="ml-auto">
-          <LockBadge lockAt={nextOpen.picks_lock_at} />
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-gray-600">{voteLabel}</span>
-        <span className="ml-auto">
-          {voteCount == null ? (
-            <span className="text-xs text-gray-500">—</span>
-          ) : locked ? (
-            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-              Locked in
-            </span>
-          ) : (
-            <span className="text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
-              Not locked yet
-            </span>
-          )}
-        </span>
-      </div>
-
-      {/* Always shown, played or not (#307): an unused play is the thing
-          most worth telling someone about, and it used to be invisible. */}
-      {!advantagesLocked(nextOpen, season) && (
-        <div className="flex items-start gap-3 text-sm">
-          <span className="text-gray-600 shrink-0">Advantage</span>
-          <span className="ml-auto text-right">
-            {inPlay.length > 0 ? (
-              <span className="font-medium text-gray-800">
-                {inPlay
-                  .map((p) => {
-                    const t = p.target_contestant_id
-                      ? contestantMap.get(p.target_contestant_id)?.name
-                      : null
-                    return (
-                      (ADV_LABELS[p.advantage_type] ?? p.advantage_type) +
-                      (t ? ` · ${t}` : '')
-                    )
-                  })
-                  .join(', ')}
-              </span>
-            ) : (
-              /* Ember, the torch accent — the one thing on this card worth
-                 chasing. Amber would read as a warning; ocean disappeared
-                 into the card. */
-              <span className="text-xs font-semibold text-ember-700 bg-ember-100 border border-ember-200 px-2 py-0.5 rounded-full">
-                Not played yet
-              </span>
-            )}
-          </span>
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ─── Header points chip ─────────────────────────────────────────────────────
@@ -1539,7 +1368,6 @@ function PicksSection({
   plays,
   setPlays,
   pickResults,
-  onPicksChange,
   activeOnly = false,
 }: {
   season: Season
@@ -1549,7 +1377,6 @@ function PicksSection({
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
-  onPicksChange: () => void
   activeOnly?: boolean
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
@@ -1623,7 +1450,6 @@ function PicksSection({
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
       setEditing(false)
-      onPicksChange()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Submit failed'
       setErrors((prev) => new Map(prev).set(episodeId, msg))
@@ -1738,13 +1564,8 @@ function PicksSection({
     )
   }
 
-  return (
-    <SectionShell
-      title="Weekly Votes"
-      prominent
-      collapsible={false}
-      right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
-    >
+  const content = (
+    <>
       {!currentEp && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
@@ -1774,6 +1595,10 @@ function PicksSection({
           const savedPicks = picksByEpisode.get(ep.id) ?? []
           const hasSavedPicks = savedPicks.length > 0
           const confirmed = hasSavedPicks && !editing
+          const savedIds = new Set(savedPicks.map((pick) => pick.contestant_id))
+          const dirty =
+            epPending.size !== savedIds.size ||
+            [...epPending].some((contestantId) => !savedIds.has(contestantId))
 
           // One play per episode (#307); on the ballot it doubles every pick
           // (#303). Extra votes are retired, so the pick limit is the
@@ -1805,13 +1630,13 @@ function PicksSection({
           }
 
           return (
-            <div className="mb-6 p-4 bg-white border-2 border-ocean-500 rounded-xl">
-              <h3 className="font-semibold text-gray-900 mb-1">Episode {ep.episode_number}</h3>
+            <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-ocean-500 bg-white p-4'}>
+              {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
-                <div className="mb-4 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
-                  <div className="flex justify-center mb-1"><VoteMark sealed className="w-10 h-10" /></div>
-                  <p className="font-semibold text-green-800 mb-3">
-                    Votes locked in for Episode {ep.episode_number}
+                <div className="mb-5 border-y border-jungle-200 bg-jungle-50 px-4 py-5 text-center sm:rounded-xl sm:border">
+                  <div className="mb-1 flex justify-center"><VoteMark sealed className="h-10 w-10" /></div>
+                  <p className="mb-3 font-semibold text-jungle-800">
+                    Ballot saved for Episode {ep.episode_number}
                   </p>
                   {savedPicks.length < maxPicks && (
                     <p className="text-xs text-green-700 mb-3">
@@ -1857,24 +1682,30 @@ function PicksSection({
                 </div>
               ) : (
                 <>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Vote for up to {maxPicks} to be eliminated · {epPending.size} / {maxPicks} selected
-                  </p>
-                  <div className="space-y-4 mb-4">
+                  <div className="mb-5 flex items-center justify-between gap-3 border-b border-sand-200 pb-3 text-sm">
+                    <span className="text-gray-600">Pick up to {maxPicks} castaways</span>
+                    <span
+                      aria-live="polite"
+                      className={`shrink-0 font-semibold ${epPending.size === maxPicks ? 'text-jungle-700' : 'text-ocean-800'}`}
+                    >
+                      {epPending.size} of {maxPicks} selected
+                    </span>
+                  </div>
+                  <div className="mb-5 space-y-6">
                     {[...byTribe.entries()].map(([tribeName, members]) => (
                       <div key={tribeName}>
-                        <div className="flex items-center gap-1.5 mb-2">
+                        <div className="mb-3 flex items-center gap-2">
                           {members[0].tribe_color && (
                             <span
                               className="w-2.5 h-2.5 rounded-full shrink-0"
                               style={{ backgroundColor: members[0].tribe_color }}
                             />
                           )}
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
                             {tribeName}
-                          </span>
+                          </h3>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
                             const isDoubled = ballotDoubled && isSelected
@@ -1882,19 +1713,27 @@ function PicksSection({
                             return (
                               <button
                                 key={c.id}
+                                type="button"
                                 onClick={() => togglePick(ep.id, c.id, maxPicks)}
                                 disabled={maxed}
+                                aria-pressed={isSelected}
+                                aria-label={`${isSelected ? 'Remove' : 'Select'} ${c.name} ${isSelected ? 'from' : 'for'} ballot`}
                                 className={[
-                                  'flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm font-medium transition-colors',
+                                  'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
                                   isSelected
-                                    ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
+                                    ? 'border-ocean-500 bg-ocean-50 text-ocean-900 shadow-sm ring-1 ring-ocean-200'
                                     : maxed
                                       ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                                      : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
+                                      : 'border-sand-200 bg-white text-gray-700 hover:border-ocean-300',
                                 ].join(' ')}
                               >
-                                <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                                {c.name}
+                                <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                                <span className="min-w-0 leading-tight">{c.name}</span>
+                                {isSelected && (
+                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-xs text-white" aria-hidden="true">
+                                    ✓
+                                  </span>
+                                )}
                                 {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
                               </button>
                             )
@@ -1947,34 +1786,37 @@ function PicksSection({
                 </div>
               )}
 
-              {episodeError && <p className="text-red-600 text-sm mb-3">{episodeError}</p>}
+              {episodeError && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{episodeError}</p>}
               {confirmed ? (
                 <div className="flex items-center justify-between">
                   <button
+                    type="button"
                     onClick={() => setEditing(true)}
                     className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
                   >
-                    Edit Votes
+                    Edit ballot
                   </button>
                   <span className="text-xs text-gray-500">Editable until it locks</span>
                 </div>
               ) : (
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => submitPicks(ep.id)}
-                    disabled={submitting === ep.id || epPending.size === 0}
-                    className="flex-1 px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
+                    disabled={submitting === ep.id || epPending.size === 0 || !dirty}
+                    className="min-h-11 flex-1 rounded-lg bg-jungle-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jungle-700 disabled:opacity-40"
                   >
                     {submitting === ep.id ? (
-                      'Locking in…'
+                      'Saving…'
                     ) : (
                       <span className="inline-flex items-center justify-center gap-2">
-                        <VoteMark className="w-5 h-5" /> Lock In Votes
+                        <VoteMark className="h-5 w-5" /> Save ballot
                       </span>
                     )}
                   </button>
                   {hasSavedPicks && (
                     <button
+                      type="button"
                       onClick={() => cancelEdit(ep.id)}
                       className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
                     >
@@ -1998,6 +1840,37 @@ function PicksSection({
           <div className="space-y-3">{closedEpisodes.map((ep) => episodeRow(ep, false))}</div>
         </SectionShell>
       )}
+    </>
+  )
+
+  if (activeOnly) {
+    return (
+      <section aria-labelledby="open-ballot-title">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-sand-200 pb-4">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ember-700">
+              Episode {nextOpen?.episode_number}
+            </p>
+            <h2 id="open-ballot-title" className="font-display text-3xl tracking-wide text-ocean-800">
+              Your ballot
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">Choose who you think will be eliminated.</p>
+          </div>
+          {nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
+        </div>
+        {content}
+      </section>
+    )
+  }
+
+  return (
+    <SectionShell
+      title="Weekly Votes"
+      prominent
+      collapsible={false}
+      right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
+    >
+      {content}
     </SectionShell>
   )
 }
