@@ -98,6 +98,21 @@ def test_challenge_flags():
     p = _build(challenge_results=rows)
     assert len(_events(p, "win_team_immunity")) == 1
     assert len(_events(p, "win_individual_reward")) == 1
+    assert any("credits only the challenge winner(s)" in w for w in p["warnings"])
+
+
+def test_individual_challenge_does_not_add_team_review_warning():
+    rows = [
+        {
+            "version_season": S,
+            "episode": 5,
+            "castaway_id": "A",
+            "castaway": "Ann",
+            "won_individual_immunity": 1,
+        }
+    ]
+    p = _build(challenge_results=rows)
+    assert not any("challenge winner(s)" in w for w in p["warnings"])
 
 
 def test_advantage_lifecycle():
