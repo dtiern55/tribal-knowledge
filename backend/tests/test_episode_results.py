@@ -161,7 +161,7 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         db_conn,
         current_user["id"],
         season["id"],
-        early=early["id"],
+        early_boot=early["id"],
         fire_loss=fire["id"],
         winner=winner["id"],
     )
