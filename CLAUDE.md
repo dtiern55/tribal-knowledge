@@ -22,6 +22,12 @@ reviewable commits still expected; no AI attribution trailers.
 - Database connects via Supabase transaction pooler (port 6543), not direct Postgres.
 - See `../fantasy-survivor-design.md` for full scoring system and game mechanics.
 
+## Documentation map
+- `docs/schema.md` — database entities, relationships, RLS, and schema inspection.
+- `docs/scoring.md` — live scoring computation and historical compatibility.
+- `docs/operations.md` — setup, import, weekly scoring, bots, migrations, and deployment.
+- `docs/README.md` — documentation boundaries and links.
+
 ## Commands
 ```bash
 # Run tests (unit only — no DB required)
