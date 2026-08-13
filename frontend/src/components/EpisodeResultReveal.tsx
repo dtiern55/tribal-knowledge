@@ -95,7 +95,11 @@ export function EpisodeResultReveal({
       aria-modal="true"
       aria-labelledby="episode-result-title"
     >
-      <article className="reveal-enter mx-auto w-full max-w-2xl overflow-hidden rounded-2xl bg-sand-50 shadow-2xl">
+      <article
+        className={`reveal-enter mx-auto w-full overflow-hidden rounded-2xl bg-sand-50 shadow-2xl ${
+          result.insights && result.insights.length > 0 ? 'max-w-5xl' : 'max-w-2xl'
+        }`}
+      >
         <header className="relative overflow-hidden bg-gradient-to-br from-ocean-900 via-ocean-800 to-jungle-800 px-5 py-6 text-white sm:px-8 sm:py-8">
           <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-ember-500/20 blur-2xl" />
           <div className="relative">
@@ -168,7 +172,15 @@ export function EpisodeResultReveal({
           </div>
         </header>
 
-        <div className="space-y-5 px-4 py-5 sm:px-8 sm:py-7">
+        <div className="px-4 py-5 sm:px-8 sm:py-7">
+          <div
+            className={
+              result.insights && result.insights.length > 0
+                ? 'lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)] lg:items-start lg:gap-7'
+                : ''
+            }
+          >
+          <div className="space-y-5">
           <ResultLane title="Roster earnings" total={rosterLane}>
             {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
               <p className="text-sm text-gray-500">No active roster members scored this episode.</p>
@@ -249,13 +261,14 @@ export function EpisodeResultReveal({
               </ul>
             )}
           </ResultLane>
+          </div>
 
           {result.insights && result.insights.length > 0 && (
-            <section aria-labelledby="episode-insights-title" className="border-t border-sand-200 pt-5">
+            <section aria-labelledby="episode-insights-title" className="mt-5 border-t border-sand-200 pt-5 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
               <h3 id="episode-insights-title" className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
                 Episode insight
               </h3>
-              <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                 {result.insights.map((insight) => (
                   <li key={insight.id} className="rounded-xl bg-ocean-50 p-3">
                     <p className="text-xs text-ocean-700">{insight.label}</p>
@@ -266,8 +279,9 @@ export function EpisodeResultReveal({
               </ul>
             </section>
           )}
+          </div>
 
-          <div className="border-t border-sand-200 pt-5">
+          <div className="mt-5 border-t border-sand-200 pt-5">
             <div className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900">
               <span>Roster + ballot + weekly play</span>
               <span className="shrink-0">{points(result.total_points)}</span>

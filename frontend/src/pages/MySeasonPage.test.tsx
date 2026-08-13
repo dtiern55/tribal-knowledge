@@ -137,6 +137,7 @@ describe('MySeasonPage state shell', () => {
     expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Past Episodes' })).not.toBeInTheDocument()
+    expect(screen.getByRole('complementary')).toHaveClass('lg:sticky', 'lg:top-24')
   })
 
   it('limits broadcast styling to the short window after lock without changing state', () => {
@@ -204,6 +205,7 @@ describe('MySeasonPage state shell', () => {
     expect(dialog).toHaveTextContent('Up 3 spots to #2')
     expect(screen.getByRole('heading', { name: 'Episode insight' })).toBeVisible()
     expect(dialog).toHaveTextContent('72%')
+    expect(dialog.querySelector('article')).toHaveClass('max-w-5xl')
     expect(dialog).toHaveTextContent('Roster + ballot + weekly play+75 pts')
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
