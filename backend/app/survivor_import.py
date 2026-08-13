@@ -142,10 +142,25 @@ def build_proposal(
         ("won_individual_immunity", "win_individual_immunity"),
         ("won_individual_reward", "win_individual_reward"),
     ]
-    for r in _ep(challenge_results, season_key, episode):
+    episode_challenges = _ep(challenge_results, season_key, episode)
+    for r in episode_challenges:
         for flag, event_type in flag_map:
             if r.get(flag):
                 add_event(r["castaway_id"], r["castaway"], event_type)
+    if any(
+        r.get(flag)
+        for r in episode_challenges
+        for flag in (
+            "won_tribal_immunity",
+            "won_team_immunity",
+            "won_tribal_reward",
+            "won_team_reward",
+        )
+    ):
+        warnings.append(
+            "Team immunity/reward: survivoR credits only the challenge winner(s). "
+            "Confirm who else was safe this episode and add them."
+        )
 
     # --- fire-making and shot in the dark (vote_history special events) ---
     for r in vh:
