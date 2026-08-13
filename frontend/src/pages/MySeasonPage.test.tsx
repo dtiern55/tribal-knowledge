@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
-import { isBroadcastWindow } from '../lib/mySeasonState'
+import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode, EpisodeResult, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { MySeasonPage } from './MySeasonPage'
@@ -105,9 +105,13 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('heading', { name: 'Results are pending' })).toBeVisible()
     expect(screen.getByText('No ballot was submitted.')).toBeVisible()
     expect(screen.getByText('No weekly play used')).toBeVisible()
+    expect(screen.getByText('Awaiting league scoring')).toBeVisible()
+    expect(screen.getByText(/episode is over, but league scoring/i)).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Results are pending' })).toHaveAttribute('data-variant', 'delayed')
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weekly Votes' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Edit Votes|Confirm Swap/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit|Save ballot|Use on ballot|Confirm Swap/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Episode History/ })).not.toBeInTheDocument()
   })
 
   it('gives watch-only composition precedence over a later open episode', async () => {
@@ -270,6 +274,19 @@ describe('MySeasonPage state shell', () => {
     const locked = episode(2, 'upcoming', '2026-08-13T18:00:00Z')
     expect(isBroadcastWindow(locked, new Date('2026-08-13T20:00:00Z'))).toBe(true)
     expect(isBroadcastWindow(locked, new Date('2026-08-14T08:00:00Z'))).toBe(false)
+    expect(resolveMySeasonState(season, [locked])).toEqual({ kind: 'locked', episode: locked })
+  })
+
+  it('uses the torchlit broadcast treatment only during the short airing window', async () => {
+    const recentlyLocked = episode(2, 'upcoming', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+    arrange([episode(1, 'scored', '2026-08-01T00:00:00Z'), recentlyLocked])
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByRole('heading', { name: 'The votes are in' })).toBeVisible()
+    expect(screen.getByRole('region', { name: 'The votes are in' })).toHaveAttribute('data-variant', 'broadcast')
+    expect(screen.getByText('Scoring follows the episode')).toBeVisible()
+    expect(screen.getByText(/Enjoy the episode/)).toBeVisible()
   })
 
   it('shows the server-saved ballot roster and weekly play while locked', async () => {
@@ -282,7 +299,7 @@ describe('MySeasonPage state shell', () => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
-          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu' },
+          { id: 'cast-1', name: 'Kenzie', image_url: '/kenzie.jpg', tribe_color: '#123456', tribe_name: 'Yanu' },
           { id: 'cast-2', name: 'Charlie', image_url: null, tribe_color: '#abcdef', tribe_name: 'Siga' },
         ]
       }
@@ -300,6 +317,7 @@ describe('MySeasonPage state shell', () => {
 
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.getByText('Charlie')).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Kenzie' })).toHaveAttribute('src', '/kenzie.jpg')
     expect(screen.getByText('Double Vote Points')).toBeVisible()
   })
 

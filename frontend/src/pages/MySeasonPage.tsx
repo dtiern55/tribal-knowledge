@@ -283,7 +283,7 @@ export function MySeasonPage() {
       {state.kind === 'intermission' && <IntermissionState />}
       {state.kind === 'complete' && <CompleteState />}
 
-      {state.kind !== 'watch_only' && state.kind !== 'open' && (
+      {(state.kind === 'intermission' || state.kind === 'complete') && (
         <EpisodeHistorySection
           season={d.season}
           userId={d.userId}
@@ -390,37 +390,46 @@ function LockedState({
 
   return (
     <section
+      aria-labelledby="locked-state-title"
+      data-variant={broadcast ? 'broadcast' : 'delayed'}
       className={`mx-auto max-w-4xl overflow-hidden rounded-2xl border p-5 sm:p-6 lg:px-10 lg:py-9 ${
         broadcast
-          ? 'border-ocean-800 bg-gradient-to-b from-ocean-900 to-jungle-900 text-white'
-          : 'border-sand-200 bg-white text-gray-900'
+          ? 'border-ocean-800 bg-[radial-gradient(circle_at_top_right,rgba(239,119,45,0.18),transparent_35%),linear-gradient(to_bottom,#0b3347,#123d34)] text-white shadow-xl'
+          : 'border-sand-200 bg-white text-gray-900 shadow-sm'
       }`}
     >
-      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
-        Episode {episode.episode_number} · locked
-      </p>
-      <h2 className="font-display text-2xl tracking-wide mt-1">
-        {broadcast ? 'The votes are in' : 'Results are pending'}
-      </h2>
-      <p className={`text-sm mt-1 ${broadcast ? 'text-white/75' : 'text-gray-500'}`}>
-        {broadcast
-          ? 'Your decisions are final. Watch the episode and see how they land.'
-          : 'Your decisions are safely locked. Scoring has not been completed yet.'}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
+            Episode {episode.episode_number} · locked
+          </p>
+          <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
+            {broadcast ? 'The votes are in' : 'Results are pending'}
+          </h2>
+          <p className={`mt-1 max-w-xl text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
+            {broadcast
+              ? 'Your ballot, roster, and weekly play are final. Enjoy the episode.'
+              : 'The episode is over, but league scoring has not been completed yet.'}
+          </p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${broadcast ? 'bg-ember-400/15 text-ember-100 ring-1 ring-ember-300/25' : 'bg-sand-100 text-gray-600'}`}>
+          Read only
+        </span>
+      </div>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)]">
         <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Your ballot
           </h3>
           {picks.length > 0 ? (
-            <ul className="mt-2 flex flex-wrap gap-2">
+            <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2">
               {picks.map((pick) => {
                 const contestant = contestantMap.get(pick.contestant_id)
                 return (
                   <li
                     key={pick.id}
-                    className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3 text-sm font-medium ${
+                    className={`min-w-0 flex items-center gap-2 rounded-xl border p-2 text-sm font-medium ${
                       broadcast ? 'border-white/20 bg-white/10' : 'border-sand-200 bg-sand-50'
                     }`}
                   >
@@ -441,11 +450,11 @@ function LockedState({
           )}
         </div>
 
-        <div>
+        <div className={`border-t pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Active roster
           </h3>
-          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
             {roster.map((pick) => {
               const contestant = contestantMap.get(pick.contestant_id)
               return (
@@ -461,10 +470,10 @@ function LockedState({
                 </li>
               )
             })}
-          </ul>
+          </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
         </div>
 
-        <div className={`border-t pt-4 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+        <div className={`border-t pt-5 lg:col-span-2 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Weekly play
           </h3>
@@ -476,6 +485,15 @@ function LockedState({
                     : ''
                 }`
               : 'No weekly play used'}
+          </p>
+        </div>
+
+        <div className={`rounded-xl px-4 py-3 lg:col-span-2 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-ocean-50 ring-1 ring-ocean-100'}`}>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
+            {broadcast ? 'Scoring follows the episode' : 'Awaiting league scoring'}
+          </p>
+          <p className={`mt-1 text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
+            Results will appear here as soon as Episode {episode.episode_number} is scored.
           </p>
         </div>
       </div>
