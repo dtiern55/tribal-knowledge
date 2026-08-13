@@ -119,7 +119,9 @@ function SeasonSection({
         name,
         merge_episode: mergeEp ? Number(mergeEp) : null,
         roster_lock_episode: lockEp ? Number(lockEp) : null,
-        swap_token_cost: Number(swapCost),
+        ...(season.token_economy_enabled
+          ? { swap_token_cost: Number(swapCost) }
+          : {}),
         elimination_pick_schedule: schedule
           .filter((t) => t.from_episode && t.picks)
           .map((t) => ({ from_episode: Number(t.from_episode), picks: Number(t.picks) }))
@@ -139,8 +141,10 @@ function SeasonSection({
             <p className="font-semibold text-gray-900">{season.name}</p>
             <p className="text-sm text-gray-500 mt-1">
               Season #{season.season_number} · {season.status} · roster locks ep{' '}
-              {season.roster_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} ·
-              swaps cost {season.swap_token_cost} tkn
+              {season.roster_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} ·{' '}
+              {season.token_economy_enabled
+                ? `swaps cost ${season.swap_token_cost} tkn`
+                : `${season.free_swaps} free ${season.free_swaps === 1 ? 'swap' : 'swaps'}; later swaps use the weekly play`}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               Votes:{' '}
@@ -182,15 +186,17 @@ function SeasonSection({
             <option value="completed">completed</option>
           </select>
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Swap cost (tokens)</label>
-          <input
-            type="number"
-            value={swapCost}
-            onChange={(e) => setSwapCost(e.target.value)}
-            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
+        {season.token_economy_enabled && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Legacy swap cost (tokens)</label>
+            <input
+              type="number"
+              value={swapCost}
+              onChange={(e) => setSwapCost(e.target.value)}
+              className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+        )}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Roster lock episode</label>
           <input
@@ -555,7 +561,7 @@ function ImportSection({
         <div className="space-y-4">
           <p className="text-xs text-gray-500">
             {proposal.source} — review, uncheck anything wrong, then apply.
-            Judgment calls and TV-moment tokens stay manual. Data:{' '}
+            Judgment calls stay manual. Data:{' '}
             <a
               href="https://github.com/doehm/survivoR"
               target="_blank"
@@ -634,11 +640,13 @@ function ImportSection({
 
 function EpisodePanel({
   episode,
+  tokenEconomyEnabled,
   contestants,
   eventTypes,
   onUpdated,
 }: {
   episode: Episode
+  tokenEconomyEnabled: boolean
   contestants: Contestant[]
   eventTypes: ScoringEventType[]
   onUpdated: (ep: Episode) => void
@@ -982,9 +990,10 @@ function EpisodePanel({
         ) : (
           <>
             <p className="text-xs text-gray-500 mb-2">
-              Marks the episode complete and grants every player the weekly token
-              allocation. Scores compute live from eliminations + scoring events,
-              so they can still be corrected afterwards.
+              Marks the episode complete
+              {tokenEconomyEnabled && ' and grants the historical weekly token allocation'}.
+              Scores compute live from eliminations + scoring events, so they can still
+              be corrected afterwards.
             </p>
             <ErrorMsg msg={scoreError} />
             <SuccessMsg msg={scoreSuccess} />
@@ -1236,6 +1245,7 @@ function EpisodesSection({
           {expandedId === ep.id && (
             <EpisodePanel
               episode={ep}
+              tokenEconomyEnabled={season.token_economy_enabled}
               contestants={contestants}
               eventTypes={eventTypes}
               onUpdated={handleEpisodeUpdated}
@@ -1324,11 +1334,9 @@ function EpisodesSection({
 // ─── Tokens section ───────────────────────────────────────────────────────────
 
 function TokensSection({ season }: { season: Season }) {
-  // Starting allocations are gone with the #97 token model (grants are per
-  // upcoming episode); the season-start bootstrap is a weekly grant too.
   return (
     <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
-      <p className="text-sm font-medium text-gray-700">Weekly allocation</p>
+      <p className="text-sm font-medium text-gray-700">Historical weekly allocation</p>
       <p className="text-xs text-gray-500">
         Granted automatically when an episode is scored:{' '}
         {season.weekly_token_allocation} tokens per player. Tune it on the
@@ -1456,8 +1464,12 @@ export function AdminPage() {
         onUpdated={setEpisodes}
       />
 
-      <SectionHeader title="Tokens" />
-      <TokensSection season={season} />
+      {season.token_economy_enabled && (
+        <>
+          <SectionHeader title="Historical Tokens" />
+          <TokensSection season={season} />
+        </>
+      )}
 
       {leagueSettings && (
         <>

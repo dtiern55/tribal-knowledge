@@ -4,13 +4,14 @@ from tests.helpers import insert_season
 
 
 @pytest.mark.integration
-def test_rules_returns_config(client, db_conn, current_user):
-    season = insert_season(db_conn, swap_token_cost=30)
+def test_rules_returns_current_rule_capability(client, db_conn, current_user):
+    season = insert_season(db_conn, swap_token_cost=30, token_economy_enabled=False)
     r = client.get(f"/seasons/{season['id']}/rules")
     assert r.status_code == 200
     data = r.json()
     assert data["season"]["id"] == str(season["id"])
     assert data["season"]["swap_token_cost"] == 30
+    assert data["season"]["token_economy_enabled"] is False
 
     # scoring events carry their values (seeded config)
     by_type = {e["event_type"]: e for e in data["scoring_events"]}
@@ -26,3 +27,16 @@ def test_rules_returns_config(client, db_conn, current_user):
 
     adv = {a["advantage_type"] for a in data["advantages"]}
     assert "double_vote_points" in adv
+    assert "extra_vote" not in adv
+    assert "cry_on_camera" not in by_type
+
+
+@pytest.mark.integration
+def test_rules_returns_historical_token_capability(client, db_conn, current_user):
+    season = insert_season(db_conn, token_economy_enabled=True)
+    r = client.get(f"/seasons/{season['id']}/rules")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["season"]["token_economy_enabled"] is True
+    assert "cry_on_camera" in {e["event_type"] for e in data["scoring_events"]}
+    assert "extra_vote" in {a["advantage_type"] for a in data["advantages"]}

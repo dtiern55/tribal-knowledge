@@ -24,6 +24,7 @@ export interface Season {
   swap_lock_episode: number | null
   advantage_lock_episode: number | null
   weekly_token_allocation: number
+  token_economy_enabled: boolean
   // Votes per episode as the field shrinks (#269); a tier applies from its
   // episode until the next one starts. Empty = 3 unless set per episode.
   elimination_pick_schedule: EliminationPickTier[]
@@ -238,4 +239,3 @@ export interface ContestantPerformance {
   total_points: number
   episodes: ContestantEpisodeStat[]
 }
-
