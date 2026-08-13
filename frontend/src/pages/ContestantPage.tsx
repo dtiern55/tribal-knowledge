@@ -1,169 +1,167 @@
 import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router'
+import { ContestantPortrait } from '../components/ContestantPortrait'
+import { Notice } from '../components/Notice'
 import { PageLoader } from '../components/PageLoader'
-import { useNavigate, useParams } from 'react-router'
 import { SwipeNavBar } from '../components/SwipeNav'
+import { api, getActiveSeason } from '../lib/api'
+import { castStatus } from '../lib/cast'
 import { useSwipeNav } from '../lib/swipe'
-import { getActiveSeason } from '../lib/api'
-import type { Contestant } from '../types'
-import { api } from '../lib/api'
-import { ContestantAvatar } from '../components/ContestantAvatar'
-import type { ContestantPerformance } from '../types'
+import type { CastMember, ContestantPerformance } from '../types'
+
+function Points({ value, suffix = 'pts' }: { value: number; suffix?: string }) {
+  const color = value > 0 ? 'text-green-700' : value < 0 ? 'text-red-600' : 'text-gray-600'
+  return <span className={`font-semibold ${color}`}>{value > 0 ? '+' : ''}{value} {suffix}</span>
+}
 
 export function ContestantPage() {
   const { contestantId } = useParams()
-  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [perf, setPerf] = useState<ContestantPerformance | null>(null)
-  // Sibling order for swiping — the Cast page's order, so left/right walks
-  // the list you came from.
-  const [cast, setCast] = useState<Contestant[]>([])
+  const [cast, setCast] = useState<CastMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const castQuery = searchParams.get('cast')
+  const backHref = castQuery ? `/cast?${castQuery}` : '/cast'
+  const detailSuffix = castQuery ? `?cast=${encodeURIComponent(castQuery)}` : ''
 
   useEffect(() => {
     if (!contestantId) return
+    setLoading(true)
+    setError(null)
     api
       .get<ContestantPerformance>(`/contestants/${contestantId}/performance`)
       .then(setPerf)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load contestant'))
       .finally(() => setLoading(false))
   }, [contestantId])
 
   useEffect(() => {
     let live = true
     void getActiveSeason()
-      .then((s) => s && api.get<Contestant[]>(`/seasons/${s.id}/cast`))
-      .then((c) => live && c && setCast(c))
+      .then((season) => season && api.get<CastMember[]>(`/seasons/${season.id}/cast`))
+      .then((rows) => live && rows && setCast(rows))
       .catch(() => {})
-    return () => {
-      live = false
-    }
+    return () => { live = false }
   }, [])
 
-  const idx = cast.findIndex((c) => c.id === contestantId)
+  const idx = cast.findIndex((member) => member.id === contestantId)
   const prevC = idx > 0 ? cast[idx - 1] : undefined
   const nextC = idx >= 0 && idx < cast.length - 1 ? cast[idx + 1] : undefined
-  useSwipeNav(
-    prevC && `/contestants/${prevC.id}`,
-    nextC && `/contestants/${nextC.id}`,
-  )
+  const href = (member?: CastMember) => member && `/contestants/${member.id}${detailSuffix}`
+  useSwipeNav(href(prevC), href(nextC))
 
   if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
-  if (!perf) return <p className="text-gray-500">Contestant not found.</p>
+  if (error) return <Notice tone="error" title="Could not load this castaway">{error}</Notice>
+  if (!perf) return <Notice title="Contestant not found"><Link className="text-ocean-700 underline" to={backHref}>Return to the cast</Link></Notice>
+
+  const eliminated = perf.eliminated_in_episode != null
+  const scoredEpisodes = perf.episodes.filter((episode) => episode.events.some((event) => event.points !== 0 || event.token_value !== 0))
+  const bestEpisode = perf.episodes.reduce<(typeof perf.episodes)[number] | null>(
+    (best, episode) => best == null || episode.points > best.points ? episode : best,
+    null,
+  )
 
   return (
     <div>
-      <button
-        onClick={() => navigate(-1)}
-        className="text-sm text-ocean-600 hover:text-ocean-800"
-      >
-        ← Back
-      </button>
-      <div className="flex items-center gap-3 mt-3 mb-1">
-        <ContestantAvatar
-          name={perf.name}
-          imageUrl={perf.image_url}
-          size="md"
-          tribeColor={perf.tribe_color}
-          tribeName={perf.tribe_name}
-        />
-        <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">{perf.name}</h1>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">
-        {perf.tribe_name && (
-          <span className="inline-flex items-center gap-1.5 mr-1 align-middle">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: perf.tribe_color ?? undefined }}
-            />
-            {perf.tribe_name} ·
-          </span>
-        )}{' '}
-        {perf.total_points} pts total
-        {perf.placement != null && ` · placed #${perf.placement}`}
-        {perf.eliminated_in_episode != null &&
-          perf.placement == null &&
-          ` · out episode ${perf.eliminated_in_episode}`}
-      </p>
+      <Link to={backHref} className="text-sm font-medium text-ocean-700 hover:text-ocean-900">← Back to cast</Link>
 
-      {perf.episodes.length === 0 ? (
-        <p className="text-sm text-gray-500">No scored activity yet.</p>
-      ) : (
-        <div className="space-y-3">
-          {/* Most recent episode first; events that score nothing and pay no
-              tokens (e.g. votes received since 20260723 zeroed them) stay in
-              the DB but are noise here. */}
-          {[...perf.episodes]
-            .sort((a, b) => b.episode_number - a.episode_number)
-            .map((ep) => {
-            const events = ep.events.filter((e) => e.points !== 0 || e.token_value !== 0)
-            return (
-            <div key={ep.episode_number} className="p-4 bg-white border border-sand-200 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-800">Episode {ep.episode_number}</span>
-                <span
-                  className={`text-sm font-semibold ${
-                    ep.points > 0 ? 'text-green-600' : ep.points < 0 ? 'text-red-500' : 'text-gray-500'
-                  }`}
-                >
-                  {ep.points > 0 ? '+' : ''}
-                  {ep.points} pts
-                </span>
-              </div>
-              {events.length > 0 && (
-                <ul className="text-sm text-gray-600 space-y-0.5">
-                  {/* Point-scoring events first, then token-only ones (item 2). */}
-                  {[...events]
-                    .sort((a, b) => (a.points === 0 ? 1 : 0) - (b.points === 0 ? 1 : 0))
-                    .map((e, i) => (
-                    <li key={i} className="flex items-center justify-between gap-2">
-                      <span>
-                        {e.label}
-                        {e.quantity > 1 && (
-                          <span className="text-gray-500 font-medium"> ×{e.quantity}</span>
-                        )}
-                      </span>
-                      <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium">
-                        {e.points !== 0 && (
-                          <span className={e.points > 0 ? 'text-green-600' : 'text-red-500'}>
-                            {e.points > 0 ? '+' : ''}
-                            {e.points} pts
-                          </span>
-                        )}
-                        {e.token_value !== 0 &&
-                          (ep.tokens_locked ? (
-                            // Past the advantage cutoff nothing was granted —
-                            // show the rule value, muted, and say so (#295).
-                            <span
-                              className="text-gray-500 line-through"
-                              title="Advantages were locked — no tokens were granted for this episode"
-                            >
-                              +{e.token_value} tkn
-                            </span>
-                          ) : (
-                            <span className="text-amber-500">+{e.token_value} tkn</span>
-                          ))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {ep.eliminated_type && (
-                <p className="text-sm text-red-600 mt-1">
-                  Eliminated — {ep.eliminated_type.replace(/_/g, ' ')}
-                </p>
-              )}
-            </div>
-            )
-          })}
+      <header className="mt-4 grid gap-5 border-b border-sand-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm sm:mx-0">
+          <ContestantPortrait name={perf.name} imageUrl={perf.image_url} className={eliminated ? 'grayscale opacity-80' : ''} />
         </div>
-      )}
-      <SwipeNavBar
-        prev={prevC && `/contestants/${prevC.id}`}
-        next={nextC && `/contestants/${nextC.id}`}
-        prevLabel={prevC?.name}
-        nextLabel={nextC?.name}
-      />
+        <div className="min-w-0">
+          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-stone-200 text-stone-700' : 'bg-jungle-100 text-jungle-800'}`}>
+            {castStatus(perf)}
+          </span>
+          <h1 className="mt-3 font-display text-3xl tracking-wide text-ocean-900 md:text-5xl">{perf.name}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
+            <span className="inline-flex items-center gap-2">
+              {perf.tribe_name ? (
+                <>
+                  <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: perf.tribe_color ?? undefined }} />
+                  <strong className="font-medium text-gray-800">{perf.tribe_name} tribe</strong>
+                </>
+              ) : 'No tribe assigned'}
+            </span>
+            <span aria-hidden>·</span>
+            <Points value={perf.total_points} suffix="season points" />
+          </div>
+          <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-500">
+            Biography details have not been added for this castaway yet.
+          </p>
+        </div>
+      </header>
+
+      <section className="mt-8" aria-labelledby="season-performance-title">
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ember-700">Season performance</p>
+          <h2 id="season-performance-title" className="mt-1 font-display text-2xl tracking-wide text-ocean-900">Scoring history</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
+          <div className="rounded-xl border border-sand-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Total points</p>
+            <p className="mt-1 text-2xl"><Points value={perf.total_points} suffix="" /></p>
+          </div>
+          <div className="rounded-xl border border-sand-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Episodes with activity</p>
+            <p className="mt-1 text-2xl font-bold text-ocean-900">{scoredEpisodes.length}</p>
+          </div>
+          <div className="rounded-xl border border-sand-200 bg-white p-4">
+            <p className="text-xs text-gray-500">Best episode</p>
+            {bestEpisode && scoredEpisodes.length > 0 ? (
+              <p className="mt-1 text-lg font-bold text-ocean-900">Ep {bestEpisode.episode_number} <span className="text-sm"><Points value={bestEpisode.points} /></span></p>
+            ) : <p className="mt-1 text-sm font-medium text-gray-500">Not scored yet</p>}
+          </div>
+        </div>
+
+        {perf.episodes.length === 0 ? (
+          <div className="mt-6"><Notice title="No scored activity yet">Episode scoring will appear here once this castaway earns or loses points.</Notice></div>
+        ) : (
+          <ol className="mt-6 space-y-3">
+            {[...perf.episodes].sort((a, b) => b.episode_number - a.episode_number).map((episode) => {
+              const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
+              return (
+                <li key={episode.episode_number} className="rounded-2xl border border-sand-200 bg-white p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-sand-100 pb-3">
+                    <div>
+                      <p className="font-semibold text-gray-900">Episode {episode.episode_number}</p>
+                      {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-ember-700">Finale</p>}
+                    </div>
+                    <Points value={episode.points} />
+                  </div>
+                  {events.length > 0 ? (
+                    <ul className="mt-3 space-y-2 text-sm text-gray-600">
+                      {[...events]
+                        .sort((a, b) => Number(a.points === 0) - Number(b.points === 0))
+                        .map((event, index) => (
+                          <li key={index} className="flex items-start justify-between gap-3">
+                            <span>{event.label}{event.quantity > 1 && <span className="font-medium text-gray-500"> ×{event.quantity}</span>}</span>
+                            <span className="flex shrink-0 flex-wrap justify-end gap-2 text-xs">
+                              {event.points !== 0 && <Points value={event.points} />}
+                              {event.token_value !== 0 && (
+                                episode.tokens_locked ? (
+                                  <span className="text-gray-500 line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
+                                ) : <span className="font-medium text-amber-600">+{event.token_value} tokens</span>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  ) : <p className="mt-3 text-sm text-gray-500">No point-scoring events this episode.</p>}
+                  {episode.eliminated_type && (
+                    <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
+                      Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        )}
+      </section>
+
+      <SwipeNavBar prev={href(prevC)} next={href(nextC)} prevLabel={prevC?.name} nextLabel={nextC?.name} />
     </div>
   )
 }
