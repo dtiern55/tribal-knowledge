@@ -255,8 +255,8 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <>
-          <section id="votes" className="scroll-mt-20">
+        <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)] lg:items-start lg:gap-6">
+          <section id="votes" className="min-w-0 scroll-mt-20">
             <PicksSection
               season={d.season}
               contestants={d.contestants}
@@ -270,30 +270,32 @@ export function MySeasonPage() {
             />
           </section>
 
-          <WeeklyPlaySection
-            season={d.season}
-            episodes={d.episodes}
-            contestants={d.contestants}
-            userId={d.userId}
-            plays={d.plays}
-            setPlays={d.setPlays}
-          />
-
-          <section id="roster" className="scroll-mt-20">
-            <RosterSection
+          <aside className="mt-10 min-w-0 space-y-8 lg:sticky lg:top-24 lg:mt-0">
+            <WeeklyPlaySection
               season={d.season}
-              contestants={d.contestants}
               episodes={d.episodes}
+              contestants={d.contestants}
               userId={d.userId}
-              rosterPoints={rosterPoints}
               plays={d.plays}
               setPlays={d.setPlays}
-              onRosterChange={d.bumpRoster}
-              rosterVersion={d.rosterVersion}
-              compact
             />
-          </section>
-        </>
+
+            <section id="roster" className="scroll-mt-20">
+              <RosterSection
+                season={d.season}
+                contestants={d.contestants}
+                episodes={d.episodes}
+                userId={d.userId}
+                rosterPoints={rosterPoints}
+                plays={d.plays}
+                setPlays={d.setPlays}
+                onRosterChange={d.bumpRoster}
+                rosterVersion={d.rosterVersion}
+                compact
+              />
+            </section>
+          </aside>
+        </div>
       )}
 
       {state.kind === 'intermission' && <IntermissionState />}
@@ -406,7 +408,7 @@ function LockedState({
 
   return (
     <section
-      className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
+      className={`mx-auto max-w-4xl overflow-hidden rounded-2xl border p-5 sm:p-6 lg:px-10 lg:py-9 ${
         broadcast
           ? 'border-ocean-800 bg-gradient-to-b from-ocean-900 to-jungle-900 text-white'
           : 'border-sand-200 bg-white text-gray-900'
@@ -1872,7 +1874,7 @@ function PicksSection({
                             {tribeName}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
                             const isDoubled = ballotDoubled && isSelected
