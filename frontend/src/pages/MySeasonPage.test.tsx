@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
+import { isBroadcastWindow } from '../lib/mySeasonState'
 import type { Episode, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { MySeasonPage } from './MySeasonPage'
@@ -55,7 +56,10 @@ describe('MySeasonPage state shell', () => {
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByText('Episode 2 locked')).toBeVisible()
+    expect(await screen.findByText('Episode 2 · locked')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Results are pending' })).toBeVisible()
+    expect(screen.getByText('No ballot was submitted.')).toBeVisible()
+    expect(screen.getByText('No weekly play used')).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weekly Votes' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Edit Votes|Confirm Swap/ })).not.toBeInTheDocument()
@@ -88,5 +92,41 @@ describe('MySeasonPage state shell', () => {
     expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Past Episodes' })).not.toBeInTheDocument()
+  })
+
+  it('limits broadcast styling to the short window after lock without changing state', () => {
+    const locked = episode(2, 'upcoming', '2026-08-13T18:00:00Z')
+    expect(isBroadcastWindow(locked, new Date('2026-08-13T20:00:00Z'))).toBe(true)
+    expect(isBroadcastWindow(locked, new Date('2026-08-14T08:00:00Z'))).toBe(false)
+  })
+
+  it('shows the server-saved ballot roster and weekly play while locked', async () => {
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
+    ]
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu' },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_color: '#abcdef', tribe_name: 'Siga' },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.includes('/advantage-plays/')) {
+        return [{ id: 'play-1', episode_id: 'episode-2', advantage_type: 'double_vote_points', target_contestant_id: null }]
+      }
+      if (path.includes('/picks/')) return [{ id: 'pick-1', contestant_id: 'cast-1' }]
+      if (path.includes('/roster/')) return [{ id: 'roster-1', contestant_id: 'cast-2', active_until_episode: null }]
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByText('Kenzie')).toBeVisible()
+    expect(screen.getByText('Charlie')).toBeVisible()
+    expect(screen.getByText('Double Vote Points')).toBeVisible()
   })
 })
