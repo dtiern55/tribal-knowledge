@@ -7,6 +7,7 @@ import { useAuth } from '../auth/useAuth'
 import type {
   Contestant,
   Episode,
+  EpisodeInsightConfig,
   LeagueSettings,
   ScoringEventType,
   Season,
@@ -638,6 +639,155 @@ function ImportSection({
   )
 }
 
+function EpisodeInsightEditor({
+  episode,
+  contestants,
+  eliminations,
+}: {
+  episode: Episode
+  contestants: Contestant[]
+  eliminations: EliminationRow[]
+}) {
+  const [selected, setSelected] = useState<string[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    api
+      .get<EpisodeInsightConfig[]>(`/episodes/${episode.id}/insights`)
+      .then((items) => {
+        if (!live) return
+        setSelected(
+          items.map((item) => {
+            if (item.insight_type === 'pick_popularity') {
+              return `pick:${item.contestant_id ?? ''}`
+            }
+            if (item.insight_type === 'weekly_play_usage') {
+              return `play:${item.advantage_type ?? ''}`
+            }
+            return item.insight_type
+          }),
+        )
+        setLoaded(true)
+      })
+      .catch((cause) => {
+        if (!live) return
+        setError(cause instanceof Error ? cause.message : 'Could not load insights')
+        setLoaded(true)
+      })
+    return () => {
+      live = false
+    }
+  }, [episode.id])
+
+  const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
+  const options = [
+    ...(!episode.is_finale
+      ? eliminations.map((elimination) => ({
+          key: `pick:${elimination.contestant_id}`,
+          label: `Pick popularity: ${contestantMap.get(elimination.contestant_id)?.name ?? 'Eliminated castaway'}`,
+          description: 'Share how many submitted ballots included this castaway.',
+        }))
+      : []),
+    ...(!episode.is_finale
+      ? [{
+          key: 'multiple_correct_ballots',
+          label: 'Multiple correct ballots',
+          description: 'Count submitted ballots with at least two correct picks.',
+        }]
+      : []),
+    {
+      key: 'performance_vs_median',
+      label: 'Player vs league median',
+      description: "Compare each player's episode score with the league median.",
+    },
+    ...[
+      ['double_roster_points', 'Double Roster Points usage'],
+      ['double_vote_points', 'Double Vote Points usage'],
+      ['roster_swap', 'Roster Swap usage'],
+    ].map(([type, label]) => ({
+      key: `play:${type}`,
+      label,
+      description: 'Show how many league players used this weekly play.',
+    })),
+  ]
+
+  function toggle(key: string) {
+    setSaved(false)
+    setSelected((current) => {
+      if (current.includes(key)) return current.filter((item) => item !== key)
+      if (current.length === 3) return current
+      return [...current, key]
+    })
+  }
+
+  function save() {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    const body = selected.map((key) => {
+      if (key.startsWith('pick:')) {
+        return { insight_type: 'pick_popularity', contestant_id: key.slice(5) }
+      }
+      if (key.startsWith('play:')) {
+        return { insight_type: 'weekly_play_usage', advantage_type: key.slice(5) }
+      }
+      return { insight_type: key }
+    })
+    api
+      .put<EpisodeInsightConfig[]>(`/episodes/${episode.id}/insights`, body)
+      .then(() => setSaved(true))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : 'Could not save insights'))
+      .finally(() => setSaving(false))
+  }
+
+  return (
+    <div className="pt-4 border-t border-gray-100">
+      <p className="text-xs font-semibold text-gray-500">Reveal Insights</p>
+      <p className="mt-1 text-xs text-gray-500">
+        Choose up to three post-score league facts. Nothing appears in Reveal when none are selected.
+      </p>
+      {!loaded ? (
+        <p className="mt-3 text-xs text-gray-500">Loading…</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {options.map((option) => {
+            const checked = selected.includes(option.key)
+            return (
+              <label key={option.key} className="flex items-start gap-2 rounded-lg border border-sand-200 p-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={!checked && selected.length === 3}
+                  onChange={() => toggle(option.key)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block font-medium text-gray-800">{option.label}</span>
+                  <span className="block text-xs text-gray-500">{option.description}</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+      <ErrorMsg msg={error} />
+      <SuccessMsg msg={saved ? 'Reveal insights saved.' : null} />
+      {loaded && (
+        <div className="mt-3 flex items-center gap-3">
+          <ActionBtn onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : 'Save reveal insights'}
+          </ActionBtn>
+          <span className="text-xs text-gray-500">{selected.length}/3 selected</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EpisodePanel({
   episode,
   tokenEconomyEnabled,
@@ -1003,6 +1153,14 @@ function EpisodePanel({
           </>
         )}
       </div>
+
+      {episode.status === 'scored' && elimLoaded && (
+        <EpisodeInsightEditor
+          episode={episode}
+          contestants={contestants}
+          eliminations={elims}
+        />
+      )}
     </div>
   )
 }

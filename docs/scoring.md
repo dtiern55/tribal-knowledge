@@ -100,6 +100,22 @@ ballot earnings, and the attributable weekly-play bonus. Helpers such as
 `advantage_bonus_by_play` exist for that explanation; they do not store a
 second score.
 
+## Episode Reveal insights
+
+After scoring, the commissioner may select up to three editorial facts for an
+episode's Reveal and history replay. No selection means no insight module. The
+supported facts are:
+
+- Pick popularity for a named castaway eliminated in that non-finale episode:
+  the share of submitted ballots that included them.
+- Submitted ballots with at least two correct elimination picks.
+- The viewer's episode score versus the median among season participants.
+- League usage of Double Roster Points, Double Vote Points, or Roster Swap.
+
+Configuration contains no aggregate values. Facts are calculated only through
+the authenticated scored-result endpoint and expose counts or percentages,
+never another player's ballot or identity.
+
 ## Historical-season guarantees
 
 - Existing seasons read `season_scoring_event_types` and

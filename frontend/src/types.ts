@@ -197,6 +197,21 @@ export interface EpisodeResult {
   insights?: EpisodeResultInsight[]
 }
 
+export type EpisodeInsightType =
+  | 'pick_popularity'
+  | 'multiple_correct_ballots'
+  | 'performance_vs_median'
+  | 'weekly_play_usage'
+
+export interface EpisodeInsightConfig {
+  id: string
+  episode_id: string
+  insight_type: EpisodeInsightType
+  contestant_id: string | null
+  advantage_type: 'double_roster_points' | 'double_vote_points' | 'roster_swap' | null
+  display_order: number
+}
+
 export interface ScoringEventType {
   event_type: string
   label: string

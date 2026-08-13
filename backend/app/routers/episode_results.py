@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app import database, scoring
 from app.auth import get_current_user
+from app.routers.episode_insights import compute_episode_insights
 from app.schemas import (
     EpisodeResult,
     RevealAcknowledgement,
@@ -286,6 +287,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         plays[0]["bonus_points"] += residual
 
     current_rank, prior_rank, rank_delta = _rank_context(conn, season, user_id, episode)
+    insights = compute_episode_insights(conn, season, episode, user_id)
     return {
         "episode_id": episode["id"],
         "episode_number": episode["episode_number"],
@@ -302,6 +304,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         "current_rank": current_rank,
         "prior_rank": prior_rank,
         "rank_delta": rank_delta,
+        "insights": insights,
     }
 
 
