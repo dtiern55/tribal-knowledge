@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PageLoader } from '../components/PageLoader'
 import { Link, useLocation } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
@@ -173,6 +174,7 @@ function useWeeklyPlay(
 
 export function MySeasonPage() {
   const d = useMySeasonData()
+  const [ballotRailTarget, setBallotRailTarget] = useState<HTMLDivElement | null>(null)
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
@@ -238,7 +240,10 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <div className="mx-auto max-w-4xl space-y-12">
+        <div
+          data-layout="open-desktop"
+          className="mx-auto max-w-7xl space-y-12 lg:grid lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-8 lg:space-y-0 xl:grid-cols-[minmax(0,1fr)_23rem] xl:gap-10"
+        >
           <section id="votes" className="scroll-mt-20">
             <PicksSection
               season={d.season}
@@ -249,10 +254,12 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               pickResults={pickResults}
               activeOnly
+              decisionRailTarget={ballotRailTarget}
             />
           </section>
 
-          <div className="space-y-12">
+          <aside aria-label="Episode decisions" className="space-y-8 lg:border-l lg:border-sand-200 lg:pl-8 xl:pl-10">
+            <div ref={setBallotRailTarget} />
             <WeeklyPlaySection
               season={d.season}
               episodes={d.episodes}
@@ -260,6 +267,7 @@ export function MySeasonPage() {
               userId={d.userId}
               plays={d.plays}
               setPlays={d.setPlays}
+              decisionRail
             />
 
             <section id="roster" className="scroll-mt-20">
@@ -276,7 +284,7 @@ export function MySeasonPage() {
                 compact
               />
             </section>
-          </div>
+          </aside>
         </div>
       )}
 
@@ -754,6 +762,7 @@ function WeeklyPlaySection({
   userId,
   plays,
   setPlays,
+  decisionRail = false,
 }: {
   season: Season
   episodes: Episode[]
@@ -761,6 +770,7 @@ function WeeklyPlaySection({
   userId: string
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
+  decisionRail?: boolean
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const [roster, setRoster] = useState<RosterPick[]>([])
@@ -808,7 +818,7 @@ function WeeklyPlaySection({
           )}
         </div>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
           <div className="p-3 bg-white border border-sand-200 rounded-lg space-y-2">
             <p className="text-sm font-semibold text-gray-800">Double Roster Points</p>
             <p className="text-xs text-gray-500">Double one active castaway&apos;s episode points.</p>
@@ -1387,6 +1397,7 @@ function PicksSection({
   setPlays,
   pickResults,
   activeOnly = false,
+  decisionRailTarget = null,
 }: {
   season: Season
   contestants: Contestant[]
@@ -1396,6 +1407,7 @@ function PicksSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
   activeOnly?: boolean
+  decisionRailTarget?: HTMLDivElement | null
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
@@ -1649,6 +1661,50 @@ function PicksSection({
 
           return (
             <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-ocean-500 bg-white p-4'}>
+              {activeOnly && decisionRailTarget && createPortal(
+                <section aria-labelledby="desktop-ballot-summary" className="hidden rounded-xl border border-sand-200 bg-white p-4 lg:block">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 id="desktop-ballot-summary" className="font-display text-lg tracking-wide text-ocean-800">Current ballot</h2>
+                      <p className="text-xs text-gray-500">Episode {ep.episode_number} · {epPending.size} of {maxPicks} selected</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${confirmed ? 'bg-jungle-50 text-jungle-700' : dirty ? 'bg-ember-50 text-ember-700' : 'bg-sand-100 text-gray-500'}`}>
+                      {confirmed ? 'Saved' : dirty ? 'Unsaved' : hasSavedPicks ? 'No changes' : 'Not started'}
+                    </span>
+                  </div>
+
+                  {epPending.size > 0 ? (
+                    <ol className="mt-3 space-y-1.5">
+                      {[...epPending].map((contestantId, index) => (
+                        <li key={contestantId} className="flex min-w-0 items-center gap-2 text-sm text-gray-700">
+                          <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-ocean-100 text-[11px] font-semibold text-ocean-800">{index + 1}</span>
+                          <span className="truncate">{contestantMap.get(contestantId)?.name ?? 'Castaway'}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="mt-3 text-sm text-gray-500">Choose at least one castaway from the ballot canvas.</p>
+                  )}
+
+                  {confirmed ? (
+                    <button type="button" onClick={() => setEditing(true)} className="mt-4 w-full rounded-lg border border-ocean-300 bg-white px-3 py-2 text-sm font-semibold text-ocean-800 hover:bg-ocean-50">
+                      Edit ballot
+                    </button>
+                  ) : (
+                    <div className="mt-4 flex gap-2">
+                      <button type="button" onClick={() => submitPicks(ep.id)} disabled={submitting === ep.id || epPending.size === 0 || !dirty} className="min-h-11 flex-1 rounded-lg bg-jungle-600 px-3 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-40">
+                        {submitting === ep.id ? 'Saving…' : 'Save ballot'}
+                      </button>
+                      {hasSavedPicks && (
+                        <button type="button" onClick={() => cancelEdit(ep.id)} className="rounded-lg border border-sand-200 px-3 py-2 text-sm font-medium text-gray-600 hover:border-sand-300">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </section>,
+                decisionRailTarget,
+              )}
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5 border-y border-jungle-200 bg-jungle-50 px-4 py-5 text-center sm:rounded-xl sm:border">
@@ -1726,6 +1782,9 @@ function PicksSection({
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
+                            const selectionOrder = isSelected
+                              ? [...epPending].indexOf(c.id) + 1
+                              : null
                             const isDoubled = ballotDoubled && isSelected
                             const maxed = !isSelected && epPending.size >= maxPicks
                             return (
@@ -1749,7 +1808,7 @@ function PicksSection({
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
                                   <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-xs text-white" aria-hidden="true">
-                                    ✓
+                                    {selectionOrder}
                                   </span>
                                 )}
                                 {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
@@ -1806,7 +1865,7 @@ function PicksSection({
 
               {episodeError && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{episodeError}</p>}
               {confirmed ? (
-                <div className="flex items-center justify-between">
+                <div className={`flex items-center justify-between ${activeOnly ? 'lg:hidden' : ''}`}>
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
@@ -1817,7 +1876,7 @@ function PicksSection({
                   <span className="text-xs text-gray-500">Editable until it locks</span>
                 </div>
               ) : (
-                <div className="flex gap-2">
+                <div className={`flex gap-2 ${activeOnly ? 'lg:hidden' : ''}`}>
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}
