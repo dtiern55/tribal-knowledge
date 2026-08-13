@@ -365,6 +365,62 @@ class AdvantagePlayRequest(BaseModel):
     target_contestant_id: Optional[UUID] = None
 
 
+class EpisodeResultContestant(BaseModel):
+    contestant_id: UUID
+    name: str
+    image_url: Optional[str] = None
+
+
+class EpisodeResultElimination(EpisodeResultContestant):
+    elimination_type: str
+
+
+class EpisodeResultBallotPick(EpisodeResultContestant):
+    prediction_type: Literal["elimination", "early_boot", "fire_loss", "winner"]
+    correct: bool
+    points: int
+
+
+class EpisodeResultRosterMember(EpisodeResultContestant):
+    points: int
+
+
+class EpisodeResultWeeklyPlay(BaseModel):
+    advantage_play_id: UUID
+    advantage_type: str
+    target_contestant_id: Optional[UUID] = None
+    target_name: Optional[str] = None
+    bonus_points: int
+
+
+class EpisodeResult(BaseModel):
+    episode_id: UUID
+    episode_number: int
+    is_finale: bool
+    eliminated: list[EpisodeResultElimination]
+    ballot: list[EpisodeResultBallotPick]
+    roster: list[EpisodeResultRosterMember]
+    roster_points: int
+    roster_adjustment_points: int
+    ballot_points: int
+    weekly_plays: list[EpisodeResultWeeklyPlay]
+    weekly_play_bonus: int
+    total_points: int
+    current_rank: Optional[int] = None
+    prior_rank: Optional[int] = None
+    rank_delta: Optional[int] = None
+
+
+class RevealAcknowledgementRequest(BaseModel):
+    episode_id: UUID
+
+
+class RevealAcknowledgement(BaseModel):
+    season_id: UUID
+    episode_id: UUID
+    acknowledged_at: datetime
+
+
 class AdvantageType(BaseModel):
     advantage_type: str
     label: str
