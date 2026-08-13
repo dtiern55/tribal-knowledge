@@ -27,6 +27,7 @@ class Season(BaseModel):
     swap_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
     weekly_token_allocation: int
+    token_economy_enabled: bool
     elimination_pick_schedule: list[EliminationPickTier]
     status: str
     created_at: datetime
@@ -201,6 +202,7 @@ class SeasonCreateRequest(BaseModel):
     # on deliberately; the default must be 0 or every new season silently
     # accrues an allowance that buys nothing (DvG banked 2,730 of them).
     weekly_token_allocation: int = Field(default=0, ge=0)
+    token_economy_enabled: bool = False
     ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
@@ -218,6 +220,7 @@ class SeasonUpdateRequest(BaseModel):
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
     weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
+    token_economy_enabled: Optional[bool] = None
     elimination_pick_schedule: Optional[list[EliminationPickTier]] = None
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 

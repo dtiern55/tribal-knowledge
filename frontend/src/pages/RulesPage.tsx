@@ -3,7 +3,6 @@ import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse } from '../types'
 
-// Prediction values grouped by concept, so distinct games aren't jumbled.
 const PRED_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
   {
     title: 'Weekly vote — predict who goes home',
@@ -29,8 +28,7 @@ function pts(v: number) {
   return `${v > 0 ? '+' : ''}${v}`
 }
 
-// One scoring-event row: points (with pre/post-merge split) and/or token value.
-function EventRow({ e }: { e: RuleScoringEvent }) {
+function EventRow({ e, showTokens = false }: { e: RuleScoringEvent; showTokens?: boolean }) {
   const post = e.postmerge_point_value
   return (
     <li className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0">
@@ -46,7 +44,9 @@ function EventRow({ e }: { e: RuleScoringEvent }) {
               : `${pts(e.point_value)} pts`}
           </span>
         ) : null}
-        {e.token_value !== 0 && <span className="text-amber-500">+{e.token_value} tkn</span>}
+        {showTokens && e.token_value !== 0 && (
+          <span className="text-amber-500">+{e.token_value} tkn</span>
+        )}
       </span>
     </li>
   )
@@ -67,8 +67,6 @@ function Section({
         {title}
       </h2>
       {blurb && <p className="text-xs text-gray-500 mb-2">{blurb}</p>}
-      {/* Blurb-only sections (e.g. the Sole Survivor multiplier) pass no rows —
-          skip the card rather than render an empty one. */}
       {children ? (
         <div className="bg-white border border-sand-200 rounded-xl p-4">{children}</div>
       ) : null}
@@ -76,8 +74,6 @@ function Section({
   )
 }
 
-// A grouped list of prediction values (points only), so distinct concepts
-// aren't jumbled into one value-sorted heap.
 function PredList({ rows }: { rows: RulePredictionScore[] }) {
   return (
     <ul>
@@ -122,6 +118,7 @@ export function RulesPage() {
   if (!rules) return <p className="text-gray-500">No season found.</p>
 
   const { season, scoring_events, prediction_scores, advantages } = rules
+  const usesTokens = season.token_economy_enabled
   const rosterEvents = scoring_events.filter((e) => e.point_value !== 0)
   const tokenEvents = scoring_events.filter((e) => e.point_value === 0 && e.token_value !== 0)
 
@@ -133,7 +130,11 @@ export function RulesPage() {
         You score in a few separate ways: your <b>roster</b> (the team you draft) earns points
         each episode; your <b>weekly vote</b> predicts each boot; your{' '}
         <b>Sole Survivor designation</b> and the <b>finale ballot</b> pay off at the end.{' '}
-        <b>Tokens</b> are a separate currency you spend on advantages.
+        {usesTokens ? (
+          <><b>Tokens</b> are the historical second currency used for advantages.</>
+        ) : (
+          <><b>One optional weekly play</b> can boost your roster, boost your ballot, or pay for a roster swap.</>
+        )}
       </p>
 
       <Section title="Season structure">
@@ -145,34 +146,47 @@ export function RulesPage() {
             Sole Survivor designation locks with advantages, at episode{' '}
             <b>{season.ss_lock_episode ?? season.advantage_lock_episode ?? 'the finale'}</b>
           </li>
-          <li>
-            Roster swaps: <b>{season.swap_token_cost} tokens</b> each, up to{' '}
-            <b>{season.max_swaps}</b>/season
-            {season.swap_lock_episode != null && <>, locked from episode <b>{season.swap_lock_episode}</b></>}
-          </li>
-          <li>
-            Advantages &amp; token earning stop at episode{' '}
-            <b>{season.advantage_lock_episode ?? 'the finale'}</b>
-          </li>
+          {usesTokens ? (
+            <>
+              <li>
+                Roster swaps: <b>{season.swap_token_cost} tokens</b> each, up to{' '}
+                <b>{season.max_swaps}</b>/season
+                {season.swap_lock_episode != null && <>, locked from episode <b>{season.swap_lock_episode}</b></>}
+              </li>
+              <li>
+                Advantages &amp; token earning stop at episode{' '}
+                <b>{season.advantage_lock_episode ?? 'the finale'}</b>
+              </li>
+            </>
+          ) : (
+            <>
+              <li>
+                Roster swaps: the first <b>{season.free_swaps}</b>{' '}
+                {season.free_swaps === 1 ? 'swap is' : 'swaps are'} free; each later swap uses that episode&apos;s weekly play
+                {season.swap_lock_episode != null && <>, locked from episode <b>{season.swap_lock_episode}</b></>}
+              </li>
+              <li>
+                Weekly plays stop at episode{' '}
+                <b>{season.advantage_lock_episode ?? 'the finale'}</b>
+              </li>
+            </>
+          )}
         </ul>
       </Section>
 
       <Section
         title="Roster points — your picked team"
-        blurb="Your roster is the 5 castaways you draft. They earn you points every episode for what they do in the game."
+        blurb="Your roster is the castaways you draft. They earn you points every episode for what they do in the game."
       >
         <ul>
           {rosterEvents.map((e) => (
-            <EventRow key={e.event_type} e={e} />
+            <EventRow key={e.event_type} e={e} showTokens={usesTokens} />
           ))}
         </ul>
       </Section>
 
       {PRED_GROUPS.map((g) => {
         const rows = prediction_scores.filter((p) => g.keys.includes(p.key))
-        // A group with no keys is deliberately blurb-only (the Sole Survivor
-        // designation is a multiplier, not its own point value). A group that
-        // declares keys but matches none isn't in play this season — hide it.
         if (rows.length === 0 && g.keys.length > 0) return null
         return (
           <Section key={g.title} title={g.title} blurb={g.blurb}>
@@ -181,40 +195,54 @@ export function RulesPage() {
         )
       })}
 
-      <Section
-        title="Tokens — the second currency"
-        blurb="Separate from points: tokens are spent on advantages. You get an allocation each episode, plus some for fun TV moments and game plays by your roster."
-      >
-        <ul>
-          {tokenEvents.map((e) => (
-            <EventRow key={e.event_type} e={e} />
-          ))}
-        </ul>
-      </Section>
+      {usesTokens ? (
+        <>
+          <Section
+            title="Tokens — the second currency"
+            blurb="Separate from points: tokens were spent on advantages. This season granted an allocation each episode and could award tokens for configured roster events."
+          >
+            <ul>
+              {tokenEvents.map((e) => (
+                <EventRow key={e.event_type} e={e} showTokens />
+              ))}
+            </ul>
+          </Section>
 
-      <Section title="Advantages — spend your tokens" blurb="Bought with tokens and played on an upcoming episode.">
-        <ul>
-          {advantages.map((a) => (
-            <li
-              key={a.advantage_type}
-              className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0"
-            >
-              <span className="text-sm text-gray-700">{a.label}</span>
-              <span className="text-sm font-medium text-amber-700 shrink-0">{a.token_cost} tkn</span>
-            </li>
-          ))}
-        </ul>
-      </Section>
+          <Section title="Advantages — spend your tokens" blurb="Bought with tokens and played on an upcoming episode.">
+            <ul>
+              {advantages.map((a) => (
+                <li
+                  key={a.advantage_type}
+                  className="flex items-center justify-between gap-3 py-1.5 border-b border-sand-100 last:border-0"
+                >
+                  <span className="text-sm text-gray-700">{a.label}</span>
+                  <span className="text-sm font-medium text-amber-700 shrink-0">{a.token_cost} tkn</span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        </>
+      ) : (
+        <Section
+          title="Weekly play — one choice each episode"
+          blurb="Your optional play does not carry over. Choose one of these, or leave it unused."
+        >
+          <ul className="text-sm text-gray-700 space-y-3">
+            <li><b>Double Roster Points</b> — choose one active roster member and double that castaway&apos;s episode points.</li>
+            <li><b>Double Vote Points</b> — double the points from every correct elimination pick on that episode&apos;s ballot.</li>
+            <li><b>Roster Swap</b> — after your free {season.free_swaps === 1 ? 'swap' : 'swaps'} {season.free_swaps === 1 ? 'has' : 'have'} been used, a swap spends that episode&apos;s weekly play.</li>
+          </ul>
+        </Section>
+      )}
 
-      <Section
-        title="Clarifications"
-        blurb="A few rulings on how specific points are judged."
-      >
+      <Section title="Clarifications" blurb="A few rulings on how specific points are judged.">
         <ul className="text-sm text-gray-700 space-y-3">
-          <li>
-            <b>Personal background story</b> — counts when the episode airs pre-game
-            footage or photos of a castaway and shares their life before the game.
-          </li>
+          {usesTokens && (
+            <li>
+              <b>Personal background story</b> — counts when the episode airs pre-game
+              footage or photos of a castaway and shares their life before the game.
+            </li>
+          )}
           <li>
             <b>Voting correctly</b> — the castaway voted for the person who was voted
             out. A <b>blindside</b> requires voting correctly <i>and</i> the eliminated
@@ -229,25 +257,24 @@ export function RulesPage() {
           <li>
             <b>Saving someone with an idol</b> — counts whether a castaway saves
             themselves or someone else. The person the idol is played for must{' '}
-            <b>receive votes</b> (saving someone from a rock draw doesn't count), and
-            points apply only if they would have been eliminated without it.{' '}
-            <b>Shared idol:</b> if a castaway hands their idol to an ally (e.g. to dodge
-            Knowledge Is Power) and the ally plays it to save someone, both split{' '}
-            <b>10 pts each</b> when it's judged a team effort — similar logic applies to
-            other shared advantages.
+            <b>receive votes</b>, and points apply only if they would have been eliminated
+            without it. A deliberately shared idol can split the credit when judged a team effort.
           </li>
-          <li>
-            <b>Crying</b> — wet eyes alone don't count. It takes a real cry: a shed
-            tear, an audible sob, or a breaking voice.
-          </li>
-          <li>
-            <b>Extra votes</b> can be used until only <b>one selection remains</b> — you
-            can never vote for every castaway still in the game.
-          </li>
+          {usesTokens && (
+            <>
+              <li>
+                <b>Crying</b> — wet eyes alone do not count. It takes a real cry: a shed
+                tear, an audible sob, or a breaking voice.
+              </li>
+              <li>
+                <b>Extra votes</b> can be used until only <b>one selection remains</b> — you
+                can never vote for every castaway still in the game.
+              </li>
+            </>
+          )}
         </ul>
       </Section>
 
-      {/* CC BY-SA attribution for episode schedule + contestant photos (#197/#187) */}
       <p className="text-xs text-gray-500 mt-8">
         Episode schedule and contestant photos via{' '}
         <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer" className="underline">

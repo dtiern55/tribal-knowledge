@@ -63,12 +63,14 @@ def create_season(body: SeasonCreateRequest, _: UUID = Depends(get_current_admin
                     (name, season_number, roster_size, roster_lock_episode,
                      merge_episode, swap_token_cost,
                      free_swaps, weekly_token_allocation,
+                     token_economy_enabled,
                      ss_lock_episode, status)
                 values
                     (%(name)s, %(season_number)s, %(roster_size)s,
                      %(roster_lock_episode)s, %(merge_episode)s,
                      %(swap_token_cost)s,
                      %(free_swaps)s, %(weekly_token_allocation)s,
+                     %(token_economy_enabled)s,
                      %(ss_lock_episode)s, %(status)s)
                 returning *
                 """,

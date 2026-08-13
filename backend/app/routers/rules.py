@@ -23,9 +23,9 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 "select event_type, label, point_value, postmerge_point_value,"
                 " token_value, is_per_unit from season_scoring_event_types"
-                " where season_id = %s and enabled"
+                " where season_id = %s and (enabled or %s)"
                 " order by point_value desc, token_value desc, label",
-                [str(season_id)],
+                [str(season_id), season["token_economy_enabled"]],
             )
             scoring_events = cur.fetchall()
             # Classic winner-pick / placement outcomes were removed (#164 →
@@ -45,7 +45,8 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
             prediction_scores = cur.fetchall()
             cur.execute(
                 "select advantage_type, label, token_cost, enabled"
-                " from advantage_types where enabled = true order by token_cost"
+                " from advantage_types where enabled = true or %s order by token_cost",
+                [season["token_economy_enabled"]],
             )
             advantages = cur.fetchall()
     return {
