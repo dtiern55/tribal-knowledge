@@ -7,9 +7,13 @@ description: Run the full app locally (Supabase + FastAPI + Vite) and drive it i
 
 ## Stack bring-up
 
+Requires Docker Desktop with WSL integration enabled.
+
 ```bash
 # 1. Local Supabase (Docker; migrations run automatically)
 supabase start
+#    supabase db reset  — wipe and re-run all migrations
+#    supabase stop      — tear down
 
 # 2. Backend against the local stack
 cd backend && env DB_HOST=127.0.0.1 DB_PORT=5433 DB_NAME=postgres \
@@ -22,6 +26,10 @@ cd frontend && env VITE_SUPABASE_URL=http://127.0.0.1:54100 \
   VITE_SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH \
   VITE_API_URL=http://localhost:8000 npm run dev      # background, port 5173
 ```
+
+Local DB credentials (also used by `backend/.env.test`): host `127.0.0.1`,
+port `5433`, DB/user/password all `postgres`. Studio http://127.0.0.1:54101,
+Supabase API http://127.0.0.1:54100.
 
 ## Seeding a world
 
