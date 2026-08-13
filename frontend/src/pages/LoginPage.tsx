@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
+import { PageLoader } from '../components/PageLoader'
 
 export function LoginPage() {
   const { session, loading } = useAuth()
@@ -13,7 +14,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   // Don't flash the form while the session is still being restored (#1)
-  if (loading) return null
+  if (loading) return <PageLoader label="Restoring your session…" />
   if (session) return <Navigate to="/" replace />
 
   async function handleSubmit(e: React.FormEvent) {
@@ -52,42 +53,58 @@ export function LoginPage() {
   }
 
   return (
-    <div className="max-w-sm mx-auto mt-16">
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-6">
-        {mode === 'signin' ? 'Sign in' : 'Sign up'}
-      </h1>
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+    <div className="mx-auto mt-4 grid max-w-3xl overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm md:mt-10 md:grid-cols-[0.8fr_1.2fr]">
+      <section className="bg-gradient-to-br from-ocean-900 to-jungle-800 p-6 text-white sm:p-8" aria-labelledby="welcome-title">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ember-200">Private fantasy league</p>
+        <h1 id="welcome-title" className="mt-2 font-display text-3xl tracking-wide">Welcome to Tribal Knowledge</h1>
+        <p className="mt-3 text-sm leading-6 text-white/75">Make your Survivor picks, follow your roster, and compete with the league each week.</p>
+      </section>
+
+      <section className="p-5 sm:p-8" aria-labelledby="auth-form-title">
+        <h2 id="auth-form-title" className="font-display text-2xl tracking-wide text-ocean-800">
+          {mode === 'signin' ? 'Sign in' : 'Create your account'}
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">
+          {mode === 'signin' ? 'Continue to your league.' : 'Use the email where you received your invitation.'}
+        </p>
+      <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'auth-error' : info ? 'auth-info' : undefined}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="auth-email" className="block text-sm font-medium text-gray-700 mb-1">
             Email
           </label>
           <input
+            id="auth-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">
             Password
           </label>
           <input
+            id="auth-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={mode === 'signup' ? 8 : undefined}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500"
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
           />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {info && <p className="text-sm text-green-600">{info}</p>}
+        {error && <p id="auth-error" role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {info && <p id="auth-info" role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">{info}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-jungle-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-jungle-700 disabled:opacity-50 cursor-pointer"
+          className="min-h-11 w-full cursor-pointer rounded-lg bg-jungle-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50"
         >
           {submitting
             ? mode === 'signin'
@@ -99,15 +116,17 @@ export function LoginPage() {
         </button>
       </form>
       <button
+        type="button"
         onClick={() => {
           setMode(mode === 'signin' ? 'signup' : 'signin')
           setError(null)
           setInfo(null)
         }}
-        className="mt-4 text-sm text-ocean-600 hover:text-ocean-700 cursor-pointer"
+        className="mt-5 min-h-11 cursor-pointer text-sm font-medium text-ocean-700 hover:text-ocean-900"
       >
         {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
       </button>
+      </section>
     </div>
   )
 }

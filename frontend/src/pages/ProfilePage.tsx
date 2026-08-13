@@ -12,9 +12,9 @@ import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
 
 const inputCls =
-  'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500'
+  'min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm'
 const buttonCls =
-  'w-full bg-jungle-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-jungle-700 disabled:opacity-50 cursor-pointer'
+  'min-h-11 w-full cursor-pointer rounded-lg bg-jungle-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50'
 
 function DisplayNameSection() {
   const { profile, refreshProfile } = useAuth()
@@ -31,7 +31,7 @@ function DisplayNameSection() {
     setError(null)
     setSaved(false)
     try {
-      await api.patch<UserProfile>('/me', { display_name: displayName })
+      await api.patch<UserProfile>('/me', { display_name: displayName.trim() })
       await refreshProfile()
       setSaved(true)
     } catch (e) {
@@ -44,10 +44,11 @@ function DisplayNameSection() {
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="profile-display-name" className="block text-sm font-medium text-gray-700 mb-1">
           Display name
         </label>
         <input
+          id="profile-display-name"
           value={displayName}
           onChange={(e) => {
             setDisplayName(e.target.value)
@@ -55,11 +56,12 @@ function DisplayNameSection() {
           }}
           required
           maxLength={40}
+          autoComplete="name"
           className={inputCls}
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-green-600">Saved.</p>}
+      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {saved && <p role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">League profile saved.</p>}
       <button
         type="submit"
         disabled={saving || unchanged || !displayName.trim()}
@@ -118,26 +120,31 @@ function EmailSection() {
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="profile-new-email" className="block text-sm font-medium text-gray-700 mb-1">
           Email
         </label>
         <p className="text-xs text-gray-500 mb-2">
           Currently <span className="font-medium">{currentEmail}</span>
         </p>
         <input
+          id="profile-new-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="new@email.com"
           required
+          autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
           className={inputCls}
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="email-current-password" className="block text-sm font-medium text-gray-700 mb-1">
           Current password
         </label>
         <input
+          id="email-current-password"
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
@@ -146,8 +153,8 @@ function EmailSection() {
           className={inputCls}
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {info && <p className="text-sm text-green-600">{info}</p>}
+      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {info && <p role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">{info}</p>}
       <button
         type="submit"
         disabled={
@@ -252,8 +259,8 @@ function PasswordSection() {
           className={inputCls}
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {info && <p className="text-sm text-green-600">{info}</p>}
+      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {info && <p role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">{info}</p>}
       <button
         type="submit"
         disabled={saving || !current || !password || !confirm}
@@ -276,10 +283,10 @@ function InstallSection() {
   if (isInstalled() || (!canPrompt && !isIos())) return null
 
   return (
-    <div>
-      <p className="text-sm font-medium text-gray-700 mb-1">
+    <section aria-labelledby="install-app-title" className="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-6">
+      <h2 id="install-app-title" className="text-sm font-medium text-gray-700 mb-1">
         Add to home screen
-      </p>
+      </h2>
       {canPrompt ? (
         <>
           <p className="text-xs text-gray-500 mb-3">
@@ -296,7 +303,7 @@ function InstallSection() {
           Tribal Knowledge as an app.
         </p>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -331,23 +338,41 @@ function Collapsible({ label, children }: { label: string; children: React.React
 }
 
 export function ProfilePage() {
+  const { session, profile } = useAuth()
   return (
-    <div className="max-w-sm mx-auto mt-8 space-y-8">
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">Profile</h1>
-      <DisplayNameSection />
-      <div className="border-t border-sand-200 pt-6">
-        <Collapsible label="Change email">
-          <EmailSection />
-        </Collapsible>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">Identity and security</p>
+        <h1 className="mt-1 font-display text-3xl tracking-wide text-ocean-800">Profile</h1>
+        <p className="mt-1 text-sm text-gray-600">Keep your league name distinct from the account you use to sign in.</p>
+      </header>
+
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+        <section aria-labelledby="league-profile-title" className="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 id="league-profile-title" className="font-display text-xl tracking-wide text-ocean-800">League profile</h2>
+          <p className="mt-1 mb-5 text-sm text-gray-500">This is how other players see you in standings and team views.</p>
+          <DisplayNameSection />
+          {profile?.is_admin && <p className="mt-4 text-xs font-semibold text-ember-700">League commissioner</p>}
+        </section>
+
+        <section aria-labelledby="account-identity-title" className="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 id="account-identity-title" className="font-display text-xl tracking-wide text-ocean-800">Account identity</h2>
+          <p className="mt-1 text-sm text-gray-500">Used only for signing in and account recovery.</p>
+          <p className="mt-3 break-all text-sm font-medium text-gray-800">{session?.user.email ?? 'Email unavailable'}</p>
+          <div className="mt-6 border-t border-sand-200 pt-5">
+            <Collapsible label="Change email">
+              <EmailSection />
+            </Collapsible>
+          </div>
+          <div className="mt-5 border-t border-sand-200 pt-5">
+            <Collapsible label="Change password">
+              <PasswordSection />
+            </Collapsible>
+          </div>
+        </section>
       </div>
-      <div className="border-t border-sand-200 pt-6">
-        <Collapsible label="Change password">
-          <PasswordSection />
-        </Collapsible>
-      </div>
-      <div className="border-t border-sand-200 pt-6">
-        <InstallSection />
-      </div>
+
+      <InstallSection />
     </div>
   )
 }
