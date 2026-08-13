@@ -3,7 +3,7 @@ import { PageLoader } from '../components/PageLoader'
 import { Link, useLocation } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
-import { resolveMySeasonState } from '../lib/mySeasonState'
+import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { MySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
@@ -193,7 +193,7 @@ export function MySeasonPage() {
 
       {state.kind === 'watch_only' && <WatchOnlyState episode={state.episode} />}
 
-      {(state.kind === 'open' || state.kind === 'locked') && (
+      {state.kind === 'open' && (
         <ThisWeekHub
           state={state}
           season={d.season}
@@ -201,6 +201,16 @@ export function MySeasonPage() {
           contestants={d.contestants}
           userId={d.userId}
           picksVersion={d.picksVersion}
+        />
+      )}
+
+      {state.kind === 'locked' && (
+        <LockedState
+          episode={state.episode}
+          season={d.season}
+          contestants={d.contestants}
+          userId={d.userId}
+          plays={d.plays}
         />
       )}
 
@@ -294,6 +304,144 @@ function CompleteState() {
       <p className="text-sm text-gray-600 mt-1">
         Final standings are settled. Your scored episode and play history remains below.
       </p>
+    </section>
+  )
+}
+
+function LockedState({
+  episode,
+  season,
+  contestants,
+  userId,
+  plays,
+}: {
+  episode: Episode
+  season: Season
+  contestants: Contestant[]
+  userId: string
+  plays: AdvantagePlay[]
+}) {
+  const [picks, setPicks] = useState<EliminationPick[] | null>(null)
+  const [roster, setRoster] = useState<RosterPick[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let live = true
+    void Promise.all([
+      api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`),
+      api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
+    ])
+      .then(([savedPicks, savedRoster]) => {
+        if (!live) return
+        setPicks(savedPicks)
+        setRoster(savedRoster.filter((pick) => pick.active_until_episode === null))
+      })
+      .catch((error) => {
+        if (live) setLoadError(error instanceof Error ? error.message : 'Failed to load locked decisions')
+      })
+    return () => {
+      live = false
+    }
+  }, [episode.id, season.id, userId])
+
+  if (loadError) return <p className="text-red-600">{loadError}</p>
+  if (picks == null || roster == null) return <PageLoader />
+
+  const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
+  const played = plays.find((play) => play.episode_id === episode.id)
+  const broadcast = isBroadcastWindow(episode)
+
+  return (
+    <section
+      className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
+        broadcast
+          ? 'border-ocean-800 bg-gradient-to-b from-ocean-900 to-jungle-900 text-white'
+          : 'border-sand-200 bg-white text-gray-900'
+      }`}
+    >
+      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
+        Episode {episode.episode_number} · locked
+      </p>
+      <h2 className="font-display text-2xl tracking-wide mt-1">
+        {broadcast ? 'The votes are in' : 'Results are pending'}
+      </h2>
+      <p className={`text-sm mt-1 ${broadcast ? 'text-white/75' : 'text-gray-500'}`}>
+        {broadcast
+          ? 'Your decisions are final. Watch the episode and see how they land.'
+          : 'Your decisions are safely locked. Scoring has not been completed yet.'}
+      </p>
+
+      <div className="mt-6 space-y-6">
+        <div>
+          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+            Your ballot
+          </h3>
+          {picks.length > 0 ? (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {picks.map((pick) => {
+                const contestant = contestantMap.get(pick.contestant_id)
+                return (
+                  <li
+                    key={pick.id}
+                    className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3 text-sm font-medium ${
+                      broadcast ? 'border-white/20 bg-white/10' : 'border-sand-200 bg-sand-50'
+                    }`}
+                  >
+                    <ContestantAvatar
+                      name={contestant?.name ?? '—'}
+                      imageUrl={contestant?.image_url ?? null}
+                      tribeColor={contestant?.tribe_color ?? null}
+                      tribeName={contestant?.tribe_name ?? null}
+                      size="sm"
+                    />
+                    {contestant?.name ?? '—'}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No ballot was submitted.</p>
+          )}
+        </div>
+
+        <div>
+          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+            Active roster
+          </h3>
+          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {roster.map((pick) => {
+              const contestant = contestantMap.get(pick.contestant_id)
+              return (
+                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-sand-200 bg-sand-50'}`}>
+                  <ContestantAvatar
+                    name={contestant?.name ?? '—'}
+                    imageUrl={contestant?.image_url ?? null}
+                    tribeColor={contestant?.tribe_color ?? null}
+                    tribeName={contestant?.tribe_name ?? null}
+                    size="sm"
+                  />
+                  <span className="font-medium">{contestant?.name ?? '—'}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+
+        <div className={`border-t pt-4 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+            Weekly play
+          </h3>
+          <p className="mt-1 text-sm font-medium">
+            {played
+              ? `${ADV_LABELS[played.advantage_type] ?? played.advantage_type}${
+                  played.target_contestant_id
+                    ? ` · ${contestantMap.get(played.target_contestant_id)?.name ?? 'Roster member'}`
+                    : ''
+                }`
+              : 'No weekly play used'}
+          </p>
+        </div>
+      </div>
     </section>
   )
 }

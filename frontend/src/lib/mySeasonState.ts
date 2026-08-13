@@ -8,6 +8,12 @@ export type MySeasonState =
   | { kind: 'locked'; episode: Episode }
   | { kind: 'intermission' }
 
+export function isBroadcastWindow(episode: Episode, now = new Date()): boolean {
+  const lock = new Date(episode.picks_lock_at).getTime()
+  const elapsed = now.getTime() - lock
+  return elapsed >= 0 && elapsed < 6 * 60 * 60 * 1000
+}
+
 /** Resolve the one durable My Season state used by both composition and
  * permissions. Reveal eligibility is intentionally separate (#331). */
 export function resolveMySeasonState(
