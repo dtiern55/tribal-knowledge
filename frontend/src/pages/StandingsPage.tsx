@@ -1,50 +1,48 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import { useAuth } from '../auth/useAuth'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
-import { Link, useNavigate } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
-import { useAuth } from '../auth/useAuth'
+import { movementLabel, rankStandings } from '../lib/standings'
 import type { Season, StandingEntry } from '../types'
 
-function Trend({ t, delta }: { t: StandingEntry['trend']; delta: number }) {
-  if (t === 'up')
-    return (
-      <span
-        className="text-jungle-600 text-xs font-medium"
-        title={`Up ${delta} since last episode`}
-      >
-        ▲{delta}
-      </span>
-    )
-  if (t === 'down')
-    return (
-      <span
-        className="text-red-500 text-xs font-medium"
-        title={`Down ${delta} since last episode`}
-      >
-        ▼{delta}
-      </span>
-    )
-  if (t === 'same')
-    return (
-      <span className="text-gray-300" title="No change">
-        –
-      </span>
-    )
-  return null
-}
-
-// Top-3 rank chips replace the old emoji medals (#106): gold/silver/bronze
 const RANK_CHIP = [
   'bg-amber-400 text-white',
-  'bg-gray-300 text-gray-600',
+  'bg-gray-300 text-gray-700',
   'bg-amber-700/70 text-white',
 ]
 
+function Trend({ entry }: { entry: StandingEntry }) {
+  const label = movementLabel(entry)
+  if (!label) return null
+  const color =
+    entry.trend === 'up'
+      ? 'text-jungle-700'
+      : entry.trend === 'down'
+        ? 'text-red-600'
+        : 'text-gray-500'
+  return <span className={`text-xs font-medium ${color}`}>{label}</span>
+}
+
+function Rank({ rank, tied }: { rank: number; tied: boolean }) {
+  const chip = RANK_CHIP[rank - 1]
+  return (
+    <span className="flex flex-col items-center gap-1">
+      <span
+        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs font-bold ${chip ?? 'bg-sand-100 text-gray-600'}`}
+        aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
+      >
+        {rank}
+      </span>
+      {tied && <span className="text-[10px] font-medium text-gray-500">Tied</span>}
+    </span>
+  )
+}
+
 export function StandingsPage() {
-  const navigate = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id
   const [seasons, setSeasons] = useState<Season[]>([])
@@ -53,8 +51,6 @@ export function StandingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Standings follows the app-wide active season; switching happens in the
-  // nav drawer now (#219), not here.
   useEffect(() => {
     Promise.all([api.get<Season[]>('/seasons'), getActiveSeason()])
       .then(([ss, current]) => {
@@ -62,15 +58,19 @@ export function StandingsPage() {
         setSelectedId(current?.id ?? '')
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load seasons'))
-      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    if (!selectedId) return
+    if (!selectedId) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     api
       .get<StandingEntry[]>(`/seasons/${selectedId}/standings`)
       .then(setEntries)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load standings'))
+      .finally(() => setLoading(false))
   }, [selectedId])
 
   if (loading) return <PageLoader />
@@ -78,119 +78,119 @@ export function StandingsPage() {
   const season = seasons.find((s) => s.id === selectedId)
   if (!season) return <Notice title="No season found">Choose an active season from the menu.</Notice>
 
-  // Finale is 0 until the season ends — hide it until it matters.
-  const showFinale = entries.some((e) => e.finale_points !== 0)
+  const ranked = rankStandings(entries)
+  const mine = ranked.find(({ entry }) => entry.user_id === userId)
+  const showFinale = season.status === 'completed' || entries.some((e) => e.finale_points !== 0)
+  const hasScoring = entries.some((e) => e.total_points !== 0)
 
   return (
     <div>
       <PageHeader
+        eyebrow={season.status === 'completed' ? 'Season complete' : 'League race'}
         title="Standings"
-        description={season.status === 'completed' ? 'Final standings' : 'The current league race'}
+        description={
+          season.status === 'completed'
+            ? 'The final league table, with every scoring lane accounted for.'
+            : hasScoring
+              ? 'See where everyone stands and what is driving the race.'
+              : 'Everyone starts level. The table will move after the first scored episode.'
+        }
         meta={season.name}
       />
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-ocean-700 border-b-2 border-ocean-100">
-              <th className="pb-2 font-semibold w-12">#</th>
-              <th className="pb-2 font-semibold">Player</th>
-              <th className="pb-2 font-semibold text-right hidden sm:table-cell">Roster</th>
-              <th className="pb-2 font-semibold text-right hidden sm:table-cell">Elim</th>
-              {showFinale && (
-                <th className="pb-2 font-semibold text-right hidden sm:table-cell">Finale</th>
-              )}
-              <th className="pb-2 font-semibold text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry, i) => {
+
+      {mine && (
+        <Link
+          to={`/seasons/${season.id}/team/${mine.entry.user_id}`}
+          className="mb-6 block rounded-2xl border border-ocean-200 bg-ocean-50 p-4 transition hover:border-ocean-300 hover:bg-ocean-100/70 sm:p-5"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ocean-700">
+                Your position
+              </p>
+              <p className="mt-1 font-display text-2xl tracking-wide text-ocean-900">
+                {mine.tied ? `Tied for #${mine.rank}` : `#${mine.rank}`}
+                <span className="ml-2 font-sans text-sm font-normal tracking-normal text-gray-600">
+                  of {ranked.length}
+                </span>
+              </p>
+              <div className="mt-1"><Trend entry={mine.entry} /></div>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-ocean-900">{mine.entry.total_points}</p>
+              <p className="text-xs text-gray-500">season points</p>
+              <p className="mt-2 text-xs font-semibold text-ocean-700">View your team →</p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {ranked.length === 0 ? (
+        <Notice title="No players yet">The standings will appear after players join this season.</Notice>
+      ) : (
+        <section aria-label="League standings">
+          <div className="mb-2 hidden grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] gap-3 border-b-2 border-ocean-100 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-ocean-700 md:grid">
+            <span>Rank</span><span>Player</span><span className="text-right">Roster</span>
+            <span className="text-right">Ballot</span>
+            <span className={`text-right ${showFinale ? '' : 'invisible'}`}>Finale</span>
+            <span className="text-right">Total</span>
+          </div>
+          <ol className="space-y-2">
+            {ranked.map(({ entry, rank, tied }) => {
               const isMe = entry.user_id === userId
               return (
-                <tr
-                  key={entry.user_id}
-                  onClick={() => navigate(`/seasons/${season.id}/team/${entry.user_id}`)}
-                  className={`border-b border-sand-100 cursor-pointer ${
-                    isMe ? 'bg-ocean-50' : 'hover:bg-sand-100/60'
-                  }`}
-                >
-                  <td className="py-3">
-                    <span className="inline-flex items-center gap-1">
-                      {i < RANK_CHIP.length ? (
-                        <span
-                          className={`w-5 h-5 rounded-full text-[11px] font-semibold inline-flex items-center justify-center ${RANK_CHIP[i]}`}
-                        >
-                          {i + 1}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 w-5 text-center">
-                          {i + 1}
+                <li key={entry.user_id}>
+                  <Link
+                    to={`/seasons/${season.id}/team/${entry.user_id}`}
+                    aria-current={isMe ? 'true' : undefined}
+                    className={`group grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-3 transition md:grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] ${
+                      isMe
+                        ? 'border-ocean-300 bg-ocean-50'
+                        : 'border-sand-200 bg-white hover:border-ocean-200 hover:bg-sand-50'
+                    }`}
+                  >
+                    <Rank rank={rank} tied={tied} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-semibold text-gray-900 group-hover:text-ocean-700">{entry.display_name}</span>
+                        {isMe && <span className="rounded bg-jungle-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
+                        <Trend entry={entry} />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 md:hidden">
+                        Roster {entry.roster_points} · Ballot {entry.elimination_points}
+                        {showFinale ? ` · Finale ${entry.finale_points}` : ''}
+                      </p>
+                      {entry.active_survivors.length > 0 && (
+                        <span className="mt-2 flex items-center gap-1">
+                          {entry.active_survivors.map((survivor) => (
+                            <span key={survivor.contestant_id} title={survivor.name}>
+                              <ContestantAvatar name={survivor.name} imageUrl={survivor.image_url} tribeColor={null} tribeName={null} />
+                            </span>
+                          ))}
+                          <span className="ml-1 text-[11px] text-gray-500">{entry.active_survivors.length} still playing</span>
                         </span>
                       )}
-                      <Trend t={entry.trend} delta={entry.trend_delta} />
-                    </span>
-                  </td>
-                  <td className="py-3 font-medium">
-                    <Link
-                      to={`/seasons/${season.id}/team/${entry.user_id}`}
-                      className="text-gray-900 hover:text-ocean-700"
-                    >
-                      {entry.display_name}
-                    </Link>
-                    {isMe && (
-                      <span className="ml-2 text-[11px] uppercase tracking-wide bg-jungle-600 text-white px-2 py-1 rounded">
-                        You
-                      </span>
-                    )}
-                    {/* Who they have left, at a glance (#83). Empty until
-                        rosters lock — the API withholds it until then. */}
-                    {entry.active_survivors.length > 0 && (
-                      <span className="mt-1 flex items-center gap-1">
-                        {entry.active_survivors.map((s) => (
-                          <span key={s.contestant_id} title={s.name}>
-                            <ContestantAvatar
-                              name={s.name}
-                              imageUrl={s.image_url}
-                              tribeColor={null}
-                              tribeName={null}
-                            />
-                          </span>
-                        ))}
-                        <span className="ml-0.5 text-[11px] text-gray-500">
-                          {entry.active_survivors.length} left
-                        </span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
-                    {entry.roster_points}
-                  </td>
-                  <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
-                    {entry.elimination_points}
-                  </td>
-                  {showFinale && (
-                    <td className="py-3 text-right text-gray-700 hidden sm:table-cell">
-                      {entry.finale_points}
-                    </td>
-                  )}
-                  <td className="py-3 text-right font-bold text-ocean-800 whitespace-nowrap">
-                    {entry.total_points}
-                    {entry.last_episode_points !== 0 && (
-                      <span
-                        className={`ml-1 text-xs font-medium ${
-                          entry.last_episode_points > 0 ? 'text-green-600' : 'text-red-500'
-                        }`}
-                      >
-                        ({entry.last_episode_points > 0 ? '+' : ''}
-                        {entry.last_episode_points})
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                    </div>
+                    <span className="hidden text-right text-gray-700 md:block">{entry.roster_points}</span>
+                    <span className="hidden text-right text-gray-700 md:block">{entry.elimination_points}</span>
+                    <span className={`hidden text-right text-gray-700 md:block ${showFinale ? '' : 'invisible'}`}>{entry.finale_points}</span>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-ocean-900">{entry.total_points}</p>
+                      {entry.last_episode_points !== 0 ? (
+                        <p className={`text-[11px] font-medium ${entry.last_episode_points > 0 ? 'text-green-700' : 'text-red-600'}`}>
+                          {entry.last_episode_points > 0 ? '+' : ''}{entry.last_episode_points} last episode
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-gray-400">{hasScoring ? 'No change' : 'Not scored yet'}</p>
+                      )}
+                    </div>
+                  </Link>
+                </li>
               )
             })}
-          </tbody>
-        </table>
-      </div>
+          </ol>
+        </section>
+      )}
     </div>
   )
 }

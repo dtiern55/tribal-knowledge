@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router'
+import { Notice } from '../components/Notice'
+import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
-import { useNavigate, useParams } from 'react-router'
-import { SwipeNavBar } from '../components/SwipeNav'
-import { ADV_LABELS } from '../lib/advantages'
-import { episodeClosed } from '../lib/episodes'
-import { useSwipeNav } from '../lib/swipe'
-import { api } from '../lib/api'
 import { RosterBreakdown } from '../components/RosterBreakdown'
-import {
-  doubledByContestantEpisode,
-  EMPTY_EP_MAP,
-  useRosterBreakdown,
-} from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
+import { SwipeNavBar } from '../components/SwipeNav'
+import { ADV_LABELS } from '../lib/advantages'
+import { api } from '../lib/api'
+import { episodeClosed } from '../lib/episodes'
+import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '../lib/rosterBreakdown'
+import { rankStandings } from '../lib/standings'
+import { useSwipeNav } from '../lib/swipe'
 import type {
   AdvantagePlay,
   Contestant,
@@ -33,30 +32,30 @@ interface EpisodeVotes {
 
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
-  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-500'
+  const color = value > 0 ? 'text-green-700' : value < 0 ? 'text-red-600' : 'text-gray-500'
+  return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value} pts</span>
+}
+
+function ScoreLane({ label, value, detail }: { label: string; value: number; detail: string }) {
   return (
-    <span className={`text-xs font-medium ${color}`}>
-      {value > 0 ? '+' : ''}
-      {value} pts
-    </span>
+    <div className="rounded-xl border border-sand-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-ocean-900">{value}</p>
+      <p className="mt-1 text-xs leading-relaxed text-gray-500">{detail}</p>
+    </div>
   )
 }
 
-
-// Read-only view of another player's roster, reached from Standings (#83),
-// plus their votes for every locked episode (pre-lock votes stay
-// private, enforced server-side).
 export function TeamPage() {
   const { seasonId, userId } = useParams()
   const [siblings, setSiblings] = useState<StandingEntry[]>([])
-  const navigate = useNavigate()
+  const [player, setPlayer] = useState<StandingEntry | null>(null)
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [votes, setVotes] = useState<EpisodeVotes[]>([])
-  const [name, setName] = useState<string>('')
   const [hidden, setHidden] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,58 +64,39 @@ export function TeamPage() {
   useEffect(() => {
     if (!seasonId || !userId) return
     async function load() {
+      setLoading(true)
+      setError(null)
+      setHidden(false)
+      setRoster([])
+      setPlays([])
+      setVotes([])
       try {
-        const [cs, standings, episodes] = await Promise.all([
+        const [cs, standings, episodeRows] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${seasonId}/contestants`),
           api.get<StandingEntry[]>(`/seasons/${seasonId}/standings`),
           api.get<Episode[]>(`/seasons/${seasonId}/episodes`),
         ])
         setContestants(cs)
-        setEpisodes(episodes)
-        setName(standings.find((s) => s.user_id === userId)?.display_name ?? 'Team')
-        // Kept for swipe order — left/right walks the standings, so it
-        // matches the list you tapped through from.
+        setEpisodes(episodeRows)
+        setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
         setSiblings(standings)
         try {
           setRoster(await api.get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`))
-          // Same 403-until-lock rule as the roster; roster points only for
-          // other players' breakdowns (#160).
-          const breakdown = await api.get<ScoringBreakdown>(
-            `/seasons/${seasonId}/scoring-breakdown/${userId}`,
-          )
-          setRosterPoints(new Map(breakdown.roster.map((r) => [r.contestant_id, r.points])))
-          setPlays(
-            await api
-              .get<AdvantagePlay[]>(`/seasons/${seasonId}/advantage-plays/${userId}`)
-              .catch(() => []),
-          )
+          const breakdown = await api.get<ScoringBreakdown>(`/seasons/${seasonId}/scoring-breakdown/${userId}`)
+          setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
+          setPlays(await api.get<AdvantagePlay[]>(`/seasons/${seasonId}/advantage-plays/${userId}`).catch(() => []))
         } catch {
-          setHidden(true) // 403 until rosters lock
+          setHidden(true)
         }
 
-        // Locked, not just scored: once picks lock nobody can act on what
-        // they see, and checking on the league mid-episode is half the fun.
-        // The API opens other players' picks at the same moment.
-        const visible = episodes
-          .filter(episodeClosed)
-          .sort((a, b) => b.episode_number - a.episode_number)
-        setVotes(
-          await Promise.all(
-            visible.map(async (episode) => {
-              const [picks, eliminations] = await Promise.all([
-                api
-                  .get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`)
-                  .catch(() => []),
-                api.get<Elimination[]>(`/episodes/${episode.id}/eliminations`),
-              ])
-              return {
-                episode,
-                picks,
-                eliminatedIds: new Set(eliminations.map((e) => e.contestant_id)),
-              }
-            }),
-          ),
-        )
+        const visible = episodeRows.filter(episodeClosed).sort((a, b) => b.episode_number - a.episode_number)
+        setVotes(await Promise.all(visible.map(async (episode) => {
+          const [picks, eliminations] = await Promise.all([
+            api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`).catch(() => []),
+            api.get<Elimination[]>(`/episodes/${episode.id}/eliminations`),
+          ])
+          return { episode, picks, eliminatedIds: new Set(eliminations.map((row) => row.contestant_id)) }
+        })))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load team')
       } finally {
@@ -126,220 +106,151 @@ export function TeamPage() {
     void load()
   }, [seasonId, userId])
 
-  const idx = siblings.findIndex((p) => p.user_id === userId)
+  const idx = siblings.findIndex((standing) => standing.user_id === userId)
   const prevP = idx > 0 ? siblings[idx - 1] : undefined
   const nextP = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
-  const href = (p?: StandingEntry) =>
-    p && `/seasons/${seasonId}/team/${p.user_id}`
+  const href = (standing?: StandingEntry) => standing && `/seasons/${seasonId}/team/${standing.user_id}`
   useSwipeNav(href(prevP), href(nextP))
 
   if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
+  if (error) return <Notice tone="error" title="Could not load this team">{error}</Notice>
+  if (!player) return <Notice title="Player not found"><Link className="text-ocean-700 underline" to="/standings">Return to standings</Link></Notice>
 
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
-  const active = roster.filter((r) => r.active_until_episode === null)
-  // Original picks share the earliest start episode; later starts are swap-ins.
-  const rosterBaseEp = Math.min(...roster.map((r) => r.active_from_episode))
-  // Pair each swapped-out pick with its replacement: a swap closes the old
-  // row at ep N and opens the new one at N+1 (#155).
-  const swaps = roster
-    .filter((r) => r.active_until_episode !== null)
-    .map((out) => ({
-      out,
-      into: roster.find(
-        (r) => r.active_from_episode === (out.active_until_episode ?? 0) + 1,
-      ),
-    }))
-  // Double Roster Points now folds into the roster rows (#257); other played
-  // advantages (e.g. Double Vote Points, which pays elimination points) get
-  // their own Play History-style section below (#284). Only scored plays are
-  // ever visible here, so there is no owned/in-play state to lock-badge.
-  // Double Vote Points shows inline on the vote it doubled (#136); roster
-  // doubles already fold into the roster rows (#257).
-  const doubles = plays.filter((p) => p.advantage_type === 'double_vote_points')
+  const active = roster.filter((pick) => pick.active_until_episode === null)
+  const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
+  const swaps = roster.filter((pick) => pick.active_until_episode !== null).map((out) => ({
+    out,
+    into: roster.find((pick) => pick.active_from_episode === (out.active_until_episode ?? 0) + 1),
+  }))
+  const doubles = plays.filter((play) => play.advantage_type === 'double_vote_points')
+  const scoredPlays = plays.filter((play) => play.episode_id !== null)
+  const weeklyBonus = scoredPlays.reduce((total, play) => total + (play.points_earned ?? 0), 0)
+  const ranked = rankStandings(siblings).find(({ entry }) => entry.user_id === userId)
+  const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
 
   return (
     <div>
-      <button
-        onClick={() => navigate(-1)}
-        className="text-sm text-ocean-600 hover:text-ocean-800"
-      >
-        ← Back
-      </button>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mt-3 mb-1">{name}</h1>
-      <p className="text-sm text-gray-500 mb-6">Roster</p>
+      <Link to="/standings" className="text-sm font-medium text-ocean-700 hover:text-ocean-900">← Back to standings</Link>
+      <div className="mt-4">
+        <PageHeader
+          eyebrow={ranked ? (ranked.tied ? `Tied for #${ranked.rank}` : `Rank #${ranked.rank}`) : undefined}
+          title={player.display_name}
+          description="Season score and the choices behind it."
+          meta={<span><strong className="text-lg text-ocean-900">{player.total_points}</strong> season points</span>}
+        />
+      </div>
 
-      {hidden ? (
-        <p className="text-sm text-gray-500">This team is hidden until rosters lock.</p>
-      ) : active.length === 0 ? (
-        <p className="text-sm text-gray-500">No roster yet.</p>
-      ) : (
-        <ul className="space-y-2.5">
-          {/* Another player's SS flag is only served post-lock, so the solid
-              gold outline is always the right state here. */}
-          {/* Boots sink to the bottom (#190); stable sort keeps the rest in place. */}
-          {[...active]
-            .sort(
-              (a, b) =>
-                Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
-                Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null),
-            )
-            .map((pick) => (
-            <RosterCard
-              key={pick.id}
-              contestantId={pick.contestant_id}
-              contestant={contestantMap.get(pick.contestant_id)}
-              isSoleSurvivor={pick.is_sole_survivor}
-              swappedInEpisode={
-                pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
-              }
-              right={<Points value={rosterPoints.get(pick.contestant_id)} />}
-              expanded={expandedId === pick.contestant_id}
-              onToggle={() => toggleExpand(pick.contestant_id)}
-            >
-              <RosterBreakdown
-                perf={perfs.get(pick.contestant_id)}
-                activeFrom={pick.active_from_episode}
-                activeUntil={pick.active_until_episode}
-                doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
-              />
-            </RosterCard>
-          ))}
-        </ul>
-      )}
-
-      {swaps.length > 0 && (
-        <div className="mt-6">
-          <SectionShell title="Swaps" defaultOpen={false}>
-            <ul className="space-y-1 text-sm text-gray-600">
-              {swaps.map(({ out, into }) => (
-                <li key={out.id}>
-                  {contestantMap.get(out.contestant_id)?.name ?? '—'}
-                  {' → '}
-                  {into ? (contestantMap.get(into.contestant_id)?.name ?? '—') : '?'}
-                  <span className="text-gray-500">
-                    {' '}
-                    (episode {(out.active_until_episode ?? 0) + 1})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </SectionShell>
+      <section aria-labelledby="score-breakdown-title">
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <div>
+            <h2 id="score-breakdown-title" className="font-display text-xl tracking-wide text-ocean-800">Score breakdown</h2>
+            <p className="mt-1 text-xs text-gray-500">Season total = roster + ballot + finale.</p>
+          </div>
+          <p className="text-right text-sm font-semibold text-ocean-800">{player.total_points} total</p>
         </div>
-      )}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <ScoreLane label="Roster" value={player.roster_points} detail="Points earned by active castaways." />
+          <ScoreLane label="Ballot" value={player.elimination_points} detail="Points from correct elimination predictions." />
+          <ScoreLane label="Weekly play bonus" value={weeklyBonus} detail="Already included in the roster or ballot total." />
+          <ScoreLane label="Finale" value={player.finale_points} detail={finaleScored ? 'Finale predictions scored.' : 'Not scored yet.'} />
+        </div>
+      </section>
 
-      {votes.length > 0 && (
-        <div className="mt-10">
-          {/* Collapsed by default with flat rows inside, matching Past Episodes
-              on My Votes (#272/#280). */}
-          <SectionShell
-            title="Previous Votes"
-            defaultOpen={false}
-            right={<span className="text-xs text-gray-500">{votes.length}</span>}
-          >
-            <div className="space-y-3">
-              {votes.map(({ episode, picks, eliminatedIds }) => (
-                <div
-                  key={episode.id}
-                  className="p-4 bg-gray-50 border border-gray-100 rounded-xl"
-                >
-                  <p className="font-medium text-gray-700 mb-2">
-                    Episode {episode.episode_number}
-                  </p>
-                  {/* What they spent their play on. Roster doubles otherwise
-                      only surface as points, which don't exist yet while the
-                      episode is still unscored. */}
-                  {(() => {
-                    const p = plays.find((x) => x.episode_id === episode.id)
-                    return p ? (
-                      <p className="text-xs text-ocean-700 mb-2">
-                        {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
-                        {p.target_contestant_id
-                          ? ` · ${contestantMap.get(p.target_contestant_id)?.name ?? '—'}`
-                          : ''}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-400 mb-2">No advantage played</p>
-                    )
-                  })()}
-                  {picks.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {picks.map((p) => {
-                        const correct = eliminatedIds.has(p.contestant_id)
-                        // A played Double Vote Points rides on the pick it
-                        // doubled, same as My Votes (#136) — the double's own
-                        // earnings get their own chip beside it.
-                        // Pre-#303 plays named one pick; a ballot-wide double
-                        // marks every pick and reports its total once, below.
-                        const double = doubles.find(
-                          (d) =>
-                            d.episode_id === episode.id &&
-                            d.target_contestant_id === p.contestant_id,
-                        )
-                        const ballot = doubles.find(
-                          (d) =>
-                            d.episode_id === episode.id &&
-                            d.target_contestant_id === null,
-                        )
-                        // Correct gets the green + check; incorrect stays
-                        // neutral — most votes miss, no red walls (#135).
-                        return (
-                          <span key={p.id} className="contents">
-                            <span
-                              className={`text-sm px-2 py-1 border rounded-md ${
-                                correct
-                                  ? 'bg-green-50 border-green-300 text-green-800'
-                                  : 'bg-white border-sand-200 text-gray-500'
-                              }`}
-                            >
-                              {correct && '✓ '}
-                              {contestantMap.get(p.contestant_id)?.name ?? '—'}
-                              {(double || ballot) && (
-                                <span className="text-ocean-600 font-semibold"> ×2</span>
-                              )}
+      <div className="mt-10 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
+        <section>
+          <SectionShell title="Roster detail" prominent collapsible={false}>
+            {hidden ? (
+              <Notice title="Team details are still private">Roster and weekly-play choices unlock when rosters lock.</Notice>
+            ) : active.length === 0 ? (
+              <Notice title="No roster submitted">This player does not have an active roster yet.</Notice>
+            ) : (
+              <ul className="space-y-2.5">
+                {[...active]
+                  .sort((a, b) => Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) - Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null))
+                  .map((pick) => (
+                    <RosterCard
+                      key={pick.id}
+                      contestantId={pick.contestant_id}
+                      contestant={contestantMap.get(pick.contestant_id)}
+                      isSoleSurvivor={pick.is_sole_survivor}
+                      swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
+                      right={<Points value={rosterPoints.get(pick.contestant_id)} />}
+                      expanded={expandedId === pick.contestant_id}
+                      onToggle={() => toggleExpand(pick.contestant_id)}
+                    >
+                      <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} />
+                    </RosterCard>
+                  ))}
+              </ul>
+            )}
+            {swaps.length > 0 && (
+              <div className="mt-6">
+                <SectionShell title="Swap history" defaultOpen={false}>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    {swaps.map(({ out, into }) => (
+                      <li key={out.id}>{contestantMap.get(out.contestant_id)?.name ?? '—'} → {into ? contestantMap.get(into.contestant_id)?.name ?? '—' : '?'} <span className="text-gray-500">(episode {(out.active_until_episode ?? 0) + 1})</span></li>
+                    ))}
+                  </ul>
+                </SectionShell>
+              </div>
+            )}
+          </SectionShell>
+        </section>
+
+        <div className="space-y-8">
+          <SectionShell title="Ballot history" prominent defaultOpen={votes.length > 0}>
+            {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
+              <div className="space-y-3">
+                {votes.map(({ episode, picks, eliminatedIds }) => (
+                  <div key={episode.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="mb-2 font-medium text-gray-700">Episode {episode.episode_number}</p>
+                    {picks.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {picks.map((pick) => {
+                          const correct = eliminatedIds.has(pick.contestant_id)
+                          const doubled = doubles.some((play) => play.episode_id === episode.id && (play.target_contestant_id === null || play.target_contestant_id === pick.contestant_id))
+                          return (
+                            <span key={pick.id} className={`rounded-md border px-2 py-1 text-sm ${correct ? 'border-green-300 bg-green-50 text-green-800' : 'border-sand-200 bg-white text-gray-500'}`}>
+                              {correct ? '✓ ' : ''}{contestantMap.get(pick.contestant_id)?.name ?? '—'}{doubled && <span className="font-semibold text-ocean-700"> ×2</span>}
                             </span>
-                            {double != null && (double.points_earned ?? 0) > 0 && (
-                              <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
-                                Double Vote Points{' '}
-                                <span className="font-semibold">+{double.points_earned}</span>
-                              </span>
-                            )}
-                          </span>
-                        )
-                      })}
-                      {doubles
-                        .filter(
-                          (d) =>
-                            d.episode_id === episode.id &&
-                            d.target_contestant_id === null &&
-                            (d.points_earned ?? 0) > 0,
-                        )
-                        .map((d) => (
-                          <span
-                            key={d.id}
-                            className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700"
-                          >
-                            Double Vote Points{' '}
-                            <span className="font-semibold">+{d.points_earned}</span>
-                          </span>
-                        ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No votes submitted</p>
-                  )}
-                </div>
-              ))}
-            </div>
+                          )
+                        })}
+                      </div>
+                    ) : <p className="text-sm text-gray-500">No ballot submitted.</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionShell>
+
+          <SectionShell title="Weekly play history" prominent defaultOpen={scoredPlays.length > 0}>
+            {hidden ? (
+              <p className="text-sm text-gray-500">Weekly plays unlock with the roster.</p>
+            ) : scoredPlays.length === 0 ? (
+              <p className="text-sm text-gray-500">No weekly plays used yet.</p>
+            ) : (
+              <ol className="space-y-2">
+                {scoredPlays
+                  .sort((a, b) => (episodes.find((episode) => episode.id === b.episode_id)?.episode_number ?? 0) - (episodes.find((episode) => episode.id === a.episode_id)?.episode_number ?? 0))
+                  .map((play) => {
+                    const episode = episodes.find((row) => row.id === play.episode_id)
+                    const target = play.target_contestant_id ? contestantMap.get(play.target_contestant_id)?.name : null
+                    return (
+                      <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-sand-200 bg-white p-3 text-sm">
+                        <div><p className="font-medium text-gray-800">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-gray-500">Episode {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
+                        <Points value={play.points_earned ?? undefined} />
+                      </li>
+                    )
+                  })}
+              </ol>
+            )}
           </SectionShell>
         </div>
-      )}
-      <SwipeNavBar
-        prev={href(prevP)}
-        next={href(nextP)}
-        prevLabel={prevP?.display_name}
-        nextLabel={nextP?.display_name}
-      />
+      </div>
+
+      <SwipeNavBar prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />
     </div>
   )
 }
