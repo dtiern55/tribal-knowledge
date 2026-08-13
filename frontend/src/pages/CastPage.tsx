@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
+import { Notice } from '../components/Notice'
+import { PageHeader } from '../components/PageHeader'
 import { Link } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { ContestantAvatar } from '../components/ContestantAvatar'
@@ -30,12 +32,16 @@ export function CastPage() {
   }, [])
 
   if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
-  if (!season) return <p className="text-gray-500">No season found.</p>
+  if (error) return <Notice tone="error" title="Could not load the cast">{error}</Notice>
+  if (!season) return <Notice title="No season found">Choose an active season from the menu.</Notice>
 
   return (
     <div>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">{season.name}</h1>
+      <PageHeader
+        eyebrow={season.name}
+        title="Cast"
+        description="See who is still in the game and how each castaway is scoring."
+      />
       <ul className="space-y-2">
         {cast.map((c) => (
           <li key={c.id}>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
+import { Notice } from '../components/Notice'
+import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse } from '../types'
 
@@ -114,8 +116,8 @@ export function RulesPage() {
   }, [])
 
   if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
-  if (!rules) return <p className="text-gray-500">No season found.</p>
+  if (error) return <Notice tone="error" title="Could not load the rules">{error}</Notice>
+  if (!rules) return <Notice title="No season found">Choose an active season from the menu.</Notice>
 
   const { season, scoring_events, prediction_scores, advantages } = rules
   const usesTokens = season.token_economy_enabled
@@ -124,18 +126,22 @@ export function RulesPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl tracking-wide text-ocean-800 mb-1">Rules & Scoring</h1>
-      <p className="text-sm text-gray-500 mb-4">{season.name}</p>
-      <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-        You score in a few separate ways: your <b>roster</b> (the team you draft) earns points
-        each episode; your <b>weekly vote</b> predicts each boot; your{' '}
-        <b>Sole Survivor designation</b> and the <b>finale ballot</b> pay off at the end.{' '}
-        {usesTokens ? (
-          <><b>Tokens</b> are the historical second currency used for advantages.</>
-        ) : (
-          <><b>One optional weekly play</b> can boost your roster, boost your ballot, or pay for a roster swap.</>
-        )}
-      </p>
+      <PageHeader
+        eyebrow={season.name}
+        title="Rules & Scoring"
+        description={
+          <>
+            You score in a few separate ways: your <b>roster</b> earns points each episode;
+            your <b>weekly vote</b> predicts each boot; your <b>Sole Survivor designation</b>{' '}
+            and the <b>finale ballot</b> pay off at the end.{' '}
+            {usesTokens ? (
+              <><b>Tokens</b> are the historical second currency used for advantages.</>
+            ) : (
+              <><b>One optional weekly play</b> can boost your roster, boost your ballot, or pay for a roster swap.</>
+            )}
+          </>
+        }
+      />
 
       <Section title="Season structure">
         <ul className="text-sm text-gray-700 space-y-1">

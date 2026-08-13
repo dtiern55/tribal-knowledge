@@ -41,4 +41,12 @@ describe('NavDrawer', () => {
     await user.click(screen.getByRole('button', { name: 'Close menu' }))
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('removes a closed drawer from the accessibility tree', () => {
+    renderWithApp(<NavDrawer open={false} onClose={() => undefined} />)
+
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Rules' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss menu' })).not.toBeInTheDocument()
+  })
 })

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { NavLink } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason, pinSeason } from '../lib/api'
 import {
@@ -26,21 +26,59 @@ const rowCls =
 /** Slide-in navigation drawer (#219): the app-wide home for the season
  * switcher, account links, install, and sign out — reachable from the
  * top-bar menu button on every page. */
-export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function NavDrawer({
+  open,
+  onClose,
+  returnFocusRef,
+}: {
+  open: boolean
+  onClose: () => void
+  returnFocusRef?: React.RefObject<HTMLElement | null>
+}) {
   const { signOut } = useAuth()
   const [seasons, setSeasons] = useState<Season[]>([])
   const [activeId, setActiveId] = useState('')
   const [canPrompt, setCanPrompt] = useState(installAvailable())
   const closeRef = useRef<HTMLButtonElement>(null)
+  const drawerRef = useRef<HTMLElement>(null)
 
   useEffect(() => onInstallAvailable(() => setCanPrompt(true)), [])
 
   // Move focus into the drawer on open so keyboard users aren't left behind
-  // the scrim. ponytail: focus-in + Esc, no full focus trap — a nav menu
-  // doesn't warrant one; add if it grows into a real modal flow.
+  // the scrim. Keep focus inside until the modal drawer closes.
   useEffect(() => {
-    if (open) closeRef.current?.focus()
-  }, [open])
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeRef.current?.focus()
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+      if (!focusable?.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previousOverflow
+      returnFocusRef?.current?.focus()
+    }
+  }, [open, onClose, returnFocusRef])
 
   // Load seasons + the current pick the first time the drawer opens.
   useEffect(() => {
@@ -52,16 +90,6 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
       },
     )
   }, [open, seasons.length])
-
-  // Esc closes.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
 
   function changeSeason(id: string) {
     if (id === activeId) return
@@ -76,17 +104,24 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
 
   return (
     <>
-      <div
+      <button
+        type="button"
         onClick={onClose}
         className={`fixed inset-0 z-40 bg-ocean-900/40 transition-opacity ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        aria-hidden="true"
+        aria-label="Dismiss menu"
+        aria-hidden={!open}
+        disabled={!open}
+        tabIndex={-1}
       />
       <aside
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-label="Menu"
+        aria-hidden={!open}
+        inert={!open ? true : undefined}
         className={`fixed top-0 right-0 z-50 flex h-full w-80 max-w-[85vw] flex-col bg-sand-50 shadow-xl transition-transform duration-200 motion-reduce:transition-none ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
@@ -95,9 +130,10 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
           <span className="font-display text-lg tracking-wide text-ocean-800">Menu</span>
           <button
             ref={closeRef}
+            type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="text-gray-500 hover:text-gray-800"
+            className="inline-flex size-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-sand-100 hover:text-gray-800"
           >
             <CloseIcon />
           </button>
@@ -130,11 +166,11 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
             </select>
           </div>
 
-          <nav className="py-1">
-            <Link to="/rules" onClick={onClose} className={rowCls}>
+          <nav aria-label="Account and help" className="py-1">
+            <NavLink to="/rules" onClick={onClose} className={rowCls}>
               <BookIcon />
               Rules
-            </Link>
+            </NavLink>
             <div className={`${rowCls} cursor-default text-gray-500 hover:bg-transparent`}>
               <EnvelopeIcon />
               <span className="flex-1">Treemail</span>
@@ -142,10 +178,10 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
                 Soon
               </span>
             </div>
-            <Link to="/profile" onClick={onClose} className={rowCls}>
+            <NavLink to="/profile" onClick={onClose} className={rowCls}>
               <UserIcon />
               Profile
-            </Link>
+            </NavLink>
             <div className={`${rowCls} cursor-default text-gray-500 hover:bg-transparent`}>
               <GearIcon />
               <span className="flex-1">Settings</span>
@@ -155,7 +191,7 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
             </div>
             {showInstall &&
               (canPrompt ? (
-                <button onClick={() => void promptInstall()} className={rowCls}>
+                <button type="button" onClick={() => void promptInstall()} className={rowCls}>
                   <DownloadIcon />
                   Install app
                 </button>
@@ -174,6 +210,7 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
 
         <div className="border-t border-sand-200">
           <button
+            type="button"
             onClick={() => void signOut()}
             className={`${rowCls} text-ember-700 hover:bg-ember-50`}
           >
