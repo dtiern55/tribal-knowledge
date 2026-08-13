@@ -3,9 +3,11 @@ import { PageLoader } from '../components/PageLoader'
 import { Link, useLocation } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
+import { resolveMySeasonState } from '../lib/mySeasonState'
+import type { MySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { LockBadge } from '../components/LockBadge'
-import { advantagesLocked, airingEpisode, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
   doubledByContestantEpisode,
@@ -178,10 +180,8 @@ export function MySeasonPage() {
   const pickResults = new Map(
     d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
   )
+  const state = resolveMySeasonState(d.season, d.episodes)
 
-  // One page you have to visit each week (#307): what's due, your roster,
-  // your votes. Both roster and votes carry a button for the same single
-  // advantage play, so the trade-off is visible wherever you are.
   return (
     <div className="space-y-10">
       <div className="flex items-start justify-between gap-3">
@@ -191,50 +191,99 @@ export function MySeasonPage() {
         <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
       </div>
 
-      <ThisWeekHub
-        season={d.season}
-        episodes={d.episodes}
-        plays={d.plays}
-        contestants={d.contestants}
-        userId={d.userId}
-        picksVersion={d.picksVersion}
-      />
+      {state.kind === 'watch_only' && <WatchOnlyState episode={state.episode} />}
 
-      <section id="roster" className="scroll-mt-20">
-        <RosterSection
+      {(state.kind === 'open' || state.kind === 'locked') && (
+        <ThisWeekHub
+          state={state}
           season={d.season}
+          plays={d.plays}
+          contestants={d.contestants}
+          userId={d.userId}
+          picksVersion={d.picksVersion}
+        />
+      )}
+
+      {state.kind === 'open' && (
+        <>
+          <section id="roster" className="scroll-mt-20">
+            <RosterSection
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              rosterPoints={rosterPoints}
+              plays={d.plays}
+              setPlays={d.setPlays}
+              onRosterChange={d.bumpRoster}
+              rosterVersion={d.rosterVersion}
+            />
+          </section>
+
+          <section id="votes" className="scroll-mt-20">
+            <PicksSection
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              plays={d.plays}
+              setPlays={d.setPlays}
+              pickResults={pickResults}
+              onPicksChange={d.bumpPicks}
+            />
+          </section>
+        </>
+      )}
+
+      {state.kind === 'intermission' && <IntermissionState />}
+      {state.kind === 'complete' && <CompleteState />}
+
+      {state.kind !== 'watch_only' && (
+        <PlayHistorySection
+          season={d.season}
+          userId={d.userId}
+          plays={d.plays}
           contestants={d.contestants}
           episodes={d.episodes}
-          userId={d.userId}
-          rosterPoints={rosterPoints}
-          plays={d.plays}
-          setPlays={d.setPlays}
-          onRosterChange={d.bumpRoster}
-          rosterVersion={d.rosterVersion}
         />
-      </section>
-
-      <section id="votes" className="scroll-mt-20">
-        <PicksSection
-          season={d.season}
-          contestants={d.contestants}
-          episodes={d.episodes}
-          userId={d.userId}
-          plays={d.plays}
-          setPlays={d.setPlays}
-          pickResults={pickResults}
-          onPicksChange={d.bumpPicks}
-        />
-      </section>
-
-      <PlayHistorySection
-        season={d.season}
-        userId={d.userId}
-        plays={d.plays}
-        contestants={d.contestants}
-        episodes={d.episodes}
-      />
+      )}
     </div>
+  )
+}
+
+function WatchOnlyState({ episode }: { episode: Episode }) {
+  return (
+    <section className="p-5 bg-ocean-50 border border-ocean-200 rounded-xl">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-1">
+        Episode {episode.episode_number} · watch only
+      </p>
+      <p className="text-sm text-gray-700">
+        Nothing to pick yet — watch the premiere and get a feel for the cast.
+        Rosters and ballots open once it is scored.
+      </p>
+    </section>
+  )
+}
+
+function IntermissionState() {
+  return (
+    <section className="p-5 bg-white border border-sand-200 rounded-xl">
+      <h2 className="font-display text-xl tracking-wide text-ocean-800">Between episodes</h2>
+      <p className="text-sm text-gray-600 mt-1">
+        You are caught up. The next episode will appear here when it is available.
+      </p>
+    </section>
+  )
+}
+
+function CompleteState() {
+  return (
+    <section className="p-5 bg-white border border-sand-200 rounded-xl">
+      <h2 className="font-display text-xl tracking-wide text-ocean-800">Season complete</h2>
+      <p className="text-sm text-gray-600 mt-1">
+        Final standings are settled. Your scored episode and play history remains below.
+      </p>
+    </section>
   )
 }
 
@@ -370,31 +419,31 @@ function ordinal(n: number): string {
  * a tiny fetch of the open episode's picks so it stays decoupled from PicksSection.
  */
 function ThisWeekHub({
+  state,
   season,
-  episodes,
   plays,
   contestants,
   userId,
   picksVersion,
 }: {
+  state: Extract<MySeasonState, { kind: 'open' | 'locked' }>
   season: Season
-  episodes: Episode[]
   plays: AdvantagePlay[]
   contestants: Contestant[]
   userId: string
   picksVersion: number
 }) {
-  const nextOpen = openEpisode(episodes, season)
+  const currentEpisode = state.episode
   const [voteCount, setVoteCount] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!nextOpen) {
+    if (state.kind !== 'open') {
       setVoteCount(null)
       return
     }
     let live = true
     api
-      .get<EliminationPick[]>(`/episodes/${nextOpen.id}/picks/${userId}`)
+      .get<EliminationPick[]>(`/episodes/${currentEpisode.id}/picks/${userId}`)
       .then((p) => live && setVoteCount(p.length))
       .catch(() => live && setVoteCount(null))
     return () => {
@@ -403,81 +452,49 @@ function ThisWeekHub({
     // picksVersion: the votes section is a sibling, so saving there is
     // invisible here without it — the card sat on "Not locked yet" until a
     // manual refresh.
-  }, [nextOpen, userId, picksVersion])
+  }, [state.kind, currentEpisode, userId, picksVersion])
 
   // Declared before the early return: the locked-episode branch names the
   // castaway a played double was aimed at.
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
 
-  if (!nextOpen) {
-    // Locked-but-unscored is a real state, not "nothing happening" (#272) —
-    // and now it's also why nothing else is open: the next episode stays shut
-    // until this one is scored, so nobody calls its boot early.
-    const airing = airingEpisode(episodes, season)
-    // "Locked", not "airing": scoring may not happen until the next day, and
-    // by then "is airing" is wrong.
-    const played = airing ? plays.filter((p) => p.episode_id === airing.id) : []
+  if (state.kind === 'locked') {
+    const lockedEpisode = state.episode
+    const played = plays.filter((p) => p.episode_id === lockedEpisode.id)
     return (
       <div className="p-4 bg-white border border-sand-200 rounded-xl text-sm">
-        {airing ? (
-          <>
-            <p className="font-semibold text-gray-900">
-              Episode {airing.episode_number} locked
-            </p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Picks locked {formatCentral(airing.picks_lock_at)} · everything's in
-            </p>
-            {/* What you committed stays on screen after the lock — it's the
-                thing you most want to re-check while the episode plays. */}
-            <div className="flex items-start gap-3 mt-2">
-              <span className="text-gray-600 shrink-0">Advantage</span>
-              <span className="ml-auto text-right font-medium text-gray-800">
-                {played.length > 0
-                  ? played
-                      .map((p) => {
-                        const t = p.target_contestant_id
-                          ? contestantMap.get(p.target_contestant_id)?.name
-                          : null
-                        return (
-                          (ADV_LABELS[p.advantage_type] ?? p.advantage_type) +
-                          (t ? ` · ${t}` : '')
-                        )
-                      })
-                      .join(', ')
-                  : 'None played'}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 mt-2">
-              Episode {airing.episode_number + 1} opens once this one is scored.
-            </p>
-          </>
-        ) : (
-          <p className="text-gray-500">You're all caught up — no episodes left to play.</p>
-        )}
+        <p className="font-semibold text-gray-900">
+          Episode {lockedEpisode.episode_number} locked
+        </p>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Picks locked {formatCentral(lockedEpisode.picks_lock_at)} · everything is in
+        </p>
+        <div className="flex items-start gap-3 mt-2">
+          <span className="text-gray-600 shrink-0">Weekly play</span>
+          <span className="ml-auto text-right font-medium text-gray-800">
+            {played.length > 0
+              ? played
+                  .map((p) => {
+                    const target = p.target_contestant_id
+                      ? contestantMap.get(p.target_contestant_id)?.name
+                      : null
+                    return (
+                      (ADV_LABELS[p.advantage_type] ?? p.advantage_type) +
+                      (target ? ` · ${target}` : '')
+                    )
+                  })
+                  .join(', ')
+              : 'None used'}
+          </span>
+        </div>
+        <p className="text-sm text-gray-600 mt-2">
+          Results will appear after this episode is scored.
+        </p>
       </div>
     )
   }
 
-  // A watch-only premiere hasn't aired yet, but isEpisodeOpen skips every
-  // episode below the roster lock — so nextOpen points at episode 2 and the
-  // card reads "This Week · Episode 2" before anyone has seen episode 1.
-  // Nothing is pickable until the premiere is scored, so say that instead.
-  const premiere = episodes.find(
-    (e) => e.episode_number < (season.roster_lock_episode ?? 1) && e.status !== 'scored',
-  )
-  if (premiere) {
-    return (
-      <div className="p-5 bg-ocean-50 border border-ocean-200 rounded-xl">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-1">
-          Episode {premiere.episode_number} · watch only
-        </p>
-        <p className="text-sm text-gray-700">
-          Nothing to pick yet — watch the premiere and get a feel for the cast.
-          Rosters open once it's scored.
-        </p>
-      </div>
-    )
-  }
+  const nextOpen = currentEpisode
 
   const inPlay = plays.filter((p) => p.episode_id === nextOpen.id)
   const locked = voteCount != null && voteCount > 0
