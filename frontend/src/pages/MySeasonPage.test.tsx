@@ -72,4 +72,21 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weekly Votes' })).not.toBeInTheDocument()
   })
+
+  it('renders the Open state ballot first with one shared weekly-play control', async () => {
+    arrange([
+      episode(1, 'scored', '2026-08-20T00:00:00Z'),
+      episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const ballot = await screen.findByRole('heading', { name: /^Weekly Votes/ })
+    const weeklyPlay = screen.getByRole('heading', { name: /Weekly play/ })
+    const roster = screen.getByRole('heading', { name: /^Active Roster/ })
+
+    expect(ballot.compareDocumentPosition(weeklyPlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Past Episodes' })).not.toBeInTheDocument()
+  })
 })

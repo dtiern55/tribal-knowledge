@@ -206,6 +206,29 @@ export function MySeasonPage() {
 
       {state.kind === 'open' && (
         <>
+          <section id="votes" className="scroll-mt-20">
+            <PicksSection
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              plays={d.plays}
+              setPlays={d.setPlays}
+              pickResults={pickResults}
+              onPicksChange={d.bumpPicks}
+              activeOnly
+            />
+          </section>
+
+          <WeeklyPlaySection
+            season={d.season}
+            episodes={d.episodes}
+            contestants={d.contestants}
+            userId={d.userId}
+            plays={d.plays}
+            setPlays={d.setPlays}
+          />
+
           <section id="roster" className="scroll-mt-20">
             <RosterSection
               season={d.season}
@@ -217,19 +240,7 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
-            />
-          </section>
-
-          <section id="votes" className="scroll-mt-20">
-            <PicksSection
-              season={d.season}
-              contestants={d.contestants}
-              episodes={d.episodes}
-              userId={d.userId}
-              plays={d.plays}
-              setPlays={d.setPlays}
-              pickResults={pickResults}
-              onPicksChange={d.bumpPicks}
+              compact
             />
           </section>
         </>
@@ -633,6 +644,117 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
+function WeeklyPlaySection({
+  season,
+  episodes,
+  contestants,
+  userId,
+  plays,
+  setPlays,
+}: {
+  season: Season
+  episodes: Episode[]
+  contestants: Contestant[]
+  userId: string
+  plays: AdvantagePlay[]
+  setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
+}) {
+  const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+  const [roster, setRoster] = useState<RosterPick[]>([])
+  const [target, setTarget] = useState('')
+
+  useEffect(() => {
+    api
+      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .then(setRoster)
+      .catch(() => setRoster([]))
+  }, [season.id, userId])
+
+  const episode = weekly.openEpisode
+  if (!episode || episode.is_finale || weekly.locked) return null
+
+  const activeRoster = roster.filter((pick) => pick.active_until_episode === null)
+  const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
+  const play = weekly.play
+
+  return (
+    <section className="p-4 bg-ocean-50 border border-ocean-200 rounded-xl space-y-3">
+      <div>
+        <h2 className="font-display text-lg tracking-wide text-ocean-800">
+          Weekly play <span className="text-sm font-sans font-normal text-gray-500">(optional)</span>
+        </h2>
+        <p className="text-xs text-gray-500">Choose once for Episode {episode.episode_number}; unused plays do not carry over.</p>
+      </div>
+
+      {play ? (
+        <div className="flex items-center justify-between gap-3 p-3 bg-white border border-ocean-200 rounded-lg">
+          <p className="text-sm text-gray-700">
+            <b>{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</b>
+            {play.target_contestant_id && (
+              <> · {contestantMap.get(play.target_contestant_id)?.name ?? 'Roster member'}</>
+            )}
+          </p>
+          {play.advantage_type !== 'roster_swap' && (
+            <button
+              onClick={() => void weekly.takeBack(play)}
+              disabled={weekly.busy}
+              className="text-sm font-medium text-ocean-700 hover:text-ocean-900"
+            >
+              Take back
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="p-3 bg-white border border-sand-200 rounded-lg space-y-2">
+            <p className="text-sm font-semibold text-gray-800">Double Roster Points</p>
+            <p className="text-xs text-gray-500">Double one active castaway&apos;s episode points.</p>
+            <div className="flex gap-2">
+              <select
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+                aria-label="Roster member to double"
+                className="flex-1 min-w-0 border border-sand-200 rounded-lg px-2 py-2 text-sm bg-white"
+              >
+                <option value="">Choose castaway…</option>
+                {activeRoster.map((pick) => (
+                  <option key={pick.id} value={pick.contestant_id}>
+                    {contestantMap.get(pick.contestant_id)?.name ?? '—'}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => void weekly.spend('double_roster_points', target)}
+                disabled={weekly.busy || !target}
+                className="px-3 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40"
+              >
+                Use
+              </button>
+            </div>
+          </div>
+
+          <div className="p-3 bg-white border border-sand-200 rounded-lg space-y-2">
+            <p className="text-sm font-semibold text-gray-800">Double Vote Points</p>
+            <p className="text-xs text-gray-500">Double points from every correct pick on this episode&apos;s ballot.</p>
+            <button
+              onClick={() => void weekly.spend('double_vote_points')}
+              disabled={weekly.busy}
+              className="w-full px-3 py-2 border border-ocean-300 text-ocean-800 text-sm font-medium rounded-lg disabled:opacity-40"
+            >
+              Use on ballot
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs text-gray-500">
+        A free roster swap does not use this play. Once free swaps are gone, a swap uses it automatically.
+      </p>
+      {weekly.error && <p className="text-red-600 text-xs">{weekly.error}</p>}
+    </section>
+  )
+}
+
 
 function RosterSection({
   season,
@@ -644,6 +766,7 @@ function RosterSection({
   setPlays,
   onRosterChange,
   rosterVersion,
+  compact = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -654,6 +777,7 @@ function RosterSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
   rosterVersion: number
+  compact?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -815,7 +939,7 @@ function RosterSection({
 
   return (
     <SectionShell
-      title="My Roster"
+      title={compact ? 'Active Roster' : 'My Roster'}
       prominent
       collapsible={false}
       right={
@@ -866,21 +990,23 @@ function RosterSection({
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
                 }
-                right={<Points value={rosterPoints.get(pick.contestant_id)} />}
-                expanded={expandedId === pick.contestant_id}
-                onToggle={() => toggleExpand(pick.contestant_id)}
+                right={compact ? undefined : <Points value={rosterPoints.get(pick.contestant_id)} />}
+                expanded={!compact && expandedId === pick.contestant_id}
+                onToggle={compact ? undefined : () => toggleExpand(pick.contestant_id)}
               >
-                <RosterBreakdown
-                  perf={perfs.get(pick.contestant_id)}
-                  activeFrom={pick.active_from_episode}
-                  activeUntil={pick.active_until_episode}
-                  doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
-                />
+                {!compact && (
+                  <RosterBreakdown
+                    perf={perfs.get(pick.contestant_id)}
+                    activeFrom={pick.active_from_episode}
+                    activeUntil={pick.active_until_episode}
+                    doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+                  />
+                )}
               </RosterCard>
             ))}
           </ul>
 
-          {nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
+          {!compact && nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
             <div className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
                 Your play · Episode {nextOpenEpisode.episode_number}
@@ -937,7 +1063,7 @@ function RosterSection({
             </div>
           )}
 
-          {swappedRoster.length > 0 && (
+          {!compact && swappedRoster.length > 0 && (
             <SectionShell title="Swapped Out" defaultOpen={false}>
               <ul className="space-y-2">
                 {swappedRoster.map((pick) => {
@@ -1133,7 +1259,7 @@ function RosterSection({
           castaway's FINALE contribution, so picking one in episode 2 is a
           throwaway guess that only clutters the weekly page. It appears the
           week merge_episode is set, and still locks with the advantages. */}
-      {season.merge_episode != null && (
+      {!compact && season.merge_episode != null && (
         <SoleSurvivorLine
           season={season}
           contestants={contestants}
@@ -1158,6 +1284,7 @@ function PicksSection({
   setPlays,
   pickResults,
   onPicksChange,
+  activeOnly = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -1167,6 +1294,7 @@ function PicksSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
   onPicksChange: () => void
+  activeOnly?: boolean
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
@@ -1522,7 +1650,7 @@ function PicksSection({
                 </>
               )}
 
-              {!play.locked && (
+              {!activeOnly && !play.locked && (
                 <div className="mb-4 p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
                     Your play · Episode {ep.episode_number}
@@ -1605,7 +1733,7 @@ function PicksSection({
 
       {currentEp && !isOpen(currentEp) && episodeRow(currentEp, true)}
 
-      {closedEpisodes.length > 0 && (
+      {!activeOnly && closedEpisodes.length > 0 && (
         <SectionShell
           title="Past Episodes"
           defaultOpen={false}
