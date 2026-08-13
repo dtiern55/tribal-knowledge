@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ContestantAvatar } from '../components/ContestantAvatar'
+import { Notice } from '../components/Notice'
+import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { Link, useNavigate } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
@@ -72,22 +74,20 @@ export function StandingsPage() {
   }, [selectedId])
 
   if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
+  if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>
   const season = seasons.find((s) => s.id === selectedId)
-  if (!season) return <p className="text-gray-500">No season found.</p>
+  if (!season) return <Notice title="No season found">Choose an active season from the menu.</Notice>
 
   // Finale is 0 until the season ends — hide it until it matters.
   const showFinale = entries.some((e) => e.finale_points !== 0)
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-        <h1 className="font-display text-3xl tracking-wide text-ocean-800">Standings</h1>
-        <span className="text-sm text-gray-500">{season.name}</span>
-      </div>
-      {season.status === 'completed' && (
-        <p className="text-sm text-gray-500 mb-6">Final standings</p>
-      )}
+      <PageHeader
+        title="Standings"
+        description={season.status === 'completed' ? 'Final standings' : 'The current league race'}
+        meta={season.name}
+      />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
