@@ -16,6 +16,7 @@ import {
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
+import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import { Torch } from '../components/Torch'
 import { VoteMark } from '../components/VoteMark'
@@ -797,6 +798,7 @@ function WeeklyPlaySection({
           Weekly play <span className="text-sm font-sans font-normal text-gray-500">(optional)</span>
         </h2>
         <p className="text-xs text-gray-500">Choose once for Episode {episode.episode_number}; unused plays do not carry over.</p>
+        <p className="mt-1"><RuleLink anchor="weekly-play">How weekly plays work</RuleLink></p>
       </div>
 
       {play ? (
@@ -1932,6 +1934,7 @@ function PicksSection({
               Your ballot
             </h2>
             <p className="mt-1 text-sm text-gray-600">Choose who you think will be eliminated.</p>
+            <p className="mt-1"><RuleLink anchor="ballot">Ballot rules</RuleLink></p>
           </div>
           {nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
         </div>
@@ -2242,8 +2245,9 @@ function SoleSurvivorLine({
         )}
       </div>
       <p className="text-xs text-gray-500 mb-2">
-        Your Sole Survivor's finale total is worth an extra 50% to you.
+        Your Sole Survivor&apos;s entire finale-episode roster contribution is doubled.
       </p>
+      <p className="mb-2"><RuleLink anchor="finale">Sole Survivor rules</RuleLink></p>
       {!windowOpen ? (
         <p className="text-sm text-gray-600">
           {designee ? (
