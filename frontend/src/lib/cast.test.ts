@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CastMember } from '../types'
-import { castStatus, filterAndSortCast } from './cast'
+import { castStatus, rankCast } from './cast'
 
 function member(
   name: string,
@@ -21,17 +21,18 @@ function member(
   }
 }
 
-describe('cast browsing helpers', () => {
-  const cast = [member('Zoe', 2), member('Amy', 10, 3), member('Ben', 10, null, 'New tribe')]
+describe('cast ranking helpers', () => {
+  const cast = [
+    member('Zoe', 2),
+    member('Amy', 10, 3),
+    member('Ben', 10, null, 'New tribe'),
+    member('First boot', 40, 1),
+    member('Second boot', -3, 2),
+  ]
 
-  it('filters on current game status and sorts the visible field by score', () => {
-    expect(filterAndSortCast(cast, 'active', 'score').map((row) => row.name)).toEqual(['Ben', 'Zoe'])
-    expect(filterAndSortCast(cast, 'eliminated', 'score').map((row) => row.name)).toEqual(['Amy'])
-  })
-
-  it('offers a predictable alphabetical order without changing current tribe data', () => {
-    const rows = filterAndSortCast(cast, 'all', 'name')
-    expect(rows.map((row) => row.name)).toEqual(['Amy', 'Ben', 'Zoe'])
+  it('ranks active castaways by points before eliminated castaways in reverse boot order', () => {
+    const rows = rankCast(cast)
+    expect(rows.map((row) => row.name)).toEqual(['Ben', 'Zoe', 'Amy', 'Second boot', 'First boot'])
     expect(rows.find((row) => row.name === 'Ben')?.tribe_name).toBe('New tribe')
   })
 

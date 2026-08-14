@@ -88,13 +88,6 @@ export function StandingsPage() {
       <PageHeader
         eyebrow={season.status === 'completed' ? 'Season complete' : 'League race'}
         title="Standings"
-        description={
-          season.status === 'completed'
-            ? 'The final league table, with every scoring lane accounted for.'
-            : hasScoring
-              ? 'See where everyone stands and what is driving the race.'
-              : 'Everyone starts level. The table will move after the first scored episode.'
-        }
         meta={season.name}
       />
 

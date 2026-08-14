@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { PageLoader } from '../components/PageLoader'
 import { Link, useLocation } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
@@ -175,7 +174,6 @@ function useWeeklyPlay(
 
 export function MySeasonPage() {
   const d = useMySeasonData()
-  const [ballotRailTarget, setBallotRailTarget] = useState<HTMLDivElement | null>(null)
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
@@ -188,6 +186,7 @@ export function MySeasonPage() {
     d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
   )
   const state = resolveMySeasonState(d.season, d.episodes)
+  const nightMode = state.kind === 'locked' && isBroadcastWindow(state.episode)
 
   async function openReplay(episode: Episode) {
     setReplayLoading(episode.id)
@@ -216,8 +215,9 @@ export function MySeasonPage() {
 
   return (
     <>
+      <LockedShellTheme active={nightMode} />
       <div
-        className="space-y-10"
+        className="mx-auto max-w-2xl space-y-10"
         aria-hidden={visibleResult ? true : undefined}
         inert={visibleResult ? true : undefined}
       >
@@ -241,10 +241,7 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <div
-          data-layout="open-desktop"
-          className="mx-auto max-w-7xl space-y-12 lg:grid lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-8 lg:space-y-0 xl:grid-cols-[minmax(0,1fr)_23rem] xl:gap-10"
-        >
+        <div className="space-y-12">
           <section id="votes" className="scroll-mt-20">
             <PicksSection
               season={d.season}
@@ -255,12 +252,10 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               pickResults={pickResults}
               activeOnly
-              decisionRailTarget={ballotRailTarget}
             />
           </section>
 
-          <aside aria-label="Episode decisions" className="space-y-8 lg:border-l lg:border-sand-200 lg:pl-8 xl:pl-10">
-            <div ref={setBallotRailTarget} />
+          <div className="space-y-12">
             <WeeklyPlaySection
               season={d.season}
               episodes={d.episodes}
@@ -268,7 +263,6 @@ export function MySeasonPage() {
               userId={d.userId}
               plays={d.plays}
               setPlays={d.setPlays}
-              decisionRail
             />
 
             <section id="roster" className="scroll-mt-20">
@@ -285,7 +279,7 @@ export function MySeasonPage() {
                 compact
               />
             </section>
-          </aside>
+          </div>
         </div>
       )}
 
@@ -354,6 +348,14 @@ function CompleteState() {
   )
 }
 
+function LockedShellTheme({ active }: { active: boolean }) {
+  useEffect(() => {
+    document.documentElement.classList.toggle('locked-night', active)
+    return () => document.documentElement.classList.remove('locked-night')
+  }, [active])
+  return null
+}
+
 function LockedState({
   episode,
   season,
@@ -401,7 +403,7 @@ function LockedState({
     <section
       aria-labelledby="locked-state-title"
       data-variant={broadcast ? 'broadcast' : 'delayed'}
-      className={`mx-auto max-w-4xl overflow-hidden rounded-2xl border p-5 sm:p-6 lg:px-10 lg:py-9 ${
+      className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
         broadcast
           ? 'border-ocean-800 bg-[radial-gradient(circle_at_top_right,rgba(239,119,45,0.18),transparent_35%),linear-gradient(to_bottom,#0b3347,#123d34)] text-white shadow-xl'
           : 'border-sand-200 bg-white text-gray-900 shadow-sm'
@@ -415,24 +417,24 @@ function LockedState({
           <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
             {broadcast ? 'The votes are in' : 'Results are pending'}
           </h2>
-          <p className={`mt-1 max-w-xl text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
-            {broadcast
-              ? 'Your ballot, roster, and weekly play are final. Enjoy the episode.'
-              : 'The episode is over, but league scoring has not been completed yet.'}
-          </p>
+          {!broadcast && (
+            <p className="mt-1 max-w-xl text-sm text-gray-600">
+              The episode is over, but league scoring has not been completed yet.
+            </p>
+          )}
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${broadcast ? 'bg-ember-400/15 text-ember-100 ring-1 ring-ember-300/25' : 'bg-sand-100 text-gray-600'}`}>
           Read only
         </span>
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)]">
+      <div className="mt-8 grid gap-8">
         <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Your ballot
           </h3>
           {picks.length > 0 ? (
-            <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2">
+            <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
               {picks.map((pick) => {
                 const contestant = contestantMap.get(pick.contestant_id)
                 return (
@@ -459,11 +461,11 @@ function LockedState({
           )}
         </div>
 
-        <div className={`border-t pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+        <div className={`border-t pt-6 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Active roster
           </h3>
-          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {roster.map((pick) => {
               const contestant = contestantMap.get(pick.contestant_id)
               return (
@@ -482,7 +484,7 @@ function LockedState({
           </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
         </div>
 
-        <div className={`border-t pt-5 lg:col-span-2 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+        <div className={`border-t pt-5 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Weekly play
           </h3>
@@ -497,7 +499,7 @@ function LockedState({
           </p>
         </div>
 
-        <div className={`rounded-xl px-4 py-3 lg:col-span-2 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-ocean-50 ring-1 ring-ocean-100'}`}>
+        <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-ocean-50 ring-1 ring-ocean-100'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
             {broadcast ? 'Scoring follows the episode' : 'Awaiting league scoring'}
           </p>
@@ -1399,7 +1401,6 @@ function PicksSection({
   setPlays,
   pickResults,
   activeOnly = false,
-  decisionRailTarget = null,
 }: {
   season: Season
   contestants: Contestant[]
@@ -1409,7 +1410,6 @@ function PicksSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
   activeOnly?: boolean
-  decisionRailTarget?: HTMLDivElement | null
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
@@ -1663,50 +1663,6 @@ function PicksSection({
 
           return (
             <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-ocean-500 bg-white p-4'}>
-              {activeOnly && decisionRailTarget && createPortal(
-                <section aria-labelledby="desktop-ballot-summary" className="hidden rounded-xl border border-sand-200 bg-white p-4 lg:block">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 id="desktop-ballot-summary" className="font-display text-lg tracking-wide text-ocean-800">Current ballot</h2>
-                      <p className="text-xs text-gray-500">Episode {ep.episode_number} · {epPending.size} of {maxPicks} selected</p>
-                    </div>
-                    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${confirmed ? 'bg-jungle-50 text-jungle-700' : dirty ? 'bg-ember-50 text-ember-700' : 'bg-sand-100 text-gray-500'}`}>
-                      {confirmed ? 'Saved' : dirty ? 'Unsaved' : hasSavedPicks ? 'No changes' : 'Not started'}
-                    </span>
-                  </div>
-
-                  {epPending.size > 0 ? (
-                    <ol className="mt-3 space-y-1.5">
-                      {[...epPending].map((contestantId, index) => (
-                        <li key={contestantId} className="flex min-w-0 items-center gap-2 text-sm text-gray-700">
-                          <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-ocean-100 text-[11px] font-semibold text-ocean-800">{index + 1}</span>
-                          <span className="truncate">{contestantMap.get(contestantId)?.name ?? 'Castaway'}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="mt-3 text-sm text-gray-500">Choose at least one castaway from the ballot canvas.</p>
-                  )}
-
-                  {confirmed ? (
-                    <button type="button" onClick={() => setEditing(true)} className="mt-4 w-full rounded-lg border border-ocean-300 bg-white px-3 py-2 text-sm font-semibold text-ocean-800 hover:bg-ocean-50">
-                      Edit ballot
-                    </button>
-                  ) : (
-                    <div className="mt-4 flex gap-2">
-                      <button type="button" onClick={() => submitPicks(ep.id)} disabled={submitting === ep.id || epPending.size === 0 || !dirty} className="min-h-11 flex-1 rounded-lg bg-jungle-600 px-3 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-40">
-                        {submitting === ep.id ? 'Saving…' : 'Save ballot'}
-                      </button>
-                      {hasSavedPicks && (
-                        <button type="button" onClick={() => cancelEdit(ep.id)} className="rounded-lg border border-sand-200 px-3 py-2 text-sm font-medium text-gray-600 hover:border-sand-300">
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </section>,
-                decisionRailTarget,
-              )}
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5 border-y border-jungle-200 bg-jungle-50 px-4 py-5 text-center sm:rounded-xl sm:border">

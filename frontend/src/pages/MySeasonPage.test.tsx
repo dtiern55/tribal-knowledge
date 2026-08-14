@@ -109,7 +109,8 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByText(/episode is over, but league scoring/i)).toBeVisible()
     const lockedState = screen.getByRole('region', { name: 'Results are pending' })
     expect(lockedState).toHaveAttribute('data-variant', 'delayed')
-    expect(lockedState.querySelector('[class*="lg:grid-cols"]')).toBeInTheDocument()
+    expect(lockedState.querySelector('[class*="lg:grid-cols"]')).not.toBeInTheDocument()
+    expect(document.documentElement).not.toHaveClass('locked-night')
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weekly Votes' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Edit|Save ballot|Use on ballot|Confirm Swap/ })).not.toBeInTheDocument()
@@ -138,10 +139,8 @@ describe('MySeasonPage state shell', () => {
     const ballot = await screen.findByRole('heading', { name: 'Your ballot' })
     const weeklyPlay = screen.getByRole('heading', { name: /Weekly play/ })
     const roster = screen.getByRole('heading', { name: /^Active Roster/ })
-    const layout = ballot.closest('[data-layout="open-desktop"]')
-
-    expect(layout).toHaveClass('lg:grid')
-    expect(screen.getByRole('complementary', { name: 'Episode decisions' })).toBeVisible()
+    expect(ballot.closest('[data-layout="open-desktop"]')).not.toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Episode decisions' })).not.toBeInTheDocument()
     expect(ballot.compareDocumentPosition(weeklyPlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
@@ -197,10 +196,6 @@ describe('MySeasonPage state shell', () => {
     await user.click(charlie)
     expect(within(kenzie).getByText('1')).toBeVisible()
     expect(within(charlie).getByText('2')).toBeVisible()
-    const desktopSummary = screen.getByRole('heading', { name: 'Current ballot' }).closest('section')!
-    expect(within(desktopSummary).getByText('Episode 2 · 2 of 2 selected')).toBeVisible()
-    expect(within(desktopSummary).getByRole('list').children[0]).toHaveTextContent('1Kenzie')
-    expect(within(desktopSummary).getByRole('list').children[1]).toHaveTextContent('2Charlie')
     expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Select Venus for ballot' })).toBeDisabled()
 
@@ -299,7 +294,8 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByRole('heading', { name: 'The votes are in' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'The votes are in' })).toHaveAttribute('data-variant', 'broadcast')
     expect(screen.getByText('Scoring follows the episode')).toBeVisible()
-    expect(screen.getByText(/Enjoy the episode/)).toBeVisible()
+    expect(screen.queryByText(/ballot, roster, and weekly play are final/i)).not.toBeInTheDocument()
+    expect(document.documentElement).toHaveClass('locked-night')
   })
 
   it('shows the server-saved ballot roster and weekly play while locked', async () => {
