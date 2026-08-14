@@ -186,7 +186,6 @@ export function MySeasonPage() {
     d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
   )
   const state = resolveMySeasonState(d.season, d.episodes)
-  const nightMode = state.kind === 'locked' && isBroadcastWindow(state.episode)
 
   async function openReplay(episode: Episode) {
     setReplayLoading(episode.id)
@@ -215,7 +214,6 @@ export function MySeasonPage() {
 
   return (
     <>
-      <LockedShellTheme active={nightMode} />
       <div
         className="mx-auto max-w-2xl space-y-10"
         aria-hidden={visibleResult ? true : undefined}
@@ -348,14 +346,6 @@ function CompleteState() {
   )
 }
 
-function LockedShellTheme({ active }: { active: boolean }) {
-  useEffect(() => {
-    document.documentElement.classList.toggle('locked-night', active)
-    return () => document.documentElement.classList.remove('locked-night')
-  }, [active])
-  return null
-}
-
 function LockedState({
   episode,
   season,
@@ -409,7 +399,7 @@ function LockedState({
           : 'border-sand-200 bg-white text-gray-900 shadow-sm'
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
         <div>
           <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
             Episode {episode.episode_number} · locked
@@ -423,9 +413,6 @@ function LockedState({
             </p>
           )}
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${broadcast ? 'bg-ember-400/15 text-ember-100 ring-1 ring-ember-300/25' : 'bg-sand-100 text-gray-600'}`}>
-          Read only
-        </span>
       </div>
 
       <div className="mt-8 grid gap-8">

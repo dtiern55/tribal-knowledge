@@ -1,8 +1,10 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithApp } from '../test/render'
+import { api, getActiveSeason } from '../lib/api'
+import type { Episode, Season } from '../types'
 import { Layout } from './Layout'
 
 vi.mock('../lib/api', () => ({
@@ -32,6 +34,13 @@ function renderLayout(route = '/') {
 }
 
 describe('Layout', () => {
+  const season = {
+    id: 'season-1',
+    name: 'Review season',
+    status: 'active',
+    roster_lock_episode: 1,
+  } as Season
+
   it('provides skip navigation, a named main region, and matching primary destinations', () => {
     renderLayout('/standings')
 
@@ -61,5 +70,25 @@ describe('Layout', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
+  })
+
+  it('keeps the global night theme active while navigating a locked episode', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValueOnce(season)
+    vi.mocked(api.get).mockResolvedValueOnce([
+      {
+        id: 'episode-3',
+        season_id: season.id,
+        episode_number: 3,
+        picks_lock_at: new Date(Date.now() - 60_000).toISOString(),
+        status: 'upcoming',
+      } as Episode,
+    ])
+    const user = userEvent.setup()
+    renderLayout()
+
+    await waitFor(() => expect(document.documentElement).toHaveClass('locked-night'))
+    await user.click(screen.getAllByRole('link', { name: 'Standings' })[0])
+    expect(await screen.findByRole('heading', { name: 'Standings page' })).toBeVisible()
+    expect(document.documentElement).toHaveClass('locked-night')
   })
 })

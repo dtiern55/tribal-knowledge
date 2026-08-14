@@ -110,7 +110,7 @@ describe('MySeasonPage state shell', () => {
     const lockedState = screen.getByRole('region', { name: 'Results are pending' })
     expect(lockedState).toHaveAttribute('data-variant', 'delayed')
     expect(lockedState.querySelector('[class*="lg:grid-cols"]')).not.toBeInTheDocument()
-    expect(document.documentElement).not.toHaveClass('locked-night')
+    expect(screen.queryByText('Read only')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weekly Votes' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Edit|Save ballot|Use on ballot|Confirm Swap/ })).not.toBeInTheDocument()
@@ -295,7 +295,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('region', { name: 'The votes are in' })).toHaveAttribute('data-variant', 'broadcast')
     expect(screen.getByText('Scoring follows the episode')).toBeVisible()
     expect(screen.queryByText(/ballot, roster, and weekly play are final/i)).not.toBeInTheDocument()
-    expect(document.documentElement).toHaveClass('locked-night')
+    expect(screen.queryByText('Read only')).not.toBeInTheDocument()
   })
 
   it('shows the server-saved ballot roster and weekly play while locked', async () => {
