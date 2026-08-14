@@ -57,6 +57,43 @@ body {
   background: var(--color-sand-50);
 }
 
+/* During the short locked broadcast window, carry the torchlit card's night
+   atmosphere through the app chrome instead of leaving it on a sand canvas. */
+html.locked-night body {
+  background: #071f2d;
+}
+
+html.locked-night .app-shell {
+  background:
+    radial-gradient(circle at 78% 8%, rgb(239 119 45 / 10%), transparent 28rem),
+    linear-gradient(to bottom, #082b3c, #071f2d);
+  color: white;
+}
+
+html.locked-night .app-header,
+html.locked-night .app-bottom-nav {
+  border-color: rgb(255 255 255 / 12%);
+  background: rgb(5 28 40 / 94%);
+}
+
+html.locked-night .app-main h1,
+html.locked-night .app-brand-primary {
+  color: #f8efe1;
+}
+
+html.locked-night .app-brand-secondary,
+html.locked-night .app-menu-button,
+html.locked-night .app-top-link,
+html.locked-night .app-bottom-link {
+  color: #c6dbe3;
+}
+
+html.locked-night .app-top-link:hover,
+html.locked-night .app-menu-button:hover {
+  background: rgb(255 255 255 / 8%);
+  color: white;
+}
+
 ::selection {
   background: var(--color-ocean-200);
   color: var(--color-ocean-900);

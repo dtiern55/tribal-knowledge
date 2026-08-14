@@ -31,14 +31,14 @@ export function Layout() {
       : PRIMARY
 
   const topLink = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors ${
+    `app-top-link inline-flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors ${
       isActive
         ? 'bg-ember-50 text-ember-700 font-semibold'
         : 'text-gray-600 hover:bg-sand-100 hover:text-gray-900'
     }`
 
   return (
-    <div className="min-h-screen bg-sand-50 text-gray-900">
+    <div className="app-shell min-h-screen bg-sand-50 text-gray-900">
       <a
         href="#main-content"
         className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-lg bg-ocean-900 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0"
@@ -46,15 +46,15 @@ export function Layout() {
         Skip to main content
       </a>
       <div className="torch-stripe h-1" />
-      <header className="border-b border-sand-200 bg-white">
+      <header className="app-header border-b border-sand-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink
             to="/"
             aria-label="Tribal Knowledge home"
             className="inline-flex min-h-11 shrink-0 items-center font-brand text-lg font-bold leading-none tracking-wide md:text-xl"
           >
-            <span className="text-ocean-700">TRIBAL</span>{' '}
-            <span className="text-jungle-600">KNOWLEDGE</span>
+            <span className="app-brand-primary text-ocean-700">TRIBAL</span>{' '}
+            <span className="app-brand-secondary text-jungle-600">KNOWLEDGE</span>
           </NavLink>
 
           {authed && (
@@ -75,7 +75,7 @@ export function Layout() {
                 onClick={() => setDrawerOpen(true)}
                 aria-label="Open menu"
                 aria-haspopup="dialog"
-                className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-ocean-700 transition-colors hover:bg-ocean-50 hover:text-ocean-900"
+                className="app-menu-button inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-ocean-700 transition-colors hover:bg-ocean-50 hover:text-ocean-900"
               >
                 <MenuIcon />
               </button>
@@ -94,7 +94,7 @@ export function Layout() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto max-w-6xl px-4 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] focus:outline-none sm:px-6 md:py-10 md:pb-10 lg:px-8"
+        className="app-main mx-auto max-w-6xl px-4 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] focus:outline-none sm:px-6 md:py-10 md:pb-10 lg:px-8"
       >
         <Outlet />
       </main>
@@ -102,7 +102,7 @@ export function Layout() {
       {authed && (
         <nav
           aria-label="Primary navigation"
-          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-sand-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(18,52,74,0.08)] backdrop-blur md:hidden"
+          className="app-bottom-nav fixed inset-x-0 bottom-0 z-30 flex border-t border-sand-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(18,52,74,0.08)] backdrop-blur md:hidden"
         >
           {tabs.map(({ to, label, Icon, end }) => (
             <NavLink
@@ -110,7 +110,7 @@ export function Layout() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-[11px] ${
+                `app-bottom-link flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-[11px] ${
                   isActive
                     ? 'text-ember-600 border-ember-500 font-semibold'
                     : 'text-gray-500 border-transparent'
