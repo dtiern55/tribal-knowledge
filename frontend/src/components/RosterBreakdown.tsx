@@ -5,7 +5,7 @@ import type { ContestantPerformance } from '../types'
  * Per-episode breakdown for one rostered contestant (#257, #271): each episode
  * is its own collapsed row (total on the right, "2x Points" pill when you played
  * Double Roster Points there); expanding it itemizes the scoring events plus a
- * final "2x Contestant Pick Points" line for the bonus. Scoped to your active
+ * final "Double Roster Points bonus" line. Scoped to your active
  * range for the pick. ponytail: reconciles to the row total for the common case;
  * swap penalties and finale placement/SS-double aren't per-episode scoring
  * events, so they aren't itemized here.
@@ -96,7 +96,7 @@ export function RosterBreakdown({
                 ))}
                 {bonus !== 0 && (
                   <li className="flex justify-between gap-2 text-ocean-600 font-medium">
-                    <span>2x Contestant Pick Points</span>
+                    <span>Double Roster Points bonus</span>
                     <span>{bonus} pts</span>
                   </li>
                 )}

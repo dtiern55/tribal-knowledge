@@ -110,7 +110,7 @@ describe('AdminPage current rules', () => {
     await user.click(await screen.findByRole('button', { name: 'Manage' }))
 
     expect(await screen.findByText('Reveal Insights')).toBeVisible()
-    await user.click(screen.getByLabelText(/Pick popularity: Kenzie/))
+    await user.click(screen.getByLabelText(/Vote popularity: Kenzie/))
     await user.click(screen.getByLabelText(/Player vs league median/))
     await user.click(screen.getByLabelText(/Double Vote Points usage/))
     expect(screen.getByText('3/3 selected')).toBeVisible()
