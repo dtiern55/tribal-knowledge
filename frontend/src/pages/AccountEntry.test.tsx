@@ -66,10 +66,11 @@ describe('account entry flows', () => {
     })
     renderWithApp(<LoginPage />, { auth: { session: null, profile: null } })
 
-    await user.click(screen.getByRole('button', { name: 'Need an account? Sign up' }))
+    await user.click(screen.getByRole('button', { name: 'New here? Create an account' }))
+    expect(screen.getByText('You’ll need your league’s join code after signing up.')).toBeVisible()
     await user.type(screen.getByRole('textbox', { name: 'Email' }), 'new@example.com')
     await user.type(screen.getByLabelText('Password'), 'password123')
-    await user.click(screen.getByRole('button', { name: 'Sign up' }))
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent(/Check your email to confirm/)
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeVisible()
@@ -91,7 +92,9 @@ describe('account entry flows', () => {
     expect(screen.getByText('danny@example.com')).toBeVisible()
     await user.type(screen.getByRole('textbox', { name: 'Display name' }), '  Danny  ')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), '  tribe-51  ')
-    await user.click(screen.getByRole('button', { name: 'Join and continue' }))
+    expect(screen.getByRole('heading', { name: 'Join your league' })).toBeVisible()
+    expect(screen.getByText('This is how you will appear in standings.')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Join league' }))
 
     expect(await screen.findByText('My Season destination')).toBeVisible()
     expect(api.post).toHaveBeenCalledWith('/join', { display_name: 'Danny', join_code: 'tribe-51' })
@@ -107,10 +110,10 @@ describe('account entry flows', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'Danny')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'wrong-code')
-    await user.click(screen.getByRole('button', { name: 'Join and continue' }))
+    await user.click(screen.getByRole('button', { name: 'Join league' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('That join code is not valid')
-    expect(screen.getByRole('button', { name: 'Join and continue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Join league' })).toBeEnabled()
   })
 
   it('keeps league identity separate from account identity on Profile', async () => {

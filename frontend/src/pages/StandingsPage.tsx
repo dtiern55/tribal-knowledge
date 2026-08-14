@@ -52,26 +52,32 @@ export function StandingsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.get<Season[]>('/seasons'), getActiveSeason()])
-      .then(([ss, current]) => {
+    let live = true
+    async function load() {
+      try {
+        const [ss, current] = await Promise.all([
+          api.get<Season[]>('/seasons'),
+          getActiveSeason(),
+        ])
+        if (!live) return
         setSeasons(ss)
-        setSelectedId(current?.id ?? '')
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load seasons'))
-  }, [])
-
-  useEffect(() => {
-    if (!selectedId) {
-      setLoading(false)
-      return
+        const activeId = current?.id ?? ''
+        setSelectedId(activeId)
+        if (activeId) {
+          const standings = await api.get<StandingEntry[]>(`/seasons/${activeId}/standings`)
+          if (live) setEntries(standings)
+        }
+      } catch (e) {
+        if (live) setError(e instanceof Error ? e.message : 'Failed to load standings')
+      } finally {
+        if (live) setLoading(false)
+      }
     }
-    setLoading(true)
-    api
-      .get<StandingEntry[]>(`/seasons/${selectedId}/standings`)
-      .then(setEntries)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load standings'))
-      .finally(() => setLoading(false))
-  }, [selectedId])
+    void load()
+    return () => {
+      live = false
+    }
+  }, [])
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>

@@ -317,8 +317,8 @@ function WatchOnlyState({ episode }: { episode: Episode }) {
         Episode {episode.episode_number} · watch only
       </p>
       <p className="text-sm text-gray-700">
-        Nothing to pick yet — watch the premiere and get a feel for the cast.
-        Rosters and ballots open once it is scored.
+        Watch the premiere and get a feel for the cast. Rosters and ballots
+        open after it is scored.
       </p>
     </section>
   )
@@ -340,7 +340,7 @@ function CompleteState() {
     <section className="p-5 bg-white border border-sand-200 rounded-xl">
       <h2 className="font-display text-xl tracking-wide text-ocean-800">Season complete</h2>
       <p className="text-sm text-gray-600 mt-1">
-        Final standings are settled. Your scored episode and play history remains below.
+        Final standings are settled. Your episode scores and play history remain below.
       </p>
     </section>
   )
@@ -407,11 +407,6 @@ function LockedState({
           <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
             {broadcast ? 'The votes are in' : 'Results are pending'}
           </h2>
-          {!broadcast && (
-            <p className="mt-1 max-w-xl text-sm text-gray-600">
-              The episode is over, but league scoring has not been completed yet.
-            </p>
-          )}
         </div>
       </div>
 
@@ -488,10 +483,10 @@ function LockedState({
 
         <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-ocean-50 ring-1 ring-ocean-100'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
-            {broadcast ? 'Scoring follows the episode' : 'Awaiting league scoring'}
+            {broadcast ? 'Scoring comes next' : 'Awaiting league scoring'}
           </p>
           <p className={`mt-1 text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
-            Results will appear here as soon as Episode {episode.episode_number} is scored.
+            Results appear here after Episode {episode.episode_number} is scored.
           </p>
         </div>
       </div>
@@ -692,7 +687,7 @@ function HeaderPoints({
   const total = standing?.total_points ?? 0
   const components = [
     { label: 'Roster', value: standing?.roster_points ?? 0 },
-    { label: 'Votes', value: standing?.elimination_points ?? 0 },
+    { label: 'Ballot', value: standing?.elimination_points ?? 0 },
     { label: 'Finale', value: standing?.finale_points ?? 0 },
   ]
 
@@ -839,7 +834,7 @@ function WeeklyPlaySection({
 
           <div className="p-3 bg-white border border-sand-200 rounded-lg space-y-2">
             <p className="text-sm font-semibold text-gray-800">Double Vote Points</p>
-            <p className="text-xs text-gray-500">Double points from every correct pick on this episode&apos;s ballot.</p>
+            <p className="text-xs text-gray-500">Double points from every correct vote on this episode&apos;s ballot.</p>
             <button
               onClick={() => void weekly.spend('double_vote_points')}
               disabled={weekly.busy}
@@ -1062,8 +1057,8 @@ function RosterSection({
           {windowOpen && (
             <div className="flex items-center justify-between gap-3 -mt-2">
               <p className="text-xs text-gray-500">
-                Your picks for episode {season.roster_lock_episode} — plan an advantage
-                below, or edit before they lock.
+                Your roster for episode {season.roster_lock_episode} — plan a weekly play
+                below, or edit before it locks.
               </p>
               <button
                 onClick={() => {
@@ -1215,7 +1210,7 @@ function RosterSection({
                 ref={swapRef}
                 className="scroll-mt-20 p-4 bg-jungle-50 border border-jungle-100 rounded-xl"
               >
-                <SectionTitle>Swap a Roster Pick</SectionTitle>
+                <SectionTitle>Swap a Roster Member</SectionTitle>
                 <p className="text-xs text-gray-500 mb-3">
                   {swapsUsed < season.free_swaps
                     ? `Free swap${season.free_swaps - swapsUsed > 1 ? 's' : ''} left: ${
@@ -1286,7 +1281,7 @@ function RosterSection({
           <p className="text-sm text-gray-600 mb-1">
             {hasRoster
               ? `Rearrange your roster freely before episode ${season.roster_lock_episode} — no penalty.`
-              : `Pick ${season.roster_size} castaways for your season roster.`}
+              : `Choose ${season.roster_size} castaways for your season roster.`}
           </p>
           <p className="text-xs text-gray-500 mb-4">
             {selected.size} / {season.roster_size} selected
@@ -1569,7 +1564,7 @@ function PicksSection({
       <div key={ep.id} className="mb-6 p-4 bg-white border-2 border-ocean-500 rounded-xl">
         {header}
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Picks closed {formatCentral(ep.picks_lock_at)}
+          Ballot locked {formatCentral(ep.picks_lock_at)}
         </p>
         {body}
       </div>
@@ -1702,7 +1697,7 @@ function PicksSection({
               ) : (
                 <>
                   <div className="mb-5 flex items-center justify-between gap-3 border-b border-sand-200 pb-3 text-sm">
-                    <span className="text-gray-600">Pick up to {maxPicks} castaways</span>
+                    <span className="text-gray-600">Vote for up to {maxPicks} castaways</span>
                     <span
                       aria-live="polite"
                       className={`shrink-0 font-semibold ${epPending.size === maxPicks ? 'text-jungle-700' : 'text-ocean-800'}`}
@@ -1739,7 +1734,7 @@ function PicksSection({
                                 onClick={() => togglePick(ep.id, c.id, maxPicks)}
                                 disabled={maxed}
                                 aria-pressed={isSelected}
-                                aria-label={`${isSelected ? 'Remove' : 'Select'} ${c.name} ${isSelected ? 'from' : 'for'} ballot`}
+                                aria-label={isSelected ? `Remove vote for ${c.name}` : `Vote for ${c.name}`}
                                 className={[
                                   'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
                                   isSelected
@@ -1775,7 +1770,7 @@ function PicksSection({
                   {ballotDoubled ? (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">
-                        Every vote this episode counts ×2
+                        Every correct vote scores ×2
                       </span>
                       <button
                         onClick={() => void play.takeBack(play.play!)}
@@ -1801,7 +1796,7 @@ function PicksSection({
                       disabled={play.busy}
                       className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
                     >
-                      Double all my votes ×2
+                      Double Vote Points ×2
                     </button>
                   )}
                   {play.error && <p className="text-red-600 text-xs">{play.error}</p>}
@@ -1818,7 +1813,7 @@ function PicksSection({
                   >
                     Edit ballot
                   </button>
-                  <span className="text-xs text-gray-500">Editable until it locks</span>
+                  <span className="text-xs text-gray-500">Editable until the episode locks</span>
                 </div>
               ) : (
                 <div className={`flex gap-2 ${activeOnly ? 'lg:hidden' : ''}`}>
@@ -1876,7 +1871,7 @@ function PicksSection({
             <h2 id="open-ballot-title" className="font-display text-3xl tracking-wide text-ocean-800">
               Your ballot
             </h2>
-            <p className="mt-1 text-sm text-gray-600">Choose who you think will be eliminated.</p>
+            <p className="mt-1 text-sm text-gray-600">Vote for the castaways you think will be eliminated.</p>
             <p className="mt-1"><RuleLink anchor="ballot">Ballot rules</RuleLink></p>
           </div>
           {nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
@@ -1888,7 +1883,7 @@ function PicksSection({
 
   return (
     <SectionShell
-      title="Weekly Votes"
+      title="Episode Ballots"
       prominent
       collapsible={false}
       right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
@@ -2031,7 +2026,7 @@ function FinaleBallot({
                   {label}
                 </span>
                 <span className="font-medium text-gray-800">
-                  {value ? nameOf(value) : 'No pick'}
+                  {value ? nameOf(value) : 'No prediction'}
                 </span>
               </span>
             ))}
@@ -2067,7 +2062,7 @@ function FinaleBallot({
                   }}
                   className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="">No pick</option>
+                  <option value="">No prediction</option>
                   {alive.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}

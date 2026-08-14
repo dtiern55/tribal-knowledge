@@ -13,7 +13,7 @@ export function JoinPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  if (loading) return <PageLoader label="Checking your invitation…" />
+  if (loading) return <PageLoader label="Getting your league ready…" />
   if (!session) return <Navigate to="/login" replace />
   if (profile) return <Navigate to="/" replace />
 
@@ -29,17 +29,17 @@ export function JoinPage() {
       await refreshProfile()
       void navigate('/')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to join')
+      setError(e instanceof Error ? e.message : 'Could not join the league. Try again.')
       setSubmitting(false)
     }
   }
 
   return (
     <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:mt-10 sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">One last step</p>
-      <h1 className="mt-1 font-display text-3xl tracking-wide text-ocean-800">Join the league</h1>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">Private league</p>
+      <h1 className="mt-1 font-display text-3xl tracking-wide text-ocean-800">Join your league</h1>
       <p className="mt-2 text-sm leading-6 text-gray-600">
-        You are signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name the league will see, then enter the code from your commissioner.
+        Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name other players will see, then enter your join code.
       </p>
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'join-error' : undefined}>
         <div>
@@ -54,7 +54,7 @@ export function JoinPage() {
             enterKeyHint="next"
             className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
           />
-          <p className="mt-1 text-xs text-gray-500">This is separate from your account email.</p>
+          <p className="mt-1 text-xs text-gray-500">This is how you will appear in standings.</p>
         </div>
         <div>
           <label htmlFor="join-code" className="mb-1 block text-sm font-medium text-gray-700">Join code</label>
@@ -76,7 +76,7 @@ export function JoinPage() {
           disabled={submitting || !displayName.trim() || !joinCode.trim()}
           className="min-h-11 w-full cursor-pointer rounded-lg bg-jungle-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50"
         >
-          {submitting ? 'Joining…' : 'Join and continue'}
+          {submitting ? 'Joining league…' : 'Join league'}
         </button>
       </form>
     </div>

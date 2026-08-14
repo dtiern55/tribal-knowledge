@@ -18,7 +18,7 @@ function ballotLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
   if (kind === 'early_boot') return 'First boot'
   if (kind === 'fire_loss') return 'Fire-making loser'
   if (kind === 'winner') return 'Sole Survivor'
-  return 'Elimination pick'
+  return 'Elimination vote'
 }
 
 function incorrectBallotCopy(kind: EpisodeResult['ballot'][number]['prediction_type']) {
@@ -153,7 +153,7 @@ export function EpisodeResultReveal({
             <p className="mt-3 text-sm text-white/75">
               {result.ballot.length === 0
                 ? 'You did not submit a ballot for this episode.'
-                : `You called ${correct} of ${result.ballot.length} ballot ${result.ballot.length === 1 ? 'pick' : 'picks'} correctly.`}
+                : `You called ${correct} of ${result.ballot.length} ballot ${result.ballot.length === 1 ? 'vote' : 'votes'} correctly.`}
             </p>
 
             <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">

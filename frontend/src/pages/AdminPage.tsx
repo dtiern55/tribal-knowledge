@@ -248,7 +248,7 @@ function SeasonSection({
         </div>
         <div className="col-span-2">
           <label className="block text-xs text-gray-500 mb-1">
-            Elimination picks schedule — new episodes take the last tier at or below
+            Ballot vote schedule — new episodes take the last tier at or below
             their number
           </label>
           <div className="space-y-1">
@@ -726,7 +726,7 @@ function EpisodeInsightEditor({
     ...(!episode.is_finale
       ? eliminations.map((elimination) => ({
           key: `pick:${elimination.contestant_id}`,
-          label: `Pick popularity: ${contestantMap.get(elimination.contestant_id)?.name ?? 'Eliminated castaway'}`,
+          label: `Vote popularity: ${contestantMap.get(elimination.contestant_id)?.name ?? 'Eliminated castaway'}`,
           description: 'Share how many submitted ballots included this castaway.',
         }))
       : []),
@@ -992,7 +992,7 @@ function EpisodePanel({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Picks lock at (CT)</label>
+            <label className="block text-xs text-gray-500 mb-1">Ballot locks at (CT)</label>
             <input
               type="datetime-local"
               value={locksAt}
@@ -1001,7 +1001,7 @@ function EpisodePanel({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Max elim picks</label>
+            <label className="block text-xs text-gray-500 mb-1">Max ballot votes</label>
             <input
               type="number"
               value={maxPicks}
@@ -1310,8 +1310,8 @@ function EpisodeProposalSection({
         <div className="space-y-3">
           <p className="text-xs text-gray-500">
             {proposal.source} — review, uncheck anything wrong, then create.
-            Picks lock at air time; max votes come from the season&apos;s
-            elimination picks schedule — adjust per episode after. Data:{' '}
+            Ballots lock at air time; max votes come from the season&apos;s
+            ballot vote schedule — adjust per episode afterward. Data:{' '}
             <a
               href="https://www.tvmaze.com"
               target="_blank"
@@ -1482,7 +1482,7 @@ function EpisodesSection({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Picks lock at (CT)</label>
+              <label className="block text-xs text-gray-500 mb-1">Ballot locks at (CT)</label>
               <input
                 type="datetime-local"
                 value={locksAt}
@@ -1491,7 +1491,7 @@ function EpisodesSection({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Max elim picks</label>
+              <label className="block text-xs text-gray-500 mb-1">Max ballot votes</label>
               <input
                 type="number"
                 placeholder="from schedule"

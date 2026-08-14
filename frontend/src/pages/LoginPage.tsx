@@ -44,7 +44,7 @@ export function LoginPage() {
     }
     if (!data.session) {
       // Email confirmation required before a session exists.
-      setInfo('Check your email to confirm your account, then sign in.')
+      setInfo('Check your email to confirm your account. Then come back and sign in.')
       setMode('signin')
       setSubmitting(false)
     }
@@ -55,18 +55,17 @@ export function LoginPage() {
   return (
     <div className="mx-auto mt-4 grid max-w-3xl overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm md:mt-10 md:grid-cols-[0.8fr_1.2fr]">
       <section className="bg-gradient-to-br from-ocean-900 to-jungle-800 p-6 text-white sm:p-8" aria-labelledby="welcome-title">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ember-200">Private fantasy league</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ember-200">Private Survivor league</p>
         <h1 id="welcome-title" className="mt-2 font-display text-3xl tracking-wide">Welcome to Tribal Knowledge</h1>
-        <p className="mt-3 text-sm leading-6 text-white/75">Make your Survivor picks, follow your roster, and compete with the league each week.</p>
       </section>
 
       <section className="p-5 sm:p-8" aria-labelledby="auth-form-title">
         <h2 id="auth-form-title" className="font-display text-2xl tracking-wide text-ocean-800">
           {mode === 'signin' ? 'Sign in' : 'Create your account'}
         </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {mode === 'signin' ? 'Continue to your league.' : 'Use the email where you received your invitation.'}
-        </p>
+        {mode === 'signup' && (
+          <p className="mt-1 text-sm text-gray-500">You’ll need your league’s join code after signing up.</p>
+        )}
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'auth-error' : info ? 'auth-info' : undefined}>
         <div>
           <label htmlFor="auth-email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -109,10 +108,10 @@ export function LoginPage() {
           {submitting
             ? mode === 'signin'
               ? 'Signing in…'
-              : 'Signing up…'
+              : 'Creating account…'
             : mode === 'signin'
               ? 'Sign in'
-              : 'Sign up'}
+              : 'Create account'}
         </button>
       </form>
       <button
@@ -124,7 +123,7 @@ export function LoginPage() {
         }}
         className="mt-5 min-h-11 cursor-pointer text-sm font-medium text-ocean-700 hover:text-ocean-900"
       >
-        {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+        {mode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}
       </button>
       </section>
     </div>
