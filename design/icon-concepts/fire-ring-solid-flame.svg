@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Three-seat fire ring — solid flame</title>
+  <rect width="512" height="512" rx="96" fill="#14628c"/>
+  <circle cx="256" cy="256" r="166" fill="none" stroke="#f3e3c3" stroke-width="62" stroke-linecap="round" stroke-dasharray="247 100.67" stroke-dashoffset="-50.33" transform="rotate(30 256 256)"/>
+  <path
+    transform="translate(-26 24)"
+    fill="#d5621b"
+    d="M256 364
+       C207 361 177 331 177 287
+       C177 250 198 224 226 195
+       C251 169 262 138 253 105
+       C307 138 340 195 339 257
+       C338 321 304 362 256 364Z"
+  />
+</svg>

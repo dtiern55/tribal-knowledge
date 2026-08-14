@@ -5,18 +5,23 @@
 The permanent identity moved to a **three-seat fire ring** after a fresh icon
 exploration. Three broad arcs surround the central flame: a gathering around
 the Tribal Council fire and the final three seats at Final Tribal Council.
-The production SVG lives at `frontend/public/favicon.svg`. Its asymmetric
-diagonal flame cut adds some of the hand-carved personality of the earlier
-tiki/fire hybrid without introducing a literal mask. The concepts below remain
-the exploration history.
+The production SVG lives at `frontend/public/favicon.svg`. Its forked outer
+silhouette keeps some of the hand-cut personality of the earlier tiki/fire
+hybrid while remaining legible at favicon size. The flame was also moved
+slightly left and down for optical centering. The concepts below remain the
+exploration history.
 
-Two deterministic flame refinements remain under evaluation before release:
+Deterministic flame silhouettes explored during refinement:
 
 - `fire-ring-simple-flame.svg` — the first production translation, retained as
   the comparison control.
 - `fire-ring-sculpted-flame.svg` — a carved canopy and separate inner ember.
 - `fire-ring-carved-flame.svg` — an asymmetric diagonal cut inspired by the
   personality of the earlier tiki/fire hybrid without using a literal mask.
+- `fire-ring-solid-flame.svg` — the simplest single-flame silhouette.
+- `fire-ring-inner-ember.svg` — a classic flame with a lighter inner ember.
+- `fire-ring-forked-flame.svg` — the selected production refinement: one
+  continuous silhouette with a small secondary lick on the outer edge.
 
 Flat app-icon directions explored 2026-07-21. **Tiki-bigger was the shipped
 choice at that time**; the two idols are kept here for potential later use.
