@@ -24,10 +24,12 @@ const PRIMARY = [
 ]
 
 export function Layout() {
-  const { session, profile } = useAuth()
+  const { session, profile, loading: authLoading } = useAuth()
   const authed = Boolean(session && profile)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [nightMode, setNightMode] = useState(false)
+  const [nightMode, setNightMode] = useState(() =>
+    document.documentElement.classList.contains('locked-night'),
+  )
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const tabs =
     authed && profile?.is_admin
@@ -38,6 +40,7 @@ export function Layout() {
     let live = true
 
     async function refreshEpisodeTheme() {
+      if (authLoading) return
       if (!authed) {
         if (live) setNightMode(false)
         return
@@ -62,10 +65,18 @@ export function Layout() {
       live = false
       window.clearInterval(timer)
     }
-  }, [authed])
+  }, [authed, authLoading])
 
   useEffect(() => {
     document.documentElement.classList.toggle('locked-night', nightMode)
+    document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', nightMode ? '#071f2d' : '#1793C7')
+    try {
+      localStorage.setItem('tribal-knowledge-shell-theme', nightMode ? 'locked' : 'day')
+    } catch {
+      // Storage can be unavailable in private browsing; the live theme still works.
+    }
     return () => document.documentElement.classList.remove('locked-night')
   }, [nightMode])
 

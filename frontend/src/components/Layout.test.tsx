@@ -1,9 +1,10 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderWithApp } from '../test/render'
 import { api, getActiveSeason } from '../lib/api'
+import type { AuthContextValue } from '../auth/context'
 import type { Episode, Season } from '../types'
 import { Layout } from './Layout'
 
@@ -21,7 +22,7 @@ vi.mock('../lib/install', () => ({
   promptInstall: vi.fn(),
 }))
 
-function renderLayout(route = '/') {
+function renderLayout(route = '/', auth?: Partial<AuthContextValue>) {
   return renderWithApp(
     <Routes>
       <Route element={<Layout />}>
@@ -29,7 +30,7 @@ function renderLayout(route = '/') {
         <Route path="standings" element={<h1>Standings page</h1>} />
       </Route>
     </Routes>,
-    { route },
+    { route, auth },
   )
 }
 
@@ -40,6 +41,12 @@ describe('Layout', () => {
     status: 'active',
     roster_lock_episode: 1,
   } as Season
+
+  afterEach(() => {
+    document.documentElement.classList.remove('locked-night')
+    localStorage.removeItem('tribal-knowledge-shell-theme')
+    document.querySelector('meta[name="theme-color"]')?.remove()
+  })
 
   it('provides skip navigation, a named main region, and matching primary destinations', () => {
     renderLayout('/standings')
@@ -73,6 +80,9 @@ describe('Layout', () => {
   })
 
   it('keeps the global night theme active while navigating a locked episode', async () => {
+    const themeColor = document.createElement('meta')
+    themeColor.name = 'theme-color'
+    document.head.append(themeColor)
     vi.mocked(getActiveSeason).mockResolvedValueOnce(season)
     vi.mocked(api.get).mockResolvedValueOnce([
       {
@@ -87,8 +97,18 @@ describe('Layout', () => {
     renderLayout()
 
     await waitFor(() => expect(document.documentElement).toHaveClass('locked-night'))
+    expect(themeColor).toHaveAttribute('content', '#071f2d')
+    expect(localStorage.getItem('tribal-knowledge-shell-theme')).toBe('locked')
     await user.click(screen.getAllByRole('link', { name: 'Standings' })[0])
     expect(await screen.findByRole('heading', { name: 'Standings page' })).toBeVisible()
     expect(document.documentElement).toHaveClass('locked-night')
+  })
+
+  it('preserves the last locked theme while authentication is restored', () => {
+    document.documentElement.classList.add('locked-night')
+    renderLayout('/', { session: null, profile: null, loading: true })
+
+    expect(document.documentElement).toHaveClass('locked-night')
+    expect(localStorage.getItem('tribal-knowledge-shell-theme')).toBe('locked')
   })
 })
