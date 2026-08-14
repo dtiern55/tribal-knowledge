@@ -68,9 +68,9 @@ describe('RulesPage rule modes', () => {
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'Weekly play' })).toBeVisible()
-    expect(screen.getByText(/every correct elimination pick/)).toBeVisible()
-    expect(screen.getByText(/does not add a pick or target one selection/)).toBeVisible()
-    expect(screen.getByText(/finale-episode roster contribution is doubled/)).toBeVisible()
+    expect(screen.getByText(/Double every correct vote/)).toBeVisible()
+    expect(screen.getByText(/does not add a vote/)).toBeVisible()
+    expect(screen.getByText(/adds 50% of that castaway's finale roster points/)).toBeVisible()
     expect(screen.queryByRole('heading', { name: /tokens/i })).not.toBeInTheDocument()
     expect(screen.queryByText('Cry')).not.toBeInTheDocument()
   })
@@ -85,15 +85,18 @@ describe('RulesPage rule modes', () => {
     expect(screen.getByText('5 tokens')).toBeVisible()
   })
 
-  it('provides scannable sections and season-configured values', async () => {
+  it('provides a short how-to-play section and scannable rules', async () => {
     vi.mocked(api.get).mockResolvedValue(response(false))
     renderWithApp(<RulesPage />)
 
+    expect(await screen.findByRole('heading', { name: 'How to play' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Pick your roster' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Submit a weekly ballot' })).toBeVisible()
     expect(await screen.findByRole('navigation', { name: 'Rules contents' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Ballot' })).toHaveAttribute('href', '#ballot')
-    expect(screen.getByText(/From episode 6:/, { selector: 'li' })).toHaveTextContent('2 picks')
+    expect(screen.getByRole('link', { name: 'Weekly ballot' })).toHaveAttribute('href', '#ballot')
     expect(screen.getByText('Episode 10')).toBeVisible()
     expect(screen.getAllByText('Episode 12').length).toBeGreaterThan(0)
-    expect(screen.getByRole('heading', { name: 'What stays private' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Privacy' })).toBeVisible()
+    expect(screen.getByText(/Roster changes are visible/)).toBeVisible()
   })
 })
