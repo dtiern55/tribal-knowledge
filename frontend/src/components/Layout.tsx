@@ -1,6 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import { api, getActiveSeason } from '../lib/api'
+import { resolveMySeasonState } from '../lib/mySeasonState'
+import type { Episode } from '../types'
 import { NavDrawer } from './NavDrawer'
 import {
   GearIcon,
@@ -24,11 +27,47 @@ export function Layout() {
   const { session, profile } = useAuth()
   const authed = Boolean(session && profile)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [nightMode, setNightMode] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const tabs =
     authed && profile?.is_admin
       ? [...PRIMARY, { to: '/admin', label: 'Admin', Icon: GearIcon, end: false }]
       : PRIMARY
+
+  useEffect(() => {
+    let live = true
+
+    async function refreshEpisodeTheme() {
+      if (!authed) {
+        if (live) setNightMode(false)
+        return
+      }
+      try {
+        const season = await getActiveSeason()
+        if (!season) {
+          if (live) setNightMode(false)
+          return
+        }
+        const episodes = await api.get<Episode[]>(`/seasons/${season.id}/episodes`)
+        if (live) setNightMode(resolveMySeasonState(season, episodes).kind === 'locked')
+      } catch {
+        // A page-level error handles failed data loads. Keep the last known
+        // shell theme instead of flashing between day and night.
+      }
+    }
+
+    void refreshEpisodeTheme()
+    const timer = window.setInterval(() => void refreshEpisodeTheme(), 30_000)
+    return () => {
+      live = false
+      window.clearInterval(timer)
+    }
+  }, [authed])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('locked-night', nightMode)
+    return () => document.documentElement.classList.remove('locked-night')
+  }, [nightMode])
 
   const topLink = ({ isActive }: { isActive: boolean }) =>
     `app-top-link inline-flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors ${

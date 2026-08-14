@@ -57,8 +57,8 @@ body {
   background: var(--color-sand-50);
 }
 
-/* During the short locked broadcast window, carry the torchlit card's night
-   atmosphere through the app chrome instead of leaving it on a sand canvas. */
+/* While an episode is locked and awaiting scoring, carry the torchlit night
+   atmosphere across every route and loading state. */
 html.locked-night body {
   background: #071f2d;
 }
@@ -92,6 +92,67 @@ html.locked-night .app-top-link:hover,
 html.locked-night .app-menu-button:hover {
   background: rgb(255 255 255 / 8%);
   color: white;
+}
+
+html.locked-night .app-shell .bg-white,
+html.locked-night .app-shell .bg-sand-50,
+html.locked-night .app-shell .bg-sand-100,
+html.locked-night .app-shell .bg-gray-50 {
+  background-color: #0d3342;
+}
+
+html.locked-night .app-shell .bg-ocean-50,
+html.locked-night .app-shell .bg-ocean-100,
+html.locked-night .app-shell .bg-jungle-50 {
+  background-color: #123e49;
+}
+
+html.locked-night .app-shell .border-sand-100,
+html.locked-night .app-shell .border-sand-200,
+html.locked-night .app-shell .border-sand-300,
+html.locked-night .app-shell .border-gray-100,
+html.locked-night .app-shell .border-ocean-100,
+html.locked-night .app-shell .border-ocean-200 {
+  border-color: rgb(255 255 255 / 13%);
+}
+
+html.locked-night .app-shell .text-gray-900,
+html.locked-night .app-shell .text-gray-800,
+html.locked-night .app-shell .text-ocean-900,
+html.locked-night .app-shell .text-ocean-800 {
+  color: #f8efe1;
+}
+
+html.locked-night .app-shell .text-gray-700,
+html.locked-night .app-shell .text-gray-600,
+html.locked-night .app-shell .text-ocean-700 {
+  color: #c6dbe3;
+}
+
+html.locked-night .app-shell .text-gray-500,
+html.locked-night .app-shell .text-gray-400 {
+  color: #91acb8;
+}
+
+html.locked-night .app-shell input,
+html.locked-night .app-shell select,
+html.locked-night .app-shell textarea {
+  border-color: rgb(255 255 255 / 18%);
+  background: #0a2a38;
+  color: #f8efe1;
+}
+
+html.locked-night .app-top-link.bg-ember-50,
+html.locked-night .app-bottom-link.text-ember-600 {
+  background: rgb(239 119 45 / 16%);
+  color: #ffd1b4;
+}
+
+html.locked-night .app-shell .hover\:bg-sand-50:hover,
+html.locked-night .app-shell .hover\:bg-sand-100:hover,
+html.locked-night .app-shell .hover\:bg-ocean-50:hover,
+html.locked-night .app-shell .hover\:bg-ocean-100:hover {
+  background-color: #164657;
 }
 
 ::selection {
