@@ -48,17 +48,30 @@
 
 html {
   color-scheme: light;
+  min-height: 100%;
+  background: var(--color-sand-50);
   scroll-padding-top: 5rem;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100dvh;
   background: var(--color-sand-50);
+}
+
+#root,
+.app-shell {
+  min-height: 100dvh;
 }
 
 /* While an episode is locked and awaiting scoring, carry the torchlit night
    atmosphere across every route and loading state. */
+html.locked-night {
+  color-scheme: dark;
+  background: #071f2d;
+}
+
 html.locked-night body {
   background: #071f2d;
 }

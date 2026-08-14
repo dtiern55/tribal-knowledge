@@ -3,7 +3,7 @@
   <rect width="512" height="512" rx="96" fill="#14628c"/>
   <circle cx="256" cy="256" r="166" fill="none" stroke="#f3e3c3" stroke-width="62" stroke-linecap="round" stroke-dasharray="247 100.67" stroke-dashoffset="-50.33" transform="rotate(30 256 256)"/>
   <path
-    transform="translate(-26 24)"
+    transform="translate(-16 16)"
     fill="#d5621b"
     d="M256 361
        C207 358 176 328 176 286

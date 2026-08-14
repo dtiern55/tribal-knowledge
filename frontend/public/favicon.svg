@@ -17,7 +17,7 @@
   />
 
   <!-- A forked outer edge keeps the flame expressive without an interior cut. -->
-  <g transform="translate(-26 24)">
+  <g transform="translate(-16 16)">
     <path
       fill="#d5621b"
       d="M256 361
