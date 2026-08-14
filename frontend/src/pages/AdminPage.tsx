@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
+import { Notice } from '../components/Notice'
+import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
+import { commissionerContext, commissionerEpisodeLabel } from '../lib/adminWorkflow'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
@@ -22,11 +25,38 @@ const ELIMINATION_TYPES = [
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ id, title, description }: { id: string; title: string; description?: string }) {
   return (
-    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-4 mt-8 first:mt-0">
-      {title}
-    </h2>
+    <div id={id} className="scroll-mt-24 mb-4 mt-10 border-l-4 border-ember-500 pl-3 first:mt-0">
+      <h2 className="font-display text-xl tracking-wide text-ocean-900">{title}</h2>
+      {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+    </div>
+  )
+}
+
+function ConfirmAction({
+  label,
+  confirmLabel,
+  impact,
+  onConfirm,
+  busy,
+}: {
+  label: string
+  confirmLabel: string
+  impact: string
+  onConfirm: () => void
+  busy?: boolean
+}) {
+  const [confirming, setConfirming] = useState(false)
+  if (!confirming) return <ActionBtn onClick={() => setConfirming(true)} disabled={busy}>{label}</ActionBtn>
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3" role="alert">
+      <p className="text-sm font-medium text-amber-900">{impact}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ActionBtn onClick={onConfirm} disabled={busy}>{busy ? 'Working…' : confirmLabel}</ActionBtn>
+        <ActionBtn variant="secondary" onClick={() => setConfirming(false)} disabled={busy}>Cancel</ActionBtn>
+      </div>
+    </div>
   )
 }
 
@@ -166,7 +196,7 @@ function SeasonSection({
 
   return (
     <div className="p-4 bg-white border border-sand-200 rounded-xl space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="col-span-2">
           <label className="block text-xs text-gray-500 mb-1">Name</label>
           <input
@@ -262,9 +292,17 @@ function SeasonSection({
       </div>
       <ErrorMsg msg={error} />
       <div className="flex gap-2">
-        <ActionBtn onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </ActionBtn>
+        {status === 'completed' && season.status !== 'completed' ? (
+          <ConfirmAction
+            label="Review season completion"
+            confirmLabel="Complete season"
+            impact="Completing the season changes member-facing composition to final standings. Existing scores and historical rules remain unchanged."
+            onConfirm={save}
+            busy={saving}
+          />
+        ) : (
+          <ActionBtn onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</ActionBtn>
+        )}
         <ActionBtn variant="secondary" onClick={() => setEditing(false)}>
           Cancel
         </ActionBtn>
@@ -934,7 +972,7 @@ function EpisodePanel({
       {/* Edit episode */}
       <div>
         <p className="text-xs font-semibold text-gray-500 mb-3">Edit Episode</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-xs text-gray-500 mb-1">Episode #</label>
             <input
@@ -1147,9 +1185,13 @@ function EpisodePanel({
             </p>
             <ErrorMsg msg={scoreError} />
             <SuccessMsg msg={scoreSuccess} />
-            <ActionBtn onClick={scoreEpisode} disabled={scoring}>
-              {scoring ? 'Scoring…' : 'Score episode'}
-            </ActionBtn>
+            <ConfirmAction
+              label="Review and score episode"
+              confirmLabel="Score and publish results"
+              impact={`This marks Episode ${episode.episode_number} scored and reveals results to the league. Confirm eliminations and scoring events first.`}
+              onConfirm={scoreEpisode}
+              busy={scoring}
+            />
           </>
         )}
       </div>
@@ -1320,15 +1362,17 @@ function EpisodesSection({
   episodes,
   contestants,
   eventTypes,
+  focusEpisodeId,
   onUpdated,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
   eventTypes: ScoringEventType[]
+  focusEpisodeId?: string
   onUpdated: (eps: Episode[]) => void
 }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(focusEpisodeId ?? null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [epNum, setEpNum] = useState('')
   const [airDate, setAirDate] = useState('')
@@ -1366,13 +1410,14 @@ function EpisodesSection({
     )
   }
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (episode: Episode) => {
+    const status = commissionerEpisodeLabel(episode)
     const cls =
-      status === 'scored'
+      status === 'Scored'
         ? 'bg-green-50 text-green-700'
-        : status === 'upcoming'
+        : status === 'Scheduled'
           ? 'bg-blue-50 text-blue-700'
-          : 'bg-gray-100 text-gray-500'
+          : 'bg-amber-50 text-amber-800'
     return (
       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cls}`}>{status}</span>
     )
@@ -1380,18 +1425,20 @@ function EpisodesSection({
 
   return (
     <div className="space-y-2">
+      {episodes.length === 0 && <Notice title="No episodes scheduled">Create the schedule from TVmaze or add the first episode manually.</Notice>}
       {episodes.map((ep) => (
-        <div key={ep.id} className="p-4 bg-white border border-sand-200 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <div id={`episode-${ep.id}`} key={ep.id} className={`scroll-mt-24 p-4 bg-white border rounded-xl ${ep.id === focusEpisodeId ? 'border-ocean-300 ring-1 ring-ocean-100' : 'border-sand-200'}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
               <span className="font-medium text-gray-900">Ep {ep.episode_number}</span>
               {ep.is_finale && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium">
                   finale
                 </span>
               )}
-              {statusBadge(ep.status)}
-              <span className="text-xs text-gray-500">{ep.air_date}</span>
+              {statusBadge(ep)}
+              <span className="text-xs text-gray-500">Airs {ep.air_date}</span>
+              <span className="text-xs text-gray-500">Locks {utcToCentralLocal(ep.picks_lock_at).replace('T', ' ')} CT</span>
             </div>
             <ActionBtn
               variant="secondary"
@@ -1415,7 +1462,7 @@ function EpisodesSection({
       {showAddForm ? (
         <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
           <p className="text-xs font-semibold text-gray-500">Add Episode</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Episode #</label>
               <input
@@ -1588,50 +1635,80 @@ export function AdminPage() {
   }, [])
 
   if (loading) return <PageLoader />
-  if (error) return <p className="text-red-600">{error}</p>
+  if (error) return <Notice tone="error" title="Could not load commissioner tools">{error}</Notice>
 
   if (!profile?.is_admin) {
-    return <p className="text-gray-500">Access denied.</p>
+    return <Notice tone="error" title="Commissioner access required">Your account is not authorized to manage the league. The server also enforces administrator permissions on every mutation.</Notice>
   }
 
   if (!season) {
-    return <p className="text-gray-500">No season found.</p>
+    return <Notice title="No season found">Choose a season before opening commissioner tools.</Notice>
   }
+
+  const context = commissionerContext(season, episodes)
+  const workflow = [
+    { id: 'episodes', label: '1. Schedule & score' },
+    { id: 'season-setup', label: '2. Season setup' },
+    { id: 'cast-setup', label: '3. Cast setup' },
+    { id: 'league-settings', label: '4. League access' },
+  ]
 
   return (
     <div>
-      <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800 mb-1">Admin</h1>
-      <p className="text-sm text-gray-500 mb-8">{season.name}</p>
+      <PageHeader
+        eyebrow="Commissioner"
+        title="League operations"
+        description="Schedule, review, score, and correct the active season. Changes here affect the whole league."
+        meta={<span className="rounded-full bg-ocean-50 px-3 py-1 font-medium text-ocean-800">{season.name}</span>}
+      />
 
-      <SectionHeader title="Season" />
+      <section aria-labelledby="current-work-title" className={`rounded-2xl border p-5 sm:p-6 ${context.stage === 'review' ? 'border-amber-300 bg-amber-50' : context.stage === 'complete' ? 'border-jungle-200 bg-jungle-50' : 'border-ocean-200 bg-ocean-50'}`}>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ocean-700">Current work</p>
+        <h2 id="current-work-title" className="mt-1 font-display text-2xl tracking-wide text-ocean-900">{context.title}</h2>
+        <p className="mt-2 text-sm text-gray-700">{context.action}</p>
+        {context.episode && (
+          <a href={`#episode-${context.episode.id}`} className="mt-4 inline-flex rounded-lg bg-ocean-700 px-4 py-2 text-sm font-semibold text-white hover:bg-ocean-800">
+            Open Episode {context.episode.episode_number} →
+          </a>
+        )}
+      </section>
+
+      <nav aria-label="Commissioner workflow" className="mt-5 overflow-x-auto pb-1">
+        <ol className="flex min-w-max gap-2">
+          {workflow.map((step) => <li key={step.id}><a href={`#${step.id}`} className="block rounded-full border border-sand-200 bg-white px-3 py-2 text-sm text-ocean-700 hover:border-ocean-300">{step.label}</a></li>)}
+        </ol>
+      </nav>
+
+      <SectionHeader id="episodes" title="Episode operations" description="The active episode comes first: verify the schedule, enter results, review, then publish scoring." />
+      <EpisodesSection
+        season={season}
+        episodes={episodes}
+        contestants={contestants}
+        eventTypes={eventTypes}
+        focusEpisodeId={context.stage === 'review' ? context.episode?.id : undefined}
+        onUpdated={setEpisodes}
+      />
+
+      <SectionHeader id="season-setup" title="Season setup" description="Configuration that controls locks, merge timing, and ballot capacity." />
       <SeasonSection season={season} onUpdated={setSeason} />
 
-      <SectionHeader title={`Contestants (${contestants.length})`} />
+      <SectionHeader id="cast-setup" title={`Cast setup (${contestants.length})`} description="Add contestants and maintain names, placements, and photos." />
       <ContestantsSection
         seasonId={season.id}
         contestants={contestants}
         onUpdated={setContestants}
       />
 
-      <SectionHeader title="Episodes" />
-      <EpisodesSection
-        season={season}
-        episodes={episodes}
-        contestants={contestants}
-        eventTypes={eventTypes}
-        onUpdated={setEpisodes}
-      />
-
       {season.token_economy_enabled && (
         <>
-          <SectionHeader title="Historical Tokens" />
+          <SectionHeader id="historical-tokens" title="Historical tokens" description="Legacy configuration for this season snapshot only." />
           <TokensSection season={season} />
         </>
       )}
 
       {leagueSettings && (
         <>
-          <SectionHeader title="League Settings" />
+          <SectionHeader id="league-settings" title="League access" description="Control the join code shared with new league members." />
           <LeagueSettingsSection settings={leagueSettings} onUpdated={setLeagueSettings} />
         </>
       )}

@@ -47,10 +47,30 @@ describe('AdminPage current rules', () => {
       auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } },
     })
 
-    expect(await screen.findByRole('heading', { name: 'Admin' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'League operations' })).toBeVisible()
     expect(screen.getByText(/later swaps use the weekly play/)).toBeVisible()
     expect(screen.queryByRole('heading', { name: /Tokens/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/weekly token allocation/)).not.toBeInTheDocument()
+  })
+
+  it('requires explicit confirmation before publishing episode scores', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [{ id: 'episode-1', season_id: season.id, episode_number: 2, air_date: '2026-08-01', max_elimination_picks: 3, is_finale: false, picks_lock_at: '2026-08-01T00:00:00Z', status: 'upcoming', created_at: '2026-08-01T00:00:00Z' }]
+      if (path === '/league-settings') return { id: 'settings-1', join_code: 'test-code', updated_at: '2026-01-01' }
+      return []
+    })
+    vi.mocked(api.post).mockResolvedValue({})
+
+    renderWithApp(<AdminPage />, { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } } })
+
+    expect(await screen.findByRole('heading', { name: 'Episode 2 needs review' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Review and score episode' }))
+    expect(api.post).not.toHaveBeenCalledWith('/episodes/episode-1/score', {})
+    expect(screen.getByText(/reveals results to the league/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Score and publish results' }))
+    expect(api.post).toHaveBeenCalledWith('/episodes/episode-1/score', {})
   })
 
   it('lets the commissioner curate up to three scored-episode insights', async () => {
