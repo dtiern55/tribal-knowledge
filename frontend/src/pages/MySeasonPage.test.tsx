@@ -189,15 +189,15 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByText('0 of 2 selected')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
 
-    expect(within(ballot).getAllByRole('button', { name: /for ballot/ })).toHaveLength(18)
-    const kenzie = within(ballot).getByRole('button', { name: 'Select Kenzie for ballot' })
-    const charlie = within(ballot).getByRole('button', { name: 'Select Charlie for ballot' })
+    expect(within(ballot).getAllByRole('button', { name: /^Vote for/ })).toHaveLength(18)
+    const kenzie = within(ballot).getByRole('button', { name: 'Vote for Kenzie' })
+    const charlie = within(ballot).getByRole('button', { name: 'Vote for Charlie' })
     await user.click(kenzie)
     await user.click(charlie)
     expect(within(kenzie).getByText('1')).toBeVisible()
     expect(within(charlie).getByText('2')).toBeVisible()
     expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
-    expect(within(ballot).getByRole('button', { name: 'Select Venus for ballot' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
     expect(await screen.findByText('Ballot saved for Episode 2')).toBeVisible()
@@ -293,7 +293,7 @@ describe('MySeasonPage state shell', () => {
 
     expect(await screen.findByRole('heading', { name: 'The votes are in' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'The votes are in' })).toHaveAttribute('data-variant', 'broadcast')
-    expect(screen.getByText('Scoring follows the episode')).toBeVisible()
+    expect(screen.getByText('Scoring comes next')).toBeVisible()
     expect(screen.queryByText(/ballot, roster, and weekly play are final/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Read only')).not.toBeInTheDocument()
   })
