@@ -57,16 +57,15 @@ export function LoginPage() {
       <section className="bg-gradient-to-br from-ocean-900 to-jungle-800 p-6 text-white sm:p-8" aria-labelledby="welcome-title">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ember-200">Private Survivor league</p>
         <h1 id="welcome-title" className="mt-2 font-display text-3xl tracking-wide">Welcome to Tribal Knowledge</h1>
-        <p className="mt-3 text-sm leading-6 text-white/75">Build your roster, cast your votes, and see who reads the game best.</p>
       </section>
 
       <section className="p-5 sm:p-8" aria-labelledby="auth-form-title">
         <h2 id="auth-form-title" className="font-display text-2xl tracking-wide text-ocean-800">
           {mode === 'signin' ? 'Sign in' : 'Create your account'}
         </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {mode === 'signin' ? 'Pick up where you left off.' : 'You’ll need your league’s join code after signing up.'}
-        </p>
+        {mode === 'signup' && (
+          <p className="mt-1 text-sm text-gray-500">You’ll need your league’s join code after signing up.</p>
+        )}
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'auth-error' : info ? 'auth-info' : undefined}>
         <div>
           <label htmlFor="auth-email" className="block text-sm font-medium text-gray-700 mb-1">
