@@ -744,7 +744,7 @@ function EpisodeInsightEditor({
     },
     ...[
       ['double_roster_points', 'Double Roster Points usage'],
-      ['double_vote_points', 'Double Vote Points usage'],
+      ['double_vote_points', 'Double Ballot Points usage'],
       ['roster_swap', 'Roster Swap usage'],
     ].map(([type, label]) => ({
       key: `play:${type}`,

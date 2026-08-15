@@ -802,7 +802,7 @@ function WeeklyPlaySection({
       <div className="space-y-3 px-4 py-3">
       <div>
         <p className="text-xs text-paper-ink-faded">
-          Optional — choose once for Episode {episode.episode_number}; unused plays do not carry over.
+          Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
         </p>
         <p className="mt-1"><RuleLink anchor="weekly-play">How weekly plays work</RuleLink></p>
       </div>
@@ -855,8 +855,8 @@ function WeeklyPlaySection({
           </div>
 
           <div className="space-y-2">
-            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Vote Points</p>
-            <p className="text-xs text-paper-ink-faded">Double points from every correct vote on this episode&apos;s ballot.</p>
+            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Ballot Points</p>
+            <p className="text-xs text-paper-ink-faded">Double all points earned from your Ballot.</p>
             <button
               onClick={() => void weekly.spend('double_vote_points')}
               disabled={weekly.busy}
@@ -1591,7 +1591,7 @@ function PicksSection({
                 </span>
                 {doubled && scored && result?.correct && result.points > 0 && (
                   <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
-                    Double Vote Points <span className="font-semibold">+{result.points}</span>
+                    Double Ballot Points <span className="font-semibold">+{result.points}</span>
                   </span>
                 )}
               </span>
@@ -1690,8 +1690,7 @@ function PicksSection({
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5">
-                  <p className="mb-1 flex items-center gap-2 font-semibold text-jungle-800">
-                    <VoteMark className="h-5 w-5" />
+                  <p className="mb-1 font-semibold text-jungle-800">
                     Ballot saved for Episode {ep.episode_number}
                   </p>
                   {savedPicks.length < maxPicks && (
@@ -1821,7 +1820,7 @@ function PicksSection({
                       disabled={play.busy}
                       className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
                     >
-                      Double Vote Points ×2
+                      Double Ballot Points ×2
                     </button>
                   )}
                   {play.error && <p className="text-red-600 text-xs">{play.error}</p>}
@@ -1852,7 +1851,7 @@ function PicksSection({
                       'Saving…'
                     ) : (
                       <span className="inline-flex items-center justify-center gap-2">
-                        <VoteMark className="h-5 w-5" /> Save ballot
+                        Save ballot
                       </span>
                     )}
                   </button>

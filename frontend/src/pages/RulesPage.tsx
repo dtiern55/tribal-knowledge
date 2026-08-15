@@ -189,7 +189,7 @@ export function RulesPage() {
               <p>You have one optional weekly play for each eligible episode. It does not carry over.</p>
               <dl className="divide-y divide-sand-200 border-y border-sand-200">
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Roster Points</dt><dd className="mt-1">Double one active roster member's points for the episode.</dd></div>
-                <div className="py-3"><dt className="font-semibold text-gray-900">Double Vote Points</dt><dd className="mt-1">Double every correct vote on the episode ballot. This does not add a vote.</dd></div>
+                <div className="py-3"><dt className="font-semibold text-gray-900">Double Ballot Points</dt><dd className="mt-1">Double all points earned from your ballot. This does not add a vote.</dd></div>
                 <div className="py-3"><dt className="font-semibold text-gray-900">Roster Swap</dt><dd className="mt-1">Use the weekly play for a swap after your free {season.free_swaps === 1 ? 'swap' : 'swaps'}.</dd></div>
               </dl>
               <p>Double plays can be changed or removed before the episode lock. A roster swap takes effect when submitted.</p>
@@ -218,7 +218,7 @@ export function RulesPage() {
           )}
           <RuleList>
             <li>Double Roster Points is included in roster points.</li>
-            <li>Double Vote Points is included in weekly ballot points.</li>
+            <li>Double Ballot Points is included in weekly ballot points.</li>
             <li>Finale ballot points are scored separately from roster points.</li>
           </RuleList>
         </RuleSection>

@@ -68,7 +68,7 @@ describe('RulesPage rule modes', () => {
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'Weekly play' })).toBeVisible()
-    expect(screen.getByText(/Double every correct vote/)).toBeVisible()
+    expect(screen.getByText(/Double all points earned from your ballot/)).toBeVisible()
     expect(screen.getByText(/does not add a vote/)).toBeVisible()
     expect(screen.getByText(/adds 50% of that castaway's finale roster points/)).toBeVisible()
     expect(screen.queryByRole('heading', { name: /tokens/i })).not.toBeInTheDocument()
