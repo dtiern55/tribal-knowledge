@@ -290,7 +290,10 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
     expect(screen.getByText(/A free swap does not use your play/)).toBeVisible()
     expect(screen.getByText(/A free swap does not use your play/)).toBeVisible()
-    expect(await screen.findByRole('button', { name: /^Swap/ })).toHaveTextContent('1 free')
+    const advantage = await screen.findByRole('region', { name: 'Advantage' })
+    expect(await within(advantage).findByRole('button', { name: /^Swap/ })).toHaveTextContent(
+      '1 free',
+    )
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
   })
 
@@ -358,7 +361,8 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const swap = await screen.findByRole('button', { name: /^Swap/ })
+    const advantage = await screen.findByRole('region', { name: 'Advantage' })
+    const swap = await within(advantage).findByRole('button', { name: /^Swap/ })
     expect(swap).toHaveTextContent('uses play')
     expect(screen.getByText(/A swap now uses your play, and cannot be taken back/)).toBeVisible()
 
@@ -377,6 +381,49 @@ describe('MySeasonPage state shell', () => {
       expect(api.post).toHaveBeenCalledWith('/seasons/season-1/roster/swap', {
         old_contestant_id: 'cast-2',
         new_contestant_id: 'cast-3',
+      }),
+    )
+  })
+
+  // #401: this control was unreachable for a while — rendered only under a
+  // `compact={false}` that no call site ever passed. It is the only way to
+  // designate, so it gets a test of its own.
+  it('lets you designate a Sole Survivor once the merge episode is set', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue({
+      ...season,
+      merge_episode: 5,
+      ss_lock_episode: 10,
+    })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const select = await screen.findByRole('combobox', { name: /Sole Survivor/i })
+    await screen.findByRole('option', { name: 'Kenzie' })
+    await userEvent.selectOptions(select, 'cast-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Designate' }))
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/sole-survivor', {
+        contestant_id: 'cast-1',
       }),
     )
   })

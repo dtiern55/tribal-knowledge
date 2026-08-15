@@ -315,7 +315,6 @@ export function MySeasonPage() {
               rosterVersion={d.rosterVersion}
               picking={picking}
               onPickingDone={() => setPicking(null)}
-              compact
             />
           </div>
 
@@ -982,7 +981,6 @@ function RosterSection({
   rosterVersion,
   picking = null,
   onPickingDone,
-  compact = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -997,7 +995,6 @@ function RosterSection({
    *  and "who do you drop?" (#394). */
   picking?: 'double' | 'swap' | null
   onPickingDone?: () => void
-  compact?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -1011,9 +1008,6 @@ function RosterSection({
   // Pre-lock, default to showing just your picks (so you can plan an advantage
   // on one); the full picker opens on Edit (#218).
   const [editing, setEditing] = useState(false)
-
-  // Double Roster Points, playable inline here as well as on Advantages (#81).
-  const [dblTarget, setDblTarget] = useState('')
 
   // Tap-to-expand per-episode breakdown (#257): lazy-fetch each contestant's
   // performance the first time its card is opened.
@@ -1061,12 +1055,8 @@ function RosterSection({
   // and draw on the same single weekly play as the vote double and paid
   // swaps (#307).
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
-  const nextOpenEpisode = weekly.openEpisode
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
-  const doubleTargets = activeRoster.filter(
-    (p) => p.contestant_id !== rosterDouble?.target_contestant_id,
-  )
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
 
@@ -1144,7 +1134,7 @@ function RosterSection({
 
   return (
     <RecordSection
-      title={compact ? 'Roster' : 'My Roster'}
+      title="Roster"
       right={
         picking ? (
           <button
@@ -1238,17 +1228,15 @@ function RosterSection({
                     : rosterDouble?.target_contestant_id === pick.contestant_id
                 }
                 lit={lit === pick.contestant_id}
-                expanded={!compact && expandedId === pick.contestant_id}
-                onToggle={compact ? undefined : () => toggleExpand(pick.contestant_id)}
+                expanded={expandedId === pick.contestant_id}
+                onToggle={() => toggleExpand(pick.contestant_id)}
               >
-                {!compact && (
-                  <RosterBreakdown
-                    perf={perfs.get(pick.contestant_id)}
-                    activeFrom={pick.active_from_episode}
-                    activeUntil={pick.active_until_episode}
-                    doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
-                  />
-                )}
+                <RosterBreakdown
+                  perf={perfs.get(pick.contestant_id)}
+                  activeFrom={pick.active_from_episode}
+                  activeUntil={pick.active_until_episode}
+                  doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+                />
               </RosterCard>
             ))}
           </ul>
@@ -1281,64 +1269,7 @@ function RosterSection({
             </div>
           )}
 
-          {!compact && nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
-            <div className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
-                Your play · Episode {nextOpenEpisode.episode_number}
-              </p>
-              {rosterDouble ? (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">
-                    Doubling{' '}
-                    <span className="font-medium">
-                      {contestantMap.get(rosterDouble.target_contestant_id ?? '')?.name ?? '—'}
-                    </span>{' '}
-                    this episode
-                  </span>
-                  <button
-                    onClick={() => void weekly.takeBack(rosterDouble)}
-                    disabled={weekly.busy}
-                    className="text-xs text-ocean-700 hover:text-ocean-900 font-medium"
-                  >
-                    Take back
-                  </button>
-                </div>
-              ) : weekly.play ? (
-                /* Spent elsewhere — say where, and how to get it back (#307). */
-                <p className="text-sm text-gray-600">
-                  {weekly.play.advantage_type === 'roster_swap'
-                    ? 'Your play went on a roster swap this episode.'
-                    : 'Your play is on your votes this episode — take it back there to use it here.'}
-                </p>
-              ) : doubleTargets.length > 0 ? (
-                <div className="flex items-center gap-2 text-sm">
-                  <select
-                    value={dblTarget}
-                    onChange={(e) => setDblTarget(e.target.value)}
-                    className="flex-1 min-w-0 border border-ocean-200 rounded-lg px-2 py-1 text-sm bg-white"
-                    aria-label="Contestant to double"
-                  >
-                    <option value="">Choose a castaway…</option>
-                    {doubleTargets.map((p) => (
-                      <option key={p.id} value={p.contestant_id}>
-                        {contestantMap.get(p.contestant_id)?.name ?? '—'}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => void weekly.spend('double_roster_points', dblTarget)}
-                    disabled={weekly.busy || !dblTarget}
-                    className="px-3 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
-                  >
-                    Double ×2
-                  </button>
-                </div>
-              ) : null}
-              {weekly.error && <p className="text-red-600 text-xs">{weekly.error}</p>}
-            </div>
-          )}
-
-          {!compact && swappedRoster.length > 0 && (
+          {swappedRoster.length > 0 && (
             <SectionShell title="Swapped Out" defaultOpen={false}>
               <ul className="space-y-2">
                 {swappedRoster.map((pick) => {
@@ -1456,7 +1387,7 @@ function RosterSection({
           castaway's FINALE contribution, so picking one in episode 2 is a
           throwaway guess that only clutters the weekly page. It appears the
           week merge_episode is set, and still locks with the advantages. */}
-      {!compact && season.merge_episode != null && (
+      {season.merge_episode != null && (
         <SoleSurvivorLine
           season={season}
           contestants={contestants}
@@ -2290,6 +2221,7 @@ function SoleSurvivorLine({
                 setChoice(e.target.value)
                 setSaved(false)
               }}
+              aria-label="Sole Survivor"
               className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Select your Sole Survivor…</option>
