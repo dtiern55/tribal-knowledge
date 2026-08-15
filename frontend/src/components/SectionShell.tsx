@@ -43,8 +43,12 @@ export function SectionShell({
       {title}
     </span>
   )
+  // Firelight (#392): ember is the structural colour now — every section rule
+  // is ember, and ocean falls back to links, actions and state. The prominent/
+  // supporting split still reads, because it was never carried by hue: the
+  // display face against small uppercase is what separates them.
   const bar = `w-full flex items-center gap-2 ${shown ? 'mb-3' : ''} ${
-    prominent ? 'pl-3 border-l-4 border-ocean-500' : 'pl-2 border-l-2 border-ember-500'
+    prominent ? 'pl-3 border-l-[3px] border-ember-700' : 'pl-2 border-l-2 border-ember-500'
   }`
   return (
     <div>
