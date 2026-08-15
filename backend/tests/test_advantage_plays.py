@@ -247,13 +247,13 @@ def test_take_back_after_lock_rejected(client, db_conn, current_user):
 
 @pytest.mark.integration
 def test_take_back_roster_swap_rejected(client, db_conn, current_user):
-    """The swap it paid for already happened — undo the swap, not the play."""
+    """Buying a swap is non-refundable (#394): the swap already happened."""
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
     play = insert_advantage_play(db_conn, current_user["id"], ep["id"], "roster_swap")
     r = client.delete(f"/advantage-plays/{play['id']}")
     assert r.status_code == 400
-    assert "Undo the roster swap" in r.json()["detail"]
+    assert "already made" in r.json()["detail"]
 
 
 @pytest.mark.integration

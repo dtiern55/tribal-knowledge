@@ -288,8 +288,9 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(rosterDouble)
     expect(screen.getByText('Choose a castaway to double this episode')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
-    expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
-    expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
+    expect(screen.getByText(/A free swap does not use your play/)).toBeVisible()
+    expect(screen.getByText(/A free swap does not use your play/)).toBeVisible()
+    expect(await screen.findByRole('button', { name: /^Swap/ })).toHaveTextContent('1 free')
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
   })
 
@@ -327,7 +328,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('button', { name: 'Play nothing this episode' })).toBeVisible()
   })
 
-  it('marks a roster swap as the weekly play after free swaps are used', async () => {
+  it('buys a swap in Advantage and commits it on the roster cards', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
@@ -357,7 +358,27 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByText('This will use your advantage play for the episode. · swaps lock at episode 10')).toBeVisible()
+    const swap = await screen.findByRole('button', { name: /^Swap/ })
+    expect(swap).toHaveTextContent('uses play')
+    expect(screen.getByText(/A swap now uses your play, and cannot be taken back/)).toBeVisible()
+
+    // Buying is one button in Advantage; who leaves and who joins are both
+    // answered on the roster, and the second tap commits (#394).
+    await userEvent.click(swap)
+    expect(screen.getByText('Choose a castaway to drop')).toBeVisible()
+    const rosterSection = screen.getByRole('region', { name: 'Roster' })
+    await userEvent.click(within(rosterSection).getByRole('button', { name: /Charlie/ }))
+    expect(
+      screen.getByText('Choose who replaces Charlie — this cannot be undone'),
+    ).toBeVisible()
+    await userEvent.click(within(rosterSection).getByRole('button', { name: /Venus/ }))
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/roster/swap', {
+        old_contestant_id: 'cast-2',
+        new_contestant_id: 'cast-3',
+      }),
+    )
   })
 
   it('limits broadcast styling to the short window after lock without changing state', () => {

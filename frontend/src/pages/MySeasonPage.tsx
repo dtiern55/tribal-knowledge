@@ -200,25 +200,25 @@ function useWeeklyPlay(
 
 export function MySeasonPage() {
   const d = useMySeasonData()
-  // Choosing who to double happens on the roster itself, so the mode has to
-  // be visible to both the Advantage button that starts it and the Roster
-  // rows that answer it.
-  const [pickingDouble, setPickingDouble] = useState(false)
-  // Lags `pickingDouble` on the way out only. The record has to keep its
-  // overflow open until the halo has finished fading, or the glow is guillotined
-  // at the card edge the instant you pick.
+  // Doubling and swapping are both bought in Advantage and answered on the
+  // roster (#394), so the mode has to be visible to the button that starts it
+  // and the rows that answer it.
+  const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
+  // Lags `picking` on the way out only. The record has to keep its overflow
+  // open until the halo has finished fading, or the glow is guillotined at the
+  // card edge the instant you pick.
   const [stageOpen, setStageOpen] = useState(false)
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
   useEffect(() => {
-    if (pickingDouble) {
+    if (picking) {
       setStageOpen(true)
       return
     }
     const timer = window.setTimeout(() => setStageOpen(false), 560)
     return () => window.clearTimeout(timer)
-  }, [pickingDouble])
+  }, [picking])
 
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-red-600">{d.error}</p>
@@ -283,11 +283,11 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || pickingDouble) && (
+      {state.kind === 'open' && (stageOpen || picking) && (
         <div
           className="stage-scrim"
-          data-on={pickingDouble}
-          onClick={() => setPickingDouble(false)}
+          data-on={picking != null}
+          onClick={() => setPicking(null)}
           aria-hidden="true"
         />
       )}
@@ -301,7 +301,7 @@ export function MySeasonPage() {
           />
           <div
             id="roster"
-            className={`scroll-mt-20 stage-stage ${pickingDouble ? 'stage-lit' : ''}`}
+            className={`scroll-mt-20 stage-stage ${picking ? 'stage-lit' : ''}`}
           >
             <RosterSection
               season={d.season}
@@ -313,8 +313,8 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
-              pickingDouble={pickingDouble}
-              onDoublePicked={() => setPickingDouble(false)}
+              picking={picking}
+              onPickingDone={() => setPicking(null)}
               compact
             />
           </div>
@@ -340,10 +340,9 @@ export function MySeasonPage() {
               userId={d.userId}
               plays={d.plays}
               setPlays={d.setPlays}
-              onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
-              pickingDouble={pickingDouble}
-              onPickDouble={() => setPickingDouble(true)}
+              picking={picking}
+              onPick={setPicking}
             />
           </div>
         </SeasonRecord>
@@ -820,11 +819,9 @@ function WeeklyPlaySection({
   userId,
   plays,
   setPlays,
-  onRosterChange,
   rosterVersion,
-  pickingDouble = false,
-  onPickDouble,
-  decisionRail = false,
+  picking = null,
+  onPick,
 }: {
   season: Season
   episodes: Episode[]
@@ -832,11 +829,9 @@ function WeeklyPlaySection({
   userId: string
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
-  onRosterChange: () => void
   rosterVersion: number
-  pickingDouble?: boolean
-  onPickDouble?: () => void
-  decisionRail?: boolean
+  picking?: 'double' | 'swap' | null
+  onPick?: (mode: 'double' | 'swap') => void
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const [roster, setRoster] = useState<RosterPick[]>([])
@@ -846,8 +841,8 @@ function WeeklyPlaySection({
       .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
       .then(setRoster)
       .catch(() => setRoster([]))
-    // rosterVersion: the Roster section can change the roster out from under
-    // the swap control that now lives here
+    // rosterVersion: a swap made on the roster changes what the Swap button
+    // here costs, and can use up the last free one
   }, [season.id, userId, rosterVersion])
 
   const episode = weekly.openEpisode
@@ -869,23 +864,38 @@ function WeeklyPlaySection({
         // but the buttons stay put rather than vanishing, so the week's shape
         // is still legible.
         const spentOnSwap = play?.advantage_type === 'roster_swap'
-        function pick(kind: 'roster' | 'ballot') {
-          if (spentOnSwap || weekly.busy) return
-          if (kind === 'roster') {
-            onPickDouble?.()
-            // Optional call: jsdom has no scrollIntoView, and this throwing in
-            // a click handler takes the whole render down with it.
-            document
-              .getElementById('roster')
-              ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+
+        // What a swap would cost right now. The first free_swaps of the season
+        // are free and leave the play untouched; after that a swap spends it
+        // like a double — and unlike a double, it cannot be taken back (#394).
+        const freeSwapsLeft = Math.max(
+          0,
+          season.free_swaps - roster.filter((r) => r.active_until_episode !== null).length,
+        )
+        const rosterIds = new Set(roster.map((r) => r.contestant_id))
+        const swapOffered =
+          !swapsLocked(season, episodes) &&
+          roster.some((r) => r.active_until_episode === null) &&
+          contestants.some((c) => !rosterIds.has(c.id) && c.eliminated_in_episode == null)
+
+        function pick(kind: 'roster' | 'ballot' | 'swap') {
+          if (weekly.busy) return
+          if (kind === 'ballot') {
+            if (spentOnSwap || ballotPlayed) return
+            void weekly.replace('double_vote_points')
             return
           }
-          if (ballotPlayed) return
-          void weekly.replace('double_vote_points')
+          if (kind === 'roster' && spentOnSwap) return
+          onPick?.(kind === 'roster' ? 'double' : 'swap')
+          // Optional call: jsdom has no scrollIntoView, and this throwing in
+          // a click handler takes the whole render down with it.
+          document
+            .getElementById('roster')
+            ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
         }
 
         const base =
-          'relative min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors'
+          'relative min-h-11 rounded-lg border px-2 py-2.5 text-sm font-semibold transition-colors'
         const chosen = 'border-ocean-600 bg-ocean-50 text-ocean-900 ring-1 ring-ocean-300'
         const idle = 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
         // Lightly dimmed, not disabled — the unchosen one is how you switch.
@@ -893,12 +903,12 @@ function WeeklyPlaySection({
 
         return (
           <div className="space-y-2">
-            <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <div className={`grid gap-2 ${swapOffered ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <button
                 type="button"
                 onClick={() => pick('roster')}
                 disabled={spentOnSwap}
-                aria-pressed={rosterPlayed || pickingDouble}
+                aria-pressed={rosterPlayed || picking === 'double'}
                 className={`${base} ${
                   rosterPlayed ? chosen : ballotPlayed || spentOnSwap ? dimmed : idle
                 }`}
@@ -916,6 +926,20 @@ function WeeklyPlaySection({
               >
                 Ballot ×2
               </button>
+              {swapOffered && (
+                <button
+                  type="button"
+                  onClick={() => pick('swap')}
+                  disabled={spentOnSwap}
+                  aria-pressed={picking === 'swap'}
+                  className={`${base} ${spentOnSwap ? chosen : idle}`}
+                >
+                  Swap
+                  <span className="block text-[11px] font-normal normal-case tracking-normal opacity-80">
+                    {freeSwapsLeft > 0 ? `${freeSwapsLeft} free` : 'uses play'}
+                  </span>
+                </button>
+              )}
             </div>
 
             {play && !spentOnSwap && (
@@ -929,183 +953,22 @@ function WeeklyPlaySection({
               </button>
             )}
 
-            {spentOnSwap && (
-              <p className="text-xs text-paper-ink-faded">
-                Your play went on a roster swap this episode.
-              </p>
-            )}
+            <p className="text-xs text-paper-ink-faded">
+              {spentOnSwap
+                ? 'Your play went on a roster swap this episode. A swap cannot be taken back.'
+                : freeSwapsLeft > 0
+                  ? 'A free swap does not use your play. Doubles can be taken back before the lock; a swap cannot.'
+                  : 'A swap now uses your play, and cannot be taken back.'}
+            </p>
           </div>
         )
       })()}
 
-      <RosterSwapCard
-        season={season}
-        episodes={episodes}
-        contestants={contestants}
-        userId={userId}
-        roster={roster}
-        setRoster={setRoster}
-        setPlays={setPlays}
-        weeklyPlay={play}
-        onRosterChange={onRosterChange}
-      />
-
-      <p className="text-xs text-paper-ink-faded">
-        A free roster swap does not use this play. Once free swaps are gone, a swap uses it automatically.
-      </p>
       {weekly.error && <p className="text-red-600 text-xs">{weekly.error}</p>}
       </div>
     </RecordSection>
   )
 }
-
-/**
- * Swap a roster member. Lives with the other weekly plays (rather than under
- * Roster, where it used to sit) because that is what it is: free for the first
- * `free_swaps`, and after that it spends the same single play as the doubles.
- */
-function RosterSwapCard({
-  season,
-  episodes,
-  contestants,
-  userId,
-  roster,
-  setRoster,
-  setPlays,
-  weeklyPlay,
-  onRosterChange,
-}: {
-  season: Season
-  episodes: Episode[]
-  contestants: Contestant[]
-  userId: string
-  roster: RosterPick[]
-  setRoster: React.Dispatch<React.SetStateAction<RosterPick[]>>
-  setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
-  weeklyPlay: AdvantagePlay | null | undefined
-  onRosterChange: () => void
-}) {
-  const [swapOld, setSwapOld] = useState('')
-  const [swapNew, setSwapNew] = useState('')
-  const [swapping, setSwapping] = useState(false)
-  const [swapError, setSwapError] = useState<string | null>(null)
-
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const activeRoster = roster.filter((r) => r.active_until_episode === null)
-  const swapsUsed = roster.filter((r) => r.active_until_episode !== null).length
-  const rosterContestantIds = new Set(roster.map((r) => r.contestant_id))
-  const swapCandidates = contestants.filter(
-    (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
-  )
-  const upcomingEpisodes = episodes.filter(
-    (e) => e.status !== 'scored' && new Date(e.picks_lock_at) > new Date(),
-  )
-
-  async function submitSwap() {
-    if (!swapOld || !swapNew) return
-    setSwapping(true)
-    setSwapError(null)
-    try {
-      // Swaps apply immediately from the next open episode (#9) — no episode choice
-      await api.post<RosterPick>(`/seasons/${season.id}/roster/swap`, {
-        old_contestant_id: swapOld,
-        new_contestant_id: swapNew,
-      })
-      // Roster changes and a swap credit gets spent — refresh both (#202).
-      const [picks, ownPlays] = await Promise.all([
-        api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
-        api.get<AdvantagePlay[]>(`/seasons/${season.id}/advantage-plays/${userId}`),
-      ])
-      setRoster(picks)
-      setPlays(ownPlays)
-      onRosterChange()
-      setSwapOld('')
-      setSwapNew('')
-    } catch (e) {
-      setSwapError(e instanceof Error ? e.message : 'Swap failed')
-    } finally {
-      setSwapping(false)
-    }
-  }
-
-  if (
-    season.status === 'completed' ||
-    swapsLocked(season, episodes) ||
-    upcomingEpisodes.length === 0 ||
-    swapCandidates.length === 0 ||
-    activeRoster.length === 0
-  ) {
-    return null
-  }
-
-  return (
-    <div id="swap" className="scroll-mt-20 space-y-2 border-t border-paper-line pt-3">
-      <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Roster Swap</p>
-      <p className="text-xs text-paper-ink-faded">
-        {swapsUsed < season.free_swaps
-          ? `Free swap${season.free_swaps - swapsUsed > 1 ? 's' : ''} left: ${
-              season.free_swaps - swapsUsed
-            }`
-          : weeklyPlay?.advantage_type === 'roster_swap'
-            ? 'Your advantage play already went on a swap this episode.'
-            : weeklyPlay
-              ? 'Your advantage play is on a double this episode — take it back above to swap.'
-              : 'This will use your advantage play for the episode.'}
-        {season.swap_lock_episode != null &&
-          ` · swaps lock at episode ${season.swap_lock_episode}`}
-      </p>
-      <div className="flex gap-2 flex-wrap">
-        <select
-          value={swapOld}
-          onChange={(e) => setSwapOld(e.target.value)}
-          aria-label="Roster member to drop"
-          className="flex-1 min-w-0 border border-sand-200 rounded-lg px-2 py-2 text-sm bg-white"
-        >
-          <option value="">Drop castaway…</option>
-          {activeRoster.map((pick) => {
-            const c = contestantMap.get(pick.contestant_id)
-            // Signify castaways already voted out (#248): native <option>
-            // styling is unreliable, so mark them in the label too.
-            const out = c?.eliminated_in_episode != null
-            return (
-              <option
-                key={pick.id}
-                value={pick.contestant_id}
-                style={out ? { color: '#9ca3af' } : undefined}
-              >
-                {c?.name ?? pick.contestant_id}
-                {out ? ' — out' : ''}
-              </option>
-            )
-          })}
-        </select>
-        <select
-          value={swapNew}
-          onChange={(e) => setSwapNew(e.target.value)}
-          aria-label="Castaway to add"
-          className="flex-1 min-w-0 border border-sand-200 rounded-lg px-2 py-2 text-sm bg-white"
-        >
-          <option value="">Add castaway…</option>
-          {swapCandidates.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <p className="text-xs text-paper-ink-faded">Takes effect from the next episode.</p>
-      {swapError && <p className="text-red-600 text-sm">{swapError}</p>}
-      <button
-        onClick={submitSwap}
-        disabled={!swapOld || !swapNew || swapping}
-        className="px-3 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40"
-      >
-        {swapping ? 'Swapping…' : 'Confirm Swap'}
-      </button>
-    </div>
-  )
-}
-
 
 function RosterSection({
   season,
@@ -1117,8 +980,8 @@ function RosterSection({
   setPlays,
   onRosterChange,
   rosterVersion,
-  pickingDouble = false,
-  onDoublePicked,
+  picking = null,
+  onPickingDone,
   compact = false,
 }: {
   season: Season
@@ -1130,15 +993,19 @@ function RosterSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
   rosterVersion: number
-  /** Roster rows answer the Advantage section's "who do you double?" (#398). */
-  pickingDouble?: boolean
-  onDoublePicked?: () => void
+  /** Roster rows answer the Advantage section's "who do you double?" (#398)
+   *  and "who do you drop?" (#394). */
+  picking?: 'double' | 'swap' | null
+  onPickingDone?: () => void
   compact?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Who is holding the stage light, for the beat after being chosen.
   const [lit, setLit] = useState<string | null>(null)
+  // Second half of a swap: who you tapped to drop, waiting on who replaces them.
+  const [dropping, setDropping] = useState<string | null>(null)
+  const [swapping, setSwapping] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Pre-lock, default to showing just your picks (so you can plan an advantage
@@ -1167,9 +1034,6 @@ function RosterSection({
     // Sole Survivor designation) so the SS stamp updates without a reload.
   }, [season.id, userId, rosterVersion])
 
-  // Deep-link from Advantages: /#swap scrolls the swap control into
-  // view once the roster has rendered (#248). Ref-guarded so editing the roster
-  // later doesn't yank the page back.
   const lockEpisode =
     season.roster_lock_episode != null
       ? episodes.find((e) => e.episode_number === season.roster_lock_episode)
@@ -1222,6 +1086,44 @@ function RosterSection({
     })
   }
 
+  // The other half of the Advantage section's Swap button (#394): who leaves is
+  // a roster decision, so it is made here, on the cards, and commits on the tap
+  // that names the replacement. There is no undo — see the Rules page.
+  const rosterContestantIds = new Set(roster.map((r) => r.contestant_id))
+  const swapCandidates = contestants.filter(
+    (c) => !rosterContestantIds.has(c.id) && c.eliminated_in_episode == null,
+  )
+  const swapCostsPlay = swappedRoster.length >= season.free_swaps
+
+  async function commitSwap(newContestantId: string) {
+    if (!dropping) return
+    setSwapping(true)
+    setError(null)
+    try {
+      // A paid swap needs the week's play free. A double already resting on it
+      // gets taken back first, the same way the two doubles replace each other.
+      if (swapCostsPlay && weekly.play) await weekly.takeBack(weekly.play)
+      await api.post<RosterPick>(`/seasons/${season.id}/roster/swap`, {
+        old_contestant_id: dropping,
+        new_contestant_id: newContestantId,
+      })
+      // The roster changed and the play may have been spent — refresh both (#202).
+      const [picks, ownPlays] = await Promise.all([
+        api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
+        api.get<AdvantagePlay[]>(`/seasons/${season.id}/advantage-plays/${userId}`),
+      ])
+      setRoster(picks)
+      setPlays(ownPlays)
+      onRosterChange()
+      setDropping(null)
+      onPickingDone?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Swap failed')
+    } finally {
+      setSwapping(false)
+    }
+  }
+
   async function submitRoster() {
     setSubmitting(true)
     setError(null)
@@ -1244,10 +1146,13 @@ function RosterSection({
     <RecordSection
       title={compact ? 'Roster' : 'My Roster'}
       right={
-        pickingDouble ? (
+        picking ? (
           <button
             type="button"
-            onClick={() => onDoublePicked?.()}
+            onClick={() => {
+              setDropping(null)
+              onPickingDone?.()
+            }}
             className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
           >
             Cancel
@@ -1255,9 +1160,13 @@ function RosterSection({
         ) : undefined
       }
     >
-      {pickingDouble && (
+      {picking && (
         <p className="border-b border-ember-200 bg-ember-50/80 px-4 py-2 text-xs font-semibold text-ember-800">
-          Choose a castaway to double this episode
+          {picking === 'double'
+            ? 'Choose a castaway to double this episode'
+            : dropping
+              ? `Choose who replaces ${contestantMap.get(dropping)?.name ?? 'them'} — this cannot be undone`
+              : 'Choose a castaway to drop'}
         </p>
       )}
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
@@ -1306,7 +1215,7 @@ function RosterSection({
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                 linkSuffix="?from=roster"
                 onSelect={
-                  pickingDouble
+                  picking === 'double'
                     ? () => {
                         setLit(pick.contestant_id)
                         void weekly.replace('double_roster_points', pick.contestant_id)
@@ -1316,12 +1225,18 @@ function RosterSection({
                           : 1300
                         window.setTimeout(() => {
                           setLit(null)
-                          onDoublePicked?.()
+                          onPickingDone?.()
                         }, hold)
                       }
-                    : undefined
+                    : picking === 'swap' && !swapping
+                      ? () => setDropping(pick.contestant_id)
+                      : undefined
                 }
-                selected={rosterDouble?.target_contestant_id === pick.contestant_id}
+                selected={
+                  picking === 'swap'
+                    ? dropping === pick.contestant_id
+                    : rosterDouble?.target_contestant_id === pick.contestant_id
+                }
                 lit={lit === pick.contestant_id}
                 expanded={!compact && expandedId === pick.contestant_id}
                 onToggle={compact ? undefined : () => toggleExpand(pick.contestant_id)}
@@ -1337,6 +1252,34 @@ function RosterSection({
               </RosterCard>
             ))}
           </ul>
+
+          {picking === 'swap' && dropping && (
+            <div className="space-y-2">
+              <p className="text-xs text-paper-ink-faded">
+                Takes effect this episode
+                {swapCostsPlay ? ' and uses your advantage play' : ' and is free'}.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {swapCandidates.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => void commitSwap(c.id)}
+                    disabled={swapping}
+                    className="flex items-center gap-2 p-3 rounded-lg border border-sand-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-ocean-500 disabled:opacity-40"
+                  >
+                    <ContestantAvatar
+                      name={c.name}
+                      imageUrl={c.image_url}
+                      size="sm"
+                      tribeColor={c.tribe_color}
+                      tribeName={c.tribe_name}
+                    />
+                    <span>{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!compact && nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
             <div className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
