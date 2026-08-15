@@ -129,6 +129,44 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
+  it('shows what each rostered castaway earned you, and links with that context', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      // 30 rather than the raw 15 — the breakdown folds a Double Roster
+      // Points play in, which is the whole point of showing it here.
+      if (path.includes('/scoring-breakdown/')) {
+        return { roster: [{ contestant_id: 'cast-1', points: 30 }], picks: [] }
+      }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const card = (await screen.findByRole('link', { name: /Kenzie/ })).closest('li')!
+    expect(within(card).getByText(/\+30/)).toBeVisible()
+    expect(screen.getByRole('link', { name: /Kenzie/ })).toHaveAttribute(
+      'href',
+      '/contestants/cast-1?from=roster',
+    )
+  })
+
   it('renders the Open state as Roster, Ballot, and Advantage', async () => {
     arrange([
       episode(1, 'scored', '2026-08-20T00:00:00Z'),
@@ -137,7 +175,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     const roster = await screen.findByRole('heading', { name: /^Roster/ })
-    const ballot = screen.getByRole('heading', { name: 'Ballot' })
+    const ballot = screen.getByRole('heading', { name: /^Ballot/ })
     const advantage = screen.getByRole('heading', { name: /Advantage/ })
     expect(ballot.closest('[data-layout="open-desktop"]')).not.toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: 'Episode decisions' })).not.toBeInTheDocument()
@@ -398,7 +436,7 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: 'Ballot' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: /^Ballot/ })).toBeVisible()
     expect(api.post).toHaveBeenCalledWith(
       '/seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
