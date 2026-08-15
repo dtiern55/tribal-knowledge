@@ -261,6 +261,8 @@ export function MySeasonPage() {
             />
           </section>
 
+          <hr className="braid-rule" />
+
           <section id="votes" aria-label="Ballot" className="scroll-mt-20">
             <PicksSection
               season={d.season}
@@ -273,6 +275,8 @@ export function MySeasonPage() {
               activeOnly
             />
           </section>
+
+          <hr className="braid-rule" />
 
           <section id="advantage" aria-label="Advantage" className="scroll-mt-20">
             <WeeklyPlaySection
