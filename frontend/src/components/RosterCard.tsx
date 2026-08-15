@@ -47,8 +47,9 @@ export function RosterCard({
   // the answer: the whole line is a button, and the link out is suppressed so
   // a tap can't wander off to the contestant page mid-decision.
   onSelect?: () => void
+  /** The play currently rests on this castaway — lit, quietly, all week. */
   selected?: boolean
-  /** Holding the stage light, just after being chosen. */
+  /** Taking the light right now, in the beat after being chosen. */
   lit?: boolean
   // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
   // given, a chevron reveals `children` below the row.
@@ -133,11 +134,7 @@ export function RosterCard({
           onClick={onSelect}
           aria-pressed={selected}
           className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-            lit
-              ? 'stage-pick'
-              : selected
-                ? 'bg-ocean-50 ring-1 ring-inset ring-ocean-300'
-                : 'hover:bg-black/[.03]'
+            lit ? 'stage-pick' : selected ? 'stage-held' : 'hover:bg-black/[.03]'
           }`}
         >
           {inner}
@@ -154,7 +151,11 @@ export function RosterCard({
           link to the contestant's page; stopPropagation keeps it from also
           expanding. The chevron remains the keyboard/screen-reader control. */}
       <div
-        className={`flex items-center gap-3 px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}
+        // The held light records the play, so it has to survive the picking
+        // mode ending rather than decorating the row only while choosing.
+        className={`flex items-center gap-3 px-3 py-2.5 ${selected ? 'stage-held' : ''} ${
+          onToggle ? 'cursor-pointer' : ''
+        }`}
         onClick={onToggle}
       >
         <Link

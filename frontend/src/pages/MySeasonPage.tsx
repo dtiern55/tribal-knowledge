@@ -279,7 +279,7 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <SeasonRecord>
+        <SeasonRecord glowOut={pickingDouble}>
           <RecordHead
             title={d.season.name}
             meta={`Episode ${state.episode.episode_number}`}
@@ -1294,7 +1294,7 @@ function RosterSection({
                         const hold = window.matchMedia('(prefers-reduced-motion: reduce)')
                           .matches
                           ? 0
-                          : 420
+                          : 1300
                         window.setTimeout(() => {
                           setLit(null)
                           onDoublePicked?.()
