@@ -120,6 +120,11 @@ never another player's ballot or identity.
 
 - Existing seasons read `season_scoring_event_types` and
   `season_prediction_score_types`, never newly tuned global template values.
+  A season still being played can be opted into a retune by a migration that
+  re-copies the templates into its snapshot; because nothing caches a score,
+  already-scored episodes recompute at the new values on the next read. Only
+  `status = 'active'` seasons are ever refreshed this way — completed seasons
+  stay time capsules.
 - Disabled event types are blocked from new entry but recorded events continue
   to score. Disabling is not retroactive.
 - Effective roster ranges, historical swap penalties, old targeted doubles,
