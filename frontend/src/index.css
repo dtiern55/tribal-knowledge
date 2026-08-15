@@ -74,10 +74,16 @@ body {
    Anchored to the element exactly like locked-night's glow, which means it
    scrolls with a long page. Deliberate: consistency between the two states is
    the point, and background-attachment: fixed is unreliable on iOS Safari.
-   If a tall page reads wrong, move BOTH states to a fixed pseudo-element. */
+   If a tall page reads wrong, move BOTH states to a fixed pseudo-element.
+
+   The radius is viewport-relative on purpose. A fixed 14rem circle vanished on
+   desktop: the sticky header covered the top of it and the rest sat out in the
+   right margin, ~144px clear of the content column at 1440px wide. 62vw tracks
+   the layout — ~240px on a phone, ~890px on a desktop — so the wash reaches the
+   content at every width. */
 .app-shell {
   background-image:
-    radial-gradient(circle at 100% 0%, rgb(213 98 27 / 7%), transparent 14rem),
+    radial-gradient(circle at 100% 0%, rgb(213 98 27 / 7%), transparent 62vw),
     linear-gradient(180deg, #faf7ef, #f4efe2);
 }
 
