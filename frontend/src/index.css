@@ -66,7 +66,7 @@ body {
 }
 
 /* Firelight (#392): the unlocked state is the daylight side of the same room
-   as locked-night. Same corner ember gesture, daylight strength — so the lock
+   as locked-night. Same corner ember gesture, daylight strength (12%) — so the lock
    reads as the sun going down rather than a repaint. background-image only,
    so the bg-sand-50 utility on the same element keeps supplying the color
    underneath and locked-night's `background` shorthand still overrides both.
@@ -83,7 +83,7 @@ body {
    content at every width. */
 .app-shell {
   background-image:
-    radial-gradient(circle at 100% 0%, rgb(213 98 27 / 7%), transparent 62vw),
+    radial-gradient(circle at 100% 0%, rgb(213 98 27 / 12%), transparent 62vw),
     linear-gradient(180deg, #faf7ef, #f4efe2);
 }
 
