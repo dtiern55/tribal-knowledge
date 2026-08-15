@@ -25,6 +25,9 @@ export function RosterCard({
   swappedInEpisode = null,
   right,
   linkSuffix = '',
+  onSelect,
+  selected = false,
+  lit = false,
   expanded = false,
   onToggle,
   children,
@@ -40,6 +43,14 @@ export function RosterCard({
   // can scope swiping to this roster and show what they earned you (#262).
   // Only My Season passes it — on another player's team it would be wrong.
   linkSuffix?: string
+  // While the Advantage section is asking who to double (#398) the row becomes
+  // the answer: the whole line is a button, and the link out is suppressed so
+  // a tap can't wander off to the contestant page mid-decision.
+  onSelect?: () => void
+  /** The play currently rests on this castaway — lit, quietly, all week. */
+  selected?: boolean
+  /** Taking the light right now, in the beat after being chosen. */
+  lit?: boolean
   // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
@@ -57,107 +68,129 @@ export function RosterCard({
         ? `Swapped in · episode ${swappedInEpisode}`
         : (contestant?.tribe_name ?? null)
 
+  const inner = (
+    <>
+      <span
+        className={`shrink-0 ${outEp != null ? 'opacity-60 grayscale' : ''}`}
+        title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+      >
+        <ContestantAvatar
+          name={contestant?.name ?? '—'}
+          imageUrl={contestant?.image_url ?? null}
+          square
+        />
+      </span>
+      <span className="min-w-0 text-left">
+        <span
+          className={`block truncate font-display text-base tracking-wide uppercase ${
+            outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
+          }`}
+        >
+          {contestant?.name ?? '—'}
+        </span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          {note && (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
+              {outEp == null && swappedInEpisode == null && contestant?.tribe_color && (
+                <span
+                  className="size-1.5 rounded-full ring-1 ring-black/15"
+                  style={{ backgroundColor: contestant.tribe_color }}
+                  aria-hidden
+                />
+              )}
+              {note}
+            </span>
+          )}
+          {isSoleSurvivor && (
+            <span
+              className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
+                ssWindowOpen
+                  ? 'border-stone-400 text-stone-500'
+                  : 'border-amber-500 bg-amber-400/20 text-amber-800'
+              }`}
+              title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
+            >
+              Sole Survivor
+            </span>
+          )}
+          {isDoubled && (
+            <span
+              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-ember-500 bg-ember-100 text-ember-800"
+              title="Double Roster Points is active for this episode"
+            >
+              ×2
+            </span>
+          )}
+        </span>
+      </span>
+    </>
+  )
+
+  // One wrapper for both modes. Rendering a <button> while choosing and a
+  // <div> otherwise made React replace the node when the mode ended, and a
+  // remounted element has no previous state to transition from — which is
+  // what read as the row clicking back into place. The visual layer stays
+  // put; only the interactive child inside it swaps.
   return (
     <li className="border-t border-paper-line first:border-t-0">
-      {/* Tapping the row opens the breakdown — that's where your own scoring
-          lives, including 2x roster points. The name and photograph stay a
-          link to the contestant's page; stopPropagation keeps it from also
-          expanding. The chevron remains the keyboard/screen-reader control. */}
       <div
-        className={`flex items-center gap-3 px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}
-        onClick={onToggle}
+        className={`stage-row flex items-center gap-3 ${
+          lit ? 'stage-pick' : selected ? 'stage-held' : onSelect ? '' : ''
+        } ${onSelect ? 'p-0' : `px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}`}
+        onClick={onSelect ? undefined : onToggle}
       >
-        <Link
-          to={`/contestants/${contestantId}${linkSuffix}`}
-          onClick={(e) => e.stopPropagation()}
-          className="flex min-w-0 flex-1 items-center gap-3"
-        >
-          <span
-            className={`shrink-0 ${outEp != null ? 'opacity-60 grayscale' : ''}`}
-            title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+        {onSelect ? (
+          <button
+            type="button"
+            onClick={onSelect}
+            aria-pressed={selected}
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
           >
-            <ContestantAvatar
-              name={contestant?.name ?? '—'}
-              imageUrl={contestant?.image_url ?? null}
-              square
-            />
-          </span>
-          <span className="min-w-0">
-            <span
-              className={`block truncate font-display text-base tracking-wide uppercase ${
-                outEp != null
-                  ? 'text-paper-ink-faded line-through decoration-1'
-                  : 'text-paper-ink'
-              }`}
+            {inner}
+            <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">{right}</span>
+          </button>
+        ) : (
+          <>
+            {/* Tapping the row opens the breakdown — that's where your own
+                scoring lives, including 2x roster points. The name and
+                photograph stay a link to the contestant's page;
+                stopPropagation keeps it from also expanding. The chevron
+                remains the keyboard/screen-reader control. */}
+            <Link
+              to={`/contestants/${contestantId}${linkSuffix}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex min-w-0 flex-1 items-center gap-3"
             >
-              {contestant?.name ?? '—'}
-            </span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-              {note && (
-                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
-                  {outEp == null && swappedInEpisode == null && contestant?.tribe_color && (
-                    <span
-                      className="size-1.5 rounded-full ring-1 ring-black/15"
-                      style={{ backgroundColor: contestant.tribe_color }}
-                      aria-hidden
-                    />
-                  )}
-                  {note}
-                </span>
-              )}
-              {isSoleSurvivor && (
-                <span
-                  className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
-                    ssWindowOpen
-                      ? 'border-stone-400 text-stone-500'
-                      : 'border-amber-500 bg-amber-400/20 text-amber-800'
-                  }`}
-                  title={
-                    ssWindowOpen
-                      ? `${ssTitle} — changeable until the designation locks`
-                      : ssTitle
-                  }
+              {inner}
+            </Link>
+            <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+              {right}
+              {onToggle && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggle()
+                  }}
+                  aria-expanded={expanded}
+                  aria-label="Toggle episode breakdown"
+                  className="-mr-1 p-1 text-paper-ink-faded hover:text-paper-ink"
                 >
-                  Sole Survivor
-                </span>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
               )}
-              {isDoubled && (
-                <span
-                  className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-ember-500 bg-ember-100 text-ember-800"
-                  title="Double Roster Points is active for this episode"
-                >
-                  ×2
-                </span>
-              )}
-            </span>
-          </span>
-        </Link>
-        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
-          {right}
-          {onToggle && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggle()
-              }}
-              aria-expanded={expanded}
-              aria-label="Toggle episode breakdown"
-              className="-mr-1 p-1 text-paper-ink-faded hover:text-paper-ink"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
-      {onToggle && expanded && children && (
+      {onToggle && expanded && children && !onSelect && (
         <div className="border-t border-paper-line px-3 py-3">{children}</div>
       )}
     </li>

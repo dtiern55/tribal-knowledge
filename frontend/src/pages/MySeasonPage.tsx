@@ -171,14 +171,55 @@ function useWeeklyPlay(
     }
   }
 
-  return { openEpisode: ep, play, locked, busy, error, spend, takeBack }
+  /** Swap the week's play for another one. */
+  async function replace(advantageType: string, targetContestantId?: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      if (play) {
+        await api.delete(`/advantage-plays/${play.id}`)
+        setPlays((prev) => prev.filter((p) => p.id !== play.id))
+      }
+      const created = await api.post<AdvantagePlay>(
+        `/seasons/${season.id}/advantage-plays`,
+        {
+          advantage_type: advantageType,
+          target_contestant_id: targetContestantId ?? null,
+        },
+      )
+      setPlays((prev) => [...prev, created])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Advantage failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return { openEpisode: ep, play, locked, busy, error, spend, takeBack, replace }
 }
 
 export function MySeasonPage() {
   const d = useMySeasonData()
+  // Choosing who to double happens on the roster itself, so the mode has to
+  // be visible to both the Advantage button that starts it and the Roster
+  // rows that answer it.
+  const [pickingDouble, setPickingDouble] = useState(false)
+  // Lags `pickingDouble` on the way out only. The record has to keep its
+  // overflow open until the halo has finished fading, or the glow is guillotined
+  // at the card edge the instant you pick.
+  const [stageOpen, setStageOpen] = useState(false)
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
+  useEffect(() => {
+    if (pickingDouble) {
+      setStageOpen(true)
+      return
+    }
+    const timer = window.setTimeout(() => setStageOpen(false), 560)
+    return () => window.clearTimeout(timer)
+  }, [pickingDouble])
+
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-red-600">{d.error}</p>
   if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
@@ -242,14 +283,26 @@ export function MySeasonPage() {
         />
       )}
 
+      {state.kind === 'open' && (stageOpen || pickingDouble) && (
+        <div
+          className="stage-scrim"
+          data-on={pickingDouble}
+          onClick={() => setPickingDouble(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {state.kind === 'open' && (
-        <SeasonRecord>
+        <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
-          <div id="roster" className="scroll-mt-20">
+          <div
+            id="roster"
+            className={`scroll-mt-20 stage-stage ${pickingDouble ? 'stage-lit' : ''}`}
+          >
             <RosterSection
               season={d.season}
               contestants={d.contestants}
@@ -260,6 +313,8 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
+              pickingDouble={pickingDouble}
+              onDoublePicked={() => setPickingDouble(false)}
               compact
             />
           </div>
@@ -287,6 +342,8 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
+              pickingDouble={pickingDouble}
+              onPickDouble={() => setPickingDouble(true)}
             />
           </div>
         </SeasonRecord>
@@ -765,6 +822,8 @@ function WeeklyPlaySection({
   setPlays,
   onRosterChange,
   rosterVersion,
+  pickingDouble = false,
+  onPickDouble,
   decisionRail = false,
 }: {
   season: Season
@@ -775,11 +834,12 @@ function WeeklyPlaySection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
   rosterVersion: number
+  pickingDouble?: boolean
+  onPickDouble?: () => void
   decisionRail?: boolean
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const [roster, setRoster] = useState<RosterPick[]>([])
-  const [target, setTarget] = useState('')
 
   useEffect(() => {
     api
@@ -793,80 +853,90 @@ function WeeklyPlaySection({
   const episode = weekly.openEpisode
   if (!episode || episode.is_finale || weekly.locked) return null
 
-  const activeRoster = roster.filter((pick) => pick.active_until_episode === null)
-  const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const play = weekly.play
 
   return (
     <RecordSection title="Advantage">
       <div className="space-y-3 px-4 py-3">
-      <div>
-        <p className="text-xs text-paper-ink-faded">
-          Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
-        </p>
-        <p className="mt-1"><RuleLink anchor="weekly-play">How weekly plays work</RuleLink></p>
-      </div>
+      <p className="text-xs text-paper-ink-faded">
+        Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
+      </p>
 
-      {play ? (
-        <div className="flex items-center justify-between gap-3 border border-paper-edge bg-white/50 px-3 py-2.5 rounded">
-          <p className="text-sm text-paper-ink">
-            <b>{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</b>
-            {play.target_contestant_id && (
-              <> · {contestantMap.get(play.target_contestant_id)?.name ?? 'Roster member'}</>
-            )}
-          </p>
-          {play.advantage_type !== 'roster_swap' && (
-            <button
-              onClick={() => void weekly.takeBack(play)}
-              disabled={weekly.busy}
-              className="text-sm font-medium text-ocean-700 hover:text-ocean-900"
-            >
-              Take back
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
+      {(() => {
+        const rosterPlayed = play?.advantage_type === 'double_roster_points'
+        const ballotPlayed = play?.advantage_type === 'double_vote_points'
+        // A paid swap spends the same play, so neither double is available —
+        // but the buttons stay put rather than vanishing, so the week's shape
+        // is still legible.
+        const spentOnSwap = play?.advantage_type === 'roster_swap'
+        function pick(kind: 'roster' | 'ballot') {
+          if (spentOnSwap || weekly.busy) return
+          if (kind === 'roster') {
+            onPickDouble?.()
+            // Optional call: jsdom has no scrollIntoView, and this throwing in
+            // a click handler takes the whole render down with it.
+            document
+              .getElementById('roster')
+              ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+            return
+          }
+          if (ballotPlayed) return
+          void weekly.replace('double_vote_points')
+        }
+
+        const base =
+          'relative min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors'
+        const chosen = 'border-ocean-600 bg-ocean-50 text-ocean-900 ring-1 ring-ocean-300'
+        const idle = 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
+        // Lightly dimmed, not disabled — the unchosen one is how you switch.
+        const dimmed = 'border-paper-edge bg-white/40 text-paper-ink-faded opacity-60'
+
+        return (
           <div className="space-y-2">
-            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Roster Points</p>
-            <p className="text-xs text-paper-ink-faded">Double one active castaway&apos;s episode points.</p>
-            <div className="flex gap-2">
-              <select
-                value={target}
-                onChange={(event) => setTarget(event.target.value)}
-                aria-label="Roster member to double"
-                className="flex-1 min-w-0 border border-sand-200 rounded-lg px-2 py-2 text-sm bg-white"
-              >
-                <option value="">Choose castaway…</option>
-                {activeRoster.map((pick) => (
-                  <option key={pick.id} value={pick.contestant_id}>
-                    {contestantMap.get(pick.contestant_id)?.name ?? '—'}
-                  </option>
-                ))}
-              </select>
+            <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <button
-                onClick={() => void weekly.spend('double_roster_points', target)}
-                disabled={weekly.busy || !target}
-                className="px-3 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40"
+                type="button"
+                onClick={() => pick('roster')}
+                disabled={spentOnSwap}
+                aria-pressed={rosterPlayed || pickingDouble}
+                className={`${base} ${
+                  rosterPlayed ? chosen : ballotPlayed || spentOnSwap ? dimmed : idle
+                }`}
               >
-                Use
+                Roster ×2
+              </button>
+              <button
+                type="button"
+                onClick={() => pick('ballot')}
+                disabled={spentOnSwap}
+                aria-pressed={ballotPlayed}
+                className={`${base} ${
+                  ballotPlayed ? chosen : rosterPlayed || spentOnSwap ? dimmed : idle
+                }`}
+              >
+                Ballot ×2
               </button>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Ballot Points</p>
-            <p className="text-xs text-paper-ink-faded">Double all points earned from your Ballot.</p>
-            <button
-              onClick={() => void weekly.spend('double_vote_points')}
-              disabled={weekly.busy}
-              className="w-full px-3 py-2 border border-ocean-300 text-ocean-800 text-sm font-medium rounded-lg disabled:opacity-40"
-            >
-              Use on ballot
-            </button>
+            {play && !spentOnSwap && (
+              <button
+                type="button"
+                onClick={() => void weekly.takeBack(play)}
+                disabled={weekly.busy}
+                className="text-xs font-medium text-paper-ink-faded underline underline-offset-2 hover:text-paper-ink"
+              >
+                Play nothing this episode
+              </button>
+            )}
+
+            {spentOnSwap && (
+              <p className="text-xs text-paper-ink-faded">
+                Your play went on a roster swap this episode.
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <RosterSwapCard
         season={season}
@@ -1047,6 +1117,8 @@ function RosterSection({
   setPlays,
   onRosterChange,
   rosterVersion,
+  pickingDouble = false,
+  onDoublePicked,
   compact = false,
 }: {
   season: Season
@@ -1058,10 +1130,15 @@ function RosterSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
   rosterVersion: number
+  /** Roster rows answer the Advantage section's "who do you double?" (#398). */
+  pickingDouble?: boolean
+  onDoublePicked?: () => void
   compact?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Who is holding the stage light, for the beat after being chosen.
+  const [lit, setLit] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Pre-lock, default to showing just your picks (so you can plan an advantage
@@ -1164,7 +1241,25 @@ function RosterSection({
 
 
   return (
-    <RecordSection title={compact ? 'Roster' : 'My Roster'}>
+    <RecordSection
+      title={compact ? 'Roster' : 'My Roster'}
+      right={
+        pickingDouble ? (
+          <button
+            type="button"
+            onClick={() => onDoublePicked?.()}
+            className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
+        ) : undefined
+      }
+    >
+      {pickingDouble && (
+        <p className="border-b border-ember-200 bg-ember-50/80 px-4 py-2 text-xs font-semibold text-ember-800">
+          Choose a castaway to double this episode
+        </p>
+      )}
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {hasRoster && !(windowOpen && editing) ? (
@@ -1210,6 +1305,24 @@ function RosterSection({
                 }
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                 linkSuffix="?from=roster"
+                onSelect={
+                  pickingDouble
+                    ? () => {
+                        setLit(pick.contestant_id)
+                        void weekly.replace('double_roster_points', pick.contestant_id)
+                        const hold = window.matchMedia('(prefers-reduced-motion: reduce)')
+                          .matches
+                          ? 0
+                          : 1300
+                        window.setTimeout(() => {
+                          setLit(null)
+                          onDoublePicked?.()
+                        }, hold)
+                      }
+                    : undefined
+                }
+                selected={rosterDouble?.target_contestant_id === pick.contestant_id}
+                lit={lit === pick.contestant_id}
                 expanded={!compact && expandedId === pick.contestant_id}
                 onToggle={compact ? undefined : () => toggleExpand(pick.contestant_id)}
               >
@@ -1690,8 +1803,14 @@ function PicksSection({
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5">
-                  <p className="mb-1 font-semibold text-jungle-800">
-                    Ballot saved for Episode {ep.episode_number}
+                  {/* Submitted is the state people look for, so it gets a mark
+                      and the strongest type in the section rather than a line
+                      of prose. */}
+                  <p className="mb-2 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jungle-700">
+                    <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                    Ballot submitted
                   </p>
                   {savedPicks.length < maxPicks && (
                     <p className="text-xs text-green-700 mb-3">
@@ -1699,7 +1818,7 @@ function PicksSection({
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col items-start gap-2">
                     {savedPicks.map((p) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
@@ -1746,9 +1865,6 @@ function PicksSection({
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
-                            const selectionOrder = isSelected
-                              ? [...epPending].indexOf(c.id) + 1
-                              : null
                             const isDoubled = ballotDoubled && isSelected
                             const maxed = !isSelected && epPending.size >= maxPicks
                             return (
@@ -1771,8 +1887,10 @@ function PicksSection({
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-xs text-white" aria-hidden="true">
-                                    {selectionOrder}
+                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-white" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M5 13l4 4L19 7" />
+                                    </svg>
                                   </span>
                                 )}
                                 {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
@@ -1837,7 +1955,6 @@ function PicksSection({
                   >
                     Edit ballot
                   </button>
-                  <span className="text-xs text-gray-500">Editable until the episode locks</span>
                 </div>
               ) : (
                 <div className={`flex gap-2 ${activeOnly ? 'lg:hidden' : ''}`}>
@@ -1890,10 +2007,12 @@ function PicksSection({
         title="Ballot"
         right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
       >
-        <p className="px-4 pt-2 text-sm text-paper-ink-faded">
-          Vote for the castaways you think will be eliminated.
-        </p>
-        {content}
+        <div className="px-4 py-3">
+          <p className="mb-3 text-sm text-paper-ink-faded">
+            Vote for the castaways you think will be eliminated.
+          </p>
+          {content}
+        </div>
       </RecordSection>
     )
   }

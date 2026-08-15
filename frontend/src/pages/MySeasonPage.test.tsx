@@ -233,13 +233,14 @@ describe('MySeasonPage state shell', () => {
     const charlie = within(ballot).getByRole('button', { name: 'Vote for Charlie' })
     await user.click(kenzie)
     await user.click(charlie)
-    expect(within(kenzie).getByText('1')).toBeVisible()
-    expect(within(charlie).getByText('2')).toBeVisible()
+    // Selection is a tick, not a rank — votes are unordered and equally weighted
+    expect(kenzie).toHaveAttribute('aria-pressed', 'true')
+    expect(charlie).toHaveAttribute('aria-pressed', 'true')
     expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
-    expect(await screen.findByText('Ballot saved for Episode 2')).toBeVisible()
+    expect(await screen.findByText('Ballot submitted')).toBeVisible()
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
     })
@@ -276,9 +277,17 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByRole('heading', { name: /Advantage/ })).toBeVisible()
-    expect(screen.getByText('Double Roster Points')).toBeVisible()
-    expect(screen.getByText('Double Ballot Points')).toBeVisible()
-    expect(screen.getByText(/Double all points earned from your Ballot/i)).toBeVisible()
+    // Two equal choices, named and nothing else — the roster double's target
+    // picker only appears once that play is chosen.
+    const rosterDouble = screen.getByRole('button', { name: 'Roster ×2' })
+    expect(rosterDouble).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
+    // Choosing who to double happens on the roster itself, not in a dropdown
+    // repeating five names already on screen.
+    expect(screen.queryByText('Choose a castaway to double this episode')).not.toBeInTheDocument()
+    await userEvent.click(rosterDouble)
+    expect(screen.getByText('Choose a castaway to double this episode')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
     expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
     expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
@@ -311,7 +320,11 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByTitle('Double Roster Points is active for this episode')).toHaveTextContent('×2')
-    expect(screen.getByText('Double Roster Points')).toBeVisible()
+    // The played double marks its own button rather than replacing the pair,
+    // and the other one stays reachable so it can be switched to.
+    expect(screen.getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Play nothing this episode' })).toBeVisible()
   })
 
   it('marks a roster swap as the weekly play after free swaps are used', async () => {

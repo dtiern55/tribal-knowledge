@@ -9,9 +9,20 @@ import type { ReactNode } from 'react'
  * Advantage now sit on one sheet as ruled sections of a single record, so
  * there is nothing to be disjointed *between*.
  */
-export function SeasonRecord({ children }: { children: ReactNode }) {
+export function SeasonRecord({
+  children,
+  glowOut = false,
+}: {
+  children: ReactNode
+  /** Let a lit row's halo out of the record, which otherwise clips it. */
+  glowOut?: boolean
+}) {
   return (
-    <div className="record-paper overflow-hidden rounded-lg border border-paper-edge shadow-sm">
+    <div
+      className={`record-paper rounded-lg border border-paper-edge shadow-sm ${
+        glowOut ? 'stage-open' : 'overflow-hidden'
+      }`}
+    >
       {children}
     </div>
   )
@@ -60,8 +71,8 @@ export function RecordSection({
 }) {
   return (
     <section aria-label={title}>
-      <div className="flex items-baseline gap-2 border-b border-paper-edge px-4 pt-3 pb-1">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-paper-ink-faded">
+      <div className="flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
+        <h2 className="text-xs font-extrabold uppercase tracking-[0.2em] text-paper-ink">
           {title}
         </h2>
         {right && <span className="ml-auto">{right}</span>}
