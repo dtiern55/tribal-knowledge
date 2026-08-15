@@ -780,6 +780,9 @@ function WeeklyPlaySection({
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [target, setTarget] = useState('')
+  // Which double is being set up. The roster one needs a castaway, so its
+  // picker waits until you've said that's the play you want.
+  const [choice, setChoice] = useState<'roster' | null>(null)
 
   useEffect(() => {
     api
@@ -800,12 +803,9 @@ function WeeklyPlaySection({
   return (
     <RecordSection title="Advantage">
       <div className="space-y-3 px-4 py-3">
-      <div>
-        <p className="text-xs text-paper-ink-faded">
-          Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
-        </p>
-        <p className="mt-1"><RuleLink anchor="weekly-play">How weekly plays work</RuleLink></p>
-      </div>
+      <p className="text-xs text-paper-ink-faded">
+        Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
+      </p>
 
       {play ? (
         <div className="flex items-center justify-between gap-3 border border-paper-edge bg-white/50 px-3 py-2.5 rounded">
@@ -826,16 +826,37 @@ function WeeklyPlaySection({
           )}
         </div>
       ) : (
-        <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
-          <div className="space-y-2">
-            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Roster Points</p>
-            <p className="text-xs text-paper-ink-faded">Double one active castaway&apos;s episode points.</p>
+        <div className="space-y-2">
+          <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <button
+              type="button"
+              onClick={() => setChoice(choice === 'roster' ? null : 'roster')}
+              aria-pressed={choice === 'roster'}
+              className={`min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                choice === 'roster'
+                  ? 'border-ocean-600 bg-ocean-600 text-white'
+                  : 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
+              }`}
+            >
+              Double Roster Points
+            </button>
+            <button
+              type="button"
+              onClick={() => void weekly.spend('double_vote_points')}
+              disabled={weekly.busy}
+              className="min-h-11 rounded-lg border border-ocean-300 bg-white/60 px-3 py-2.5 text-sm font-semibold text-ocean-800 transition-colors hover:border-ocean-500 disabled:opacity-40"
+            >
+              Double Ballot Points
+            </button>
+          </div>
+
+          {choice === 'roster' && (
             <div className="flex gap-2">
               <select
                 value={target}
                 onChange={(event) => setTarget(event.target.value)}
                 aria-label="Roster member to double"
-                className="flex-1 min-w-0 border border-sand-200 rounded-lg px-2 py-2 text-sm bg-white"
+                className="min-w-0 flex-1 rounded-lg border border-paper-edge bg-white px-2 py-2 text-sm"
               >
                 <option value="">Choose castaway…</option>
                 {activeRoster.map((pick) => (
@@ -847,24 +868,12 @@ function WeeklyPlaySection({
               <button
                 onClick={() => void weekly.spend('double_roster_points', target)}
                 disabled={weekly.busy || !target}
-                className="px-3 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40"
+                className="rounded-lg bg-ocean-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
               >
                 Use
               </button>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Ballot Points</p>
-            <p className="text-xs text-paper-ink-faded">Double all points earned from your Ballot.</p>
-            <button
-              onClick={() => void weekly.spend('double_vote_points')}
-              disabled={weekly.busy}
-              className="w-full px-3 py-2 border border-ocean-300 text-ocean-800 text-sm font-medium rounded-lg disabled:opacity-40"
-            >
-              Use on ballot
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -1690,8 +1699,14 @@ function PicksSection({
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5">
-                  <p className="mb-1 font-semibold text-jungle-800">
-                    Ballot saved for Episode {ep.episode_number}
+                  {/* Submitted is the state people look for, so it gets a mark
+                      and the strongest type in the section rather than a line
+                      of prose. */}
+                  <p className="mb-2 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jungle-700">
+                    <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                    Ballot submitted
                   </p>
                   {savedPicks.length < maxPicks && (
                     <p className="text-xs text-green-700 mb-3">
@@ -1746,9 +1761,6 @@ function PicksSection({
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
-                            const selectionOrder = isSelected
-                              ? [...epPending].indexOf(c.id) + 1
-                              : null
                             const isDoubled = ballotDoubled && isSelected
                             const maxed = !isSelected && epPending.size >= maxPicks
                             return (
@@ -1771,8 +1783,10 @@ function PicksSection({
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-xs text-white" aria-hidden="true">
-                                    {selectionOrder}
+                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-white" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M5 13l4 4L19 7" />
+                                    </svg>
                                   </span>
                                 )}
                                 {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
@@ -1837,7 +1851,6 @@ function PicksSection({
                   >
                     Edit ballot
                   </button>
-                  <span className="text-xs text-gray-500">Editable until the episode locks</span>
                 </div>
               ) : (
                 <div className={`flex gap-2 ${activeOnly ? 'lg:hidden' : ''}`}>
@@ -1890,10 +1903,12 @@ function PicksSection({
         title="Ballot"
         right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
       >
-        <p className="px-4 pt-2 text-sm text-paper-ink-faded">
-          Vote for the castaways you think will be eliminated.
-        </p>
-        {content}
+        <div className="px-4 py-3">
+          <p className="mb-3 text-sm text-paper-ink-faded">
+            Vote for the castaways you think will be eliminated.
+          </p>
+          {content}
+        </div>
       </RecordSection>
     )
   }

@@ -233,13 +233,14 @@ describe('MySeasonPage state shell', () => {
     const charlie = within(ballot).getByRole('button', { name: 'Vote for Charlie' })
     await user.click(kenzie)
     await user.click(charlie)
-    expect(within(kenzie).getByText('1')).toBeVisible()
-    expect(within(charlie).getByText('2')).toBeVisible()
+    // Selection is a tick, not a rank — votes are unordered and equally weighted
+    expect(kenzie).toHaveAttribute('aria-pressed', 'true')
+    expect(charlie).toHaveAttribute('aria-pressed', 'true')
     expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
-    expect(await screen.findByText('Ballot saved for Episode 2')).toBeVisible()
+    expect(await screen.findByText('Ballot submitted')).toBeVisible()
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
     })
@@ -276,9 +277,14 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByRole('heading', { name: /Advantage/ })).toBeVisible()
-    expect(screen.getByText('Double Roster Points')).toBeVisible()
-    expect(screen.getByText('Double Ballot Points')).toBeVisible()
-    expect(screen.getByText(/Double all points earned from your Ballot/i)).toBeVisible()
+    // Two equal choices, named and nothing else — the roster double's target
+    // picker only appears once that play is chosen.
+    const rosterDouble = screen.getByRole('button', { name: 'Double Roster Points' })
+    expect(rosterDouble).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Double Ballot Points' })).toBeVisible()
+    expect(screen.queryByLabelText('Roster member to double')).not.toBeInTheDocument()
+    await userEvent.click(rosterDouble)
+    expect(screen.getByLabelText('Roster member to double')).toBeVisible()
     expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
     expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)

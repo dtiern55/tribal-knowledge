@@ -60,8 +60,8 @@ export function RecordSection({
 }) {
   return (
     <section aria-label={title}>
-      <div className="flex items-baseline gap-2 border-b border-paper-edge px-4 pt-3 pb-1">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-paper-ink-faded">
+      <div className="flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
+        <h2 className="text-xs font-extrabold uppercase tracking-[0.2em] text-paper-ink">
           {title}
         </h2>
         {right && <span className="ml-auto">{right}</span>}
