@@ -204,6 +204,10 @@ def get_contestant_performance(
                 "eliminated_in_episode": elim_ep,
                 "tribe_name": c["tribe_name"],
                 "tribe_color": c["tribe_color"],
+                "age": c["age"],
+                "occupation": c["occupation"],
+                "hometown": c["hometown"],
+                "bio": c["bio"],
                 "total_points": sum(e["points"] for e in episodes),
                 "episodes": episodes,
             }
