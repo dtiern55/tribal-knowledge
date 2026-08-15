@@ -204,9 +204,22 @@ export function MySeasonPage() {
   // be visible to both the Advantage button that starts it and the Roster
   // rows that answer it.
   const [pickingDouble, setPickingDouble] = useState(false)
+  // Lags `pickingDouble` on the way out only. The record has to keep its
+  // overflow open until the halo has finished fading, or the glow is guillotined
+  // at the card edge the instant you pick.
+  const [stageOpen, setStageOpen] = useState(false)
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
+  useEffect(() => {
+    if (pickingDouble) {
+      setStageOpen(true)
+      return
+    }
+    const timer = window.setTimeout(() => setStageOpen(false), 560)
+    return () => window.clearTimeout(timer)
+  }, [pickingDouble])
+
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-red-600">{d.error}</p>
   if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
@@ -270,22 +283,26 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && pickingDouble && (
+      {state.kind === 'open' && (stageOpen || pickingDouble) && (
         <div
           className="stage-scrim"
+          data-on={pickingDouble}
           onClick={() => setPickingDouble(false)}
           aria-hidden="true"
         />
       )}
 
       {state.kind === 'open' && (
-        <SeasonRecord glowOut={pickingDouble}>
+        <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
-          <div id="roster" className={`scroll-mt-20 ${pickingDouble ? 'stage-lit' : ''}`}>
+          <div
+            id="roster"
+            className={`scroll-mt-20 stage-stage ${pickingDouble ? 'stage-lit' : ''}`}
+          >
             <RosterSection
               season={d.season}
               contestants={d.contestants}
