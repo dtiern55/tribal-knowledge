@@ -94,6 +94,7 @@ def get_contestant_performance(
         with conn.cursor() as cur:
             cur.execute(
                 "select id, name, image_url, placement, season_id,"
+                " age, occupation, hometown, bio,"
                 " (select t.name from contestant_tribes ct"
                 "  join tribes t on t.id = ct.tribe_id"
                 "  where ct.contestant_id = contestants.id"

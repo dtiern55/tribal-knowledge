@@ -308,6 +308,10 @@ export interface ContestantPerformance {
   eliminated_in_episode: number | null
   tribe_name: string | null
   tribe_color: string | null
+  age: number | null
+  occupation: string | null
+  hometown: string | null
+  bio: string | null
   total_points: number
   episodes: ContestantEpisodeStat[]
 }

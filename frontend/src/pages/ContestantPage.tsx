@@ -56,6 +56,12 @@ export function ContestantPage() {
   if (!perf) return <Notice title="Contestant not found"><Link className="text-ocean-700 underline" to={backHref}>Return to the cast</Link></Notice>
 
   const eliminated = perf.eliminated_in_episode != null
+  // Any of the three can be missing for a season imported before #262
+  const bioFacts = [
+    perf.age != null && `${perf.age}`,
+    perf.occupation,
+    perf.hometown,
+  ].filter((fact): fact is string => Boolean(fact))
   const scoredEpisodes = perf.episodes.filter((episode) => episode.events.some((event) => event.points !== 0 || event.token_value !== 0))
   const bestEpisode = perf.episodes.reduce<(typeof perf.episodes)[number] | null>(
     (best, episode) => best == null || episode.points > best.points ? episode : best,
@@ -87,9 +93,16 @@ export function ContestantPage() {
             <span aria-hidden>·</span>
             <Points value={perf.total_points} suffix="season points" />
           </div>
-          <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-500">
-            Biography details have not been added for this castaway yet.
-          </p>
+          {bioFacts.length > 0 && (
+            <p className="mt-2 text-sm text-gray-600">{bioFacts.join(' · ')}</p>
+          )}
+          {perf.bio ? (
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-600">{perf.bio}</p>
+          ) : bioFacts.length === 0 ? (
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-500">
+              Biography details have not been added for this castaway yet.
+            </p>
+          ) : null}
         </div>
       </header>
 

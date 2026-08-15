@@ -37,8 +37,14 @@ uv run python scripts/use_nicknames.py 50 --our-season 50
 uv run python scripts/use_nicknames.py 50 --our-season 50 --apply
 
 # Match and load headshots; --replace updates already populated images.
+# --only NAME redoes a single castaway whose crop came out wrong.
 uv run python scripts/load_headshots.py 50 --our-season 50
 uv run python scripts/load_headshots.py 50 --our-season 50 --apply
+
+# Load age, occupation, and hometown from survivoR (#262). The prose bio has
+# no importable source and stays hand-written.
+uv run python scripts/load_bios.py 50 --our-season 50
+uv run python scripts/load_bios.py 50 --our-season 50 --apply
 ```
 
 These scripts authenticate through the normal producer account. Required
