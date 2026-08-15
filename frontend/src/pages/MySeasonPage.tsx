@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { Link } from 'react-router'
+import { AdvantageMark } from '../components/AdvantageMark'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
@@ -171,7 +172,31 @@ function useWeeklyPlay(
     }
   }
 
-  return { openEpisode: ep, play, locked, busy, error, spend, takeBack }
+  /** Swap the week's play for another one. */
+  async function replace(advantageType: string, targetContestantId?: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      if (play) {
+        await api.delete(`/advantage-plays/${play.id}`)
+        setPlays((prev) => prev.filter((p) => p.id !== play.id))
+      }
+      const created = await api.post<AdvantagePlay>(
+        `/seasons/${season.id}/advantage-plays`,
+        {
+          advantage_type: advantageType,
+          target_contestant_id: targetContestantId ?? null,
+        },
+      )
+      setPlays((prev) => [...prev, created])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Advantage failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return { openEpisode: ep, play, locked, busy, error, spend, takeBack, replace }
 }
 
 export function MySeasonPage() {
@@ -807,75 +832,119 @@ function WeeklyPlaySection({
         Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
       </p>
 
-      {play ? (
-        <div className="flex items-center justify-between gap-3 border border-paper-edge bg-white/50 px-3 py-2.5 rounded">
-          <p className="text-sm text-paper-ink">
-            <b>{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</b>
-            {play.target_contestant_id && (
-              <> · {contestantMap.get(play.target_contestant_id)?.name ?? 'Roster member'}</>
-            )}
-          </p>
-          {play.advantage_type !== 'roster_swap' && (
-            <button
-              onClick={() => void weekly.takeBack(play)}
-              disabled={weekly.busy}
-              className="text-sm font-medium text-ocean-700 hover:text-ocean-900"
-            >
-              Take back
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            <button
-              type="button"
-              onClick={() => setChoice(choice === 'roster' ? null : 'roster')}
-              aria-pressed={choice === 'roster'}
-              className={`min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
-                choice === 'roster'
-                  ? 'border-ocean-600 bg-ocean-600 text-white'
-                  : 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
-              }`}
-            >
-              Roster ×2
-            </button>
-            <button
-              type="button"
-              onClick={() => void weekly.spend('double_vote_points')}
-              disabled={weekly.busy}
-              className="min-h-11 rounded-lg border border-ocean-300 bg-white/60 px-3 py-2.5 text-sm font-semibold text-ocean-800 transition-colors hover:border-ocean-500 disabled:opacity-40"
-            >
-              Ballot ×2
-            </button>
-          </div>
+      {(() => {
+        const rosterPlayed = play?.advantage_type === 'double_roster_points'
+        const ballotPlayed = play?.advantage_type === 'double_vote_points'
+        // A paid swap spends the same play, so neither double is available —
+        // but the buttons stay put rather than vanishing, so the week's shape
+        // is still legible.
+        const spentOnSwap = play?.advantage_type === 'roster_swap'
+        const doubled = rosterPlayed
+          ? contestantMap.get(play?.target_contestant_id ?? '')
+          : undefined
 
-          {choice === 'roster' && (
-            <div className="flex gap-2">
-              <select
-                value={target}
-                onChange={(event) => setTarget(event.target.value)}
-                aria-label="Roster member to double"
-                className="min-w-0 flex-1 rounded-lg border border-paper-edge bg-white px-2 py-2 text-sm"
-              >
-                <option value="">Choose castaway…</option>
-                {activeRoster.map((pick) => (
-                  <option key={pick.id} value={pick.contestant_id}>
-                    {contestantMap.get(pick.contestant_id)?.name ?? '—'}
-                  </option>
-                ))}
-              </select>
+        function pick(kind: 'roster' | 'ballot') {
+          if (spentOnSwap || weekly.busy) return
+          if (kind === 'roster') {
+            // Chosen or not, this opens the picker: choosing it is picking a
+            // castaway, and re-choosing it is changing which one.
+            setTarget(play?.target_contestant_id ?? '')
+            setChoice(choice === 'roster' ? null : 'roster')
+            return
+          }
+          setChoice(null)
+          if (ballotPlayed) return
+          void weekly.replace('double_vote_points')
+        }
+
+        // pr-12 on a marked button keeps the label clear of its mark.
+        const base =
+          'relative min-h-11 rounded-lg border py-2.5 text-sm font-semibold transition-colors'
+        const room = (marked: boolean) => (marked ? 'pl-3 pr-12' : 'px-3')
+        const chosen = 'border-ocean-600 bg-ocean-50 text-ocean-900 ring-1 ring-ocean-300'
+        const idle = 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
+        // Lightly dimmed, not disabled — the unchosen one is how you switch.
+        const dimmed = 'border-paper-edge bg-white/40 text-paper-ink-faded opacity-60'
+
+        return (
+          <div className="space-y-2">
+            <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <button
-                onClick={() => void weekly.spend('double_roster_points', target)}
-                disabled={weekly.busy || !target}
-                className="rounded-lg bg-ocean-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+                type="button"
+                onClick={() => pick('roster')}
+                disabled={spentOnSwap}
+                aria-pressed={rosterPlayed}
+                className={`${base} ${room(rosterPlayed)} ${
+                  rosterPlayed ? chosen : ballotPlayed || spentOnSwap ? dimmed : idle
+                }`}
               >
-                Use
+                Roster ×2
+                {rosterPlayed && doubled && <AdvantageMark contestant={doubled} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => pick('ballot')}
+                disabled={spentOnSwap}
+                aria-pressed={ballotPlayed}
+                className={`${base} ${room(ballotPlayed)} ${
+                  ballotPlayed ? chosen : rosterPlayed || spentOnSwap ? dimmed : idle
+                }`}
+              >
+                Ballot ×2
+                {ballotPlayed && <AdvantageMark />}
               </button>
             </div>
-          )}
-        </div>
-      )}
+
+            {choice === 'roster' && !spentOnSwap && (
+              <div className="flex gap-2">
+                <select
+                  value={target}
+                  onChange={(event) => setTarget(event.target.value)}
+                  aria-label="Roster member to double"
+                  className="min-w-0 flex-1 rounded-lg border border-paper-edge bg-white px-2 py-2 text-sm"
+                >
+                  <option value="">Choose castaway…</option>
+                  {activeRoster.map((pickRow) => (
+                    <option key={pickRow.id} value={pickRow.contestant_id}>
+                      {contestantMap.get(pickRow.contestant_id)?.name ?? '—'}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    void weekly.replace('double_roster_points', target)
+                    setChoice(null)
+                  }}
+                  disabled={weekly.busy || !target}
+                  className="rounded-lg bg-ocean-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+                >
+                  {rosterPlayed ? 'Change' : 'Use'}
+                </button>
+              </div>
+            )}
+
+            {play && !spentOnSwap && (
+              <button
+                type="button"
+                onClick={() => {
+                  setChoice(null)
+                  void weekly.takeBack(play)
+                }}
+                disabled={weekly.busy}
+                className="text-xs font-medium text-paper-ink-faded underline underline-offset-2 hover:text-paper-ink"
+              >
+                Play nothing this episode
+              </button>
+            )}
+
+            {spentOnSwap && (
+              <p className="text-xs text-paper-ink-faded">
+                Your play went on a roster swap this episode.
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
       <RosterSwapCard
         season={season}

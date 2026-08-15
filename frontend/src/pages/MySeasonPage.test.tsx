@@ -317,7 +317,11 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByTitle('Double Roster Points is active for this episode')).toHaveTextContent('×2')
-    expect(screen.getByText('Double Roster Points')).toBeVisible()
+    // The played double marks its own button rather than replacing the pair,
+    // and the other one stays reachable so it can be switched to.
+    expect(screen.getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Play nothing this episode' })).toBeVisible()
   })
 
   it('marks a roster swap as the weekly play after free swaps are used', async () => {
