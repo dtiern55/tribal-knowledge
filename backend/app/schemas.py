@@ -44,6 +44,11 @@ class Contestant(BaseModel):
     # Current tribe (#212): None until tribes are synced / for pre-import seasons
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
+    # Cast bio (#262): imported from survivoR, except the hand-written blurb
+    age: Optional[int] = None
+    occupation: Optional[str] = None
+    hometown: Optional[str] = None
+    bio: Optional[str] = None
     created_at: datetime
 
 
@@ -297,6 +302,10 @@ class ContestantPerformance(BaseModel):
     eliminated_in_episode: Optional[int] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
+    age: Optional[int] = None
+    occupation: Optional[str] = None
+    hometown: Optional[str] = None
+    bio: Optional[str] = None
     total_points: int
     episodes: list[ContestantEpisodeStat]
 
@@ -323,6 +332,10 @@ class ContestantUpdateRequest(BaseModel):
     name: Optional[str] = None
     placement: Optional[int] = Field(default=None, gt=0)
     image_url: Optional[str] = None
+    age: Optional[int] = Field(default=None, gt=0)
+    occupation: Optional[str] = None
+    hometown: Optional[str] = None
+    bio: Optional[str] = None
 
 
 class EpisodeCreateRequest(BaseModel):
