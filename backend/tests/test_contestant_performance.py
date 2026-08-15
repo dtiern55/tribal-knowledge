@@ -89,3 +89,32 @@ def test_contestant_performance_token_only_event(client, db_conn):
     ev = r.json()["episodes"][0]["events"][0]
     assert ev["points"] == 0
     assert ev["token_value"] == 5
+
+
+@pytest.mark.integration
+def test_contestant_performance_includes_bio(client, db_conn):
+    """The bio columns reach the response, not just the query (#262).
+
+    They were first added to the select alone, and the endpoint builds its
+    response as an explicit dict — so every field came back null.
+    """
+    season = insert_season(db_conn)
+    c = insert_contestant(db_conn, season["id"], "Natalia")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update contestants set age = %s, occupation = %s, hometown = %s,"
+            " bio = %s where id = %s",
+            [
+                26,
+                "Industrial Engineer",
+                "Irvine, California",
+                "Two sentences.",
+                c["id"],
+            ],
+        )
+
+    data = client.get(f"/contestants/{c['id']}/performance").json()
+    assert data["age"] == 26
+    assert data["occupation"] == "Industrial Engineer"
+    assert data["hometown"] == "Irvine, California"
+    assert data["bio"] == "Two sentences."
