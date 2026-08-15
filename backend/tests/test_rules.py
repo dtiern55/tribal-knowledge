@@ -20,9 +20,27 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     # Placement scores like any other contestant event now, not as a prediction.
     assert by_type["won_season"]["point_value"] == 50
     assert by_type["made_final_tribal"]["point_value"] == 30
+    assert by_type["go_on_journey"]["point_value"] == 4
+    assert by_type["play_other_advantage"]["point_value"] == 8
+    assert by_type["play_idol"]["point_value"] == 10
+    assert by_type["votes_blocked_by_idol"]["point_value"] == 2
+    assert by_type["votes_blocked_by_idol"]["is_per_unit"] is True
+    assert by_type["idol_played_successfully"]["point_value"] == 5
+    assert by_type["episode_title_quote"]["point_value"] == 3
+    assert by_type["read_treemail_or_instructions"]["point_value"] == 3
+    assert by_type["read_treemail_or_instructions"]["is_per_unit"] is True
+    assert by_type["jeff_thats_how_you_do_it"]["point_value"] == 5
+    assert by_type["play_idol_nullifier"]["point_value"] == 15
+    assert by_type["fake_idol_played"]["point_value"] == 12
+    assert "use_extra_vote" not in by_type
+    assert "use_steal_a_vote" not in by_type
 
     pred = {p["key"]: p for p in data["prediction_scores"]}
-    assert pred["correct_winner_vote"]["point_value"] == 30
+    assert pred["correct_elimination"]["point_value"] == 16
+    assert pred["correct_elimination"]["postmerge_point_value"] == 20
+    assert pred["correct_winner_vote"]["point_value"] == 40
+    assert pred["correct_early_boot"]["point_value"] == 24
+    assert pred["correct_fire_loss"]["point_value"] == 24
     assert "sole_survivor_win" not in pred
 
     adv = {a["advantage_type"] for a in data["advantages"]}

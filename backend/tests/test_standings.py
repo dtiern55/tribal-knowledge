@@ -124,7 +124,7 @@ def test_scoring_breakdown_shape(client, db_conn, current_user):
             "episode_id": str(ep["id"]),
             "contestant_id": str(c["id"]),
             "correct": True,
-            "points": 15,
+            "points": 16,
         }
     ]
 
@@ -141,12 +141,12 @@ def test_standings_aggregates_components(client, db_conn):
     insert_roster_pick(db_conn, user["id"], season["id"], rostered["id"])
     insert_scoring_event(db_conn, ep["id"], rostered["id"], "win_individual_immunity")
 
-    # elimination: correct pre-merge pick +15
+    # elimination: correct pre-merge pick +16
     boot = insert_contestant(db_conn, season["id"], "Boot", placement=5)
     insert_elimination_pick(db_conn, user["id"], ep["id"], boot["id"])
     insert_elimination(db_conn, ep["id"], boot["id"])
 
-    # finale ballot: winner vote correct +30 (winner isn't rostered, so no
+    # finale ballot: winner vote correct +40 (winner isn't rostered, so no
     # roster-placement points).
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_finale_prediction(db_conn, user["id"], season["id"], winner=winner["id"])
@@ -155,9 +155,9 @@ def test_standings_aggregates_components(client, db_conn):
     assert r.status_code == 200
     entry = r.json()[0]
     assert entry["roster_points"] == 15
-    assert entry["elimination_points"] == 15
-    assert entry["finale_points"] == 30
-    assert entry["total_points"] == 60
+    assert entry["elimination_points"] == 16
+    assert entry["finale_points"] == 40
+    assert entry["total_points"] == 71
 
 
 @pytest.mark.integration

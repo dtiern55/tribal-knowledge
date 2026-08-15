@@ -25,6 +25,7 @@ def _build(**overrides):
         "vote_history": [],
         "boot_order": [],
         "challenge_results": [],
+        "journeys": [],
         "advantage_movement": [],
         "advantage_details": [],
         "castaways": [],
@@ -141,6 +142,7 @@ def test_advantage_lifecycle():
             "advantage_id": 1,
             "event": "Played",
             "success": "Yes",
+            "votes_nullified": 3,
         },
         {
             "version_season": S,
@@ -161,9 +163,25 @@ def test_advantage_lifecycle():
     ]
     p = _build(advantage_movement=moves, advantage_details=details)
     assert len(_events(p, "acquire_active_idol")) == 1
+    assert len(_events(p, "play_idol")) == 1
     assert len(_events(p, "idol_played_successfully")) == 1
-    assert len(_events(p, "use_steal_a_vote")) == 1
+    assert _events(p, "votes_blocked_by_idol")[0]["quantity"] == 3
+    assert len(_events(p, "play_other_advantage")) == 1
     assert len(_events(p, "eliminated_holding_idol")) == 1
+
+
+def test_journey():
+    p = _build(
+        journeys=[
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "A",
+                "castaway": "Ann",
+            }
+        ]
+    )
+    assert [e["castaway_id"] for e in _events(p, "go_on_journey")] == ["A"]
 
 
 def test_jury_and_placement():
@@ -261,7 +279,7 @@ def test_giveaway_idol_same_episode():
     assert _events(p, "acquire_active_idol") == []
 
 
-def test_idol_played_not_needed_warns_distinctly():
+def test_idol_played_not_needed_gets_play_points_without_save_bonus():
     details = [
         {
             "version_season": S,
@@ -281,5 +299,5 @@ def test_idol_played_not_needed_warns_distinctly():
         }
     ]
     p = _build(advantage_movement=moves, advantage_details=details)
+    assert len(_events(p, "play_idol")) == 1
     assert _events(p, "idol_played_successfully") == []
-    assert any("wasn't needed" in w for w in p["warnings"])

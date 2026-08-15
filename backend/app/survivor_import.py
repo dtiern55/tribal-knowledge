@@ -52,6 +52,7 @@ def build_proposal(
     vote_history: list[dict],
     boot_order: list[dict],
     challenge_results: list[dict],
+    journeys: list[dict],
     advantage_movement: list[dict],
     advantage_details: list[dict],
     castaways: list[dict],
@@ -162,6 +163,10 @@ def build_proposal(
             "Confirm who else was safe this episode and add them."
         )
 
+    # --- journeys ---
+    for r in _ep(journeys, season_key, episode):
+        add_event(r["castaway_id"], r["castaway"], "go_on_journey")
+
     # --- fire-making and shot in the dark (vote_history special events) ---
     for r in vh:
         event = (r.get("vote_event") or "").lower()
@@ -230,25 +235,21 @@ def build_proposal(
             add_event(cid, name, "activate_inactive_idol")
         elif event == "Played":
             if atype in _IDOL_TYPES:
+                add_event(cid, name, "play_idol")
+                votes_blocked = r.get("votes_nullified") or 0
+                if votes_blocked:
+                    add_event(
+                        cid,
+                        name,
+                        "votes_blocked_by_idol",
+                        quantity=int(votes_blocked),
+                    )
                 if r.get("success") == "Yes":
                     add_event(cid, name, "idol_played_successfully")
-                elif r.get("success") == "Not needed":
-                    warnings.append(
-                        f"{name}: played {atype} but it wasn't needed —"
-                        " no save, nothing proposed"
-                    )
-                else:
-                    warnings.append(
-                        f"{name}: played {atype} unsuccessfully — no event proposed"
-                    )
             elif atype == "Idol Nullifier":
                 add_event(cid, name, "play_idol_nullifier")
-            elif atype == "Extra Vote":
-                add_event(cid, name, "use_extra_vote")
-            elif atype == "Steal a Vote":
-                add_event(cid, name, "use_steal_a_vote")
             else:
-                warnings.append(f"{name}: played '{atype}' — map manually if scored")
+                add_event(cid, name, "play_other_advantage")
         elif event == "Voted out with advantage":
             if atype in _IDOL_TYPES:
                 add_event(cid, name, "eliminated_holding_idol")
@@ -263,7 +264,8 @@ def build_proposal(
 
     warnings.append(
         "Judgment calls not proposed: blindside_with_active_idol, "
-        "fake_idol_played, steal_immunity_idol"
+        "fake_idol_played, steal_immunity_idol, episode_title_quote, "
+        "read_treemail_or_instructions, jeff_thats_how_you_do_it"
     )
     return {
         "eliminations": eliminations,

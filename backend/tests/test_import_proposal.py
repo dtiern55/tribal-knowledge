@@ -13,6 +13,7 @@ def _data(**overrides):
         "vote_history": [],
         "boot_order": [],
         "challenge_results": [],
+        "journeys": [],
         "advantage_movement": [],
         "advantage_details": [],
         "castaways": [
