@@ -873,9 +873,11 @@ function WeeklyPlaySection({
           if (spentOnSwap || weekly.busy) return
           if (kind === 'roster') {
             onPickDouble?.()
+            // Optional call: jsdom has no scrollIntoView, and this throwing in
+            // a click handler takes the whole render down with it.
             document
               .getElementById('roster')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
             return
           }
           if (ballotPlayed) return
