@@ -2,21 +2,19 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
-import { Torch } from './Torch'
-
-const STAMP_BASE =
-  'absolute -top-2.5 -left-3 -rotate-6 rounded border-2 px-1.5 py-0.5 ' +
-  'text-[9px] font-bold uppercase tracking-widest shadow-sm'
 
 /**
- * Roster row card (#190, #56): a torch in the leading column carries status —
- * lit while the contestant is in, snuffed once voted out. Voted-out cards go
- * muted ash.
+ * One line in the roster manifest (#380 follow-on).
  *
- * The SOLE SURVIVOR stamp is two-state: quiet and outlined while the pick is
- * still changeable, filling in gold once the designation locks. A permanently
- * gold stamp read as "active now" all season, when the pick is really a bet
- * that doesn't pay until the finale.
+ * The roster used to be five detached white cards floating on the page, which
+ * never read as a set you own. It is now a record: aged paper, a ruled column
+ * per entry, the castaway's photograph affixed beside a name printed in the
+ * display face, and their points as a tally on the right. A boot is struck
+ * through in place rather than removed — you cross a name out of a record, you
+ * don't erase it.
+ *
+ * Wrap a list of these in `RosterManifest`, which supplies the paper and the
+ * column header.
  */
 export function RosterCard({
   contestantId,
@@ -50,87 +48,86 @@ export function RosterCard({
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
   const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
+  // One line of provenance under the name: why this entry looks the way it
+  // does. Exit beats swap-in beats tribe, because that's the order you care.
+  const note =
+    outEp != null
+      ? `Out · episode ${outEp}`
+      : swappedInEpisode != null
+        ? `Swapped in · episode ${swappedInEpisode}`
+        : (contestant?.tribe_name ?? null)
+
   return (
-    <li
-      className={[
-        'relative flex flex-col p-3 rounded-lg border',
-        outEp != null ? 'bg-gray-50 border-gray-200' : 'bg-white border-sand-200',
-        isSoleSurvivor ? (ssWindowOpen ? 'ring-2 ring-stone-200' : 'ring-2 ring-amber-400') : '',
-      ].join(' ')}
-    >
-      {isSoleSurvivor && outEp == null && (
-        <span
-          className={`${STAMP_BASE} ${
-            ssWindowOpen
-              ? 'border-stone-300 bg-white text-stone-500'
-              : 'border-amber-400 bg-amber-50 text-amber-700'
-          }`}
-          title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
-        >
-          Sole Survivor
-        </span>
-      )}
+    <li className="border-t border-paper-line first:border-t-0">
       {/* Tapping the row opens the breakdown — that's where your own scoring
-          lives, including 2x roster points. The name and avatar stay a link to
-          the contestant's own page; stopPropagation keeps it from also
+          lives, including 2x roster points. The name and photograph stay a
+          link to the contestant's page; stopPropagation keeps it from also
           expanding. The chevron remains the keyboard/screen-reader control. */}
       <div
-        className={`flex items-center justify-between ${onToggle ? 'cursor-pointer' : ''}`}
+        className={`flex items-center gap-3 px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}
         onClick={onToggle}
       >
-      <Link
-        to={`/contestants/${contestantId}${linkSuffix}`}
-        onClick={(e) => e.stopPropagation()}
-        className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
-          outEp != null ? 'text-gray-500' : 'text-gray-900'
-        }`}
-      >
-        <span
-          className="shrink-0"
-          title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+        <Link
+          to={`/contestants/${contestantId}${linkSuffix}`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex min-w-0 flex-1 items-center gap-3"
         >
-          <Torch lit={outEp == null} />
-        </span>
-        <span className={outEp != null ? 'grayscale opacity-70' : undefined}>
-          <ContestantAvatar
-            name={contestant?.name ?? '—'}
-            imageUrl={contestant?.image_url ?? null}
-            tribeColor={contestant?.tribe_color ?? null}
-            tribeName={contestant?.tribe_name ?? null}
-          />
-        </span>
-        <span className={outEp != null ? 'line-through decoration-stone-300' : undefined}>
-          {contestant?.name ?? '—'}
-        </span>
-        {isDoubled && (
           <span
-            className="inline-flex min-w-8 items-center justify-center rounded-full bg-ember-100 px-2 py-0.5 text-[11px] font-bold text-ember-800 ring-1 ring-ember-300"
-            title="Double Roster Points is active for this episode"
+            className={`shrink-0 ${outEp != null ? 'opacity-60 grayscale' : ''}`}
+            title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
           >
-            ×2
+            <ContestantAvatar
+              name={contestant?.name ?? '—'}
+              imageUrl={contestant?.image_url ?? null}
+              tribeColor={contestant?.tribe_color ?? null}
+              tribeName={contestant?.tribe_name ?? null}
+              square
+            />
           </span>
-        )}
-        {outEp != null && (
-          <span className="text-[11px] uppercase tracking-wide text-stone-400">ep {outEp}</span>
-        )}
-        {isSoleSurvivor && outEp != null && (
-          <span
-            className="text-[11px] uppercase tracking-widest text-amber-700 border border-amber-300 rounded px-2 py-1 font-semibold"
-            title={ssTitle}
-          >
-            SS
+          <span className="min-w-0">
+            <span
+              className={`block truncate font-display text-base tracking-wide uppercase ${
+                outEp != null
+                  ? 'text-paper-ink-faded line-through decoration-1'
+                  : 'text-paper-ink'
+              }`}
+            >
+              {contestant?.name ?? '—'}
+            </span>
+            <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              {note && (
+                <span className="text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
+                  {note}
+                </span>
+              )}
+              {isSoleSurvivor && (
+                <span
+                  className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
+                    ssWindowOpen
+                      ? 'border-stone-400 text-stone-500'
+                      : 'border-amber-500 bg-amber-400/20 text-amber-800'
+                  }`}
+                  title={
+                    ssWindowOpen
+                      ? `${ssTitle} — changeable until the designation locks`
+                      : ssTitle
+                  }
+                >
+                  Sole Survivor
+                </span>
+              )}
+              {isDoubled && (
+                <span
+                  className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-ember-500 bg-ember-100 text-ember-800"
+                  title="Double Roster Points is active for this episode"
+                >
+                  ×2
+                </span>
+              )}
+            </span>
           </span>
-        )}
-        {swappedInEpisode != null && (
-          <span
-            className="text-[11px] uppercase tracking-widest text-ocean-600 border border-ocean-200 rounded px-2 py-1"
-            title={`Swapped in from episode ${swappedInEpisode}`}
-          >
-            ⇄ ep {swappedInEpisode}
-          </span>
-        )}
-      </Link>
-        <div className="flex items-center gap-2 shrink-0 ml-auto pl-2">
+        </Link>
+        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
           {right}
           {onToggle && (
             <button
@@ -140,7 +137,7 @@ export function RosterCard({
               }}
               aria-expanded={expanded}
               aria-label="Toggle episode breakdown"
-              className="-mr-1 p-1 text-gray-500 hover:text-gray-600"
+              className="-mr-1 p-1 text-paper-ink-faded hover:text-paper-ink"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -156,8 +153,21 @@ export function RosterCard({
         </div>
       </div>
       {onToggle && expanded && children && (
-        <div className="mt-3 pt-3 border-t border-sand-100">{children}</div>
+        <div className="border-t border-paper-line px-3 py-3">{children}</div>
       )}
     </li>
+  )
+}
+
+/** The leaf the roster is written on: aged paper and a ruled column header. */
+export function RosterManifest({ children }: { children: ReactNode }) {
+  return (
+    <div className="record-paper overflow-hidden rounded-sm border border-paper-edge shadow-sm">
+      <div className="flex items-center gap-3 border-b-2 border-paper-edge px-3 pt-1.5 pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-paper-ink-faded">
+        <span>Castaway</span>
+        <span className="ml-auto">Points</span>
+      </div>
+      <ul>{children}</ul>
+    </div>
   )
 }
