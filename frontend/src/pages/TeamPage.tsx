@@ -4,7 +4,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
-import { RosterCard } from '../components/RosterCard'
+import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
 import { SwipeNavBar } from '../components/SwipeNav'
 import { ADV_LABELS } from '../lib/advantages'
@@ -166,7 +166,7 @@ export function TeamPage() {
             ) : active.length === 0 ? (
               <Notice title="No roster submitted">This player does not have an active roster yet.</Notice>
             ) : (
-              <ul className="space-y-2.5">
+              <RosterManifest>
                 {[...active]
                   .sort((a, b) => Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) - Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null))
                   .map((pick) => (
@@ -183,7 +183,7 @@ export function TeamPage() {
                       <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} />
                     </RosterCard>
                   ))}
-              </ul>
+              </RosterManifest>
             )}
             {swaps.length > 0 && (
               <div className="mt-6">

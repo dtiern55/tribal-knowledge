@@ -44,6 +44,20 @@
   /* Brand lockup only (the TRIBAL KNOWLEDGE wordmark). Anton stays the
      workhorse display face for headings. */
   --font-brand: "Skranji", "Anton", system-ui, sans-serif;
+  /* The hand that writes a vote (#395). One face, not a set — mixed
+     handwriting on a single player's ballot read as noise, not character. */
+  --font-hand: "Kalam", "Segoe Print", "Bradley Hand", cursive;
+
+  /* Record-book paper: the roster is written into something (#380 follow-on),
+     so it needs a surface of its own rather than a white card. */
+  --color-paper: #f4ead2;
+  --color-paper-line: #d3c19b;
+  --color-paper-edge: #c4ad80;
+  --color-paper-ink: #46331f;
+  /* Solved against the paper rather than picked by eye: #86714f measured
+     3.91:1, which fails AA for the tribe line, the struck-out name and the
+     column header. This clears 5.03:1. */
+  --color-paper-ink-faded: #74603e;
 }
 
 html {
@@ -210,6 +224,40 @@ html.locked-night .braid-rule {
     transparent 6px 10px
   );
 }
+
+/* Aged leaf the roster is written on. Two soft pools of discolouration rather
+   than a repeating texture — a tile would read as wallpaper at this size. */
+.record-paper {
+  background-image:
+    radial-gradient(ellipse at 10% 4%, rgb(150 116 62 / 8%), transparent 55%),
+    radial-gradient(ellipse at 90% 95%, rgb(150 116 62 / 7%), transparent 50%);
+  background-color: var(--color-paper);
+}
+
+/* The ledger keeps its paper at night. Repainting it dark left brown ink on a
+   dark ground; leaving it lit makes the roster the one page you can still read
+   by the fire, which is the whole conceit of the locked theme. */
+
+/* One vote, on its own strip of parchment. The strip is a scaled SVG behind
+   real text, so the name stays selectable and screen-readable. */
+.vote-slip {
+  position: relative;
+  display: inline-block;
+  padding: 0.5rem 0.85rem 0.55rem;
+  line-height: 1.1;
+  color: #263128;
+  isolation: isolate;
+}
+.vote-slip > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+.vote-slip > span { position: relative; font-family: var(--font-hand); font-size: 1rem; }
+
+html.locked-night .app-shell .vote-slip { color: #2a2016; }
 
 ::selection {
   background: var(--color-ocean-200);

@@ -14,11 +14,12 @@ import {
   EMPTY_EP_MAP,
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
-import { RosterCard } from '../components/RosterCard'
+import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import { Torch } from '../components/Torch'
 import { VoteMark } from '../components/VoteMark'
+import { VoteSlip } from '../components/VoteSlip'
 import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
@@ -800,7 +801,7 @@ function WeeklyPlaySection({
 
   return (
     <SectionShell title="Advantage" prominent collapsible={false}>
-      <div className="p-4 bg-ocean-50 border border-ocean-200 rounded-xl space-y-3">
+      <div className="space-y-3">
       <div>
         <p className="text-xs text-gray-500">
           Optional — choose once for Episode {episode.episode_number}; unused plays do not carry over.
@@ -1194,7 +1195,7 @@ function RosterSection({
               </button>
             </div>
           )}
-          <ul className="space-y-2.5">
+          <RosterManifest>
             {/* Boots sink to the bottom (#190); stable sort keeps the rest in place.
                 Each card's points are what that castaway earned *you*: the
                 breakdown folds in Double Roster Points and the Sole Survivor
@@ -1231,7 +1232,7 @@ function RosterSection({
                 )}
               </RosterCard>
             ))}
-          </ul>
+          </RosterManifest>
 
           {!compact && nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
             <div className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
@@ -1697,9 +1698,9 @@ function PicksSection({
             <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-ocean-500 bg-white p-4'}>
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
-                <div className="mb-5 border-y border-jungle-200 bg-jungle-50 px-4 py-5 text-center sm:rounded-xl sm:border">
-                  <div className="mb-1 flex justify-center"><VoteMark className="h-10 w-10" /></div>
-                  <p className="mb-3 font-semibold text-jungle-800">
+                <div className="mb-5">
+                  <p className="mb-1 flex items-center gap-2 font-semibold text-jungle-800">
+                    <VoteMark className="h-5 w-5" />
                     Ballot saved for Episode {ep.episode_number}
                   </p>
                   {savedPicks.length < maxPicks && (
@@ -1708,7 +1709,7 @@ function PicksSection({
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
                   )}
-                  <div className="flex flex-wrap justify-center gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {savedPicks.map((p) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
@@ -1716,29 +1717,12 @@ function PicksSection({
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       return (
-                        <span
-                          key={p.id}
-                          className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-white border rounded-lg font-medium ${
-                            stale
-                              ? 'border-sand-200 text-gray-500 line-through'
-                              : 'border-green-200 text-gray-800'
-                          }`}
-                        >
-                          {sc?.tribe_color && (
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: sc.tribe_color }}
-                              title={sc.tribe_name ?? undefined}
-                              aria-hidden
-                            />
-                          )}
-                          {sc?.name ?? '—'}
+                        <span key={p.id} className="inline-flex items-center gap-1">
+                          <VoteSlip name={sc?.name ?? '—'} stale={stale} />
                           {ballotDoubled && (
-                            <span className="text-ocean-600 font-semibold no-underline"> ×2</span>
+                            <span className="text-xs font-semibold text-ocean-600">×2</span>
                           )}
-                          {stale && (
-                            <span className="ml-1 text-[11px] no-underline">(out)</span>
-                          )}
+                          {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
                       )
                     })}
