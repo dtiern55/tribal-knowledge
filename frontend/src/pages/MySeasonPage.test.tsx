@@ -277,8 +277,8 @@ describe('MySeasonPage state shell', () => {
 
     expect(await screen.findByRole('heading', { name: /Advantage/ })).toBeVisible()
     expect(screen.getByText('Double Roster Points')).toBeVisible()
-    expect(screen.getByText('Double Vote Points')).toBeVisible()
-    expect(screen.getByText(/every correct vote on this episode's ballot/i)).toBeVisible()
+    expect(screen.getByText('Double Ballot Points')).toBeVisible()
+    expect(screen.getByText(/Double all points earned from your Ballot/i)).toBeVisible()
     expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
     expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
@@ -396,7 +396,7 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.getByText('Charlie')).toBeVisible()
     expect(screen.getByRole('img', { name: 'Kenzie' })).toHaveAttribute('src', '/kenzie.jpg')
-    expect(screen.getByText('Double Vote Points')).toBeVisible()
+    expect(screen.getByText('Double Ballot Points')).toBeVisible()
   })
 
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {

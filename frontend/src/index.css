@@ -48,16 +48,16 @@
      handwriting on a single player's ballot read as noise, not character. */
   --font-hand: "Kalam", "Segoe Print", "Bradley Hand", cursive;
 
-  /* Record-book paper: the roster is written into something (#380 follow-on),
-     so it needs a surface of its own rather than a white card. */
-  --color-paper: #f4ead2;
-  --color-paper-line: #d3c19b;
-  --color-paper-edge: #c4ad80;
-  --color-paper-ink: #46331f;
-  /* Solved against the paper rather than picked by eye: #86714f measured
-     3.91:1, which fails AA for the tribe line, the struck-out name and the
-     column header. This clears 5.03:1. */
-  --color-paper-ink-faded: #74603e;
+  /* The page My Season is written on (#396). Warm cream rather than aged
+     parchment: the warmth without brown ink, so headings stay ocean and the
+     page still belongs to the same app as every other screen.
+     Contrast on this ground, measured: ink 13.2:1, faded 4.9:1, ocean-800
+     9.8:1, jungle-700 6.5:1 — all clear AA. */
+  --color-paper: #f7f0e2;
+  --color-paper-line: #e7ded0;
+  --color-paper-edge: #ddd2bb;
+  --color-paper-ink: #2b2620;
+  --color-paper-ink-faded: #6f675a;
 }
 
 html {
@@ -225,12 +225,9 @@ html.locked-night .braid-rule {
   );
 }
 
-/* Aged leaf the roster is written on. Two soft pools of discolouration rather
-   than a repeating texture — a tile would read as wallpaper at this size. */
+/* The sheet. Flat warm cream — the aging mottle went with the parchment, and
+   a texture at this size reads as wallpaper rather than paper. */
 .record-paper {
-  background-image:
-    radial-gradient(ellipse at 10% 4%, rgb(150 116 62 / 8%), transparent 55%),
-    radial-gradient(ellipse at 90% 95%, rgb(150 116 62 / 7%), transparent 50%);
   background-color: var(--color-paper);
 }
 

@@ -102,7 +102,7 @@ def test_weekly_play_usage_and_empty_configuration(client, db_conn, current_user
         f"/seasons/{season['id']}/episode-results/{episode['id']}"
     ).json()["insights"][0]
     assert insight["value"] == "1 of 2"
-    assert insight["label"] == "Double Vote Points usage"
+    assert insight["label"] == "Double Ballot Points usage"
 
     assert client.put(url, json=[]).status_code == 200
     assert (
