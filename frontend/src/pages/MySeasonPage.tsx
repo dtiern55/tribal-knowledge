@@ -270,6 +270,14 @@ export function MySeasonPage() {
         />
       )}
 
+      {state.kind === 'open' && pickingDouble && (
+        <div
+          className="stage-scrim"
+          onClick={() => setPickingDouble(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {state.kind === 'open' && (
         <SeasonRecord>
           <RecordHead
@@ -277,7 +285,7 @@ export function MySeasonPage() {
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
-          <div id="roster" className="scroll-mt-20">
+          <div id="roster" className={`scroll-mt-20 ${pickingDouble ? 'stage-lit' : ''}`}>
             <RosterSection
               season={d.season}
               contestants={d.contestants}
@@ -1110,6 +1118,8 @@ function RosterSection({
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Who is holding the stage light, for the beat after being chosen.
+  const [lit, setLit] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Pre-lock, default to showing just your picks (so you can plan an advantage
@@ -1227,7 +1237,7 @@ function RosterSection({
       }
     >
       {pickingDouble && (
-        <p className="border-b border-paper-line bg-ocean-50 px-4 py-2 text-xs font-semibold text-ocean-900">
+        <p className="border-b border-ember-200 bg-ember-50/80 px-4 py-2 text-xs font-semibold text-ember-800">
           Choose a castaway to double this episode
         </p>
       )}
@@ -1279,12 +1289,21 @@ function RosterSection({
                 onSelect={
                   pickingDouble
                     ? () => {
+                        setLit(pick.contestant_id)
                         void weekly.replace('double_roster_points', pick.contestant_id)
-                        onDoublePicked?.()
+                        const hold = window.matchMedia('(prefers-reduced-motion: reduce)')
+                          .matches
+                          ? 0
+                          : 420
+                        window.setTimeout(() => {
+                          setLit(null)
+                          onDoublePicked?.()
+                        }, hold)
                       }
                     : undefined
                 }
                 selected={rosterDouble?.target_contestant_id === pick.contestant_id}
+                lit={lit === pick.contestant_id}
                 expanded={!compact && expandedId === pick.contestant_id}
                 onToggle={compact ? undefined : () => toggleExpand(pick.contestant_id)}
               >

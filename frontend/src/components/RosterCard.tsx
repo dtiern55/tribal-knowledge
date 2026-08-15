@@ -27,6 +27,7 @@ export function RosterCard({
   linkSuffix = '',
   onSelect,
   selected = false,
+  lit = false,
   expanded = false,
   onToggle,
   children,
@@ -47,6 +48,8 @@ export function RosterCard({
   // a tap can't wander off to the contestant page mid-decision.
   onSelect?: () => void
   selected?: boolean
+  /** Holding the stage light, just after being chosen. */
+  lit?: boolean
   // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
@@ -130,7 +133,11 @@ export function RosterCard({
           onClick={onSelect}
           aria-pressed={selected}
           className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-            selected ? 'bg-ocean-50 ring-1 ring-inset ring-ocean-300' : 'hover:bg-black/[.03]'
+            lit
+              ? 'stage-pick'
+              : selected
+                ? 'bg-ocean-50 ring-1 ring-inset ring-ocean-300'
+                : 'hover:bg-black/[.03]'
           }`}
         >
           {inner}
