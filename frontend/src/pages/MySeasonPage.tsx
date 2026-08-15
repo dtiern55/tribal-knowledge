@@ -14,9 +14,10 @@ import {
   EMPTY_EP_MAP,
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
-import { RosterCard, RosterManifest } from '../components/RosterCard'
+import { RosterCard } from '../components/RosterCard'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
+import { RecordHead, RecordSection, SeasonRecord } from '../components/SeasonRecord'
 import { Torch } from '../components/Torch'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
@@ -220,18 +221,14 @@ export function MySeasonPage() {
         aria-hidden={visibleResult ? true : undefined}
         inert={visibleResult ? true : undefined}
       >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">{d.season.name}</h1>
-          {/* One episode marker for the whole page. It used to sit on the
-              Ballot heading alone, which read as though only that section
-              belonged to the episode. */}
-          {state.kind === 'open' && (
-            <p className="mt-1 text-sm text-gray-600">Episode {state.episode.episode_number}</p>
-          )}
+      {state.kind !== 'open' && (
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">
+            {d.season.name}
+          </h1>
+          <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
         </div>
-        <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
-      </div>
+      )}
 
       {state.kind === 'watch_only' && <WatchOnlyState episode={state.episode} />}
 
@@ -246,8 +243,13 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <div className="space-y-12">
-          <section id="roster" aria-label="Roster" className="scroll-mt-20">
+        <SeasonRecord>
+          <RecordHead
+            title={d.season.name}
+            meta={`Episode ${state.episode.episode_number}`}
+            right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
+          />
+          <div id="roster" className="scroll-mt-20">
             <RosterSection
               season={d.season}
               contestants={d.contestants}
@@ -260,11 +262,9 @@ export function MySeasonPage() {
               rosterVersion={d.rosterVersion}
               compact
             />
-          </section>
+          </div>
 
-          <hr className="braid-rule" />
-
-          <section id="votes" aria-label="Ballot" className="scroll-mt-20">
+          <div id="votes" className="scroll-mt-20">
             <PicksSection
               season={d.season}
               contestants={d.contestants}
@@ -275,11 +275,9 @@ export function MySeasonPage() {
               pickResults={pickResults}
               activeOnly
             />
-          </section>
+          </div>
 
-          <hr className="braid-rule" />
-
-          <section id="advantage" aria-label="Advantage" className="scroll-mt-20">
+          <div id="advantage" className="scroll-mt-20">
             <WeeklyPlaySection
               season={d.season}
               episodes={d.episodes}
@@ -290,8 +288,8 @@ export function MySeasonPage() {
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
             />
-          </section>
-        </div>
+          </div>
+        </SeasonRecord>
       )}
 
       {state.kind === 'intermission' && <IntermissionState />}
@@ -800,18 +798,18 @@ function WeeklyPlaySection({
   const play = weekly.play
 
   return (
-    <SectionShell title="Advantage" prominent collapsible={false}>
-      <div className="space-y-3">
+    <RecordSection title="Advantage">
+      <div className="space-y-3 px-4 py-3">
       <div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-paper-ink-faded">
           Optional — choose once for Episode {episode.episode_number}; unused plays do not carry over.
         </p>
         <p className="mt-1"><RuleLink anchor="weekly-play">How weekly plays work</RuleLink></p>
       </div>
 
       {play ? (
-        <div className="flex items-center justify-between gap-3 p-3 bg-white border border-ocean-200 rounded-lg">
-          <p className="text-sm text-gray-700">
+        <div className="flex items-center justify-between gap-3 border border-paper-edge bg-white/50 px-3 py-2.5 rounded">
+          <p className="text-sm text-paper-ink">
             <b>{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</b>
             {play.target_contestant_id && (
               <> · {contestantMap.get(play.target_contestant_id)?.name ?? 'Roster member'}</>
@@ -829,9 +827,9 @@ function WeeklyPlaySection({
         </div>
       ) : (
         <div className={`grid gap-2 ${decisionRail ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
-          <div className="p-3 bg-white border border-sand-200 rounded-lg space-y-2">
-            <p className="text-sm font-semibold text-gray-800">Double Roster Points</p>
-            <p className="text-xs text-gray-500">Double one active castaway&apos;s episode points.</p>
+          <div className="space-y-2">
+            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Roster Points</p>
+            <p className="text-xs text-paper-ink-faded">Double one active castaway&apos;s episode points.</p>
             <div className="flex gap-2">
               <select
                 value={target}
@@ -856,9 +854,9 @@ function WeeklyPlaySection({
             </div>
           </div>
 
-          <div className="p-3 bg-white border border-sand-200 rounded-lg space-y-2">
-            <p className="text-sm font-semibold text-gray-800">Double Vote Points</p>
-            <p className="text-xs text-gray-500">Double points from every correct vote on this episode&apos;s ballot.</p>
+          <div className="space-y-2">
+            <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Double Vote Points</p>
+            <p className="text-xs text-paper-ink-faded">Double points from every correct vote on this episode&apos;s ballot.</p>
             <button
               onClick={() => void weekly.spend('double_vote_points')}
               disabled={weekly.busy}
@@ -882,12 +880,12 @@ function WeeklyPlaySection({
         onRosterChange={onRosterChange}
       />
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-paper-ink-faded">
         A free roster swap does not use this play. Once free swaps are gone, a swap uses it automatically.
       </p>
       {weekly.error && <p className="text-red-600 text-xs">{weekly.error}</p>}
       </div>
-    </SectionShell>
+    </RecordSection>
   )
 }
 
@@ -971,9 +969,9 @@ function RosterSwapCard({
   }
 
   return (
-    <div id="swap" className="scroll-mt-20 p-3 bg-white border border-sand-200 rounded-lg space-y-2">
-      <p className="text-sm font-semibold text-gray-800">Roster Swap</p>
-      <p className="text-xs text-gray-500">
+    <div id="swap" className="scroll-mt-20 space-y-2 border-t border-paper-line pt-3">
+      <p className="font-display text-sm uppercase tracking-wide text-paper-ink">Roster Swap</p>
+      <p className="text-xs text-paper-ink-faded">
         {swapsUsed < season.free_swaps
           ? `Free swap${season.free_swaps - swapsUsed > 1 ? 's' : ''} left: ${
               season.free_swaps - swapsUsed
@@ -1025,7 +1023,7 @@ function RosterSwapCard({
           ))}
         </select>
       </div>
-      <p className="text-xs text-gray-500">Takes effect from the next episode.</p>
+      <p className="text-xs text-paper-ink-faded">Takes effect from the next episode.</p>
       {swapError && <p className="text-red-600 text-sm">{swapError}</p>}
       <button
         onClick={submitSwap}
@@ -1166,14 +1164,7 @@ function RosterSection({
 
 
   return (
-    <SectionShell
-      title={compact ? 'Roster' : 'My Roster'}
-      prominent
-      collapsible={false}
-      // No lock badge: the roster locks once for the season, so the badge read
-      // "Locked" every week from episode 2 on and said nothing. Ballot and
-      // Advantage lock weekly, so theirs still carry information.
-    >
+    <RecordSection title={compact ? 'Roster' : 'My Roster'}>
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {hasRoster && !(windowOpen && editing) ? (
@@ -1195,7 +1186,7 @@ function RosterSection({
               </button>
             </div>
           )}
-          <RosterManifest>
+          <ul>
             {/* Boots sink to the bottom (#190); stable sort keeps the rest in place.
                 Each card's points are what that castaway earned *you*: the
                 breakdown folds in Double Roster Points and the Sole Survivor
@@ -1232,7 +1223,7 @@ function RosterSection({
                 )}
               </RosterCard>
             ))}
-          </RosterManifest>
+          </ul>
 
           {!compact && nextOpenEpisode != null && !nextOpenEpisode.is_finale && !weekly.locked && (
             <div className="p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
@@ -1419,7 +1410,7 @@ function RosterSection({
           onRosterChange={onRosterChange}
         />
       )}
-    </SectionShell>
+    </RecordSection>
   )
 }
 
@@ -1774,8 +1765,8 @@ function PicksSection({
                                   isSelected
                                     ? 'border-ocean-500 bg-ocean-50 text-ocean-900 shadow-sm ring-1 ring-ocean-200'
                                     : maxed
-                                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                                      : 'border-sand-200 bg-white text-gray-700 hover:border-ocean-300',
+                                      ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
+                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-ocean-300',
                                 ].join(' ')}
                               >
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
@@ -1896,17 +1887,15 @@ function PicksSection({
 
   if (activeOnly) {
     return (
-      <SectionShell
+      <RecordSection
         title="Ballot"
-        prominent
-        collapsible={false}
         right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
       >
-        <p className="-mt-1 mb-3 text-sm text-gray-600">
+        <p className="px-4 pt-2 text-sm text-paper-ink-faded">
           Vote for the castaways you think will be eliminated.
         </p>
         {content}
-      </SectionShell>
+      </RecordSection>
     )
   }
 
