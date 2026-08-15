@@ -6,11 +6,11 @@ import { resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode } from '../types'
 import { NavDrawer } from './NavDrawer'
 import {
+  BuffPairIcon,
   GearIcon,
   MenuIcon,
   PalmIcon,
-  TrophyIcon,
-  UsersIcon,
+  RankedTorchesIcon,
 } from './icons'
 
 // Primary destinations. On desktop they sit inline in the top bar; on phones
@@ -19,8 +19,8 @@ import {
 // there is a single weekly destination instead of three.
 const PRIMARY = [
   { to: '/', label: 'My Season', Icon: PalmIcon, end: true },
-  { to: '/standings', label: 'Standings', Icon: TrophyIcon, end: false },
-  { to: '/cast', label: 'Cast', Icon: UsersIcon, end: false },
+  { to: '/standings', label: 'Standings', Icon: RankedTorchesIcon, end: false },
+  { to: '/cast', label: 'Cast', Icon: BuffPairIcon, end: false },
 ]
 
 export function Layout() {

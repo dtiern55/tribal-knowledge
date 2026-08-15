@@ -1,6 +1,7 @@
 // Inline nav icons (#106): emoji rendered inconsistently across phones.
 // Monochrome stroke/currentColor so the active tab color just works.
-// Shapes follow the familiar Feather/Lucide look; no icon dependency.
+// Primary navigation uses custom Survivor-specific drawings; utility controls
+// retain familiar conventional symbols. No icon dependency.
 
 function Svg({ children }: { children: React.ReactNode }) {
   return (
@@ -30,26 +31,24 @@ export function PalmIcon() {
   )
 }
 
-export function TrophyIcon() {
+export function RankedTorchesIcon() {
   return (
     <Svg>
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-      <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+      <path d="M5 22V13M12 22V6M19 22V10" />
+      <path d="M3.5 13h3L6 16H4zM10.5 6h3L13 9h-2zM17.5 10h3l-.5 3h-2z" />
+      <path d="M5 11c-1.8-1.8.8-2.8 0-4.6 1.8 1 2.5 2.7.8 4.6M12 4c-1.8-1.8.8-2.8 0-4.5 1.8 1 2.5 2.7.8 4.5M19 8c-1.8-1.8.8-2.8 0-4.6 1.8 1 2.5 2.7.8 4.6" />
     </Svg>
   )
 }
 
-export function UsersIcon() {
+export function BuffPairIcon() {
   return (
     <Svg>
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      <path d="M5.5 6.8c.2-2.5 1.7-4.1 4-4.1 2.5 0 4.1 1.7 4 4.3-.1 2.4-1.6 4.1-4 4.2-2.3.1-4.2-1.7-4-4.4Z" />
+      <path d="M5.8 6.2c2.2-.7 4.8-.7 7.4 0M6.6 4.8l-2-.7" />
+      <path d="M2.5 21c0-4.2 2.7-6.8 6.8-6.8 4.4 0 7 2.4 7.2 6.8" />
+      <path d="M15.2 3.6c2.6-.5 4.7 1.2 4.8 3.8.1 2.1-1.2 3.7-3.3 4.3" />
+      <path d="M16 5.5c1.3-.4 2.6-.4 3.8.1M18 14.7c2.4.8 3.6 2.8 3.5 6.3" />
     </Svg>
   )
 }

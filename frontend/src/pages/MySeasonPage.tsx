@@ -1648,7 +1648,7 @@ function PicksSection({
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5 border-y border-jungle-200 bg-jungle-50 px-4 py-5 text-center sm:rounded-xl sm:border">
-                  <div className="mb-1 flex justify-center"><VoteMark sealed className="h-10 w-10" /></div>
+                  <div className="mb-1 flex justify-center"><VoteMark className="h-10 w-10" /></div>
                   <p className="mb-3 font-semibold text-jungle-800">
                     Ballot saved for Episode {ep.episode_number}
                   </p>
@@ -2012,7 +2012,7 @@ function FinaleBallot({
         </p>
       ) : locked || (hasSaved && !editing) ? (
         <div className="mt-2 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
-          <div className="flex justify-center mb-1"><VoteMark sealed className="w-10 h-10" /></div>
+          <div className="flex justify-center mb-1"><VoteMark className="w-10 h-10" /></div>
           <p className="font-semibold text-green-800 mb-3">
             {locked ? 'Finale ballot locked' : 'Finale ballot in'}
           </p>
