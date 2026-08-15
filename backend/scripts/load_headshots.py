@@ -74,12 +74,30 @@ def tvmaze_person(query: str) -> tuple[str, str] | None:
     return None
 
 
+def pick_face(faces, image_height: int):
+    """The detection that is actually the head, or None if there isn't one.
+
+    Two ways Haar gets this wrong on Survivor promo art, pulling against each
+    other. A full-body shot yields torso false positives that can out-measure
+    the real face by a few pixels, so pure largest-area cropped Natalia and Pat
+    to a midriff. A close-up yields small background faces, so pure topmost
+    would crop Mike White to a bystander. Discard anything below the top of the
+    frame, keep only detections comparable in size to the biggest, then take
+    the highest of those — the head sits above the body in both cases.
+    """
+    faces = [f for f in faces if f[1] + f[3] / 2 < image_height * 0.55]
+    if not len(faces):
+        return None
+    biggest = max(f[2] for f in faces)
+    return min((f for f in faces if f[2] >= biggest * 0.6), key=lambda f: f[1])
+
+
 def face_crop(img_bytes: bytes) -> bytes:
-    """Square crop around the largest detected face, resized to ~400px (#187).
+    """Square crop around the detected face, resized to ~400px (#187).
 
     TVmaze/wiki framing is inconsistent (headshots mixed with full-body promo
-    shots); largest-face Haar detection + a generous margin normalizes both.
-    No face found → the image passes through untouched.
+    shots); Haar detection + a generous margin normalizes both. No face found →
+    the image passes through untouched.
     """
     import cv2
     import numpy as np
@@ -91,12 +109,10 @@ def face_crop(img_bytes: bytes) -> bytes:
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
     ).detectMultiScale(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 1.1, 6)
     ih, iw = img.shape[:2]
-    # promo shots keep the head in the top half — anything lower is a
-    # false positive (a torso "face" cropped one image to legs and sand)
-    faces = [f for f in faces if f[1] + f[3] / 2 < ih * 0.55]
+    face = pick_face(faces, ih)
     crop = img
-    if len(faces) > 0:
-        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+    if face is not None:
+        x, y, w, h = face
         # face plus hair and shoulders, biased slightly upward
         size = min(int(h * 2.6), ih, iw)
         cx, cy = x + w // 2, y + h // 2 - int(h * 0.15)
@@ -119,7 +135,9 @@ def wiki_file_url(season: int, full_name: str) -> str | None:
             "titles": filename,
             "prop": "imageinfo",
             "iiprop": "url",
-            "iiurlwidth": 400,
+            # a face crop is a fraction of the frame, so fetch well above the
+            # 400px target — face_crop resizes back down
+            "iiurlwidth": 1200,
             "format": "json",
         },
         headers=UA,
@@ -144,6 +162,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--api", default=os.environ.get("API_URL", "http://127.0.0.1:8000")
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="restrict the run to these contestants, for redoing one bad crop"
+        " without touching the rest of the cast (repeatable)",
     )
     parser.add_argument(
         "--wiki",
@@ -196,6 +222,8 @@ def main() -> None:
     names = full_names(args.survivor_season)
     run_stamp = int(time.time())
     missing = []
+    if args.only:
+        cast = [c for c in cast if any(_norm(o) == _norm(c["name"]) for o in args.only)]
     for c in cast:
         if c.get("image_url") and not args.replace:
             print(f"  {c['name']:<24} already set, skipping")
