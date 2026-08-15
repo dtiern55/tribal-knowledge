@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
 import { Link } from 'react-router'
-import { AdvantageMark } from '../components/AdvantageMark'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
@@ -201,6 +200,10 @@ function useWeeklyPlay(
 
 export function MySeasonPage() {
   const d = useMySeasonData()
+  // Choosing who to double happens on the roster itself, so the mode has to
+  // be visible to both the Advantage button that starts it and the Roster
+  // rows that answer it.
+  const [pickingDouble, setPickingDouble] = useState(false)
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
@@ -285,6 +288,8 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
+              pickingDouble={pickingDouble}
+              onDoublePicked={() => setPickingDouble(false)}
               compact
             />
           </div>
@@ -312,6 +317,8 @@ export function MySeasonPage() {
               setPlays={d.setPlays}
               onRosterChange={d.bumpRoster}
               rosterVersion={d.rosterVersion}
+              pickingDouble={pickingDouble}
+              onPickDouble={() => setPickingDouble(true)}
             />
           </div>
         </SeasonRecord>
@@ -790,6 +797,8 @@ function WeeklyPlaySection({
   setPlays,
   onRosterChange,
   rosterVersion,
+  pickingDouble = false,
+  onPickDouble,
   decisionRail = false,
 }: {
   season: Season
@@ -800,14 +809,12 @@ function WeeklyPlaySection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
   rosterVersion: number
+  pickingDouble?: boolean
+  onPickDouble?: () => void
   decisionRail?: boolean
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const [roster, setRoster] = useState<RosterPick[]>([])
-  const [target, setTarget] = useState('')
-  // Which double is being set up. The roster one needs a castaway, so its
-  // picker waits until you've said that's the play you want.
-  const [choice, setChoice] = useState<'roster' | null>(null)
 
   useEffect(() => {
     api
@@ -821,8 +828,6 @@ function WeeklyPlaySection({
   const episode = weekly.openEpisode
   if (!episode || episode.is_finale || weekly.locked) return null
 
-  const activeRoster = roster.filter((pick) => pick.active_until_episode === null)
-  const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const play = weekly.play
 
   return (
@@ -839,28 +844,21 @@ function WeeklyPlaySection({
         // but the buttons stay put rather than vanishing, so the week's shape
         // is still legible.
         const spentOnSwap = play?.advantage_type === 'roster_swap'
-        const doubled = rosterPlayed
-          ? contestantMap.get(play?.target_contestant_id ?? '')
-          : undefined
-
         function pick(kind: 'roster' | 'ballot') {
           if (spentOnSwap || weekly.busy) return
           if (kind === 'roster') {
-            // Chosen or not, this opens the picker: choosing it is picking a
-            // castaway, and re-choosing it is changing which one.
-            setTarget(play?.target_contestant_id ?? '')
-            setChoice(choice === 'roster' ? null : 'roster')
+            onPickDouble?.()
+            document
+              .getElementById('roster')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             return
           }
-          setChoice(null)
           if (ballotPlayed) return
           void weekly.replace('double_vote_points')
         }
 
-        // pr-12 on a marked button keeps the label clear of its mark.
         const base =
-          'relative min-h-11 rounded-lg border py-2.5 text-sm font-semibold transition-colors'
-        const room = (marked: boolean) => (marked ? 'pl-3 pr-12' : 'px-3')
+          'relative min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors'
         const chosen = 'border-ocean-600 bg-ocean-50 text-ocean-900 ring-1 ring-ocean-300'
         const idle = 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
         // Lightly dimmed, not disabled — the unchosen one is how you switch.
@@ -873,63 +871,30 @@ function WeeklyPlaySection({
                 type="button"
                 onClick={() => pick('roster')}
                 disabled={spentOnSwap}
-                aria-pressed={rosterPlayed}
-                className={`${base} ${room(rosterPlayed)} ${
+                aria-pressed={rosterPlayed || pickingDouble}
+                className={`${base} ${
                   rosterPlayed ? chosen : ballotPlayed || spentOnSwap ? dimmed : idle
                 }`}
               >
                 Roster ×2
-                {rosterPlayed && doubled && <AdvantageMark contestant={doubled} />}
               </button>
               <button
                 type="button"
                 onClick={() => pick('ballot')}
                 disabled={spentOnSwap}
                 aria-pressed={ballotPlayed}
-                className={`${base} ${room(ballotPlayed)} ${
+                className={`${base} ${
                   ballotPlayed ? chosen : rosterPlayed || spentOnSwap ? dimmed : idle
                 }`}
               >
                 Ballot ×2
-                {ballotPlayed && <AdvantageMark />}
               </button>
             </div>
-
-            {choice === 'roster' && !spentOnSwap && (
-              <div className="flex gap-2">
-                <select
-                  value={target}
-                  onChange={(event) => setTarget(event.target.value)}
-                  aria-label="Roster member to double"
-                  className="min-w-0 flex-1 rounded-lg border border-paper-edge bg-white px-2 py-2 text-sm"
-                >
-                  <option value="">Choose castaway…</option>
-                  {activeRoster.map((pickRow) => (
-                    <option key={pickRow.id} value={pickRow.contestant_id}>
-                      {contestantMap.get(pickRow.contestant_id)?.name ?? '—'}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => {
-                    void weekly.replace('double_roster_points', target)
-                    setChoice(null)
-                  }}
-                  disabled={weekly.busy || !target}
-                  className="rounded-lg bg-ocean-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-                >
-                  {rosterPlayed ? 'Change' : 'Use'}
-                </button>
-              </div>
-            )}
 
             {play && !spentOnSwap && (
               <button
                 type="button"
-                onClick={() => {
-                  setChoice(null)
-                  void weekly.takeBack(play)
-                }}
+                onClick={() => void weekly.takeBack(play)}
                 disabled={weekly.busy}
                 className="text-xs font-medium text-paper-ink-faded underline underline-offset-2 hover:text-paper-ink"
               >
@@ -1125,6 +1090,8 @@ function RosterSection({
   setPlays,
   onRosterChange,
   rosterVersion,
+  pickingDouble = false,
+  onDoublePicked,
   compact = false,
 }: {
   season: Season
@@ -1136,6 +1103,9 @@ function RosterSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
   rosterVersion: number
+  /** Roster rows answer the Advantage section's "who do you double?" (#398). */
+  pickingDouble?: boolean
+  onDoublePicked?: () => void
   compact?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
@@ -1242,7 +1212,25 @@ function RosterSection({
 
 
   return (
-    <RecordSection title={compact ? 'Roster' : 'My Roster'}>
+    <RecordSection
+      title={compact ? 'Roster' : 'My Roster'}
+      right={
+        pickingDouble ? (
+          <button
+            type="button"
+            onClick={() => onDoublePicked?.()}
+            className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
+        ) : undefined
+      }
+    >
+      {pickingDouble && (
+        <p className="border-b border-paper-line bg-ocean-50 px-4 py-2 text-xs font-semibold text-ocean-900">
+          Choose a castaway to double this episode
+        </p>
+      )}
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {hasRoster && !(windowOpen && editing) ? (
@@ -1288,6 +1276,15 @@ function RosterSection({
                 }
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                 linkSuffix="?from=roster"
+                onSelect={
+                  pickingDouble
+                    ? () => {
+                        void weekly.replace('double_roster_points', pick.contestant_id)
+                        onDoublePicked?.()
+                      }
+                    : undefined
+                }
+                selected={rosterDouble?.target_contestant_id === pick.contestant_id}
                 expanded={!compact && expandedId === pick.contestant_id}
                 onToggle={compact ? undefined : () => toggleExpand(pick.contestant_id)}
               >

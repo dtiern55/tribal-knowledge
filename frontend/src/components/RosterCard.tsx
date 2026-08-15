@@ -25,6 +25,8 @@ export function RosterCard({
   swappedInEpisode = null,
   right,
   linkSuffix = '',
+  onSelect,
+  selected = false,
   expanded = false,
   onToggle,
   children,
@@ -40,6 +42,11 @@ export function RosterCard({
   // can scope swiping to this roster and show what they earned you (#262).
   // Only My Season passes it — on another player's team it would be wrong.
   linkSuffix?: string
+  // While the Advantage section is asking who to double (#398) the row becomes
+  // the answer: the whole line is a button, and the link out is suppressed so
+  // a tap can't wander off to the contestant page mid-decision.
+  onSelect?: () => void
+  selected?: boolean
   // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
@@ -56,6 +63,82 @@ export function RosterCard({
       : swappedInEpisode != null
         ? `Swapped in · episode ${swappedInEpisode}`
         : (contestant?.tribe_name ?? null)
+
+  const inner = (
+    <>
+      <span
+        className={`shrink-0 ${outEp != null ? 'opacity-60 grayscale' : ''}`}
+        title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+      >
+        <ContestantAvatar
+          name={contestant?.name ?? '—'}
+          imageUrl={contestant?.image_url ?? null}
+          square
+        />
+      </span>
+      <span className="min-w-0 text-left">
+        <span
+          className={`block truncate font-display text-base tracking-wide uppercase ${
+            outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
+          }`}
+        >
+          {contestant?.name ?? '—'}
+        </span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          {note && (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
+              {outEp == null && swappedInEpisode == null && contestant?.tribe_color && (
+                <span
+                  className="size-1.5 rounded-full ring-1 ring-black/15"
+                  style={{ backgroundColor: contestant.tribe_color }}
+                  aria-hidden
+                />
+              )}
+              {note}
+            </span>
+          )}
+          {isSoleSurvivor && (
+            <span
+              className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
+                ssWindowOpen
+                  ? 'border-stone-400 text-stone-500'
+                  : 'border-amber-500 bg-amber-400/20 text-amber-800'
+              }`}
+              title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
+            >
+              Sole Survivor
+            </span>
+          )}
+          {isDoubled && (
+            <span
+              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-ember-500 bg-ember-100 text-ember-800"
+              title="Double Roster Points is active for this episode"
+            >
+              ×2
+            </span>
+          )}
+        </span>
+      </span>
+    </>
+  )
+
+  if (onSelect) {
+    return (
+      <li className="border-t border-paper-line first:border-t-0">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+            selected ? 'bg-ocean-50 ring-1 ring-inset ring-ocean-300' : 'hover:bg-black/[.03]'
+          }`}
+        >
+          {inner}
+          <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">{right}</span>
+        </button>
+      </li>
+    )
+  }
 
   return (
     <li className="border-t border-paper-line first:border-t-0">

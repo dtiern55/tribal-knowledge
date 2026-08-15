@@ -282,9 +282,12 @@ describe('MySeasonPage state shell', () => {
     const rosterDouble = screen.getByRole('button', { name: 'Roster ×2' })
     expect(rosterDouble).toBeVisible()
     expect(screen.getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
-    expect(screen.queryByLabelText('Roster member to double')).not.toBeInTheDocument()
+    // Choosing who to double happens on the roster itself, not in a dropdown
+    // repeating five names already on screen.
+    expect(screen.queryByText('Choose a castaway to double this episode')).not.toBeInTheDocument()
     await userEvent.click(rosterDouble)
-    expect(screen.getByLabelText('Roster member to double')).toBeVisible()
+    expect(screen.getByText('Choose a castaway to double this episode')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
     expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
     expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
