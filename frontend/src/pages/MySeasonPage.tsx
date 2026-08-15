@@ -1718,11 +1718,7 @@ function PicksSection({
                         sc.eliminated_in_episode < ep.episode_number
                       return (
                         <span key={p.id} className="inline-flex items-center gap-1">
-                          <VoteSlip
-                            name={sc?.name ?? '—'}
-                            seed={p.contestant_id}
-                            stale={stale}
-                          />
+                          <VoteSlip name={sc?.name ?? '—'} stale={stale} />
                           {ballotDoubled && (
                             <span className="text-xs font-semibold text-ocean-600">×2</span>
                           )}

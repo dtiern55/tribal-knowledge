@@ -79,8 +79,6 @@ export function RosterCard({
             <ContestantAvatar
               name={contestant?.name ?? '—'}
               imageUrl={contestant?.image_url ?? null}
-              tribeColor={contestant?.tribe_color ?? null}
-              tribeName={contestant?.tribe_name ?? null}
               square
             />
           </span>
@@ -96,7 +94,14 @@ export function RosterCard({
             </span>
             <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
               {note && (
-                <span className="text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
+                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
+                  {outEp == null && swappedInEpisode == null && contestant?.tribe_color && (
+                    <span
+                      className="size-1.5 rounded-full ring-1 ring-black/15"
+                      style={{ backgroundColor: contestant.tribe_color }}
+                      aria-hidden
+                    />
+                  )}
                   {note}
                 </span>
               )}

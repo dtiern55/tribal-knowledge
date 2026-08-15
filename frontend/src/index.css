@@ -44,12 +44,9 @@
   /* Brand lockup only (the TRIBAL KNOWLEDGE wordmark). Anton stays the
      workhorse display face for headings. */
   --font-brand: "Skranji", "Anton", system-ui, sans-serif;
-  /* Three hands for the vote slips (#395). A castaway always draws the same
-     one, so a ballot looks written by several people but never reshuffles
-     under you. */
-  --font-hand-1: "Caveat", "Bradley Hand", cursive;
-  --font-hand-2: "Kalam", "Segoe Print", cursive;
-  --font-hand-3: "Shadows Into Light", "Bradley Hand", cursive;
+  /* The hand that writes a vote (#395). One face, not a set — mixed
+     handwriting on a single player's ballot read as noise, not character. */
+  --font-hand: "Kalam", "Segoe Print", "Bradley Hand", cursive;
 
   /* Record-book paper: the roster is written into something (#380 follow-on),
      so it needs a surface of its own rather than a white card. */
@@ -258,7 +255,7 @@ html.locked-night .braid-rule {
   height: 100%;
   z-index: -1;
 }
-.vote-slip > span { position: relative; font-size: 1.05rem; }
+.vote-slip > span { position: relative; font-family: var(--font-hand); font-size: 1rem; }
 
 html.locked-night .app-shell .vote-slip { color: #2a2016; }
 
