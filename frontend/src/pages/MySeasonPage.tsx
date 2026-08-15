@@ -240,6 +240,21 @@ export function MySeasonPage() {
 
       {state.kind === 'open' && (
         <div className="space-y-12">
+          <section id="roster" className="scroll-mt-20">
+            <RosterSection
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              rosterPoints={rosterPoints}
+              plays={d.plays}
+              setPlays={d.setPlays}
+              onRosterChange={d.bumpRoster}
+              rosterVersion={d.rosterVersion}
+              compact
+            />
+          </section>
+
           <section id="votes" className="scroll-mt-20">
             <PicksSection
               season={d.season}
@@ -253,31 +268,14 @@ export function MySeasonPage() {
             />
           </section>
 
-          <div className="space-y-12">
-            <WeeklyPlaySection
-              season={d.season}
-              episodes={d.episodes}
-              contestants={d.contestants}
-              userId={d.userId}
-              plays={d.plays}
-              setPlays={d.setPlays}
-            />
-
-            <section id="roster" className="scroll-mt-20">
-              <RosterSection
-                season={d.season}
-                contestants={d.contestants}
-                episodes={d.episodes}
-                userId={d.userId}
-                rosterPoints={rosterPoints}
-                plays={d.plays}
-                setPlays={d.setPlays}
-                onRosterChange={d.bumpRoster}
-                rosterVersion={d.rosterVersion}
-                compact
-              />
-            </section>
-          </div>
+          <WeeklyPlaySection
+            season={d.season}
+            episodes={d.episodes}
+            contestants={d.contestants}
+            userId={d.userId}
+            plays={d.plays}
+            setPlays={d.setPlays}
+          />
         </div>
       )}
 
@@ -413,7 +411,43 @@ function LockedState({
       <div className="mt-8 grid gap-8">
         <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Your ballot
+            Roster
+          </h3>
+          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {roster.map((pick) => {
+              const contestant = contestantMap.get(pick.contestant_id)
+              return (
+                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-sand-200 bg-sand-50'}`}>
+                  <ContestantAvatar
+                    name={contestant?.name ?? '—'}
+                    imageUrl={contestant?.image_url ?? null}
+                    tribeColor={contestant?.tribe_color ?? null}
+                    tribeName={contestant?.tribe_name ?? null}
+                    size="sm"
+                  />
+                  <span className="font-medium">{contestant?.name ?? '—'}</span>
+                  {played?.advantage_type === 'double_roster_points' &&
+                    played.target_contestant_id === pick.contestant_id && (
+                      <span
+                        className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${
+                          broadcast
+                            ? 'bg-ember-300/20 text-ember-100 ring-ember-200/40'
+                            : 'bg-ember-100 text-ember-800 ring-ember-300'
+                        }`}
+                        title="Double Roster Points is active for this episode"
+                      >
+                        ×2
+                      </span>
+                    )}
+                </li>
+              )
+            })}
+          </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
+        </div>
+
+        <div className={`border-t pt-6 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+            Ballot
           </h3>
           {picks.length > 0 ? (
             <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
@@ -443,32 +477,9 @@ function LockedState({
           )}
         </div>
 
-        <div className={`border-t pt-6 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
-          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Active roster
-          </h3>
-          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {roster.map((pick) => {
-              const contestant = contestantMap.get(pick.contestant_id)
-              return (
-                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-sand-200 bg-sand-50'}`}>
-                  <ContestantAvatar
-                    name={contestant?.name ?? '—'}
-                    imageUrl={contestant?.image_url ?? null}
-                    tribeColor={contestant?.tribe_color ?? null}
-                    tribeName={contestant?.tribe_name ?? null}
-                    size="sm"
-                  />
-                  <span className="font-medium">{contestant?.name ?? '—'}</span>
-                </li>
-              )
-            })}
-          </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
-        </div>
-
         <div className={`border-t pt-5 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Weekly play
+            Advantage
           </h3>
           <p className="mt-1 text-sm font-medium">
             {played
@@ -776,10 +787,10 @@ function WeeklyPlaySection({
   const play = weekly.play
 
   return (
-    <section className="p-4 bg-ocean-50 border border-ocean-200 rounded-xl space-y-3">
+    <section aria-labelledby="advantage-title" className="p-4 bg-ocean-50 border border-ocean-200 rounded-xl space-y-3">
       <div>
-        <h2 className="font-display text-lg tracking-wide text-ocean-800">
-          Weekly play <span className="text-sm font-sans font-normal text-gray-500">(optional)</span>
+        <h2 id="advantage-title" className="font-display text-lg tracking-wide text-ocean-800">
+          Advantage <span className="text-sm font-sans font-normal text-gray-500">(optional)</span>
         </h2>
         <p className="text-xs text-gray-500">Choose once for Episode {episode.episode_number}; unused plays do not carry over.</p>
         <p className="mt-1"><RuleLink anchor="weekly-play">How weekly plays work</RuleLink></p>
@@ -1038,7 +1049,7 @@ function RosterSection({
 
   return (
     <SectionShell
-      title={compact ? 'Active Roster' : 'My Roster'}
+      title={compact ? 'Roster' : 'My Roster'}
       prominent
       collapsible={false}
       right={
@@ -1085,6 +1096,7 @@ function RosterSection({
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
+                isDoubled={rosterDouble?.target_contestant_id === pick.contestant_id}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
@@ -1869,10 +1881,9 @@ function PicksSection({
               Episode {nextOpen?.episode_number}
             </p>
             <h2 id="open-ballot-title" className="font-display text-3xl tracking-wide text-ocean-800">
-              Your ballot
+              Ballot
             </h2>
             <p className="mt-1 text-sm text-gray-600">Vote for the castaways you think will be eliminated.</p>
-            <p className="mt-1"><RuleLink anchor="ballot">Ballot rules</RuleLink></p>
           </div>
           {nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
         </div>

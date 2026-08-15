@@ -98,5 +98,6 @@ describe('RulesPage rule modes', () => {
     expect(screen.getAllByText(/Episode 12/).length).toBeGreaterThan(0)
     expect(screen.getByRole('heading', { name: 'Privacy' })).toBeVisible()
     expect(screen.getByText(/Roster changes are visible/)).toBeVisible()
+    expect(screen.queryByText(/Episode schedule and contestant photos from/)).not.toBeInTheDocument()
   })
 })
