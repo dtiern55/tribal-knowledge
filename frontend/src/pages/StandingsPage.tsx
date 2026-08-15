@@ -92,7 +92,7 @@ export function StandingsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={season.status === 'completed' ? 'Season complete' : 'League race'}
+        eyebrow={season.status === 'completed' ? 'Season complete' : undefined}
         title="Standings"
         meta={season.name}
       />

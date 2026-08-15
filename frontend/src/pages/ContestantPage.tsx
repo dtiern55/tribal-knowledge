@@ -4,10 +4,11 @@ import { ContestantPortrait } from '../components/ContestantPortrait'
 import { Notice } from '../components/Notice'
 import { PageLoader } from '../components/PageLoader'
 import { SwipeNavBar } from '../components/SwipeNav'
+import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
 import { castStatus } from '../lib/cast'
 import { useSwipeNav } from '../lib/swipe'
-import type { CastMember, ContestantPerformance } from '../types'
+import type { CastMember, ContestantPerformance, RosterPick, ScoringBreakdown } from '../types'
 
 function Points({ value, suffix = 'pts' }: { value: number; suffix?: string }) {
   const color = value > 0 ? 'text-green-700' : value < 0 ? 'text-red-600' : 'text-gray-600'
@@ -22,8 +23,21 @@ export function ContestantPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const castQuery = searchParams.get('cast')
-  const backHref = castQuery ? `/cast?${castQuery}` : '/cast'
-  const detailSuffix = castQuery ? `?cast=${encodeURIComponent(castQuery)}` : ''
+  // Arriving from My Season is a different context: you're looking at one of
+  // *your* castaways, so the siblings you swipe through are the rest of your
+  // roster, not the whole cast, and the points shown are the ones they earned
+  // you — doubles and all.
+  const fromRoster = searchParams.get('from') === 'roster'
+  const { session } = useAuth()
+  const userId = session?.user?.id
+  const [rosterIds, setRosterIds] = useState<string[] | null>(null)
+  const [earnedForYou, setEarnedForYou] = useState<number | null>(null)
+  const backHref = fromRoster ? '/my-season' : castQuery ? `/cast?${castQuery}` : '/cast'
+  const detailSuffix = fromRoster
+    ? '?from=roster'
+    : castQuery
+      ? `?cast=${encodeURIComponent(castQuery)}`
+      : ''
 
   useEffect(() => {
     if (!contestantId) return
@@ -45,15 +59,48 @@ export function ContestantPage() {
     return () => { live = false }
   }, [])
 
-  const idx = cast.findIndex((member) => member.id === contestantId)
-  const prevC = idx > 0 ? cast[idx - 1] : undefined
-  const nextC = idx >= 0 && idx < cast.length - 1 ? cast[idx + 1] : undefined
+  useEffect(() => {
+    if (!fromRoster || !userId) return
+    let live = true
+    void getActiveSeason()
+      .then(async (season) => {
+        if (!season) return
+        const [picks, breakdown] = await Promise.all([
+          api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
+          api.get<ScoringBreakdown>(`/seasons/${season.id}/scoring-breakdown/${userId}`),
+        ])
+        if (!live) return
+        setRosterIds(
+          picks.filter((p) => p.active_until_episode === null).map((p) => p.contestant_id),
+        )
+        setEarnedForYou(
+          breakdown.roster.find((r) => r.contestant_id === contestantId)?.points ?? 0,
+        )
+      })
+      .catch(() => live && setRosterIds([]))
+    return () => { live = false }
+  }, [fromRoster, userId, contestantId])
+
+  // Same order My Season shows them in, so swiping matches the list you left.
+  const siblings =
+    fromRoster && rosterIds
+      ? rosterIds
+          .map((id) => cast.find((member) => member.id === id))
+          .filter((member): member is CastMember => member != null)
+          .sort(
+            (a, b) =>
+              Number(a.eliminated_in_episode != null) - Number(b.eliminated_in_episode != null),
+          )
+      : cast
+  const idx = siblings.findIndex((member) => member.id === contestantId)
+  const prevC = idx > 0 ? siblings[idx - 1] : undefined
+  const nextC = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
   const href = (member?: CastMember) => member && `/contestants/${member.id}${detailSuffix}`
   useSwipeNav(href(prevC), href(nextC))
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load this castaway">{error}</Notice>
-  if (!perf) return <Notice title="Contestant not found"><Link className="text-ocean-700 underline" to={backHref}>Return to the cast</Link></Notice>
+  if (!perf) return <Notice title="Contestant not found"><Link className="text-ocean-700 underline" to={backHref}>{fromRoster ? 'Return to My Season' : 'Return to the cast'}</Link></Notice>
 
   const eliminated = perf.eliminated_in_episode != null
   // Any of the three can be missing for a season imported before #262
@@ -70,7 +117,9 @@ export function ContestantPage() {
 
   return (
     <div>
-      <Link to={backHref} className="text-sm font-medium text-ocean-700 hover:text-ocean-900">← Back to cast</Link>
+      <Link to={backHref} className="text-sm font-medium text-ocean-700 hover:text-ocean-900">
+        ← {fromRoster ? 'Back to My Season' : 'Back to cast'}
+      </Link>
 
       <header className="mt-4 grid gap-5 border-b border-sand-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
         <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm sm:mx-0">
@@ -92,6 +141,17 @@ export function ContestantPage() {
             </span>
             <span aria-hidden>·</span>
             <Points value={perf.total_points} suffix="season points" />
+            {fromRoster && earnedForYou != null && (
+              <>
+                <span aria-hidden>·</span>
+                <span
+                  className="inline-flex items-center gap-1"
+                  title="Includes Double Roster Points and any Sole Survivor bonus, and only the episodes they were on your roster"
+                >
+                  <Points value={earnedForYou} suffix="for you" />
+                </span>
+              </>
+            )}
           </div>
           {bioFacts.length > 0 && (
             <p className="mt-2 text-sm text-gray-600">{bioFacts.join(' · ')}</p>

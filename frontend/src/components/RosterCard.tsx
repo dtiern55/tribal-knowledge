@@ -26,6 +26,7 @@ export function RosterCard({
   ssWindowOpen = false,
   swappedInEpisode = null,
   right,
+  linkSuffix = '',
   expanded = false,
   onToggle,
   children,
@@ -37,6 +38,10 @@ export function RosterCard({
   ssWindowOpen?: boolean
   swappedInEpisode?: number | null
   right?: ReactNode
+  // Query string carrying the context you came from, so the contestant page
+  // can scope swiping to this roster and show what they earned you (#262).
+  // Only My Season passes it — on another player's team it would be wrong.
+  linkSuffix?: string
   // Optional tap-to-expand per-episode breakdown (#257): when onToggle is
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
@@ -74,7 +79,7 @@ export function RosterCard({
         onClick={onToggle}
       >
       <Link
-        to={`/contestants/${contestantId}`}
+        to={`/contestants/${contestantId}${linkSuffix}`}
         onClick={(e) => e.stopPropagation()}
         className={`flex items-center gap-2 font-medium hover:text-ocean-700 ${
           outEp != null ? 'text-gray-500' : 'text-gray-900'
