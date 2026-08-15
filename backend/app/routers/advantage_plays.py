@@ -203,7 +203,8 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
 
     There is no inventory to return to any more — the play is simply undone
     and the week's allowance is free again. A roster_swap play can't be taken
-    back here: the swap it paid for has already happened.
+    back at all: the swap it paid for has already happened, and buying one is
+    non-refundable by design (#394).
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
@@ -220,7 +221,7 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
             if play["advantage_type"] == "roster_swap":
                 raise HTTPException(
                     status_code=400,
-                    detail="Undo the roster swap itself to get this play back",
+                    detail="That swap is already made — the play is spent",
                 )
 
             cur.execute("delete from advantage_plays where id = %s", [str(play_id)])

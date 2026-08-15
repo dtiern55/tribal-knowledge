@@ -282,10 +282,7 @@ def swap_roster_pick(
                 if used_weekly_play(cur, user_id, episode["id"]):
                     raise HTTPException(
                         status_code=400,
-                        detail=(
-                            "Your advantage play is already used this episode"
-                            " — take it back to swap again"
-                        ),
+                        detail="Your advantage play is already used this episode",
                     )
                 cur.execute(
                     """

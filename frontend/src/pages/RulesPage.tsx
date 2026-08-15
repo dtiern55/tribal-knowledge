@@ -192,7 +192,7 @@ export function RulesPage() {
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Ballot Points</dt><dd className="mt-1">Double all points earned from your ballot. This does not add a vote.</dd></div>
                 <div className="py-3"><dt className="font-semibold text-gray-900">Roster Swap</dt><dd className="mt-1">Use the weekly play for a swap after your free {season.free_swaps === 1 ? 'swap' : 'swaps'}.</dd></div>
               </dl>
-              <p>Double plays can be changed or removed before the episode lock. A roster swap takes effect when submitted.</p>
+              <p>Double plays can be changed or removed before the episode lock. A roster swap takes effect when submitted and cannot be undone.</p>
             </div>
           )}
         </RuleSection>
@@ -201,7 +201,7 @@ export function RulesPage() {
           <RuleList>
             <li>{season.free_swaps === 0 ? 'There are no free midseason swaps.' : `The first ${season.free_swaps} midseason ${season.free_swaps === 1 ? 'swap is' : 'swaps are'} free.`}</li>
             {!usesTokens && <li>Each later swap uses the weekly play for the open episode.</li>}
-            <li>A swap takes effect in the open episode. The incoming castaway must still be in the game and cannot have been on your roster before.</li>
+            <li>A swap takes effect in the open episode and cannot be taken back. The incoming castaway must still be in the game and cannot have been on your roster before.</li>
             <li>Swaps close at {configuredEpisode(swapLock)}. The finale never allows swaps.</li>
             {!usesTokens && <li>Weekly plays close at {configuredEpisode(season.advantage_lock_episode)}. The finale never allows a weekly play.</li>}
             <li>At the episode lock, the ballot and weekly play become final. The next episode stays closed until scoring is complete.</li>
