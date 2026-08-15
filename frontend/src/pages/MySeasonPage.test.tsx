@@ -279,9 +279,9 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByRole('heading', { name: /Advantage/ })).toBeVisible()
     // Two equal choices, named and nothing else — the roster double's target
     // picker only appears once that play is chosen.
-    const rosterDouble = screen.getByRole('button', { name: 'Double Roster Points' })
+    const rosterDouble = screen.getByRole('button', { name: 'Roster ×2' })
     expect(rosterDouble).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Double Ballot Points' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
     expect(screen.queryByLabelText('Roster member to double')).not.toBeInTheDocument()
     await userEvent.click(rosterDouble)
     expect(screen.getByLabelText('Roster member to double')).toBeVisible()

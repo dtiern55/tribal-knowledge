@@ -838,7 +838,7 @@ function WeeklyPlaySection({
                   : 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
               }`}
             >
-              Double Roster Points
+              Roster ×2
             </button>
             <button
               type="button"
@@ -846,7 +846,7 @@ function WeeklyPlaySection({
               disabled={weekly.busy}
               className="min-h-11 rounded-lg border border-ocean-300 bg-white/60 px-3 py-2.5 text-sm font-semibold text-ocean-800 transition-colors hover:border-ocean-500 disabled:opacity-40"
             >
-              Double Ballot Points
+              Ballot ×2
             </button>
           </div>
 
@@ -1714,7 +1714,7 @@ function PicksSection({
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col items-start gap-2">
                     {savedPicks.map((p) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
