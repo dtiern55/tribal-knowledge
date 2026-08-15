@@ -129,21 +129,22 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
-  it('renders the Open state ballot first with one shared weekly-play control', async () => {
+  it('renders the Open state as Roster, Ballot, and Advantage', async () => {
     arrange([
       episode(1, 'scored', '2026-08-20T00:00:00Z'),
       episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    const ballot = await screen.findByRole('heading', { name: 'Your ballot' })
-    const weeklyPlay = screen.getByRole('heading', { name: /Weekly play/ })
-    const roster = screen.getByRole('heading', { name: /^Active Roster/ })
+    const roster = await screen.findByRole('heading', { name: /^Roster/ })
+    const ballot = screen.getByRole('heading', { name: 'Ballot' })
+    const advantage = screen.getByRole('heading', { name: /Advantage/ })
     expect(ballot.closest('[data-layout="open-desktop"]')).not.toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: 'Episode decisions' })).not.toBeInTheDocument()
-    expect(ballot.compareDocumentPosition(weeklyPlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(weeklyPlay.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
+    expect(roster.compareDocumentPosition(ballot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(ballot.compareDocumentPosition(advantage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
+    expect(screen.queryByRole('link', { name: 'Ballot rules' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Past Episodes' })).not.toBeInTheDocument()
     expect(screen.queryByText('This Week')).not.toBeInTheDocument()
   })
@@ -181,7 +182,7 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const ballot = await screen.findByRole('region', { name: 'Your ballot' })
+    const ballot = await screen.findByRole('region', { name: 'Ballot' })
     expect(within(ballot).getByRole('heading', { name: 'Yanu' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Siga' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Nami' })).toBeVisible()
@@ -236,13 +237,43 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByRole('heading', { name: /Weekly play/ })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: /Advantage/ })).toBeVisible()
     expect(screen.getByText('Double Roster Points')).toBeVisible()
     expect(screen.getByText('Double Vote Points')).toBeVisible()
     expect(screen.getByText(/every correct vote on this episode's ballot/i)).toBeVisible()
     expect(screen.getByText(/A free roster swap does not use this play/)).toBeVisible()
     expect(await screen.findByText('Free swap left: 1 · swaps lock at episode 10')).toBeVisible()
-    expect(screen.getAllByRole('heading', { name: /Weekly play/ })).toHaveLength(1)
+    expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
+  })
+
+  it('marks the selected roster card after Double Roster Points is saved', async () => {
+    const open = episode(3, 'upcoming', '2099-08-27T00:00:00Z')
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [{ id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null }]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [{
+          id: 'play-1',
+          episode_id: 'episode-3',
+          advantage_type: 'double_roster_points',
+          target_contestant_id: 'cast-1',
+        }]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByTitle('Double Roster Points is active for this episode')).toHaveTextContent('×2')
+    expect(screen.getByText('Double Roster Points')).toBeVisible()
   })
 
   it('marks a roster swap as the weekly play after free swaps are used', async () => {
@@ -367,7 +398,7 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: 'Your ballot' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Ballot' })).toBeVisible()
     expect(api.post).toHaveBeenCalledWith(
       '/seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },

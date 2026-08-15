@@ -166,7 +166,6 @@ export function StandingsPage() {
                               <ContestantAvatar name={survivor.name} imageUrl={survivor.image_url} tribeColor={null} tribeName={null} />
                             </span>
                           ))}
-                          <span className="ml-1 text-[11px] text-gray-500">{entry.active_survivors.length} still playing</span>
                         </span>
                       )}
                     </div>

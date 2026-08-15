@@ -261,7 +261,6 @@ export function RulesPage() {
         </RuleSection>
       </div>
 
-      <p className="mt-10 text-xs text-gray-500">Episode schedule and contestant photos from <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer" className="underline">TVmaze</a> under CC BY-SA.</p>
     </div>
   )
 }

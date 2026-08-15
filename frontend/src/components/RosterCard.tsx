@@ -22,6 +22,7 @@ export function RosterCard({
   contestantId,
   contestant,
   isSoleSurvivor = false,
+  isDoubled = false,
   ssWindowOpen = false,
   swappedInEpisode = null,
   right,
@@ -32,6 +33,7 @@ export function RosterCard({
   contestantId: string
   contestant: Contestant | undefined
   isSoleSurvivor?: boolean
+  isDoubled?: boolean
   ssWindowOpen?: boolean
   swappedInEpisode?: number | null
   right?: ReactNode
@@ -95,6 +97,14 @@ export function RosterCard({
         <span className={outEp != null ? 'line-through decoration-stone-300' : undefined}>
           {contestant?.name ?? '—'}
         </span>
+        {isDoubled && (
+          <span
+            className="inline-flex min-w-8 items-center justify-center rounded-full bg-ember-100 px-2 py-0.5 text-[11px] font-bold text-ember-800 ring-1 ring-ember-300"
+            title="Double Roster Points is active for this episode"
+          >
+            ×2
+          </span>
+        )}
         {outEp != null && (
           <span className="text-[11px] uppercase tracking-wide text-stone-400">ep {outEp}</span>
         )}

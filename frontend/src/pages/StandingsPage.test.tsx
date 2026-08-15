@@ -35,4 +35,36 @@ describe('StandingsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Standings' })).toBeVisible()
     expect(screen.getByText('No players yet')).toBeVisible()
   })
+
+  it('shows active roster portraits without the redundant survivor count', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [{
+          user_id: 'user-1',
+          display_name: 'Danny',
+          roster_points: 12,
+          elimination_points: 15,
+          finale_points: 0,
+          total_points: 27,
+          trend: null,
+          trend_delta: 0,
+          last_episode_points: 0,
+          active_survivors: [
+            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null },
+            { contestant_id: 'cast-2', name: 'Charlie', image_url: null },
+          ],
+        }]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+
+    expect(await screen.findByTitle('Kenzie')).toBeVisible()
+    expect(screen.getByTitle('Charlie')).toBeVisible()
+    expect(screen.queryByText('2 still playing')).not.toBeInTheDocument()
+  })
 })
