@@ -51,18 +51,18 @@ def test_latest_reveal_reconciles_multiple_correct_picks_and_double_vote(
     assert len(result["eliminated"]) == 2
     assert [pick["correct"] for pick in result["ballot"]] == [True, True, False]
     assert result["roster_points"] == 15
-    assert result["ballot_points"] == 30
-    assert result["weekly_play_bonus"] == 30
+    assert result["ballot_points"] == 32
+    assert result["weekly_play_bonus"] == 32
     assert result["weekly_plays"] == [
         {
             "advantage_play_id": str(play["id"]),
             "advantage_type": "double_vote_points",
             "target_contestant_id": None,
             "target_name": None,
-            "bonus_points": 30,
+            "bonus_points": 32,
         }
     ]
-    assert result["total_points"] == 75
+    assert result["total_points"] == 79
     assert (
         result["roster_points"]
         + result["roster_adjustment_points"]
@@ -174,8 +174,8 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         "fire_loss",
         "winner",
     ]
-    assert result["ballot_points"] == 66
-    assert result["total_points"] == 66
+    assert result["ballot_points"] == 88
+    assert result["total_points"] == 88
     assert result["current_rank"] == 1
     assert result["prior_rank"] == 2
     assert result["rank_delta"] == 1

@@ -206,7 +206,7 @@ def test_episode_points_reconciles_with_standings(db_conn):
     insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")  # +15
     insert_scoring_event(db_conn, ep3["id"], c["id"], "win_individual_reward")  # +12
     insert_elimination_pick(db_conn, user["id"], ep3["id"], other["id"])
-    insert_elimination(db_conn, ep3["id"], other["id"])  # correct -> +15
+    insert_elimination(db_conn, ep3["id"], other["id"])  # correct -> +16
 
     uid = str(user["id"])
     total = scoring.roster_points(db_conn, season["id"]).get(
@@ -215,7 +215,7 @@ def test_episode_points_reconciles_with_standings(db_conn):
     summed = sum(
         scoring.episode_points(db_conn, season["id"], n).get(uid, 0) for n in (2, 3)
     )
-    assert summed == total == 42
+    assert summed == total == 43
 
 
 @pytest.mark.integration
@@ -244,7 +244,7 @@ def test_elimination_points_correct_premerge(db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 16}
 
 
 @pytest.mark.integration
@@ -256,7 +256,7 @@ def test_elimination_points_correct_postmerge(db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 18}
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 20}
 
 
 @pytest.mark.integration
@@ -290,8 +290,7 @@ def test_elimination_points_excludes_finale(db_conn):
 
 @pytest.mark.integration
 def test_elimination_points_legacy_targeted_double(db_conn):
-    """Pre-#303 plays named one pick and must keep doubling only that one —
-    completed seasons are time capsules (#170)."""
+    """Pre-#303 plays named one pick and must keep doubling only that one."""
     season = insert_season(db_conn, merge_episode=7)
     ep = insert_episode(db_conn, season["id"], episode_number=3)
     user = insert_user(db_conn)
@@ -300,8 +299,8 @@ def test_elimination_points_legacy_targeted_double(db_conn):
     insert_elimination(db_conn, ep["id"], c["id"])
     insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points", c["id"])
 
-    # pre-merge correct pick 15 -> doubled to 30
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 30}
+    # pre-merge correct pick 16 -> doubled to 32
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 32}
 
 
 @pytest.mark.integration
@@ -318,7 +317,7 @@ def test_elimination_points_legacy_double_wrong_target_no_effect(db_conn):
         db_conn, user["id"], ep["id"], "double_vote_points", other["id"]
     )
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 16}
 
 
 @pytest.mark.integration
@@ -336,8 +335,8 @@ def test_elimination_points_ballot_double_covers_every_pick(db_conn):
     insert_elimination(db_conn, ep["id"], hit_b["id"])
     insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
 
-    # two correct pre-merge picks, 15 each -> 60 doubled; the miss stays 0
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 60}
+    # two correct pre-merge picks, 16 each -> 64 doubled; the miss stays 0
+    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 64}
 
 
 @pytest.mark.integration
@@ -370,7 +369,7 @@ def test_ballot_double_bonus_sums_every_correct_pick(db_conn):
     play = insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
 
     bonus = scoring.advantage_bonus_by_play(db_conn, season["id"], user["id"])
-    assert bonus[str(play["id"])] == 30  # 15 + 15, the un-doubled base
+    assert bonus[str(play["id"])] == 32  # 16 + 16, the un-doubled base
 
 
 @pytest.mark.integration
@@ -418,8 +417,8 @@ def test_finale_points_full_ballot(db_conn):
         winner=winner["id"],
     )
 
-    # 18 + 18 + 30
-    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 66}
+    # 24 + 24 + 40
+    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 88}
 
 
 @pytest.mark.integration
@@ -436,7 +435,7 @@ def test_finale_points_winner_only(db_conn):
         winner=winner["id"],
     )
 
-    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 30}
+    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 40}
 
 
 @pytest.mark.integration
@@ -517,7 +516,7 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
     results = scoring.elimination_pick_results(db_conn, season["id"], user["id"])
     by_c = {r["contestant_id"]: r for r in results}
     assert by_c[str(hit["id"])]["correct"] is True
-    assert by_c[str(hit["id"])]["points"] == 15  # premerge correct_elimination
+    assert by_c[str(hit["id"])]["points"] == 16  # premerge correct_elimination
     assert by_c[str(miss["id"])]["correct"] is False
     assert by_c[str(miss["id"])]["points"] == 0
 
@@ -532,8 +531,8 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
     )
     results = scoring.elimination_pick_results(db_conn, season["id"], user["id"])
     by_c = {r["contestant_id"]: r for r in results}
-    assert by_c[str(hit["id"])]["points"] == 15  # base, not 30
-    assert scoring.elimination_points(db_conn, season["id"])[str(user["id"])] == 30
+    assert by_c[str(hit["id"])]["points"] == 16  # base, not 32
+    assert scoring.elimination_points(db_conn, season["id"])[str(user["id"])] == 32
 
 
 @pytest.mark.integration

@@ -64,9 +64,9 @@ def test_curated_insights_compute_multiple_elimination_aggregates(
     assert insights[0]["value"] == "100%"
     assert insights[0]["detail"] == "2 of 2 submitted ballots included this castaway."
     assert insights[1]["value"] == "1 of 2"
-    # Current user: 45; other: 15; median: 30.
-    assert insights[2]["value"] == "+15 pts"
-    assert insights[2]["detail"] == "You scored 45; the league median was 30."
+    # Current user: 47; other: 16; median: 31.5.
+    assert insights[2]["value"] == "+15.5 pts"
+    assert insights[2]["detail"] == "You scored 47; the league median was 31.5."
 
 
 @pytest.mark.integration

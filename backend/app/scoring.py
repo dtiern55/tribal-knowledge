@@ -149,8 +149,9 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
 def finale_points(conn, season_id: UUID) -> dict[str, int]:
     """Points from each user's three-part finale ballot.
 
-    early_boot correct (finale voted_out) -> +18; fire_loss correct (finale
-    fire_making_loss) -> +18; winner correct (placement 1) -> +30.
+    Values come from the season's scoring snapshot. The current live-season
+    template awards 24 for the early boot, 24 for the fire loss, and 40 for
+    the winner.
     """
     with conn.cursor() as cur:
         cur.execute(

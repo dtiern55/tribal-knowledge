@@ -285,7 +285,7 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
         f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
     ).json()
     played = next(p for p in plays if p["id"] == play["id"])
-    assert played["points_earned"] == 15  # pre-merge correct_elimination value
+    assert played["points_earned"] == 16  # pre-merge correct_elimination value
 
 
 @pytest.mark.integration
