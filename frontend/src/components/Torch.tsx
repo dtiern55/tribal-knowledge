@@ -1,11 +1,4 @@
-/**
- * Torch status glyph (#56): lit = still in the game, snuffed = voted out —
- * the Survivor snuffer motif that replaces the old red "OUT" stamp.
- *
- * Bold, portrait mark (flame + wood handle + ocean lashing) meant to read as
- * an actual torch at ~28px in the roster/cast leading column. Multicolour
- * fills, so it lives apart from the monochrome currentColor nav icons.
- */
+/** A slender carved Survivor torch. Lit means active; snuffed means voted out. */
 export function Torch({
   lit,
   className = 'w-6 h-8',
@@ -14,58 +7,87 @@ export function Torch({
   className?: string
 }) {
   return (
-    <svg viewBox="0 0 64 88" className={className} aria-hidden="true">
+    <svg
+      viewBox="0 0 48 96"
+      className={className}
+      aria-hidden="true"
+      data-state={lit ? 'lit' : 'snuffed'}
+    >
       {lit ? (
         <>
-          <rect x="28" y="46" width="8" height="38" rx="2.5" fill="#b07a4a" />
-          <path d="M30 50 v30 M34 50 v30" stroke="#8a5a34" strokeWidth="0.8" opacity=".5" />
           <path
-            d="M23 47 C30 52 34 52 41 47 L41 53 C34 58 30 58 23 53 Z"
-            fill="#1f7aa8"
+            d="M25 3 C20 10 23 15 19 21 C16 26 18 31 24 33 C30 32 33 28 31 23 C30 18 27 16 28 10 C25 13 26 7 25 3 Z"
+            fill="#e66e22"
+            stroke="#a94418"
+            strokeWidth=".8"
+            data-part="flame"
           />
           <path
-            d="M33 3 C26 16 42 18 35 29 C46 25 50 39 42 46 C38 51 26 51 22 45 C16 37 22 26 30 24 C34 18 31 10 33 3 Z"
-            fill="#FFCB2E"
-          />
-          <path d="M19 40 C16 44 18 50 22 50 C20 46 23 42 19 40 Z" fill="#FFCB2E" />
-          <path
-            d="M33 26 C29 32 33 40 38 42 C34 48 25 45 26 36 C26 31 30 27 33 26 Z"
-            fill="#F26A1B"
+            d="M24 19 C21 23 22 28 25 30 C28 27 27 23 25 20 Z"
+            fill="#f6c843"
+            data-part="flame-core"
           />
         </>
       ) : (
         <>
-          <rect x="28" y="46" width="8" height="38" rx="2.5" fill="#9a8a76" />
-          <path d="M30 50 v30 M34 50 v30" stroke="#7d7060" strokeWidth="0.8" opacity=".5" />
           <path
-            d="M23 47 C30 52 34 52 41 47 L41 53 C34 58 30 58 23 53 Z"
-            fill="#9aa7ae"
-          />
-          <ellipse cx="32" cy="44" rx="8.5" ry="3" fill="#4a4038" />
-          <path
-            d="M25 44 l2 -4 M31 43 l0 -5 M37 44 l-1 -4"
-            stroke="#3a332c"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-          <path
-            d="M30 40 C34 34 27 31 31 25"
-            stroke="#b6bcc0"
-            strokeWidth="2"
+            d="M21 31 C17 24 25 21 21 14"
             fill="none"
+            stroke="#9ba6a8"
+            strokeWidth="1.8"
             strokeLinecap="round"
             opacity=".8"
+            data-part="smoke"
           />
           <path
-            d="M37 41 C40 36 35 33 38 28"
-            stroke="#c7ccd0"
-            strokeWidth="1.8"
+            d="M28 31 C32 25 25 22 29 17"
             fill="none"
+            stroke="#9ba6a8"
+            strokeWidth="1.8"
             strokeLinecap="round"
-            opacity=".7"
+            opacity=".8"
+            data-part="smoke"
           />
+          <ellipse cx="24" cy="34" rx="5" ry="2.3" fill="#292623" stroke="#161514" />
         </>
       )}
+
+      <path
+        d="M17 25 L21 22 L23 31 L24 35 L22 41 L19 36 Z"
+        fill="#6d492f"
+        stroke="#33251c"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M31 25 L27 22 L25 31 L24 35 L26 41 L29 36 Z"
+        fill="#6d492f"
+        stroke="#33251c"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M21 39 L27 39 L27 93 L21 93 Z"
+        fill={lit ? '#95653e' : '#74685a'}
+        stroke={lit ? '#493322' : '#4f4941'}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19 29 L21 27 M29 29 L27 27"
+        fill="none"
+        stroke={lit ? '#d0a069' : '#a99d8e'}
+        strokeWidth="1.35"
+        strokeLinecap="round"
+      />
+      <path
+        d="M22 44 C28 50 20 56 26 62 C29 66 21 72 26 78 C28 81 24 85 22 89 M26 44 C20 50 28 56 22 62 C19 66 27 72 22 78 C20 81 24 85 26 89"
+        fill="none"
+        stroke={lit ? '#2e211a' : '#48423b'}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
