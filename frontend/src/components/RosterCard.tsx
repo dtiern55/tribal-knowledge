@@ -25,6 +25,7 @@ export function RosterCard({
   swappedInEpisode = null,
   right,
   linkSuffix = '',
+  bioLink = true,
   onSelect,
   selected = false,
   lit = false,
@@ -43,6 +44,10 @@ export function RosterCard({
   // can scope swiping to this roster and show what they earned you (#262).
   // Only My Season passes it — on another player's team it would be wrong.
   linkSuffix?: string
+  // Whether the name/photo link out to the contestant's bio. Off on My Season,
+  // where the whole row belongs to expanding your own scoring — the bio lives
+  // on the Cast page (#406 review). Other players' teams keep the link.
+  bioLink?: boolean
   // While the Advantage section is asking who to double (#398) the row becomes
   // the answer: the whole line is a button, and the link out is suppressed so
   // a tap can't wander off to the contestant page mid-decision.
@@ -59,14 +64,11 @@ export function RosterCard({
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
   const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
-  // One line of provenance under the name: why this entry looks the way it
-  // does. Exit beats swap-in beats tribe, because that's the order you care.
-  const note =
-    outEp != null
-      ? `Out · episode ${outEp}`
-      : swappedInEpisode != null
-        ? `Swapped in · episode ${swappedInEpisode}`
-        : (contestant?.tribe_name ?? null)
+  // The note under the name is tribe (with its colour dot) for anyone still in;
+  // a boot shows when it happened instead. A swap-in is provenance, not a
+  // replacement for the tribe — it rides as its own tag so the tribe stays
+  // visible (#406 review).
+  const note = outEp != null ? `Out · episode ${outEp}` : (contestant?.tribe_name ?? null)
 
   const inner = (
     <>
@@ -91,7 +93,7 @@ export function RosterCard({
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
-              {outEp == null && swappedInEpisode == null && contestant?.tribe_color && (
+              {outEp == null && contestant?.tribe_color && (
                 <span
                   className="size-1.5 rounded-full ring-1 ring-black/15"
                   style={{ backgroundColor: contestant.tribe_color }}
@@ -99,6 +101,14 @@ export function RosterCard({
                 />
               )}
               {note}
+            </span>
+          )}
+          {outEp == null && swappedInEpisode != null && (
+            <span
+              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-paper-edge bg-black/[.03] text-paper-ink-faded"
+              title={`Swapped onto your roster in episode ${swappedInEpisode}`}
+            >
+              Swapped in · ep {swappedInEpisode}
             </span>
           )}
           {isSoleSurvivor && (
@@ -152,17 +162,22 @@ export function RosterCard({
         ) : (
           <>
             {/* Tapping the row opens the breakdown — that's where your own
-                scoring lives, including 2x roster points. The name and
-                photograph stay a link to the contestant's page;
-                stopPropagation keeps it from also expanding. The chevron
-                remains the keyboard/screen-reader control. */}
-            <Link
-              to={`/contestants/${contestantId}${linkSuffix}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex min-w-0 flex-1 items-center gap-3"
-            >
-              {inner}
-            </Link>
+                scoring lives, including 2x roster points. With bioLink, the
+                name and photograph are also a link to the contestant page
+                (stopPropagation keeps that from expanding too); without it,
+                the whole row just expands. The chevron is the keyboard/
+                screen-reader control either way. */}
+            {bioLink ? (
+              <Link
+                to={`/contestants/${contestantId}${linkSuffix}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex min-w-0 flex-1 items-center gap-3"
+              >
+                {inner}
+              </Link>
+            ) : (
+              <span className="flex min-w-0 flex-1 items-center gap-3">{inner}</span>
+            )}
             <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
               {right}
               {onToggle && (

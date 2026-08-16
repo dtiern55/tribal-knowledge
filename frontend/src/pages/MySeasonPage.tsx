@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
-import { Link } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
@@ -17,7 +16,14 @@ import {
 import { RosterCard } from '../components/RosterCard'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
-import { RecordHead, RecordSection, SeasonRecord } from '../components/SeasonRecord'
+import type { Beat, BeatKey } from '../components/SeasonRecord'
+import {
+  RecordBeats,
+  RecordHead,
+  RecordPanel,
+  RecordSection,
+  SeasonRecord,
+} from '../components/SeasonRecord'
 import { Torch } from '../components/Torch'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
@@ -59,6 +65,12 @@ function useMySeasonData() {
   // pre-lock roster edits).
   const [rosterVersion, setRosterVersion] = useState(0)
   const [automaticResult, setAutomaticResult] = useState<EpisodeResult | null>(null)
+  // The beat bar summarises all three sections at once, so the page needs the
+  // roster and this episode's ballot even though the sections fetch their own.
+  const [roster, setRoster] = useState<RosterPick[]>([])
+  const [openPicks, setOpenPicks] = useState<EliminationPick[]>([])
+  // Bumped by the ballot when it saves, so the Ballot beat's count follows.
+  const [ballotVersion, setBallotVersion] = useState(0)
 
   useEffect(() => {
     if (!userId) return
@@ -98,8 +110,32 @@ function useMySeasonData() {
     void load()
   }, [userId])
 
+  // Roster and ballot for the beat bar. Separate from the main load so a swap
+  // or a saved ballot refreshes the summary without refetching the season.
+  const openEp = season ? openEpisode(episodes, season) : undefined
+  useEffect(() => {
+    if (!season || !userId) return
+    api
+      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .then(setRoster)
+      .catch(() => setRoster([]))
+  }, [season, userId, rosterVersion])
+  useEffect(() => {
+    if (!openEp || !userId) {
+      setOpenPicks([])
+      return
+    }
+    api
+      .get<EliminationPick[]>(`/episodes/${openEp.id}/picks/${userId}`)
+      .then(setOpenPicks)
+      .catch(() => setOpenPicks([]))
+  }, [openEp?.id, userId, ballotVersion])
+
   return {
     userId,
+    roster,
+    openPicks,
+    bumpBallot: () => setBallotVersion((v) => v + 1),
     season,
     contestants,
     episodes,
@@ -204,6 +240,12 @@ export function MySeasonPage() {
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
   const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
+  // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
+  // select the matching beat instead of scrolling to it.
+  const [beat, setBeat] = useState<BeatKey>(() => {
+    const hash = window.location.hash.replace('#', '')
+    return hash === 'votes' ? 'ballot' : hash === 'advantage' ? 'advantage' : 'roster'
+  })
   // Lags `picking` on the way out only. The record has to keep its overflow
   // open until the halo has finished fading, or the glow is guillotined at the
   // card edge the instant you pick.
@@ -255,6 +297,58 @@ export function MySeasonPage() {
 
   const visibleResult = replayResult ?? d.automaticResult
 
+  // What each beat says about itself. All derived — nothing is stored (#396
+  // follow-up). Mirrors the markers already inside the sections.
+  function beatsFor(openEp: Episode): Beat[] {
+    const eliminatedIn = new Map(d.contestants.map((c) => [c.id, c.eliminated_in_episode]))
+    const held = d.roster.filter((r) => r.active_until_episode === null)
+    // "Active" means still playing, not still holding a slot — a dead slot is
+    // exactly what the missing check is telling you to fix.
+    const active = held.filter((r) => eliminatedIn.get(r.contestant_id) == null)
+    const swappedThisEpisode = d.roster.some(
+      (r) => r.active_until_episode === openEp.episode_number - 1,
+    )
+    const play = d.plays.find((p) => p.episode_id === openEp.id)
+    const rosterDouble =
+      play?.advantage_type === 'double_roster_points' && play.target_contestant_id != null
+    const ballotDouble = play?.advantage_type === 'double_vote_points'
+
+    const stillIn = d.contestants.filter(
+      (c) => c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number,
+    ).length
+    const maxPicks = Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
+    const saved = d.openPicks.length
+
+    return [
+      {
+        key: 'roster',
+        label: 'Roster',
+        // A roster is settled when no slot is sitting dead — the only job it
+        // has between locks.
+        done: active.length === held.length,
+        doubled: rosterDouble,
+        note: `${active.length} active${swappedThisEpisode ? ' · swapped' : ''}`,
+      },
+      {
+        key: 'ballot',
+        label: 'Ballot',
+        done: maxPicks > 0 && saved === maxPicks,
+        doubled: ballotDouble,
+        note: saved > 0 ? `${saved} of ${maxPicks}` : 'None',
+      },
+      {
+        key: 'advantage',
+        label: 'Advantage',
+        done: ballotDouble || rosterDouble,
+        note: rosterDouble
+          ? (d.contestants.find((c) => c.id === play?.target_contestant_id)?.name ?? 'Roster ×2')
+          : ballotDouble
+            ? 'Ballot ×2'
+            : 'Unused',
+      },
+    ]
+  }
+
   return (
     <>
       <div
@@ -299,49 +393,65 @@ export function MySeasonPage() {
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
-          <div
-            id="roster"
-            className={`scroll-mt-20 stage-stage ${picking ? 'stage-lit' : ''}`}
+          <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
+
+          <RecordPanel
+            beat="roster"
+            active={beat === 'roster'}
+            className={`stage-stage ${picking ? 'stage-lit' : ''}`}
           >
-            <RosterSection
-              season={d.season}
-              contestants={d.contestants}
-              episodes={d.episodes}
-              userId={d.userId}
-              rosterPoints={rosterPoints}
-              plays={d.plays}
-              setPlays={d.setPlays}
-              onRosterChange={d.bumpRoster}
-              rosterVersion={d.rosterVersion}
-              picking={picking}
-              onPickingDone={() => setPicking(null)}
-              onStartSwap={() => setPicking('swap')}
-            />
-          </div>
+            <div id="roster">
+              <RosterSection
+                season={d.season}
+                contestants={d.contestants}
+                episodes={d.episodes}
+                userId={d.userId}
+                rosterPoints={rosterPoints}
+                plays={d.plays}
+                setPlays={d.setPlays}
+                onRosterChange={d.bumpRoster}
+                rosterVersion={d.rosterVersion}
+                picking={picking}
+                onPickingDone={() => setPicking(null)}
+                onStartSwap={() => setPicking('swap')}
+                bare
+              />
+            </div>
+          </RecordPanel>
 
-          <div id="votes" className="scroll-mt-20">
-            <PicksSection
-              season={d.season}
-              contestants={d.contestants}
-              episodes={d.episodes}
-              userId={d.userId}
-              plays={d.plays}
-              setPlays={d.setPlays}
-              pickResults={pickResults}
-              activeOnly
-            />
-          </div>
+          <RecordPanel beat="ballot" active={beat === 'ballot'}>
+            <div id="votes">
+              <PicksSection
+                season={d.season}
+                contestants={d.contestants}
+                episodes={d.episodes}
+                userId={d.userId}
+                plays={d.plays}
+                setPlays={d.setPlays}
+                pickResults={pickResults}
+                onBallotSaved={d.bumpBallot}
+                activeOnly
+                bare
+              />
+            </div>
+          </RecordPanel>
 
-          <div id="advantage" className="scroll-mt-20">
-            <WeeklyPlaySection
-              season={d.season}
-              episodes={d.episodes}
-              plays={d.plays}
-              setPlays={d.setPlays}
-              picking={picking}
-              onPick={setPicking}
-            />
-          </div>
+          <RecordPanel beat="advantage" active={beat === 'advantage'}>
+            <div id="advantage">
+              <WeeklyPlaySection
+                season={d.season}
+                episodes={d.episodes}
+                plays={d.plays}
+                setPlays={d.setPlays}
+                picking={picking}
+                onPick={(mode) => {
+                  setPicking(mode)
+                  setBeat('roster')
+                }}
+                bare
+              />
+            </div>
+          </RecordPanel>
         </SeasonRecord>
       )}
 
@@ -816,6 +926,7 @@ function WeeklyPlaySection({
   setPlays,
   picking = null,
   onPick,
+  bare = false,
 }: {
   season: Season
   episodes: Episode[]
@@ -823,6 +934,7 @@ function WeeklyPlaySection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   picking?: 'double' | 'swap' | null
   onPick?: (mode: 'double' | 'swap') => void
+  bare?: boolean
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
 
@@ -832,7 +944,7 @@ function WeeklyPlaySection({
   const play = weekly.play
 
   return (
-    <RecordSection title="Advantage">
+    <RecordSection title="Advantage" bare={bare}>
       <div className="space-y-3 px-4 py-3">
       <p className="text-xs text-paper-ink-faded">
         Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
@@ -849,12 +961,8 @@ function WeeklyPlaySection({
             void weekly.replace('double_vote_points')
             return
           }
+          // Switching to the Roster beat is what replaces the old scroll.
           onPick?.('double')
-          // Optional call: jsdom has no scrollIntoView, and this throwing in
-          // a click handler takes the whole render down with it.
-          document
-            .getElementById('roster')
-            ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
         }
 
         const base =
@@ -892,13 +1000,10 @@ function WeeklyPlaySection({
                 disabled={weekly.busy}
                 className="text-xs font-medium text-paper-ink-faded underline underline-offset-2 hover:text-paper-ink"
               >
-                Play nothing this episode
+                Undo
               </button>
             )}
 
-            <p className="text-xs text-paper-ink-faded">
-              Roster swaps are separate — they cost points, not this play.
-            </p>
           </div>
         )
       })()}
@@ -922,6 +1027,7 @@ function RosterSection({
   picking = null,
   onPickingDone,
   onStartSwap,
+  bare = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -938,6 +1044,7 @@ function RosterSection({
   picking?: 'double' | 'swap' | null
   onPickingDone?: () => void
   onStartSwap?: () => void
+  bare?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -1034,15 +1141,31 @@ function RosterSection({
       ? 0
       : Math.max(season.swap_penalty_step * swapOrdinal, season.swap_penalty_floor)
   // One swap per episode: a swap closes the outgoing pick at openEp - 1.
-  const swappedThisEpisode =
-    weekly.openEpisode != null &&
-    roster.some((r) => r.active_until_episode === weekly.openEpisode!.episode_number - 1)
+  const thisEpisodeSwap =
+    weekly.openEpisode == null
+      ? undefined
+      : roster.find((r) => r.active_until_episode === weekly.openEpisode!.episode_number - 1)
+  const swappedThisEpisode = thisEpisodeSwap != null
   const swapAvailable =
     season.status !== 'completed' &&
     !swapsLocked(season, episodes) &&
     !swappedThisEpisode &&
     activeRoster.length > 0 &&
     swapCandidates.length > 0
+
+  async function undoSwap() {
+    setSwapping(true)
+    setError(null)
+    try {
+      await api.delete(`/seasons/${season.id}/roster/swap`)
+      setRoster(await api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`))
+      onRosterChange()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Undo failed')
+    } finally {
+      setSwapping(false)
+    }
+  }
 
   async function commitSwap(newContestantId: string) {
     if (!dropping) return
@@ -1089,6 +1212,7 @@ function RosterSection({
   return (
     <RecordSection
       title="Roster"
+      bare={bare}
       right={
         picking ? (
           <button
@@ -1109,6 +1233,23 @@ function RosterSection({
           >
             Swap {nextSwapCost === 0 ? '· free' : `· ${nextSwapCost}`}
           </button>
+        ) : thisEpisodeSwap ? (
+          /* Reversible until picks lock — see the swap-undo decision. */
+          <span className="inline-flex items-baseline gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-red-700">
+              Swapped this episode
+              {thisEpisodeSwap.swap_penalty_points !== 0 &&
+                ` · ${thisEpisodeSwap.swap_penalty_points}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => void undoSwap()}
+              disabled={swapping}
+              className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2 disabled:opacity-40"
+            >
+              Undo
+            </button>
+          </span>
         ) : undefined
       }
     >
@@ -1117,7 +1258,7 @@ function RosterSection({
           {picking === 'double'
             ? 'Choose a castaway to double this episode'
             : dropping
-              ? `Choose who replaces ${contestantMap.get(dropping)?.name ?? 'them'} — this cannot be undone`
+              ? `Choose who replaces ${contestantMap.get(dropping)?.name ?? 'them'}`
               : 'Choose a castaway to drop'}
         </p>
       )}
@@ -1165,7 +1306,7 @@ function RosterSection({
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
                 }
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
-                linkSuffix="?from=roster"
+                bioLink={false}
                 onSelect={
                   picking === 'double'
                     ? () => {
@@ -1217,7 +1358,7 @@ function RosterSection({
                     the castaway you drop
                   </>
                 )}
-                . One swap per episode, and it cannot be undone.
+                . One swap per episode, and you can undo it until picks lock.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {swapCandidates.map((c) => (
@@ -1251,15 +1392,12 @@ function RosterSection({
                       key={pick.id}
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
                     >
-                      <Link
-                        to={`/contestants/${pick.contestant_id}`}
-                        className="flex items-center gap-2 hover:text-gray-600"
-                      >
+                      <span className="flex items-center gap-2">
                         <span className="shrink-0 grayscale opacity-70" title="Swapped out">
                           <Torch lit={false} />
                         </span>
                         {c?.name ?? '—'}
-                      </Link>
+                      </span>
                       <span className="text-xs flex items-center gap-2">
                         <Points value={rosterPoints.get(pick.contestant_id)} />
                         <span>
@@ -1384,6 +1522,8 @@ function PicksSection({
   setPlays,
   pickResults,
   activeOnly = false,
+  onBallotSaved,
+  bare = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -1393,6 +1533,8 @@ function PicksSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
   activeOnly?: boolean
+  onBallotSaved?: () => void
+  bare?: boolean
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
@@ -1465,6 +1607,8 @@ function PicksSection({
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
       setEditing(false)
+      // The Ballot beat shows the saved count, so it follows the save.
+      onBallotSaved?.()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Submit failed'
       setErrors((prev) => new Map(prev).set(episodeId, msg))
@@ -1793,7 +1937,7 @@ function PicksSection({
 
               {episodeError && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{episodeError}</p>}
               {confirmed ? (
-                <div className={`flex items-center justify-between ${activeOnly ? 'lg:hidden' : ''}`}>
+                <div className="flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
@@ -1803,7 +1947,7 @@ function PicksSection({
                   </button>
                 </div>
               ) : (
-                <div className={`flex gap-2 ${activeOnly ? 'lg:hidden' : ''}`}>
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}
@@ -1851,6 +1995,7 @@ function PicksSection({
     return (
       <RecordSection
         title="Ballot"
+        bare={bare}
         right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
       >
         <div className="px-4 py-3">

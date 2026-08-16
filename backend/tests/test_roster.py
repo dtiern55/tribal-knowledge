@@ -605,3 +605,100 @@ def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
             " where locktype = 'advisory' and pid = pg_backend_pid()"
         )
         assert cur.fetchone()["n"] == 1
+
+
+@pytest.mark.integration
+def test_undo_swap_restores_roster_and_clears_penalty(client, db_conn, current_user):
+    """#403 follow-up: a swap is reversible while the episode is still open."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=0
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new1 = insert_contestant(db_conn, season["id"], "New 1")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    assert (
+        client.post(
+            f"/seasons/{season['id']}/roster/swap",
+            json={
+                "old_contestant_id": str(contestants[0]["id"]),
+                "new_contestant_id": str(new1["id"]),
+            },
+        ).status_code
+        == 200
+    )
+
+    r = client.delete(f"/seasons/{season['id']}/roster/swap")
+    assert r.status_code == 204
+
+    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    active = {p["contestant_id"] for p in roster if p["active_until_episode"] is None}
+    assert active == {str(c["id"]) for c in contestants}
+    assert str(new1["id"]) not in {p["contestant_id"] for p in roster}
+    assert all(p["swap_penalty_points"] == 0 for p in roster)
+
+    # The once-per-episode allowance is free again.
+    assert (
+        client.post(
+            f"/seasons/{season['id']}/roster/swap",
+            json={
+                "old_contestant_id": str(contestants[1]["id"]),
+                "new_contestant_id": str(new1["id"]),
+            },
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.integration
+def test_undo_swap_requires_a_swap_this_episode(client, db_conn):
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    r = client.delete(f"/seasons/{season['id']}/roster/swap")
+    assert r.status_code == 400
+    assert "No swap to undo" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_undo_swap_blocked_while_double_targets_the_incoming_castaway(
+    client, db_conn, current_user
+):
+    """Undoing would leave the play pointing at someone off the roster."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new1 = insert_contestant(db_conn, season["id"], "New 1")
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    client.post(
+        f"/seasons/{season['id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new1["id"]),
+        },
+    )
+    assert (
+        client.post(
+            f"/seasons/{season['id']}/advantage-plays",
+            json={
+                "advantage_type": "double_roster_points",
+                "target_contestant_id": str(new1["id"]),
+            },
+        ).status_code
+        == 201
+    )
+
+    r = client.delete(f"/seasons/{season['id']}/roster/swap")
+    assert r.status_code == 400
+    assert "take it back first" in r.json()["detail"]

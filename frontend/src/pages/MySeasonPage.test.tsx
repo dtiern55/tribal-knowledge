@@ -94,6 +94,13 @@ const auth = {
   session: { user: { id: 'user-1' }, access_token: 'test-token' } as Session,
 }
 
+/** Switch to a beat and return its panel. The record shows one at a time. */
+async function openBeat(name: 'Roster' | 'Ballot' | 'Advantage') {
+  const re = new RegExp('^' + name)
+  await userEvent.click(await screen.findByRole('tab', { name: re }))
+  return screen.getByRole('tabpanel', { name: re })
+}
+
 describe('MySeasonPage state shell', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -132,7 +139,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
-  it('shows what each rostered castaway earned you, and links with that context', async () => {
+  it('shows what each rostered castaway earned you, without a bio link', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
@@ -162,12 +169,12 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const card = (await screen.findByRole('link', { name: /Kenzie/ })).closest('li')!
-    expect(within(card).getByText(/\+30/)).toBeVisible()
-    expect(screen.getByRole('link', { name: /Kenzie/ })).toHaveAttribute(
-      'href',
-      '/contestants/cast-1?from=roster',
-    )
+    const roster = await screen.findByRole('tabpanel', { name: /^Roster/ })
+    const card = (await within(roster).findByText(/\+30/)).closest('li')!
+    expect(within(card).getByText('Kenzie')).toBeVisible()
+    // The bio moved to the Cast page (#406 review) — the roster row expands
+    // your own scoring instead of linking out.
+    expect(within(roster).queryByRole('link', { name: /Kenzie/ })).not.toBeInTheDocument()
   })
 
   it('renders the Open state as Roster, Ballot, and Advantage', async () => {
@@ -177,14 +184,17 @@ describe('MySeasonPage state shell', () => {
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    const roster = await screen.findByRole('heading', { name: /^Roster/ })
-    const ballot = screen.getByRole('heading', { name: /^Ballot/ })
-    const advantage = screen.getByRole('heading', { name: /Advantage/ })
-    expect(ballot.closest('[data-layout="open-desktop"]')).not.toBeInTheDocument()
+    // One record, three beats, one visible at a time — Roster first.
+    const tabs = await screen.findAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    expect(tabs[0]).toHaveTextContent(/^Roster/)
+    expect(tabs[1]).toHaveTextContent(/^Ballot/)
+    expect(tabs[2]).toHaveTextContent(/^Advantage/)
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel', { name: /^Roster/ })).toBeVisible()
+    // The other two stay mounted (so an unsaved ballot survives) but hidden.
+    expect(screen.queryByRole('tabpanel', { name: /^Ballot/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: 'Episode decisions' })).not.toBeInTheDocument()
-    expect(roster.compareDocumentPosition(ballot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(ballot.compareDocumentPosition(advantage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
     expect(screen.queryByRole('link', { name: 'Ballot rules' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Past Episodes' })).not.toBeInTheDocument()
     expect(screen.queryByText('This Week')).not.toBeInTheDocument()
@@ -223,7 +233,7 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const ballot = await screen.findByRole('region', { name: 'Ballot' })
+    const ballot = await openBeat('Ballot')
     expect(within(ballot).getByRole('heading', { name: 'Yanu' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Siga' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Nami' })).toBeVisible()
@@ -279,32 +289,30 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByRole('heading', { name: /Advantage/ })).toBeVisible()
+    const advantage = await openBeat('Advantage')
     // Two equal choices, named and nothing else — the roster double's target
     // picker only appears once that play is chosen.
-    const rosterDouble = screen.getByRole('button', { name: 'Roster ×2' })
+    const rosterDouble = within(advantage).getByRole('button', { name: 'Roster ×2' })
     expect(rosterDouble).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
-    // Choosing who to double happens on the roster itself, not in a dropdown
-    // repeating five names already on screen.
+    expect(within(advantage).getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
+    // #404: the swap left this economy — Advantage is two options again.
+    expect(within(advantage).queryByRole('button', { name: /^Swap/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Choose a castaway to double this episode')).not.toBeInTheDocument()
 
-    // #404: the swap left this economy. Advantage is two options again, and
-    // the swap is started from the Roster section, priced in points.
-    const advantage = screen.getByRole('region', { name: 'Advantage' })
-    expect(within(advantage).queryByRole('button', { name: /^Swap/ })).not.toBeInTheDocument()
-    expect(screen.getByText(/Roster swaps are separate/)).toBeVisible()
-    const roster = screen.getByRole('region', { name: 'Roster' })
+    // The swap is started from the Roster beat instead, priced in points.
+    const roster = await openBeat('Roster')
     expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent(
       'free',
     )
 
-    await userEvent.click(rosterDouble)
+    // Picking a double from Advantage switches to the Roster beat to answer it.
+    await userEvent.click(await screen.findByRole('tab', { name: /^Advantage/ }))
+    await userEvent.click(within(advantage).getByRole('button', { name: 'Roster ×2' }))
+    expect(screen.getByRole('tab', { name: /^Roster/ })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('Choose a castaway to double this episode')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
     // While double-picking, the header offers Cancel rather than Swap.
     expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
   })
 
   it('marks the selected roster card after Double Roster Points is saved', async () => {
@@ -334,11 +342,16 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByTitle('Double Roster Points is active for this episode')).toHaveTextContent('×2')
+    // The Advantage beat echoes where the play is resting.
+    expect(await screen.findByRole('tab', { name: /^Advantage/ })).toHaveTextContent('Kenzie')
+    expect(screen.getByRole('tab', { name: /^Roster/ })).toHaveTextContent('×2')
+
+    const advantage = await openBeat('Advantage')
     // The played double marks its own button rather than replacing the pair,
     // and the other one stays reachable so it can be switched to.
-    expect(screen.getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Play nothing this episode' })).toBeVisible()
+    expect(within(advantage).getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(advantage).getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(within(advantage).getByRole('button', { name: 'Undo' })).toBeVisible()
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
@@ -375,19 +388,17 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     // The swap starts on the roster now, and the header carries its price.
-    const rosterSection = await screen.findByRole('region', { name: 'Roster' })
+    const rosterSection = await openBeat('Roster')
     const swap = await within(rosterSection).findByRole('button', { name: /^Swap ·/ })
     expect(swap).toHaveTextContent('-10')
 
     await userEvent.click(swap)
     expect(screen.getByText('Choose a castaway to drop')).toBeVisible()
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Charlie/ }))
-    expect(
-      screen.getByText('Choose who replaces Charlie — this cannot be undone'),
-    ).toBeVisible()
+    expect(screen.getByText('Choose who replaces Charlie')).toBeVisible()
     // The cost is stated again at the moment of choosing, not just in the header.
     expect(screen.getByText('costs -10 points')).toBeVisible()
-    expect(screen.getByText(/charged to the castaway you drop/)).toBeVisible()
+    expect(screen.getByText(/you can undo it until picks lock/)).toBeVisible()
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Venus/ }))
 
     await waitFor(() =>
@@ -396,6 +407,77 @@ describe('MySeasonPage state shell', () => {
         new_contestant_id: 'cast-3',
       }),
     )
+  })
+
+  it('offers Undo on a swap made this episode, and reverses it', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 10 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        // Swapped during the open episode 3: the outgoing pick closed at 2.
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: 2, swap_penalty_points: -10 },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 3, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const roster = await openBeat('Roster')
+    // No second swap this episode, but the one made is still reversible.
+    expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
+    expect(await within(roster).findByText(/Swapped this episode · -10/)).toBeVisible()
+    await userEvent.click(within(roster).getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() =>
+      expect(api.delete).toHaveBeenCalledWith('/seasons/season-1/roster/swap'),
+    )
+  })
+
+  it('keeps an unsaved ballot when you look at another beat', async () => {
+    const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const ballot = await openBeat('Ballot')
+    await userEvent.click(within(ballot).getByRole('button', { name: /Kenzie/ }))
+    expect(within(ballot).getByText('1 of 2 selected')).toBeVisible()
+
+    // Panels stay mounted rather than unmounting, so the pick survives the trip.
+    await openBeat('Roster')
+    const again = await openBeat('Ballot')
+    expect(within(again).getByText('1 of 2 selected')).toBeVisible()
   })
 
   // #401: this control was unreachable for a while — rendered only under a
@@ -530,7 +612,7 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: /^Ballot/ })).toBeVisible()
+    expect(screen.getByRole('tab', { name: /^Ballot/ })).toBeVisible()
     expect(api.post).toHaveBeenCalledWith(
       '/seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
