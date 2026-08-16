@@ -123,12 +123,18 @@ export function RosterCard({
               Sole Survivor
             </span>
           )}
+          {/* Not a badge but a mark on a row already lit blue (#397/#407): the
+              play lives on this castaway. The stage-held halo carries the
+              emphasis; the pip names it. */}
           {isDoubled && (
             <span
-              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-ember-500 bg-ember-100 text-ember-800"
+              className="inline-flex items-center gap-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-ocean-700"
               title="Double Roster Points is active for this episode"
             >
-              ×2
+              <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true">
+                <path d="M13 2L3 14h7l-1 8 10-12h-7z" />
+              </svg>
+              ×2 this episode
             </span>
           )}
         </span>
