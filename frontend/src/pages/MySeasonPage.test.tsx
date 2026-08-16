@@ -139,7 +139,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
-  it('shows what each rostered castaway earned you, and links with that context', async () => {
+  it('shows what each rostered castaway earned you, without a bio link', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
@@ -169,12 +169,12 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const card = (await screen.findByRole('link', { name: /Kenzie/ })).closest('li')!
-    expect(within(card).getByText(/\+30/)).toBeVisible()
-    expect(screen.getByRole('link', { name: /Kenzie/ })).toHaveAttribute(
-      'href',
-      '/contestants/cast-1?from=roster',
-    )
+    const roster = await screen.findByRole('tabpanel', { name: /^Roster/ })
+    const card = (await within(roster).findByText(/\+30/)).closest('li')!
+    expect(within(card).getByText('Kenzie')).toBeVisible()
+    // The bio moved to the Cast page (#406 review) — the roster row expands
+    // your own scoring instead of linking out.
+    expect(within(roster).queryByRole('link', { name: /Kenzie/ })).not.toBeInTheDocument()
   })
 
   it('renders the Open state as Roster, Ballot, and Advantage', async () => {

@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Tailwind v4's preflight no longer gives buttons a pointer cursor, which read
+   as unresponsive on desktop (#406 review). Restore it app-wide; disabled
+   controls keep the default arrow. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+}
+
 /* Survivor: Borneo-inspired palette — ocean blue + jungle green on a warm
    cream ground, black used sparingly. `ocean` replaces the old generic indigo
    accent; green/red/amber keep their semantic meaning (good/bad/advantages). */

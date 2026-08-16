@@ -1307,7 +1307,7 @@ function RosterSection({
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
                 }
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
-                linkSuffix="?from=roster"
+                bioLink={false}
                 onSelect={
                   picking === 'double'
                     ? () => {
@@ -1941,7 +1941,7 @@ function PicksSection({
 
               {episodeError && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{episodeError}</p>}
               {confirmed ? (
-                <div className={`flex items-center justify-between ${activeOnly ? 'lg:hidden' : ''}`}>
+                <div className="flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
@@ -1951,7 +1951,7 @@ function PicksSection({
                   </button>
                 </div>
               ) : (
-                <div className={`flex gap-2 ${activeOnly ? 'lg:hidden' : ''}`}>
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}

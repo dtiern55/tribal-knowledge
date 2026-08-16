@@ -40,8 +40,21 @@ export function RosterBreakdown({
     .sort((a, b) => b.episode_number - a.episode_number)
   if (eps.length === 0)
     return <p className="text-xs text-gray-500">No scored episodes yet.</p>
+  const allOpen = eps.every((e) => openEps.has(e.episode_number))
   return (
     <div className="space-y-2">
+      {eps.length > 1 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() =>
+              setOpenEps(allOpen ? new Set() : new Set(eps.map((e) => e.episode_number)))
+            }
+            className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
+          >
+            {allOpen ? 'Collapse all' : 'Expand all'}
+          </button>
+        </div>
+      )}
       {eps.map((ep) => {
         const bonus = doubledByEp.get(ep.episode_number) ?? 0
         const total = ep.points + bonus
