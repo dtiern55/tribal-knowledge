@@ -20,7 +20,10 @@ export interface Season {
   swap_token_cost: number
   free_swaps: number
   ss_lock_episode: number | null
-  max_swaps: number
+  // Escalating swap cost (#404): the Nth charged swap costs step * N, floored.
+  // Both negative.
+  swap_penalty_step: number
+  swap_penalty_floor: number
   swap_lock_episode: number | null
   advantage_lock_episode: number | null
   weekly_token_allocation: number
