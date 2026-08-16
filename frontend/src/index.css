@@ -297,8 +297,18 @@ html:not(.locked-night) .record-paper {
   background-size: cover;
 }
 
-.expedition-ledger {
-  border-color: rgb(128 100 61 / 42%);
+/* Piece 3: the record's hand-inked frame, ripped from the mockup's own card
+   corner + edges and placed as a 9-slice — corners stay crisp, only the edges
+   repeat, so it never distorts (the failure mode of the old stretched frame).
+   Day only; night keeps its plain sealed border. --frame-w is the tuning knob:
+   it's both the border thickness and the slice render width, so content inset
+   and ink weight move together. */
+html:not(.locked-night) .expedition-ledger {
+  --frame-w: 11px;
+  border-style: solid;
+  border-width: var(--frame-w);
+  border-image: url('./assets/expedition-ledger-frame.png') 30 / var(--frame-w) / 0 round;
+  border-radius: 13px;
 }
 
 .open-ledger .record-head h1 {
