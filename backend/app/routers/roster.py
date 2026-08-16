@@ -330,6 +330,97 @@ def swap_roster_pick(
             return new_pick
 
 
+@router.delete("/seasons/{season_id}/roster/swap", status_code=204)
+def undo_roster_swap(
+    season_id: UUID,
+    user_id: UUID = Depends(get_current_user),
+):
+    """Undo this episode's swap while the episode is still open.
+
+    Reverses the 2026-08-15 "non-refundable" rule: under the points economy a
+    swap consumes nothing but a column value, and every other decision on the
+    page stays editable until picks lock, so the swap did too (#403 follow-up).
+
+    An exact reversal — the closed pick comes back as it was, penalty cleared,
+    the incoming pick is removed, and the once-per-episode allowance is free
+    again. Restoring the closed row also restores its Sole Survivor flag, if it
+    held one.
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            season = database.require_season(cur, season_id)
+            # Serializes against a concurrent swap in the same episode.
+            database.lock_user_season(cur, user_id, season_id)
+
+            if season["status"] == "completed":
+                raise HTTPException(status_code=400, detail="Season is complete")
+
+            # Only the open episode's swap is reversible; next_open_episode
+            # already excludes anything past its picks_lock_at.
+            episode = next_open_episode(cur, str(season_id))
+            if not episode:
+                raise HTTPException(
+                    status_code=400, detail="Episode has locked; the swap is final"
+                )
+            swap_episode = episode["episode_number"]
+
+            cur.execute(
+                """
+                select * from roster_picks
+                where user_id = %s and season_id = %s and active_until_episode = %s
+                """,
+                [str(user_id), str(season_id), swap_episode - 1],
+            )
+            dropped = cur.fetchone()
+            if not dropped:
+                raise HTTPException(
+                    status_code=400, detail="No swap to undo this episode"
+                )
+
+            cur.execute(
+                """
+                select * from roster_picks
+                where user_id = %s and season_id = %s
+                  and active_from_episode = %s and active_until_episode is null
+                """,
+                [str(user_id), str(season_id), swap_episode],
+            )
+            added = cur.fetchone()
+            if not added:
+                raise HTTPException(
+                    status_code=400, detail="No swap to undo this episode"
+                )
+
+            # A Roster x2 resting on the incoming castaway would be left
+            # pointing at someone no longer on the roster. Refuse rather than
+            # silently discard the play.
+            cur.execute(
+                """
+                select 1 from advantage_plays
+                where user_id = %s and episode_id = %s
+                  and advantage_type = 'double_roster_points'
+                  and target_contestant_id = %s
+                """,
+                [str(user_id), episode["id"], str(added["contestant_id"])],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Your Roster x2 is on the castaway you swapped in"
+                        " — take it back first"
+                    ),
+                )
+
+            cur.execute("delete from roster_picks where id = %s", [str(added["id"])])
+            cur.execute(
+                "update roster_picks"
+                " set active_until_episode = null, swap_penalty_points = 0"
+                " where id = %s",
+                [str(dropped["id"])],
+            )
+
+
 @router.post("/seasons/{season_id}/sole-survivor", response_model=RosterPick)
 def designate_sole_survivor(
     season_id: UUID,
