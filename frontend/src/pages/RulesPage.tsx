@@ -3,7 +3,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
-import type { RulePredictionScore, RuleScoringEvent, RulesResponse } from '../types'
+import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } from '../types'
 
 const CONTENTS = [
   ['roster', 'Roster'],
@@ -83,6 +83,19 @@ function configuredEpisode(value: number | null | undefined, fallback = 'Finale'
   return value == null ? fallback : `Episode ${value}`
 }
 
+/** The escalating swap cost as a readable ladder (#404), e.g. "-10, -15, -20,
+ *  then -25". Mirrors the backend: step * ordinal, floored. */
+function swapCostLadder(season: Season) {
+  const costs: number[] = []
+  for (let n = season.free_swaps + 1; ; n++) {
+    const cost = Math.max(season.swap_penalty_step * n, season.swap_penalty_floor)
+    if (cost === season.swap_penalty_floor) {
+      return costs.length ? `${costs.join(', ')}, then ${cost}` : `${cost} each`
+    }
+    costs.push(cost)
+  }
+}
+
 export function RulesPage() {
   const [rules, setRules] = useState<RulesResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -140,7 +153,7 @@ export function RulesPage() {
             <div>
               <h3 className="font-semibold text-gray-900">{usesTokens ? 'Use an advantage' : 'Choose a weekly play'}</h3>
               <p className="mt-1 text-sm leading-6 text-gray-600">
-                {usesTokens ? 'Spend tokens on an available advantage.' : 'Use one optional advantage on your roster, ballot, or a roster swap.'}
+                {usesTokens ? 'Spend tokens on an available advantage.' : 'Use one optional advantage on your roster or your ballot.'}
               </p>
             </div>
           </li>
@@ -190,9 +203,8 @@ export function RulesPage() {
               <dl className="divide-y divide-sand-200 border-y border-sand-200">
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Roster Points</dt><dd className="mt-1">Double one active roster member's points for the episode.</dd></div>
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Ballot Points</dt><dd className="mt-1">Double all points earned from your ballot. This does not add a vote.</dd></div>
-                <div className="py-3"><dt className="font-semibold text-gray-900">Roster Swap</dt><dd className="mt-1">Use the weekly play for a swap after your free {season.free_swaps === 1 ? 'swap' : 'swaps'}.</dd></div>
               </dl>
-              <p>Double plays can be changed or removed before the episode lock. A roster swap takes effect when submitted and cannot be undone.</p>
+              <p>Double plays can be changed or removed before the episode lock. Roster swaps are separate — they cost points, not this play.</p>
             </div>
           )}
         </RuleSection>
@@ -200,7 +212,13 @@ export function RulesPage() {
         <RuleSection id="swaps-locks" title="Swaps and locks">
           <RuleList>
             <li>{season.free_swaps === 0 ? 'There are no free midseason swaps.' : `The first ${season.free_swaps} midseason ${season.free_swaps === 1 ? 'swap is' : 'swaps are'} free.`}</li>
-            {!usesTokens && <li>Each later swap uses the weekly play for the open episode.</li>}
+            {!usesTokens && (
+              <li>
+                You may swap once per episode. After the free {season.free_swaps === 1 ? 'one' : 'ones'}, each swap
+                costs points: {swapCostLadder(season)}. The cost is charged to the castaway you drop, and
+                applies even if they have already been voted out.
+              </li>
+            )}
             <li>A swap takes effect in the open episode and cannot be taken back. The incoming castaway must still be in the game and cannot have been on your roster before.</li>
             <li>Swaps close at {configuredEpisode(swapLock)}. The finale never allows swaps.</li>
             {!usesTokens && <li>Weekly plays close at {configuredEpisode(season.advantage_lock_episode)}. The finale never allows a weekly play.</li>}

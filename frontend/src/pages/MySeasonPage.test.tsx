@@ -18,6 +18,9 @@ const season = {
   name: 'Survivor 51',
   status: 'active',
   roster_lock_episode: 2,
+  free_swaps: 1,
+  swap_penalty_step: -5,
+  swap_penalty_floor: -25,
 } as Season
 
 function episode(number: number, status: string, lock: string): Episode {
@@ -250,7 +253,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
   })
 
-  it('keeps the weekly play distinct and explains both doubles and free swaps', async () => {
+  it('keeps the weekly play to the two doubles, with swaps living on the roster', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
@@ -285,15 +288,22 @@ describe('MySeasonPage state shell', () => {
     // Choosing who to double happens on the roster itself, not in a dropdown
     // repeating five names already on screen.
     expect(screen.queryByText('Choose a castaway to double this episode')).not.toBeInTheDocument()
+
+    // #404: the swap left this economy. Advantage is two options again, and
+    // the swap is started from the Roster section, priced in points.
+    const advantage = screen.getByRole('region', { name: 'Advantage' })
+    expect(within(advantage).queryByRole('button', { name: /^Swap/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Roster swaps are separate/)).toBeVisible()
+    const roster = screen.getByRole('region', { name: 'Roster' })
+    expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent(
+      'free',
+    )
+
     await userEvent.click(rosterDouble)
     expect(screen.getByText('Choose a castaway to double this episode')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
-    expect(screen.getByText(/A free swap does not use your play/)).toBeVisible()
-    expect(screen.getByText(/A free swap does not use your play/)).toBeVisible()
-    const advantage = await screen.findByRole('region', { name: 'Advantage' })
-    expect(await within(advantage).findByRole('button', { name: /^Swap/ })).toHaveTextContent(
-      '1 free',
-    )
+    // While double-picking, the header offers Cancel rather than Swap.
+    expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
     expect(screen.getAllByRole('heading', { name: /Advantage/ })).toHaveLength(1)
   })
 
@@ -331,14 +341,15 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('button', { name: 'Play nothing this episode' })).toBeVisible()
   })
 
-  it('buys a swap in Advantage and commits it on the roster cards', async () => {
+  it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
           episode(2, 'scored', '2026-08-08T00:00:00Z'),
-          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+          episode(3, 'scored', '2026-08-15T00:00:00Z'),
+          episode(4, 'upcoming', '2099-08-27T00:00:00Z'),
         ]
       }
       if (path.endsWith('/contestants')) {
@@ -349,6 +360,8 @@ describe('MySeasonPage state shell', () => {
         ]
       }
       if (path.includes('/roster/')) {
+        // One swap already made, back in episode 3 — so this is the 2nd of the
+        // season (−10) and the one-per-episode rule does not block episode 4.
         return [
           { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: 2, swap_penalty_points: 0 },
           { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 3, active_until_episode: null, swap_penalty_points: 0 },
@@ -361,20 +374,20 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const advantage = await screen.findByRole('region', { name: 'Advantage' })
-    const swap = await within(advantage).findByRole('button', { name: /^Swap/ })
-    expect(swap).toHaveTextContent('uses play')
-    expect(screen.getByText(/A swap now uses your play, and cannot be taken back/)).toBeVisible()
+    // The swap starts on the roster now, and the header carries its price.
+    const rosterSection = await screen.findByRole('region', { name: 'Roster' })
+    const swap = await within(rosterSection).findByRole('button', { name: /^Swap ·/ })
+    expect(swap).toHaveTextContent('-10')
 
-    // Buying is one button in Advantage; who leaves and who joins are both
-    // answered on the roster, and the second tap commits (#394).
     await userEvent.click(swap)
     expect(screen.getByText('Choose a castaway to drop')).toBeVisible()
-    const rosterSection = screen.getByRole('region', { name: 'Roster' })
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Charlie/ }))
     expect(
       screen.getByText('Choose who replaces Charlie — this cannot be undone'),
     ).toBeVisible()
+    // The cost is stated again at the moment of choosing, not just in the header.
+    expect(screen.getByText('costs -10 points')).toBeVisible()
+    expect(screen.getByText(/charged to the castaway you drop/)).toBeVisible()
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Venus/ }))
 
     await waitFor(() =>

@@ -22,7 +22,8 @@ class Season(BaseModel):
     merge_episode: Optional[int]
     swap_token_cost: int
     free_swaps: int
-    max_swaps: int
+    swap_penalty_step: int
+    swap_penalty_floor: int
     ss_lock_episode: Optional[int]
     swap_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
@@ -220,7 +221,8 @@ class SeasonUpdateRequest(BaseModel):
     merge_episode: Optional[int] = Field(default=None, gt=0)
     swap_token_cost: Optional[int] = Field(default=None, ge=0)
     free_swaps: Optional[int] = Field(default=None, ge=0)
-    max_swaps: Optional[int] = Field(default=None, ge=0)
+    swap_penalty_step: Optional[int] = Field(default=None, le=0)
+    swap_penalty_floor: Optional[int] = Field(default=None, le=0)
     ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)

@@ -176,8 +176,8 @@ def test_swap_roster_pick(client, db_conn, current_user):
     roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
     old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert old["active_until_episode"] == 2
-    # Swaps don't dock points, and the first one each season is free (#307):
-    # no tokens, and crucially no advantage play either.
+    # The first swap each season is free (#404): no penalty, and no advantage
+    # play either — the swap no longer touches the weekly play at all.
     assert old["swap_penalty_points"] == 0
     plays = client.get(
         f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
@@ -186,9 +186,56 @@ def test_swap_roster_pick(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_first_swap_free_then_costs_the_weekly_play(client, db_conn, current_user):
-    """#307: one free swap a season; after that a swap spends that week's
-    advantage play. No cap — you can swap as often as you'll pay for."""
+def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
+    """#404: first swap free, then step * ordinal, floored. With the defaults
+    (step -5, floor -25) that is 0, -10, -15, -20, -25, -25. One swap per
+    episode, so each one needs its own open episode."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=7, lock_episode=2, free_swaps=1
+    )
+    client.post(
+        f"/seasons/{season['id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    incoming = [insert_contestant(db_conn, season["id"], f"New {i}") for i in range(6)]
+
+    expected = [0, -10, -15, -20, -25, -25]
+    for i, penalty in enumerate(expected):
+        episode_number = 3 + i
+        insert_episode(db_conn, season["id"], episode_number=episode_number)
+        r = client.post(
+            f"/seasons/{season['id']}/roster/swap",
+            json={
+                "old_contestant_id": str(contestants[i]["id"]),
+                "new_contestant_id": str(incoming[i]["id"]),
+            },
+        )
+        assert r.status_code == 200, r.json()
+        roster = client.get(
+            f"/seasons/{season['id']}/roster/{current_user['id']}"
+        ).json()
+        dropped = next(
+            p for p in roster if p["contestant_id"] == str(contestants[i]["id"])
+        )
+        assert dropped["swap_penalty_points"] == penalty, f"swap {i + 1}"
+        # Close this episode so the next loop has a fresh open one.
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "update episodes set status = 'scored' where season_id = %s"
+                " and episode_number = %s",
+                [str(season["id"]), episode_number],
+            )
+
+    # The whole point of the rework: none of this touched the weekly play.
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    assert plays == []
+
+
+@pytest.mark.integration
+def test_only_one_swap_per_episode(client, db_conn, current_user):
+    """#404: the rate limit is the cap now, not the weekly play."""
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2, free_swaps=1
     )
@@ -200,37 +247,29 @@ def test_first_swap_free_then_costs_the_weekly_play(client, db_conn, current_use
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
 
-    def plays():
-        return client.get(
-            f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
-        ).json()
-
-    r = client.post(
+    first = client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new1["id"]),
         },
     )
-    assert r.status_code == 200
-    assert plays() == []  # free: the week's play is untouched
+    assert first.status_code == 200
 
-    r = client.post(
+    second = client.post(
         f"/seasons/{season['id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[1]["id"]),
             "new_contestant_id": str(new2["id"]),
         },
     )
-    assert r.status_code == 200
-    charged = plays()
-    assert [p["advantage_type"] for p in charged] == ["roster_swap"]
-    assert charged[0]["target_contestant_id"] == str(new2["id"])
+    assert second.status_code == 400
+    assert "already swapped this episode" in second.json()["detail"]
 
 
 @pytest.mark.integration
-def test_swap_blocked_when_weekly_play_already_used(client, db_conn, current_user):
-    """The paid swap and the doubles draw on the same one play."""
+def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_user):
+    """#404 reverses #307: the swap and the doubles no longer compete."""
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2, free_swaps=0
     )
@@ -255,8 +294,16 @@ def test_swap_blocked_when_weekly_play_already_used(client, db_conn, current_use
             "new_contestant_id": str(new1["id"]),
         },
     )
-    assert r.status_code == 400
-    assert "already used this episode" in r.json()["detail"]
+    assert r.status_code == 200
+    # free_swaps=0, so this is the 1st charged swap: step * 1 = -5.
+    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    dropped = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
+    assert dropped["swap_penalty_points"] == -5
+    # The double is still there, untouched.
+    plays = client.get(
+        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    assert [p["advantage_type"] for p in plays] == ["double_vote_points"]
 
 
 @pytest.mark.integration

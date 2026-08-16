@@ -21,7 +21,8 @@ const season = {
   merge_episode: 7,
   swap_token_cost: 20,
   free_swaps: 1,
-  max_swaps: 3,
+  swap_penalty_step: -5,
+  swap_penalty_floor: -25,
   ss_lock_episode: null,
   swap_lock_episode: 10,
   advantage_lock_episode: 12,
@@ -48,7 +49,9 @@ describe('AdminPage current rules', () => {
     })
 
     expect(await screen.findByRole('heading', { name: 'League operations' })).toBeVisible()
-    expect(screen.getByText(/later swaps use the weekly play/)).toBeVisible()
+    // #404: swaps are priced in points now, not in the weekly play.
+    expect(screen.getByText(/then -5\/swap escalating, floor -25/)).toBeVisible()
+    expect(screen.queryByText(/weekly play/)).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /Tokens/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/weekly token allocation/)).not.toBeInTheDocument()
   })

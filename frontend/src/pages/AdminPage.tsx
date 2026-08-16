@@ -175,7 +175,7 @@ function SeasonSection({
               {season.roster_lock_episode ?? '—'} · merge ep {season.merge_episode ?? '—'} ·{' '}
               {season.token_economy_enabled
                 ? `swaps cost ${season.swap_token_cost} tkn`
-                : `${season.free_swaps} free ${season.free_swaps === 1 ? 'swap' : 'swaps'}; later swaps use the weekly play`}
+                : `${season.free_swaps} free ${season.free_swaps === 1 ? 'swap' : 'swaps'}; then ${season.swap_penalty_step}/swap escalating, floor ${season.swap_penalty_floor}`}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               Votes:{' '}

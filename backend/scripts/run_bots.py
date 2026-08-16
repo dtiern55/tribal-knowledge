@@ -382,6 +382,16 @@ def active_roster(cur, uid, sid) -> list[dict]:
     return cur.fetchall()
 
 
+def swapped_this_episode(cur, uid, sid, episode_n) -> bool:
+    """One swap per episode (#404): a swap closes the outgoing pick at N-1."""
+    cur.execute(
+        "select 1 from roster_picks where user_id=%s and season_id=%s"
+        " and active_until_episode=%s",
+        [uid, sid, episode_n - 1],
+    )
+    return cur.fetchone() is not None
+
+
 def swaps_committed(cur, uid, sid) -> int:
     cur.execute(
         "select count(*) n from roster_picks where user_id=%s and season_id=%s"
@@ -391,20 +401,21 @@ def swaps_committed(cur, uid, sid) -> int:
     return cur.fetchone()["n"]
 
 
-def do_swap(cur, uid, sid, ep, old_pick, new_cid, charged):
-    """Mirrors POST /roster/swap: close the old row, open the new one, and
-    spend the week's play if this swap is past the free allowance."""
-    if charged:
-        cur.execute(
-            """insert into advantage_plays
-            (user_id, season_id, episode_id, advantage_type,
-             target_contestant_id, token_cost)
-            values (%s,%s,%s,'roster_swap',%s,0)""",
-            [uid, sid, str(ep["id"]), new_cid],
-        )
+def swap_penalty(season, ordinal) -> int:
+    """Mirrors roster.py (#404): the first free_swaps are free, then the Nth
+    swap costs step * N, floored."""
+    if ordinal <= season["free_swaps"]:
+        return 0
+    return max(season["swap_penalty_step"] * ordinal, season["swap_penalty_floor"])
+
+
+def do_swap(cur, uid, sid, ep, old_pick, new_cid, penalty):
+    """Mirrors POST /roster/swap: close the old row with its penalty, open the
+    new one. The swap no longer touches the weekly play (#404)."""
     cur.execute(
-        "update roster_picks set active_until_episode=%s where id=%s",
-        [ep["episode_number"] - 1, old_pick["id"]],
+        "update roster_picks set active_until_episode=%s, swap_penalty_points=%s"
+        " where id=%s",
+        [ep["episode_number"] - 1, penalty, old_pick["id"]],
     )
     cur.execute(
         "insert into roster_picks"
@@ -490,7 +501,8 @@ def week(cur, episode_n: int):
 
     by_name = {a["name"]: a for a in archetypes()}
     picks_made = swaps_made = plays_made = 0
-    tally = {"double_roster_points": 0, "double_vote_points": 0, "roster_swap": 0}
+    # roster_swap counts PAID swaps now, not advantage plays (#404).
+    tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
 
     for bot in load_bots(cur):
         a = by_name.get(bot["display_name"])
@@ -499,7 +511,9 @@ def week(cur, episode_n: int):
         uid = bot["id"]
 
         # --- swap out dead weight (an eliminated castaway) ---
-        if swaps_open and not used_play(cur, uid, ep["id"]):
+        # No longer gated on the weekly play (#404) — swaps have their own
+        # economy: one per episode, priced in points.
+        if swaps_open and not swapped_this_episode(cur, uid, sid, episode_n):
             roster = active_roster(cur, uid, sid)
             held = {p["cid"] for p in roster}
             swappable = [p for p in roster if p["af"] < episode_n]
@@ -509,11 +523,11 @@ def week(cur, episode_n: int):
             # means. Dropping someone merely *likely* to go bails on players
             # who often survive, and spends a finite resource on a guess.
             dead = [p for p in swappable if p["cid"] not in alive]
-            committed = swaps_committed(cur, uid, sid)
-            free = committed < season["free_swaps"]
+            ordinal = swaps_committed(cur, uid, sid) + 1
+            penalty = swap_penalty(season, ordinal)
             add_pool = [c for c in alive if c not in held]
-            # Loyalists never trade their double for a paid swap.
-            out = dead[0] if dead and (free or a["style"] != "roster") else None
+            # Loyalists won't pay points for a swap; everyone takes a free one.
+            out = dead[0] if dead and (penalty == 0 or a["style"] != "roster") else None
             if out and add_pool:
                 # Order by how few people already own them, or every bot picks
                 # whoever sorts first and the whole league swaps in one name.
@@ -522,10 +536,10 @@ def week(cur, episode_n: int):
                 want = sorted(want, key=lambda c: owned.get(c, 0))
                 new = biased_order(want, a["spread"], uid, episode_n, "swapin")[0]
                 owned[new] = owned.get(new, 0) + 1
-                do_swap(cur, uid, sid, ep, out, new, charged=not free)
+                do_swap(cur, uid, sid, ep, out, new, penalty)
                 swaps_made += 1
-                if not free:
-                    tally["roster_swap"] += 1
+                if penalty:
+                    tally["paid_swap"] += 1
 
         # --- elimination picks, sampled from the read ---
         cur.execute(

@@ -20,7 +20,8 @@ const season = {
   advantage_lock_episode: 12,
   swap_lock_episode: 10,
   swap_token_cost: 20,
-  max_swaps: 3,
+  swap_penalty_step: -5,
+  swap_penalty_floor: -25,
   free_swaps: 1,
   token_economy_enabled: false,
   elimination_pick_schedule: [

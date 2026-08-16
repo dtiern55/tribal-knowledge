@@ -5,7 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, next_open_episode, used_weekly_play
+from app.locking import EPISODE_LOCKED_SQL, next_open_episode
 from app.schemas import (
     RosterPick,
     RosterSubmitRequest,
@@ -179,7 +179,8 @@ def swap_roster_pick(
     with database.get_db() as conn:
         with conn.cursor() as cur:
             season = database.require_season(cur, season_id)
-            # Guards the swap-cap count below against concurrent swaps.
+            # Guards the one-per-episode check and the penalty count below
+            # against concurrent swaps.
             database.lock_user_season(cur, user_id, season_id)
 
             if season["status"] == "completed":
@@ -262,44 +263,52 @@ def swap_roster_pick(
                     detail="Contestant has already been on this roster",
                 )
 
-            # The first free_swaps of the season are free and cost nothing at
-            # all — notably NOT this week's advantage play, which is what
-            # makes them free. Every swap after that spends the play instead
-            # (#307), so there is no cap: swap as often as you like, but each
-            # one costs you that week's advantage. seasons.max_swaps is
-            # vestigial. The old pick's swap_penalty_points stays 0; nonzero
-            # values on closed rows are the pre-token-era record scoring
-            # still sums.
+            # One swap per episode (#404). A swap closes the outgoing pick at
+            # swap_episode - 1, so that is exactly what identifies "already
+            # swapped this episode".
+            cur.execute(
+                "select 1 from roster_picks"
+                " where user_id = %s and season_id = %s"
+                " and active_until_episode = %s",
+                [str(user_id), str(season_id), swap_episode - 1],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="You have already swapped this episode",
+                )
+
+            # Swaps are priced in points again (#403/#404) and no longer touch
+            # the weekly play. The first free_swaps are free; after that the
+            # Nth swap of the season costs step * N, floored. The cost is
+            # written onto the pick being closed, so scoring attributes it to
+            # the castaway you dropped. There is deliberately no exception for
+            # dropping someone already voted out — that charge is the soft form
+            # of "losing a castaway costs you".
             cur.execute(
                 "select count(*) as n from roster_picks"
                 " where user_id = %s and season_id = %s"
                 " and active_until_episode is not null",
                 [str(user_id), str(season_id)],
             )
-            committed = cur.fetchone()["n"]
-            charged = committed >= season["free_swaps"]
-            if charged:
-                if used_weekly_play(cur, user_id, episode["id"]):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Your advantage play is already used this episode",
-                    )
-                cur.execute(
-                    """
-                    insert into advantage_plays
-                        (user_id, season_id, episode_id, advantage_type, token_cost)
-                    values (%s, %s, %s, 'roster_swap', 0)
-                    """,
-                    [str(user_id), str(season_id), episode["id"]],
+            ordinal = cur.fetchone()["n"] + 1
+            penalty = (
+                0
+                if ordinal <= season["free_swaps"]
+                # Both operands are <= 0, so max() applies the floor.
+                else max(
+                    season["swap_penalty_step"] * ordinal,
+                    season["swap_penalty_floor"],
                 )
+            )
 
             cur.execute(
                 """
                 update roster_picks
-                set active_until_episode = %s
+                set active_until_episode = %s, swap_penalty_points = %s
                 where id = %s
                 """,
-                [swap_episode - 1, str(old_pick["id"])],
+                [swap_episode - 1, penalty, str(old_pick["id"])],
             )
 
             cur.execute(
@@ -317,18 +326,6 @@ def swap_roster_pick(
                 ],
             )
             new_pick = cur.fetchone()
-
-            if charged:
-                # Tag the play with the incoming contestant so Play History
-                # can say what the swap bought.
-                cur.execute(
-                    """
-                    update advantage_plays set target_contestant_id = %s
-                    where user_id = %s and episode_id = %s
-                      and advantage_type = 'roster_swap'
-                    """,
-                    [str(body.new_contestant_id), str(user_id), episode["id"]],
-                )
 
             return new_pick
 
