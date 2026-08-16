@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
+import { WaxSeal } from './WaxSeal'
 
 /**
  * One line in the roster manifest (#380 follow-on).
@@ -83,12 +84,17 @@ export function RosterCard({
         />
       </span>
       <span className="min-w-0 text-left">
-        <span
-          className={`block truncate font-display text-base tracking-wide uppercase ${
-            outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
-          }`}
-        >
-          {contestant?.name ?? '—'}
+        <span className="flex items-center gap-2">
+          <span
+            className={`min-w-0 truncate font-display text-base tracking-wide uppercase ${
+              outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
+            }`}
+          >
+            {contestant?.name ?? '—'}
+          </span>
+          {/* A wax seal stamped beside the name, not a badge (#397/#407): the
+              play is sealed onto this castaway, like a Survivor advantage. */}
+          {isDoubled && <WaxSeal size={28} />}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (
@@ -121,20 +127,6 @@ export function RosterCard({
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
               Sole Survivor
-            </span>
-          )}
-          {/* Not a badge but a mark on a row already lit blue (#397/#407): the
-              play lives on this castaway. The stage-held halo carries the
-              emphasis; the pip names it. */}
-          {isDoubled && (
-            <span
-              className="inline-flex items-center gap-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-ocean-700"
-              title="Double Roster Points is active for this episode"
-            >
-              <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true">
-                <path d="M13 2L3 14h7l-1 8 10-12h-7z" />
-              </svg>
-              ×2 this episode
             </span>
           )}
         </span>

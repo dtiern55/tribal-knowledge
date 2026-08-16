@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { WaxSeal } from './WaxSeal'
 
 /**
  * My Season as one document (#396).
@@ -191,17 +192,9 @@ export function RecordBeats({
                   ✓
                 </span>
               )}
-              {/* A lit mark, not a warning badge (#397/#407): the play reads as
-                  a boost in the app's own ocean stage-light language, matching
-                  the halo the doubled row carries. */}
-              {b.doubled && (
-                <span className="inline-flex flex-none items-center gap-0.5 text-[9px] font-extrabold tracking-[0.06em] text-ocean-700">
-                  <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true">
-                    <path d="M13 2L3 14h7l-1 8 10-12h-7z" />
-                  </svg>
-                  ×2
-                </span>
-              )}
+              {/* The doubled beat echoes the roster row's wax seal, shrunk to a
+                  small stamp on the tab (#397/#407). */}
+              {b.doubled && <WaxSeal size={16} detail="min" />}
               <span className="sr-only">{b.done ? '— done' : ''}</span>
             </span>
             <span
