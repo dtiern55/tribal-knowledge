@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
@@ -14,6 +15,7 @@ import {
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
+import { WaxSeal } from '../components/WaxSeal'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
@@ -1108,6 +1110,62 @@ function RosterSection({
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
 
+  // Drag the ×2 seal from the doubled castaway onto another one to move the
+  // play (#407) — the direct-manipulation twin of the Advantage → Roster ×2 →
+  // tap path, which stays. The commit is the same weekly.replace call.
+  const [drag, setDrag] = useState<{ x: number; y: number; overId: string | null } | null>(null)
+  const dragging = drag != null
+  // A drop is valid on any active, still-in castaway that isn't the current
+  // target. contestantMap/activeRoster live above; the ref keeps the pointerup
+  // handler reading fresh values without re-subscribing on every move.
+  function canDropOn(id: string): boolean {
+    return (
+      id !== rosterDouble?.target_contestant_id &&
+      activeRoster.some((p) => p.contestant_id === id) &&
+      contestantMap.get(id)?.eliminated_in_episode == null
+    )
+  }
+  const dragCtx = useRef({ canDropOn, replace: weekly.replace, setLit })
+  dragCtx.current = { canDropOn, replace: weekly.replace, setLit }
+
+  function startSealDrag(e: React.PointerEvent) {
+    if (weekly.locked || weekly.busy) return
+    e.preventDefault()
+    e.stopPropagation()
+    setDrag({ x: e.clientX, y: e.clientY, overId: null })
+  }
+
+  useEffect(() => {
+    if (!dragging) return
+    const targetAt = (x: number, y: number): string | null => {
+      const id = document
+        .elementFromPoint(x, y)
+        ?.closest('[data-drop-id]')
+        ?.getAttribute('data-drop-id')
+      return id && dragCtx.current.canDropOn(id) ? id : null
+    }
+    const move = (e: PointerEvent) =>
+      setDrag((d) => d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY) })
+    const end = (e: PointerEvent) => {
+      const overId = targetAt(e.clientX, e.clientY)
+      setDrag(null)
+      if (!overId) return
+      dragCtx.current.setLit(overId)
+      void dragCtx.current.replace('double_roster_points', overId)
+      const hold = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1300
+      window.setTimeout(() => dragCtx.current.setLit(null), hold)
+    }
+    const cancel = () => setDrag(null)
+    window.addEventListener('pointermove', move, { passive: false })
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', cancel)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', cancel)
+    }
+  }, [dragging])
+
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
 
   // Whether the current selection differs from the saved roster (#94): drives
@@ -1210,6 +1268,25 @@ function RosterSection({
 
 
   return (
+    <>
+    {/* The lifted seal, following the finger (#407). Portaled to the body so it
+        rides above the record's clipping and the fixed nav. */}
+    {drag &&
+      createPortal(
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-50"
+          style={{
+            left: drag.x,
+            top: drag.y,
+            transform: 'translate(-50%, -50%) scale(1.12)',
+            filter: 'drop-shadow(0 4px 8px rgb(0 0 0 / 35%))',
+          }}
+        >
+          <WaxSeal size={40} />
+        </div>,
+        document.body,
+      )}
     <RecordSection
       title="Roster"
       bare={bare}
@@ -1333,6 +1410,18 @@ function RosterSection({
                 lit={lit === pick.contestant_id}
                 expanded={expandedId === pick.contestant_id}
                 onToggle={() => toggleExpand(pick.contestant_id)}
+                // #407: the doubled row's seal is a drag handle (only when not
+                // already tap-picking); every row is a drop target for it.
+                onSealPointerDown={
+                  !picking && rosterDouble?.target_contestant_id === pick.contestant_id
+                    ? startSealDrag
+                    : undefined
+                }
+                sealLifted={
+                  dragging && rosterDouble?.target_contestant_id === pick.contestant_id
+                }
+                dropId={pick.contestant_id}
+                dropActive={drag?.overId === pick.contestant_id}
               >
                 <RosterBreakdown
                   perf={perfs.get(pick.contestant_id)}
@@ -1508,6 +1597,7 @@ function RosterSection({
         />
       )}
     </RecordSection>
+    </>
   )
 }
 
