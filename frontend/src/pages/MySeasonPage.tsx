@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
-import { Link } from 'react-router'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
@@ -1393,15 +1392,12 @@ function RosterSection({
                       key={pick.id}
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
                     >
-                      <Link
-                        to={`/contestants/${pick.contestant_id}`}
-                        className="flex items-center gap-2 hover:text-gray-600"
-                      >
+                      <span className="flex items-center gap-2">
                         <span className="shrink-0 grayscale opacity-70" title="Swapped out">
                           <Torch lit={false} />
                         </span>
                         {c?.name ?? '—'}
-                      </Link>
+                      </span>
                       <span className="text-xs flex items-center gap-2">
                         <Points value={rosterPoints.get(pick.contestant_id)} />
                         <span>
