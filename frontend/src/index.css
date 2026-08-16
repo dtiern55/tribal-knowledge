@@ -93,50 +93,39 @@ body {
   min-height: 100dvh;
 }
 
-/* Production artwork is deliberately limited to the Open Roster checkpoint.
-   The supplied page surface owns the paper fibers and absorbed color; CSS only
-   positions the layers and keeps the live shell content above them. */
-html.open-roster-art .app-shell {
+/* The whole app sits on the expedition document (#410). One page surface,
+   fixed behind everything so it never tiles or scroll-jumps — day mode only;
+   locked-night keeps its own dark room below. Header and bottom nav go
+   translucent paper so the surface reads through them instead of white
+   toolbars.
+   Piece 1 of the art pass: the inked FRAME and row rules land in later pieces;
+   until then the record's plain warm border (.expedition-ledger) is the
+   placeholder. */
+.app-shell {
   position: relative;
   isolation: isolate;
-  background-color: #e5cf9f;
-  background-image: url('./assets/expedition-page-surface.webp');
-  background-position: top center;
-  background-repeat: no-repeat;
-  background-size: cover;
+  background-color: var(--color-paper);
 }
 
-html.open-roster-art .app-shell::before {
+html:not(.locked-night) .app-shell::before {
   position: fixed;
-  z-index: 0;
+  z-index: -1;
   inset: 0;
   content: '';
   pointer-events: none;
-  background: url('./assets/expedition-ink-frame.png') center / 100% 100% no-repeat;
+  background: url('./assets/expedition-page-surface.webp') center / cover no-repeat;
 }
 
-html.open-roster-art .app-shell > * {
-  position: relative;
-  z-index: 1;
+html:not(.locked-night) .app-header {
+  border-color: rgb(128 100 61 / 22%);
+  background-color: rgb(247 240 226 / 55%);
+  backdrop-filter: blur(2px);
 }
 
-html.open-roster-art .app-header,
-html.open-roster-art .app-bottom-nav {
-  border-color: transparent;
-  background-color: rgb(232 211 168 / 78%);
-  background-image: url('./assets/expedition-ink-rule.png');
-  background-repeat: no-repeat;
-  background-position: center bottom;
-  background-size: 100% 2px;
-}
-
-html.open-roster-art .app-header {
-  box-shadow: 0 4px 14px rgb(67 50 29 / 12%);
-}
-
-html.open-roster-art .app-bottom-nav {
-  background-position: center top;
-  box-shadow: 0 -5px 18px rgb(67 50 29 / 15%);
+html:not(.locked-night) .app-bottom-nav {
+  /* Fixed over scrolling content, so this one stays mostly opaque paper. */
+  border-color: rgb(128 100 61 / 22%);
+  background-color: rgb(244 236 220 / 92%);
 }
 
 .app-top-link[aria-current='page'] {
@@ -291,71 +280,25 @@ html.locked-night .braid-rule {
   );
 }
 
-/* Fine fibre comes from the supplied tile. Broad stains, watercolor, crease
-   lines, edge age, and shadow stay non-repeating so the material never reads
-   as wallpaper. */
+/* The ledger sheet: the quieter inner paper under live record content. Day
+   only — locked-night keeps the flat cream it darkens elsewhere. The inked
+   frame and row rules are later pieces; the warm border below stands in. */
 .record-paper {
   background-color: var(--color-paper);
-  background-image:
-    linear-gradient(96deg, transparent 0 18%, rgb(92 68 39 / 4%) 18.15%, transparent 18.5%),
-    linear-gradient(174deg, transparent 0 64%, rgb(92 68 39 / 3%) 64.1%, transparent 64.55%),
-    radial-gradient(ellipse at 4% 8%, rgb(31 122 168 / 7%), transparent 30%),
-    radial-gradient(ellipse at 96% 92%, rgb(47 122 52 / 6%), transparent 34%),
-    radial-gradient(ellipse at 78% 6%, rgb(213 98 27 / 5%), transparent 28%),
-    radial-gradient(ellipse at center, transparent 58%, rgb(89 63 31 / 9%) 126%),
-    url('./assets/expedition-paper-grain.webp');
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
-  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 512px 512px;
   box-shadow:
-    0 16px 40px rgb(44 37 27 / 12%),
-    0 2px 5px rgb(44 37 27 / 14%),
-    inset 0 0 24px rgb(91 65 34 / 7%);
+    0 12px 30px rgb(44 37 27 / 14%),
+    0 2px 5px rgb(44 37 27 / 12%);
 }
 
-.expedition-ledger {
-  border-color: rgb(128 100 61 / 42%);
-  box-shadow:
-    0 16px 40px rgb(44 37 27 / 12%),
-    0 2px 5px rgb(44 37 27 / 14%),
-    inset 0 0 0 1px rgb(255 255 255 / 24%),
-    inset 0 0 34px rgb(87 61 29 / 7%);
-}
-
-.open-ledger {
-  position: relative;
-  border-color: transparent;
-  border-radius: 0.45rem;
-  background-color: #e8d2a3;
+html:not(.locked-night) .record-paper {
   background-image: url('./assets/expedition-ledger-surface.webp');
   background-position: top center;
   background-repeat: no-repeat;
   background-size: cover;
-  box-shadow:
-    0 20px 42px rgb(49 38 24 / 24%),
-    0 3px 8px rgb(49 38 24 / 20%);
 }
 
-.open-ledger::before {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  content: '';
-  pointer-events: none;
-  background: url('./assets/expedition-ink-frame.png') center / 100% 100% no-repeat;
-}
-
-.open-ledger > * {
-  position: relative;
-  z-index: 2;
-}
-
-.open-ledger .record-head,
-.open-ledger .record-beats {
-  border-bottom-color: transparent;
-  background-image: url('./assets/expedition-ink-rule.png');
-  background-repeat: no-repeat;
-  background-position: center bottom;
-  background-size: 100% 2px;
+.expedition-ledger {
+  border-color: rgb(128 100 61 / 42%);
 }
 
 .open-ledger .record-head h1 {

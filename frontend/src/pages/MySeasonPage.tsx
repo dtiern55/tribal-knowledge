@@ -256,15 +256,6 @@ export function MySeasonPage() {
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
   const resolvedState = d.season ? resolveMySeasonState(d.season, d.episodes) : null
-  const openRosterArt = !d.loading && resolvedState?.kind === 'open' && beat === 'roster'
-
-  // The production expedition artwork is a checkpoint for the Open Roster
-  // beat only. The shell lives above this route, so expose that narrow state
-  // without changing the layout or adding decorative semantic DOM.
-  useEffect(() => {
-    document.documentElement.classList.toggle('open-roster-art', openRosterArt)
-    return () => document.documentElement.classList.remove('open-roster-art')
-  }, [openRosterArt])
 
   useEffect(() => {
     if (picking) {
