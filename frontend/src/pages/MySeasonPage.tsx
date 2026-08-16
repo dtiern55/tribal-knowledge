@@ -1150,10 +1150,14 @@ function RosterSection({
       const overId = targetAt(e.clientX, e.clientY)
       setDrag(null)
       if (!overId) return
-      dragCtx.current.setLit(overId)
-      void dragCtx.current.replace('double_roster_points', overId)
-      const hold = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1300
-      window.setTimeout(() => dragCtx.current.setLit(null), hold)
+      const ctx = dragCtx.current
+      // Let the stamp land first, then light it: await the reassign so the glow
+      // chases the seal onto the new row rather than beating it there (#407).
+      void ctx.replace('double_roster_points', overId).then(() => {
+        ctx.setLit(overId)
+        const hold = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1300
+        window.setTimeout(() => ctx.setLit(null), hold)
+      })
     }
     const cancel = () => setDrag(null)
     window.addEventListener('pointermove', move, { passive: false })
