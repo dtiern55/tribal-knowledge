@@ -242,7 +242,7 @@ export function RosterCard({
 /** The leaf the roster is written on: aged paper and a ruled column header. */
 export function RosterManifest({ children }: { children: ReactNode }) {
   return (
-    <div className="record-paper overflow-hidden rounded-sm border border-paper-edge shadow-sm">
+    <div className="roster-manifest overflow-hidden border-y border-paper-edge/80">
       <div className="flex items-center gap-3 border-b-2 border-paper-edge px-3 pt-1.5 pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-paper-ink-faded">
         <span>Castaway</span>
         <span className="ml-auto">Points</span>

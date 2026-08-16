@@ -358,7 +358,7 @@ export function MySeasonPage() {
         aria-hidden={visibleResult ? true : undefined}
         inert={visibleResult ? true : undefined}
       >
-      {state.kind !== 'open' && (
+      {state.kind !== 'open' && state.kind !== 'locked' && (
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">
             {d.season.name}
@@ -376,6 +376,9 @@ export function MySeasonPage() {
           contestants={d.contestants}
           userId={d.userId}
           plays={d.plays}
+          standing={d.standing}
+          rank={d.rank}
+          playerCount={d.playerCount}
         />
       )}
 
@@ -528,12 +531,18 @@ function LockedState({
   contestants,
   userId,
   plays,
+  standing,
+  rank,
+  playerCount,
 }: {
   episode: Episode
   season: Season
   contestants: Contestant[]
   userId: string
   plays: AdvantagePlay[]
+  standing: StandingEntry | null
+  rank: number | null
+  playerCount: number
 }) {
   const [picks, setPicks] = useState<EliminationPick[] | null>(null)
   const [roster, setRoster] = useState<RosterPick[] | null>(null)
@@ -569,75 +578,38 @@ function LockedState({
     <section
       aria-labelledby="locked-state-title"
       data-variant={broadcast ? 'broadcast' : 'delayed'}
-      className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
-        broadcast
-          ? 'border-ocean-800 bg-[radial-gradient(circle_at_top_right,rgba(239,119,45,0.18),transparent_35%),linear-gradient(to_bottom,#0b3347,#123d34)] text-white shadow-xl'
-          : 'border-sand-200 bg-white text-gray-900 shadow-sm'
-      }`}
     >
-      <div>
-        <div>
-          <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
-            Episode {episode.episode_number} · locked
+      <SeasonRecord className="locked-ledger">
+        <RecordHead
+          title={season.name}
+          meta={`Episode ${episode.episode_number} · locked`}
+          right={<HeaderPoints standing={standing} rank={rank} count={playerCount} />}
+        />
+
+        <div className="locked-status flex items-end justify-between gap-3 border-b border-paper-edge px-4 py-3 sm:px-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-aged-gold">
+              Choices sealed
+            </p>
+            <h2 id="locked-state-title" className="font-display text-2xl font-bold tracking-wide text-paper-ink">
+              {broadcast ? 'The votes are in' : 'Results are pending'}
+            </h2>
+          </div>
+          <p className="shrink-0 text-right font-display text-sm font-bold tracking-wide text-ember-800">
+            Sealed record
           </p>
-          <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
-            {broadcast ? 'The votes are in' : 'Results are pending'}
-          </h2>
-        </div>
-      </div>
-
-      <div className="mt-8 grid gap-8">
-        <div>
-          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Roster
-          </h3>
-          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {roster.map((pick) => {
-              const contestant = contestantMap.get(pick.contestant_id)
-              return (
-                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-sand-200 bg-sand-50'}`}>
-                  <ContestantAvatar
-                    name={contestant?.name ?? '—'}
-                    imageUrl={contestant?.image_url ?? null}
-                    tribeColor={contestant?.tribe_color ?? null}
-                    tribeName={contestant?.tribe_name ?? null}
-                    size="sm"
-                  />
-                  <span className="font-medium">{contestant?.name ?? '—'}</span>
-                  {played?.advantage_type === 'double_roster_points' &&
-                    played.target_contestant_id === pick.contestant_id && (
-                      <span
-                        className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${
-                          broadcast
-                            ? 'bg-ember-300/20 text-ember-100 ring-ember-200/40'
-                            : 'bg-ember-100 text-ember-800 ring-ember-300'
-                        }`}
-                        title="Double Roster Points is active for this episode"
-                      >
-                        ×2
-                      </span>
-                    )}
-                </li>
-              )
-            })}
-          </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
         </div>
 
-        <div className={`border-t pt-6 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
-          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Ballot
-          </h3>
-          {picks.length > 0 ? (
-            <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
-              {picks.map((pick) => {
+        <RecordSection title="Roster">
+          {roster.length > 0 ? (
+            <ul className="divide-y divide-paper-line">
+              {roster.map((pick) => {
                 const contestant = contestantMap.get(pick.contestant_id)
+                const doubled =
+                  played?.advantage_type === 'double_roster_points' &&
+                  played.target_contestant_id === pick.contestant_id
                 return (
-                  <li
-                    key={pick.id}
-                    className={`min-w-0 flex items-center gap-2 rounded-xl border p-2 text-sm font-medium ${
-                      broadcast ? 'border-white/20 bg-white/10' : 'border-sand-200 bg-sand-50'
-                    }`}
-                  >
+                  <li key={pick.id} className={`locked-roster-line flex min-w-0 items-center gap-3 px-4 py-2.5 sm:px-5 ${doubled ? 'is-doubled' : ''}`}>
                     <ContestantAvatar
                       name={contestant?.name ?? '—'}
                       imageUrl={contestant?.image_url ?? null}
@@ -645,40 +617,69 @@ function LockedState({
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    {contestant?.name ?? '—'}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-base font-bold tracking-wide text-paper-ink">
+                        {contestant?.name ?? '—'}
+                      </span>
+                      <span className="block text-[10px] uppercase tracking-[0.1em] text-paper-ink-faded">
+                        {contestant?.tribe_name ?? 'Active roster'}
+                      </span>
+                    </span>
+                    {doubled ? <WaxSeal size={34} /> : <span className="text-paper-ink-faded">—</span>}
                   </li>
                 )
               })}
             </ul>
           ) : (
-            <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No ballot was submitted.</p>
+            <p className="px-4 py-4 text-sm text-paper-ink-faded">No active roster was found.</p>
           )}
-        </div>
+        </RecordSection>
 
-        <div className={`border-t pt-5 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
-          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Advantage
-          </h3>
-          <p className="mt-1 text-sm font-medium">
-            {played
-              ? `${ADV_LABELS[played.advantage_type] ?? played.advantage_type}${
-                  played.target_contestant_id
-                    ? ` · ${contestantMap.get(played.target_contestant_id)?.name ?? 'Roster member'}`
-                    : ''
-                }`
-              : 'No weekly play used'}
-          </p>
-        </div>
+        <RecordSection title="Ballot">
+          {picks.length > 0 ? (
+            <ul className="flex flex-wrap gap-2 px-4 py-4 sm:px-5" aria-label="Committed ballot">
+              {picks.map((pick) => (
+                <li key={pick.id} className="flex min-w-0 items-center gap-2">
+                  <ContestantAvatar
+                    name={contestantMap.get(pick.contestant_id)?.name ?? '—'}
+                    imageUrl={contestantMap.get(pick.contestant_id)?.image_url ?? null}
+                    tribeColor={contestantMap.get(pick.contestant_id)?.tribe_color ?? null}
+                    tribeName={contestantMap.get(pick.contestant_id)?.tribe_name ?? null}
+                    size="sm"
+                  />
+                  <VoteSlip name={contestantMap.get(pick.contestant_id)?.name ?? '—'} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-4 py-4 text-sm text-paper-ink-faded">No ballot was submitted.</p>
+          )}
+        </RecordSection>
 
-        <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-ocean-50 ring-1 ring-ocean-100'}`}>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
+        <RecordSection title="Weekly Play">
+          <div className="flex items-center gap-3 px-4 py-4 sm:px-5">
+            {played && played.advantage_type !== 'roster_swap' && <WaxSeal size={22} variant="small" />}
+            <p className="text-sm font-semibold text-paper-ink">
+              {played
+                ? `${ADV_LABELS[played.advantage_type] ?? played.advantage_type}${
+                    played.target_contestant_id
+                      ? ` · ${contestantMap.get(played.target_contestant_id)?.name ?? 'Roster member'}`
+                      : ''
+                  }`
+                : 'No weekly play used'}
+            </p>
+          </div>
+        </RecordSection>
+
+        <div className="locked-awaiting border-t-2 border-paper-edge px-4 py-3 sm:px-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-aged-gold">
             {broadcast ? 'Scoring comes next' : 'Awaiting league scoring'}
           </p>
-          <p className={`mt-1 text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
+          <p className="mt-1 text-sm text-paper-ink-faded">
             Results appear here after Episode {episode.episode_number} is scored.
           </p>
         </div>
-      </div>
+      </SeasonRecord>
     </section>
   )
 }
