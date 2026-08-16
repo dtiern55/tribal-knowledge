@@ -307,7 +307,16 @@ html:not(.locked-night) .expedition-ledger {
   --frame-w: 11px;
   border-style: solid;
   border-width: var(--frame-w);
-  border-image: url('./assets/expedition-ledger-frame.png') 30 / var(--frame-w) / 0 round;
+  /* Warm fallback if the image ever fails — never the pale sand default, which
+     read as a white border. */
+  border-color: rgb(84 66 42 / 55%);
+  /* Longhands, not the shorthand: var() inside the border-image shorthand is
+     widely dropped by browsers, which was the white-border bug. */
+  border-image-source: url('./assets/expedition-ledger-frame.png');
+  border-image-slice: 30;
+  border-image-width: var(--frame-w);
+  border-image-outset: 0;
+  border-image-repeat: round;
   border-radius: 13px;
 }
 
