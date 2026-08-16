@@ -36,6 +36,7 @@ export function RosterCard({
   sealLifted = false,
   dropId,
   dropActive = false,
+  ledgerMounted = false,
   children,
 }: {
   contestantId: string
@@ -74,6 +75,8 @@ export function RosterCard({
   // `dropActive` highlights it as the finger passes over.
   dropId?: string
   dropActive?: boolean
+  /** Use the mounted-photo Open Roster treatment without changing other teams. */
+  ledgerMounted?: boolean
   children?: ReactNode
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
@@ -94,12 +97,13 @@ export function RosterCard({
           name={contestant?.name ?? '—'}
           imageUrl={contestant?.image_url ?? null}
           square
+          mounted={ledgerMounted}
         />
       </span>
       <span className="min-w-0 text-left">
         <span className="flex items-center gap-2">
           <span
-            className={`min-w-0 truncate font-display text-base tracking-wide uppercase ${
+            className={`roster-name min-w-0 truncate font-display text-base tracking-wide uppercase ${
               outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
             }`}
           >
@@ -166,7 +170,7 @@ export function RosterCard({
   // what read as the row clicking back into place. The visual layer stays
   // put; only the interactive child inside it swaps.
   return (
-    <li className="border-t border-paper-line first:border-t-0">
+    <li className={`border-t border-paper-line first:border-t-0 ${ledgerMounted ? 'roster-card' : ''}`}>
       <div
         data-drop-id={dropId}
         className={`stage-row flex items-center gap-3 ${

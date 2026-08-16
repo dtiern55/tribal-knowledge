@@ -392,7 +392,7 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
-        <SeasonRecord glowOut={stageOpen}>
+        <SeasonRecord glowOut={stageOpen} className="open-ledger">
           <RecordHead
             title={d.season.name}
             meta={`Episode ${state.episode.episode_number}`}
@@ -877,7 +877,7 @@ function HeaderPoints({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="rounded-xl px-4 py-2 bg-gradient-to-br from-ocean-500 to-ocean-700 text-white text-right shadow-md hover:from-ocean-600 hover:to-ocean-800 transition-colors"
+        className="header-points-button rounded-xl px-4 py-2 bg-gradient-to-br from-ocean-500 to-ocean-700 text-white text-right shadow-md hover:from-ocean-600 hover:to-ocean-800 transition-colors"
       >
         <div className="text-[11px] font-semibold uppercase tracking-wider text-white">
           My Points
@@ -915,7 +915,7 @@ function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
   const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-500'
   return (
-    <span className={`text-xs font-medium ${color}`}>
+    <span className={`roster-points text-xs font-medium ${color}`}>
       {value > 0 ? '+' : ''}
       {value} pts
     </span>
@@ -1389,6 +1389,7 @@ function RosterSection({
                 }
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                 bioLink={false}
+                ledgerMounted
                 onSelect={
                   picking === 'double'
                     ? () => {

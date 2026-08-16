@@ -31,6 +31,7 @@ export function ContestantAvatar({
   tribeColor = null,
   tribeName = null,
   square = false,
+  mounted = false,
 }: {
   name: string
   imageUrl: string | null
@@ -38,10 +39,13 @@ export function ContestantAvatar({
   tribeColor?: string | null
   tribeName?: string | null
   square?: boolean
+  /** My Season's roster-only mounted photograph treatment. */
+  mounted?: boolean
 }) {
   // object-top: cast photos are portraits; center-crop cuts off heads.
   const shape = square ? 'rounded-[2px] ring-2 ring-white/85' : 'rounded-full'
-  const base = `${sizeClass[size]} ${shape} shrink-0 object-cover object-top`
+  const dimensions = mounted ? 'ledger-photo' : sizeClass[size]
+  const base = `${dimensions} ${shape} shrink-0 object-cover object-top`
   const inner = imageUrl ? (
     <img src={imageUrl} alt={name} className={base} />
   ) : (
@@ -52,6 +56,10 @@ export function ContestantAvatar({
       {initials(name)}
     </span>
   )
+
+  if (mounted) {
+    return <span className="ledger-photo-mount">{inner}</span>
+  }
 
   if (!tribeColor) return inner
 
