@@ -1391,16 +1391,20 @@ function RosterSection({
                 onSelect={
                   picking === 'double'
                     ? () => {
-                        setLit(pick.contestant_id)
-                        void weekly.replace('double_roster_points', pick.contestant_id)
-                        const hold = window.matchMedia('(prefers-reduced-motion: reduce)')
-                          .matches
-                          ? 0
-                          : 1300
-                        window.setTimeout(() => {
-                          setLit(null)
-                          onPickingDone?.()
-                        }, hold)
+                        const id = pick.contestant_id
+                        // Same as the drag (#407): let the seal land, then light
+                        // it — the glow chases the stamp, it doesn't beat it.
+                        void weekly.replace('double_roster_points', id).then(() => {
+                          setLit(id)
+                          const hold = window.matchMedia('(prefers-reduced-motion: reduce)')
+                            .matches
+                            ? 0
+                            : 1300
+                          window.setTimeout(() => {
+                            setLit(null)
+                            onPickingDone?.()
+                          }, hold)
+                        })
                       }
                     : picking === 'swap' && !swapping
                       ? () => setDropping(pick.contestant_id)
