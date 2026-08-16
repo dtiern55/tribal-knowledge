@@ -6,13 +6,16 @@ import { useId } from 'react'
  * is already an aged-paper record, so a played double reads as a seal pressed
  * onto the row rather than a warning chip.
  *
- * Drawn as SVG (turbulence for the organic wax edge and watercolor mottle) so
- * it stays crisp from the ~30px roster mark down to the ~16px beat-tab echo.
- * `detail="min"` drops the medallion rings and dots, which only muddy below
- * ~22px. Filter ids are scoped per instance so two seals can share a screen.
+ * Drawn as SVG so it stays crisp from the ~34px roster mark down to the ~18px
+ * beat-tab echo. The wax edge and the watercolor mottle come from turbulence;
+ * the ×2 and the medallion rings are *embossed light* (a light raised face over
+ * a dark seat) so the glyph reads against the wax the way a real pressed seal
+ * does. `detail="min"` drops the rings and dots, which only muddy below ~24px,
+ * and lets the ×2 grow to fill the seal. Filter ids are scoped per instance so
+ * the card seal and its tab echo can share a screen.
  */
 export function WaxSeal({
-  size = 30,
+  size = 34,
   detail = 'full',
   title = 'Double Roster Points this episode',
 }: {
@@ -21,16 +24,14 @@ export function WaxSeal({
   title?: string
 }) {
   const uid = useId().replace(/:/g, '')
-  const dots =
-    detail === 'full'
-      ? Array.from({ length: 16 }, (_, i) => {
-          const a = (i / 16) * Math.PI * 2
-          return {
-            cx: (50 + Math.cos(a) * 26.5).toFixed(2),
-            cy: (50 + Math.sin(a) * 26.5).toFixed(2),
-          }
-        })
-      : []
+  const full = detail === 'full'
+  const glyph = full ? 33 : 42
+  const dots = full
+    ? Array.from({ length: 18 }, (_, i) => {
+        const a = (i / 18) * Math.PI * 2
+        return { x: 50 + Math.cos(a) * 27.4, y: 50 + Math.sin(a) * 27.4 }
+      })
+    : []
 
   return (
     <svg
@@ -43,83 +44,91 @@ export function WaxSeal({
     >
       <title>{title}</title>
       <defs>
-        <filter id={`rough-${uid}`} x="-25%" y="-25%" width="150%" height="150%">
+        <filter id={`rough-${uid}`} x="-30%" y="-30%" width="160%" height="160%">
           <feTurbulence
             type="fractalNoise"
-            baseFrequency="0.024 0.027"
-            numOctaves="2"
-            seed="11"
+            baseFrequency="0.018 0.022"
+            numOctaves="3"
+            seed="17"
             result="n"
           />
           <feDisplacementMap
             in="SourceGraphic"
             in2="n"
-            scale="4.5"
+            scale="6.5"
             xChannelSelector="R"
             yChannelSelector="G"
           />
         </filter>
         <filter id={`mottle-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.11" numOctaves="3" seed="4" result="t" />
+          <feTurbulence type="fractalNoise" baseFrequency="0.14" numOctaves="3" seed="6" result="t" />
           <feColorMatrix
             in="t"
             type="matrix"
-            values="0 0 0 0 0.22  0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0.55 0"
+            values="0 0 0 0 0.55  0 0 0 0 0.15  0 0 0 0 0.09  0 0 0 0.35 0"
           />
           <feComposite operator="in" in2="SourceGraphic" />
         </filter>
-        <radialGradient id={`fill-${uid}`} cx="40%" cy="33%" r="72%">
-          <stop offset="0%" stopColor="#c8503a" />
-          <stop offset="38%" stopColor="#a83122" />
-          <stop offset="74%" stopColor="#851f13" />
-          <stop offset="100%" stopColor="#57130a" />
+        <radialGradient id={`fill-${uid}`} cx="41%" cy="31%" r="78%">
+          <stop offset="0%" stopColor="#f2856c" />
+          <stop offset="30%" stopColor="#e2543a" />
+          <stop offset="66%" stopColor="#cb3b25" />
+          <stop offset="100%" stopColor="#9c2814" />
+        </radialGradient>
+        <radialGradient id={`bloom-${uid}`} cx="34%" cy="26%" r="42%">
+          <stop offset="0%" stopColor="#fbc0ad" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#fbc0ad" stopOpacity="0" />
         </radialGradient>
       </defs>
 
       <g transform="rotate(-8 50 50)">
-        {/* wax body — edge roughened */}
+        {/* wax body — edge roughened, painterly bloom + mottle */}
         <g filter={`url(#rough-${uid})`}>
-          <circle cx="50" cy="51" r="35" fill={`url(#fill-${uid})`} />
-          <circle cx="50" cy="51" r="35" fill="none" stroke="#4a1109" strokeWidth="4" opacity="0.35" />
-          <circle cx="50" cy="51" r="35" fill="#4a1109" filter={`url(#mottle-${uid})`} />
+          <circle cx="50" cy="51" r="37" fill={`url(#fill-${uid})`} />
+          <circle cx="50" cy="51" r="37" fill={`url(#bloom-${uid})`} />
+          <circle cx="50" cy="51" r="37" fill="#8f2412" filter={`url(#mottle-${uid})`} />
+          <circle cx="50" cy="51" r="37" fill="none" stroke="#8a2312" strokeWidth="3.5" opacity="0.28" />
         </g>
 
-        {/* pressed medallion — stays crisp */}
-        {detail === 'full' && (
+        {/* pressed medallion — light raised rings over a dark seat */}
+        {full && (
           <>
-            <g fill="none" opacity="0.55">
-              <circle cx="50" cy="50.2" r="29" stroke="#e6907a" strokeWidth="1.6" opacity="0.5" />
-              <circle cx="50" cy="50.2" r="24" stroke="#e6907a" strokeWidth="1.2" opacity="0.5" />
-              <circle cx="50" cy="50" r="29" stroke="#4a1109" strokeWidth="1.6" />
-              <circle cx="50" cy="50" r="24" stroke="#4a1109" strokeWidth="1.1" />
+            <g fill="none">
+              <circle cx="50" cy="50.9" r="30" stroke="#7a1c0d" strokeWidth="2.2" opacity="0.42" />
+              <circle cx="50" cy="50" r="30" stroke="#f9ddd0" strokeWidth="1.7" opacity="0.8" />
+              <circle cx="50" cy="50.8" r="25" stroke="#7a1c0d" strokeWidth="1.6" opacity="0.4" />
+              <circle cx="50" cy="50" r="25" stroke="#f9ddd0" strokeWidth="1.2" opacity="0.72" />
             </g>
             {dots.map((d, i) => (
-              <circle key={i} cx={d.cx} cy={d.cy} r="0.9" fill="#4a1109" opacity="0.5" />
+              <g key={i}>
+                <circle cx={d.x.toFixed(2)} cy={(d.y + 0.6).toFixed(2)} r="0.95" fill="#7a1c0d" opacity="0.4" />
+                <circle cx={d.x.toFixed(2)} cy={d.y.toFixed(2)} r="0.95" fill="#f9ddd0" opacity="0.72" />
+              </g>
             ))}
           </>
         )}
 
-        {/* ×2, pressed (emboss highlight behind the ink) */}
+        {/* ×2 — embossed: dark seat, light raised face */}
         <text
-          x="50"
-          y="60.6"
+          x="50.5"
+          y="61.1"
           textAnchor="middle"
           fontFamily="'Arial Narrow','Helvetica Neue',sans-serif"
           fontWeight="700"
-          fontSize={detail === 'full' ? 27 : 34}
-          fill="#e6907a"
-          opacity="0.5"
+          fontSize={glyph}
+          fill="#791a0b"
+          opacity="0.75"
         >
           ×2
         </text>
         <text
           x="50"
-          y="60"
+          y="60.2"
           textAnchor="middle"
           fontFamily="'Arial Narrow','Helvetica Neue',sans-serif"
           fontWeight="700"
-          fontSize={detail === 'full' ? 27 : 34}
-          fill="#480f07"
+          fontSize={glyph}
+          fill="#fbe3d8"
         >
           ×2
         </text>

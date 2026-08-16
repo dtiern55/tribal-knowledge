@@ -94,7 +94,7 @@ export function RosterCard({
           </span>
           {/* A wax seal stamped beside the name, not a badge (#397/#407): the
               play is sealed onto this castaway, like a Survivor advantage. */}
-          {isDoubled && <WaxSeal size={28} />}
+          {isDoubled && <WaxSeal size={34} />}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (

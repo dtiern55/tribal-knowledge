@@ -194,7 +194,7 @@ export function RecordBeats({
               )}
               {/* The doubled beat echoes the roster row's wax seal, shrunk to a
                   small stamp on the tab (#397/#407). */}
-              {b.doubled && <WaxSeal size={16} detail="min" />}
+              {b.doubled && <WaxSeal size={18} detail="min" />}
               <span className="sr-only">{b.done ? '— done' : ''}</span>
             </span>
             <span
