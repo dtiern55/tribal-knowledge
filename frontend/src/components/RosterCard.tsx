@@ -32,6 +32,10 @@ export function RosterCard({
   lit = false,
   expanded = false,
   onToggle,
+  onSealPointerDown,
+  sealLifted = false,
+  dropId,
+  dropActive = false,
   children,
 }: {
   contestantId: string
@@ -61,6 +65,15 @@ export function RosterCard({
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
   onToggle?: () => void
+  // #407 drag-to-reassign: the seal on a doubled row is a handle you grab to
+  // move the Double Roster Points onto another castaway. When given, the seal
+  // becomes draggable; `sealLifted` dims it while it's in the air.
+  onSealPointerDown?: (e: React.PointerEvent) => void
+  sealLifted?: boolean
+  // The row is a drop target for that drag: `dropId` is what it reassigns to,
+  // `dropActive` highlights it as the finger passes over.
+  dropId?: string
+  dropActive?: boolean
   children?: ReactNode
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
@@ -93,8 +106,21 @@ export function RosterCard({
             {contestant?.name ?? '—'}
           </span>
           {/* A wax seal stamped beside the name, not a badge (#397/#407): the
-              play is sealed onto this castaway, like a Survivor advantage. */}
-          {isDoubled && <WaxSeal size={34} />}
+              play is sealed onto this castaway, like a Survivor advantage. When
+              draggable (#407), grabbing it lifts the double to move elsewhere. */}
+          {isDoubled &&
+            (onSealPointerDown ? (
+              <span
+                onPointerDown={onSealPointerDown}
+                title="Drag to move the double to another castaway"
+                className="shrink-0 cursor-grab touch-none transition-opacity active:cursor-grabbing"
+                style={{ opacity: sealLifted ? 0.3 : 1 }}
+              >
+                <WaxSeal size={34} />
+              </span>
+            ) : (
+              <WaxSeal size={34} />
+            ))}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (
@@ -142,8 +168,11 @@ export function RosterCard({
   return (
     <li className="border-t border-paper-line first:border-t-0">
       <div
+        data-drop-id={dropId}
         className={`stage-row flex items-center gap-3 ${
           lit ? 'stage-pick' : selected ? 'stage-held' : onSelect ? '' : ''
+        } ${
+          dropActive ? 'ring-2 ring-inset ring-ocean-500 bg-ocean-50/70' : ''
         } ${onSelect ? 'p-0' : `px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}`}
         onClick={onSelect ? undefined : onToggle}
       >

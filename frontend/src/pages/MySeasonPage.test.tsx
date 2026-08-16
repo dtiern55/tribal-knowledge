@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
@@ -360,6 +360,57 @@ describe('MySeasonPage state shell', () => {
     expect(within(advantage).getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
     expect(within(advantage).getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
     expect(within(advantage).getByRole('button', { name: 'Undo' })).toBeVisible()
+  })
+
+  it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
+    const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' }]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-2' })
+    vi.mocked(api.delete).mockResolvedValue(undefined)
+
+    renderWithApp(<MySeasonPage />, { auth })
+    const roster = await openBeat('Roster')
+
+    // The seal on the doubled row (Kenzie) is the drag handle.
+    const seal = await within(roster).findByRole('img', { name: /Double Roster Points/ })
+    // The other row is the drop target; jsdom does no layout, so stub the one
+    // primitive the drop hit-test relies on to point at Charlie's row.
+    const charlieRow = within(roster).getByText('Charlie').closest('[data-drop-id]')!
+    document.elementFromPoint = () => charlieRow as Element
+
+    fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
+    fireEvent(window, new MouseEvent('pointermove', { clientX: 60, clientY: 200 }))
+    fireEvent(window, new MouseEvent('pointerup', { clientX: 60, clientY: 200 }))
+
+    // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/advantage-plays', {
+        advantage_type: 'double_roster_points',
+        target_contestant_id: 'cast-2',
+      }),
+    )
+    expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
