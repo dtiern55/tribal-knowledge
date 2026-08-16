@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
+import { WaxSeal } from './WaxSeal'
 
 /**
  * One line in the roster manifest (#380 follow-on).
@@ -83,12 +84,17 @@ export function RosterCard({
         />
       </span>
       <span className="min-w-0 text-left">
-        <span
-          className={`block truncate font-display text-base tracking-wide uppercase ${
-            outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
-          }`}
-        >
-          {contestant?.name ?? '—'}
+        <span className="flex items-center gap-2">
+          <span
+            className={`min-w-0 truncate font-display text-base tracking-wide uppercase ${
+              outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
+            }`}
+          >
+            {contestant?.name ?? '—'}
+          </span>
+          {/* A wax seal stamped beside the name, not a badge (#397/#407): the
+              play is sealed onto this castaway, like a Survivor advantage. */}
+          {isDoubled && <WaxSeal size={34} />}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (
@@ -121,14 +127,6 @@ export function RosterCard({
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
               Sole Survivor
-            </span>
-          )}
-          {isDoubled && (
-            <span
-              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-ember-500 bg-ember-100 text-ember-800"
-              title="Double Roster Points is active for this episode"
-            >
-              ×2
             </span>
           )}
         </span>

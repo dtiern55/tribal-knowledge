@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { WaxSeal } from './WaxSeal'
 
 /**
  * My Season as one document (#396).
@@ -191,11 +192,9 @@ export function RecordBeats({
                   ✓
                 </span>
               )}
-              {b.doubled && (
-                <span className="flex-none border border-ember-300 bg-ember-100 px-1 text-[9px] font-extrabold tracking-[0.06em] text-ember-800">
-                  ×2
-                </span>
-              )}
+              {/* The doubled beat echoes the roster row's wax seal, shrunk to a
+                  small stamp on the tab (#397/#407). */}
+              {b.doubled && <WaxSeal size={18} variant="small" />}
               <span className="sr-only">{b.done ? '— done' : ''}</span>
             </span>
             <span

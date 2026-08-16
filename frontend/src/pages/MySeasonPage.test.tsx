@@ -341,10 +341,18 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByTitle('Double Roster Points is active for this episode')).toHaveTextContent('×2')
-    // The Advantage beat echoes where the play is resting.
+    // The doubled castaway carries a wax-seal ×2 mark on the roster row.
+    expect(
+      await screen.findByRole('img', { name: /Double Roster Points/ }),
+    ).toBeInTheDocument()
+    // The Advantage beat echoes where the play is resting; the Roster beat wears
+    // its own seal (an <img>-role SVG, so it's found by accessible name).
     expect(await screen.findByRole('tab', { name: /^Advantage/ })).toHaveTextContent('Kenzie')
-    expect(screen.getByRole('tab', { name: /^Roster/ })).toHaveTextContent('×2')
+    expect(
+      within(screen.getByRole('tab', { name: /^Roster/ })).getByRole('img', {
+        name: /Double Roster Points/,
+      }),
+    ).toBeInTheDocument()
 
     const advantage = await openBeat('Advantage')
     // The played double marks its own button rather than replacing the pair,
