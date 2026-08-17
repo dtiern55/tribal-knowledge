@@ -706,16 +706,18 @@ html.locked-night .app-shell .vote-slip { color: #2a2016; }
 }
 
 /* Piece 5: the selected row's ocean wash. A full-width, text-free strip ripped
-   straight from Christian's selected row in the mockup (keeps the real
-   watercolor's left->right gradient); stretched to fill the row. The crisp
-   darker-blue left bar is the mockup's edge, kept as an inset shadow (vector,
-   solid at every DPR). */
+   from Christian's selected row (keeps the real watercolor's left->right
+   gradient). Stretching it vertically to fill the row smeared the paint, so it
+   tiles at natural height instead: the asset is the strip mirror-doubled top
+   over flipped-bottom, so repeat-y is seamless; only the width stretches (~2%)
+   to fill. The crisp darker-blue left bar is the mockup's edge, an inset shadow
+   (vector, solid at every DPR). */
 .open-ledger .roster-card .stage-held {
   background-color: transparent;
-  background-image: url('./assets/expedition-ocean-wash.webp');
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background-image: url('./assets/expedition-ocean-wash-tile.webp');
+  background-position: left top;
+  background-repeat: repeat-y;
+  background-size: 100% 52px;
   box-shadow: inset 3px 0 0 var(--color-ocean-700);
 }
 
