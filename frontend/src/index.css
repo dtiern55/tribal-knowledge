@@ -385,25 +385,35 @@ html:not(.locked-night) .expedition-ledger::before {
   flex: none;
   width: 52px;
   height: 52px;
+  background: #f2e7cd;
+  border-radius: 4px;
   filter: drop-shadow(1px 2px 0 rgb(68 51 29 / 24%));
 }
 
+/* Piece 6: the mounted photo's hand-inked frame. Was a generated PNG mat; now a
+   crisp CSS border run through the record frame's displace+grain filter, so the
+   photo frame belongs to the same ink system as the record frame and row rules
+   (and inherits whatever direction that line work settles on — see #411). The
+   cream mount above shows through the inset as the paper mat. */
 .ledger-photo-mount::after {
   position: absolute;
   z-index: 2;
   inset: 0;
   content: '';
   pointer-events: none;
-  background: url('./assets/expedition-portrait-mat.png') center / 100% 100% no-repeat;
+  border: 1.5px solid #3a2c1e;
+  border-radius: 5px;
+  filter: url(#ink-frame-b);
   transform: rotate(-0.7deg);
 }
 
 .ledger-photo {
   position: absolute;
   z-index: 1;
-  inset: 5px;
-  width: 42px;
-  height: 42px;
+  inset: 4px;
+  width: 44px;
+  height: 44px;
+  border-radius: 2px;
 }
 
 .roster-card:nth-child(3n + 2) .ledger-photo-mount::after {
