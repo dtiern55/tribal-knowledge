@@ -424,10 +424,11 @@ html:not(.locked-night) .expedition-ledger::before {
   transform: rotate(-0.25deg);
 }
 
-/* Piece 4: the row rule. A raster hairline washed out at 1x (learning: a 1px
-   line can't render solid); so the divider is a crisp CSS border run through
-   the same displace+grain SVG filter as the frame (#ink-rule, gentler wobble).
-   Drawn on a pseudo-element — filtering the <li> itself would smear the row. */
+/* Piece 4: the row rule. A CSS border (even displaced/grained) is a solid
+   opaque stroke — it reads as ink, never the mockup's pencil. So the divider is
+   the mockup's *actual* pencil rule, ripped and keyed to transparent graphite
+   (paper shows through the tooth), mirror-doubled for a seamless repeat-x, and
+   tiled at natural height — no stretch, so it holds at 1x. */
 .open-ledger .roster-card {
   position: relative;
   border-top-color: transparent;
@@ -436,13 +437,12 @@ html:not(.locked-night) .expedition-ledger::before {
 .open-ledger .roster-card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 3px;
-  right: 3px;
-  height: 5px;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 9px;
   pointer-events: none;
-  border-top: 1.4px solid #3a2c1e;
-  filter: url(#ink-rule);
+  background: url('./assets/expedition-pencil-rule.png') left top / auto 9px repeat-x;
 }
 
 .open-ledger .roster-card:first-child::before {

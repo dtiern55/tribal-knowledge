@@ -47,15 +47,6 @@
           <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0.35" result="ga" />
           <feComposite in="d" in2="ga" operator="in" />
         </filter>
-        <!-- Row divider: same displace+grain as the frame, gentler amplitude
-             (scale 1.2) so a straight hairline wavers rather than going wavy. -->
-        <filter id="ink-rule" x="-4%" y="-200%" width="108%" height="500%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="13" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="1.2" xChannelSelector="R" yChannelSelector="G" result="d" />
-          <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="9" result="g" />
-          <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0.35" result="ga" />
-          <feComposite in="d" in2="ga" operator="in" />
-        </filter>
       </defs>
     </svg>
     <script type="module" src="/src/main.tsx"></script>
