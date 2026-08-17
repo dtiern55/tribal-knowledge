@@ -297,27 +297,40 @@ html:not(.locked-night) .record-paper {
   background-size: cover;
 }
 
-/* Piece 3: the record's hand-inked frame, ripped from the mockup's own card
-   corner + edges and placed as a 9-slice — corners stay crisp, only the edges
-   repeat, so it never distorts (the failure mode of the old stretched frame).
-   Day only; night keeps its plain sealed border. --frame-w is the tuning knob:
-   it's both the border thickness and the slice render width, so content inset
-   and ink weight move together. */
+/* Piece 3: the record's hand-inked frame. A raster rip of the mockup's hairline
+   washed out at 1x density (a 1px line can't render solid), so the frame is a
+   bold CSS double-border run through an SVG turbulence-displacement filter
+   (defs live in index.html): crisp and solid at every density, with organic ink
+   wobble. Day only; night keeps its plain sealed border. Tune the wobble in
+   index.html — baseFrequency is the grain, scale is the amplitude. */
 html:not(.locked-night) .expedition-ledger {
-  --frame-w: 11px;
-  border-style: solid;
-  border-width: var(--frame-w);
-  /* Warm fallback if the image ever fails — never the pale sand default, which
-     read as a white border. */
-  border-color: rgb(84 66 42 / 55%);
-  /* Longhands, not the shorthand: var() inside the border-image shorthand is
-     widely dropped by browsers, which was the white-border bug. */
-  border-image-source: url('./assets/expedition-ledger-frame-inked.png');
-  border-image-slice: 30;
-  border-image-width: var(--frame-w);
-  border-image-outset: 0;
-  border-image-repeat: round;
+  position: relative;
   border-radius: 13px;
+}
+
+html:not(.locked-night) .expedition-ledger::before,
+html:not(.locked-night) .expedition-ledger::after {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  border: 2px solid #241a12;
+}
+
+/* Outer rule. */
+html:not(.locked-night) .expedition-ledger::after {
+  inset: 0;
+  border-radius: 13px;
+  filter: url(#ink-frame-a);
+}
+
+/* Inner rule — its own noise seed, so the two lines wobble independently like a
+   real hand-drawn double rule instead of two parallel tracks. */
+html:not(.locked-night) .expedition-ledger::before {
+  inset: 4px;
+  border-width: 1.5px;
+  border-radius: 10px;
+  filter: url(#ink-frame-b);
 }
 
 .open-ledger .record-head h1 {

@@ -23,6 +23,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Hand-drawn ink wobble for the record frame (#410). Two seeds so the
+         double rule doesn't wobble in lockstep. Referenced from CSS via
+         filter: url(#ink-frame-a/b). -->
+    <svg width="0" height="0" aria-hidden="true" focusable="false" style="position: absolute">
+      <defs>
+        <filter id="ink-frame-a" x="-6%" y="-6%" width="112%" height="112%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.016" numOctaves="2" seed="7" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id="ink-frame-b" x="-6%" y="-6%" width="112%" height="112%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.016" numOctaves="2" seed="23" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
