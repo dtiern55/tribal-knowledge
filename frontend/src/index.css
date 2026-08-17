@@ -297,40 +297,29 @@ html:not(.locked-night) .record-paper {
   background-size: cover;
 }
 
-/* Piece 3: the record's hand-inked frame. A raster rip of the mockup's hairline
-   washed out at 1x density (a 1px line can't render solid), so the frame is a
-   bold CSS double-border run through an SVG turbulence-displacement filter
-   (defs live in index.html): crisp and solid at every density, with organic ink
-   wobble. Day only; night keeps its plain sealed border. Tune the wobble in
-   index.html — baseFrequency is the grain, scale is the amplitude. */
+/* Piece 3: the record's hand-drawn frame. A CSS border reads as ink, not
+   pencil; so the frame is the mockup's actual pencil rule (keyed to transparent
+   graphite, same as the row rule), tiled on all four edges — horizontal strip
+   repeat-x on top/bottom, the same strip rotated for repeat-y on left/right.
+   Natural height, no stretch, so it holds at 1x. Day only. */
 html:not(.locked-night) .expedition-ledger {
   position: relative;
-  border-radius: 13px;
 }
 
-html:not(.locked-night) .expedition-ledger::before,
 html:not(.locked-night) .expedition-ledger::after {
   content: '';
   position: absolute;
+  inset: 0;
   z-index: 3;
   pointer-events: none;
-  border: 2px solid #2a1f16;
-}
-
-/* Outer rule. */
-html:not(.locked-night) .expedition-ledger::after {
-  inset: 0;
-  border-radius: 13px;
-  filter: url(#ink-frame-a);
-}
-
-/* Inner rule — its own noise seed, so the two lines wobble independently like a
-   real hand-drawn double rule instead of two parallel tracks. */
-html:not(.locked-night) .expedition-ledger::before {
-  inset: 4px;
-  border-width: 1.5px;
-  border-radius: 10px;
-  filter: url(#ink-frame-b);
+  background-image:
+    url('./assets/expedition-pencil-frame-h.png'),
+    url('./assets/expedition-pencil-frame-h.png'),
+    url('./assets/expedition-pencil-frame-v.png'),
+    url('./assets/expedition-pencil-frame-v.png');
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position: left top, left bottom, left top, right top;
+  background-size: auto 16px, auto 16px, 16px auto, 16px auto;
 }
 
 .open-ledger .record-head h1 {
@@ -390,20 +379,24 @@ html:not(.locked-night) .expedition-ledger::before {
   filter: drop-shadow(1px 2px 0 rgb(68 51 29 / 24%));
 }
 
-/* Piece 6: the mounted photo's hand-inked frame. Was a generated PNG mat; now a
-   crisp CSS border run through the record frame's displace+grain filter, so the
-   photo frame belongs to the same ink system as the record frame and row rules
-   (and inherits whatever direction that line work settles on — see #411). The
-   cream mount above shows through the inset as the paper mat. */
+/* Piece 6: the mounted photo's pencil frame. Same keyed pencil rule as the
+   record frame and row rules — four thin edges tiled around the mount — so the
+   whole ledger reads as one hand-drawn pass. The cream mount shows through as
+   the paper mat. */
 .ledger-photo-mount::after {
   position: absolute;
   z-index: 2;
   inset: 0;
   content: '';
   pointer-events: none;
-  border: 1.5px solid #3a2c1e;
-  border-radius: 5px;
-  filter: url(#ink-frame-b);
+  background-image:
+    url('./assets/expedition-pencil-rule.png'),
+    url('./assets/expedition-pencil-rule.png'),
+    url('./assets/expedition-pencil-rule-v.png'),
+    url('./assets/expedition-pencil-rule-v.png');
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position: left top, left bottom, left top, right top;
+  background-size: auto 9px, auto 9px, 9px auto, 9px auto;
   transform: rotate(-0.7deg);
 }
 
