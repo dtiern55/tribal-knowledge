@@ -314,7 +314,7 @@ html:not(.locked-night) .expedition-ledger::after {
   position: absolute;
   z-index: 3;
   pointer-events: none;
-  border: 2px solid #241a12;
+  border: 2px solid #2a1f16;
 }
 
 /* Outer rule. */
