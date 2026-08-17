@@ -414,16 +414,29 @@ html:not(.locked-night) .expedition-ledger::before {
   transform: rotate(-0.25deg);
 }
 
+/* Piece 4: the row rule. A raster hairline washed out at 1x (learning: a 1px
+   line can't render solid); so the divider is a crisp CSS border run through
+   the same displace+grain SVG filter as the frame (#ink-rule, gentler wobble).
+   Drawn on a pseudo-element — filtering the <li> itself would smear the row. */
 .open-ledger .roster-card {
+  position: relative;
   border-top-color: transparent;
-  background-image: url('./assets/expedition-ink-rule.png');
-  background-position: center top;
-  background-repeat: no-repeat;
-  background-size: 100% 2px;
 }
 
-.open-ledger .roster-card:first-child {
-  background-image: none;
+.open-ledger .roster-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3px;
+  right: 3px;
+  height: 5px;
+  pointer-events: none;
+  border-top: 1.4px solid #3a2c1e;
+  filter: url(#ink-rule);
+}
+
+.open-ledger .roster-card:first-child::before {
+  content: none;
 }
 
 .open-ledger .roster-card .stage-row {
