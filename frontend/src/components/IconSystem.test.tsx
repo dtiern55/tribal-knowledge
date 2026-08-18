@@ -1,10 +1,20 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { BuffPairIcon, PalmIcon, RankedTorchesIcon } from './icons'
+import { DoubleBadge } from './DoubleBadge'
 import { Torch } from './Torch'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
+  it('marks Double Roster Points with a stitched field patch', () => {
+    const { container } = render(<DoubleBadge />)
+    const patch = container.querySelector('[data-mark="double-patch"]')
+
+    expect(patch).toHaveAttribute('viewBox', '0 0 40 44')
+    expect(patch?.querySelector('[data-part="patch"]')).toBeInTheDocument()
+    expect(patch?.querySelector('[data-part="stitching"]')).toBeInTheDocument()
+  })
+
   it('marks a cast ballot with a clean, decorative slip-and-check icon', () => {
     const { container, rerender } = render(<VoteMark className="h-5 w-5" />)
     let ballot = container.querySelector('svg')

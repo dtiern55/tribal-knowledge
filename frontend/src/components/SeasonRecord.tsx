@@ -126,9 +126,9 @@ export type Beat = {
  * The record's three beats (#396 follow-up).
  *
  * Roster, Ballot and Advantage were three stacked sections of one sheet; they
- * are now one at a time under the masthead. Each tab carries its own state —
- * a count, a check when settled, a ×2 when the week's play rests there — so
- * the week is legible without opening all three.
+ * are now one at a time under the masthead. Each tab carries only its settled
+ * check and optional ×2 patch; detailed state remains accessible to assistive
+ * technology without adding a second visible row.
  *
  * A real tablist: roving tabindex, arrow keys, and panels that stay mounted so
  * an unsaved ballot survives a look at the roster.
@@ -152,8 +152,6 @@ export function RecordBeats({
     document.getElementById(`beat-${next.key}`)?.focus()
   }
 
-  const activeBeat = beats.find((b) => b.key === value)
-
   return (
     <div className="border-b border-paper-line">
       <div
@@ -174,7 +172,7 @@ export function RecordBeats({
               aria-controls={`panel-${b.key}`}
               tabIndex={active ? 0 : -1}
               onClick={() => onChange(b.key)}
-              className={`flex min-h-13 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 pt-1 text-center ${
+              className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 text-center ${
                 active ? 'border-terracotta-600 text-terracotta-600' : 'border-transparent text-stone-500'
               }`}
             >
@@ -202,9 +200,6 @@ export function RecordBeats({
           )
         })}
       </div>
-      {activeBeat && (
-        <p className="px-3 py-2 text-[11px] text-paper-ink-faded">{activeBeat.note}</p>
-      )}
     </div>
   )
 }
