@@ -357,31 +357,49 @@ html:not(.locked-night) .ledger-divide::after {
    The wash is a 2x2 mirror tile so it fills the box seamlessly. */
 .open-ledger .header-points-button {
   position: relative;
+  isolation: isolate;
   border: none;
-  border-radius: 8px;
+  background: transparent;
+  color: #f4ecd8;
+}
+
+/* The paint: a watercolor wash under a right->left fade, clipped to an irregular
+   blob ripped from the mockup so it reads as a rustic splotch that overflows the
+   frame — not a solid box. Sits on ::before, behind the text, and spills a few
+   px past the frame. */
+.open-ledger .header-points-button::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  z-index: 0;
   background-color: #0f3346;
-  /* Watercolor wash under a right->left dark-to-light fade, matching the
-     mockup (darker on the right, slightly lighter on the left). */
   background-image:
     linear-gradient(to left, rgb(7 27 39 / 54%) 0%, rgb(7 27 39 / 40%) 22%, rgb(7 27 39 / 10%) 62%),
     url('./assets/expedition-points-wash.webp');
   background-size: cover, cover;
   background-position: center, center;
-  color: #f4ecd8;
+  -webkit-mask-image: url('./assets/expedition-points-blob.png');
+  mask-image: url('./assets/expedition-points-blob.png');
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
-/* The record's pencil frame IS the box's border (no drop shadow — the mockup
-   has an inked border, not a shadow). */
+/* Pencil frame over the paint. */
 .open-ledger .header-points-button::after {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
   border: 11px solid transparent;
   border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
 }
 
-.open-ledger .header-points-button div {
+.open-ledger .header-points-button > div {
+  position: relative;
+  z-index: 2;
   color: #f4ecd8;
   text-shadow: 0 1px 2px rgb(9 34 48 / 45%);
 }
