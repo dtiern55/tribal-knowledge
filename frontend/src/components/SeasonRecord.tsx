@@ -152,61 +152,59 @@ export function RecordBeats({
     document.getElementById(`beat-${next.key}`)?.focus()
   }
 
+  const activeBeat = beats.find((b) => b.key === value)
+
   return (
-    <div
-      role="tablist"
-      aria-label="Season record"
-      onKeyDown={onKeyDown}
-      className="flex items-stretch border-b-2 border-paper-edge bg-black/[.025]"
-    >
-      {beats.map((b) => {
-        const active = b.key === value
-        return (
-          <button
-            key={b.key}
-            id={`beat-${b.key}`}
-            role="tab"
-            type="button"
-            aria-selected={active}
-            aria-controls={`panel-${b.key}`}
-            tabIndex={active ? 0 : -1}
-            onClick={() => onChange(b.key)}
-            className={`flex min-h-12 min-w-0 flex-1 flex-col items-start gap-0.5 px-3 py-2 text-left border-b-[3px] ${
-              active ? 'border-terracotta-500' : 'border-transparent'
-            }`}
-          >
-            <span className="flex items-center gap-1.5">
-              <span
-                className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${
-                  active ? 'text-paper-ink' : 'text-paper-ink-faded'
-                }`}
-              >
-                {b.label}
-              </span>
-              {/* The glyph is decorative; "done" rides on the tab's own name. */}
-              {b.done && (
-                <span
-                  aria-hidden="true"
-                  className="grid h-3.5 w-3.5 flex-none place-items-center rounded-full bg-jade-600 text-[9px] font-bold text-white"
-                >
-                  ✓
-                </span>
-              )}
-              {/* The doubled beat echoes the roster row's wax seal, shrunk to a
-                  small stamp on the tab (#397/#407). */}
-              {b.doubled && <DoubleBadge size={15} />}
-              <span className="sr-only">{b.done ? '— done' : ''}</span>
-            </span>
-            <span
-              className={`max-w-full truncate text-[10px] ${
-                active ? 'text-paper-ink-faded' : 'text-[#5f584d]'
+    <div className="border-b border-paper-line">
+      <div
+        role="tablist"
+        aria-label="Season record"
+        onKeyDown={onKeyDown}
+        className="flex items-stretch"
+      >
+        {beats.map((b) => {
+          const active = b.key === value
+          return (
+            <button
+              key={b.key}
+              id={`beat-${b.key}`}
+              role="tab"
+              type="button"
+              aria-selected={active}
+              aria-controls={`panel-${b.key}`}
+              tabIndex={active ? 0 : -1}
+              onClick={() => onChange(b.key)}
+              className={`flex min-h-13 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 pt-1 text-center ${
+                active ? 'border-terracotta-600 text-terracotta-600' : 'border-transparent text-stone-500'
               }`}
             >
-              {b.note}
-            </span>
-          </button>
-        )
-      })}
+              <span className="font-display text-base font-semibold uppercase tracking-[0.08em]">
+                {b.label}
+              </span>
+              {b.done && (
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="h-4 w-4 flex-none text-jade-600"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.25"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m3 8.5 3 3 7-8" />
+                </svg>
+              )}
+              {b.doubled && <DoubleBadge size={15} />}
+              <span className="sr-only">{b.note}</span>
+              <span className="sr-only">{b.done ? '— done' : ''}</span>
+            </button>
+          )
+        })}
+      </div>
+      {activeBeat && (
+        <p className="px-3 py-2 text-[11px] text-paper-ink-faded">{activeBeat.note}</p>
+      )}
     </div>
   )
 }

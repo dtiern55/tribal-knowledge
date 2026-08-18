@@ -95,7 +95,6 @@ export function RosterCard({
           imageUrl={contestant?.image_url ?? null}
           tribeColor={contestant?.tribe_color ?? null}
           tribeName={contestant?.tribe_name ?? null}
-          square
         />
       </span>
       <span className="min-w-0 text-left">

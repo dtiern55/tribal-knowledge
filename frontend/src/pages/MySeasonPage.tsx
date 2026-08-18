@@ -878,14 +878,14 @@ function HeaderPoints({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="header-points rounded-xl border border-forest-700 px-4 py-2 bg-gradient-to-br from-forest-500 to-forest-700 text-white text-right shadow-md hover:from-forest-600 hover:to-forest-800 transition-colors"
+        className="header-points rounded-xl border border-forest-700 px-4 py-2 bg-gradient-to-br from-forest-500 to-forest-700 text-cream-100 text-right shadow-md hover:from-forest-600 hover:to-forest-800 transition-colors"
       >
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-white">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-cream-100/75">
           My Points
         </div>
         <div className="text-2xl font-bold leading-none tabular-nums">{total}</div>
         {rank != null && (
-          <div className="text-[11px] text-white/90 mt-0.5">
+          <div className="text-[11px] text-cream-100/75 mt-0.5">
             {ordinal(rank)} of {count}
           </div>
         )}

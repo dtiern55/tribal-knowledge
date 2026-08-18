@@ -102,6 +102,13 @@ body {
   font-family: var(--font-body);
 }
 
+/* Rajdhani is a display face here, not body copy. Give every display heading
+   the approved semibold baseline while allowing explicit weight utilities to
+   override it. */
+:where(.font-display) {
+  font-weight: 600;
+}
+
 #root,
 .app-shell {
   min-height: 100dvh;
