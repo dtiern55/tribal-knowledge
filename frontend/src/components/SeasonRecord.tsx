@@ -13,18 +13,16 @@ import { WaxSeal } from './WaxSeal'
 export function SeasonRecord({
   children,
   glowOut = false,
-  className = '',
 }: {
   children: ReactNode
   /** Let a lit row's halo out of the record, which otherwise clips it. */
   glowOut?: boolean
-  className?: string
 }) {
   return (
     <div
-      className={`record-paper expedition-ledger rounded-lg border border-paper-edge ${
+      className={`record-paper rounded-lg border border-paper-edge shadow-sm ${
         glowOut ? 'stage-open' : 'overflow-hidden'
-      } ${className}`}
+      }`}
     >
       {children}
     </div>
@@ -42,9 +40,9 @@ export function RecordHead({
   right?: ReactNode
 }) {
   return (
-    <div className="record-head ledger-divide flex items-start justify-between gap-3 border-b-2 border-paper-edge px-4 py-4 sm:px-5">
+    <div className="flex items-start justify-between gap-3 border-b-2 border-paper-edge px-4 py-3">
       <div className="min-w-0">
-        <h1 className="font-display text-2xl font-bold tracking-[0.025em] text-ocean-800 md:text-3xl">{title}</h1>
+        <h1 className="font-display text-xl tracking-wide text-ocean-800 md:text-2xl">{title}</h1>
         {meta && (
           <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-paper-ink-faded">
             {meta}
@@ -86,8 +84,8 @@ export function RecordSection({
   }
   return (
     <section aria-label={title}>
-      <div className="ledger-divide flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
-        <h2 className="font-display text-base font-bold tracking-[0.08em] text-paper-ink">
+      <div className="flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
+        <h2 className="text-xs font-extrabold uppercase tracking-[0.2em] text-paper-ink">
           {title}
         </h2>
         {right && <span className="ml-auto">{right}</span>}
@@ -159,7 +157,7 @@ export function RecordBeats({
       role="tablist"
       aria-label="Season record"
       onKeyDown={onKeyDown}
-      className="record-beats ledger-divide flex items-stretch border-b-2 border-paper-edge bg-black/[.018]"
+      className="flex items-stretch border-b-2 border-paper-edge bg-black/[.025]"
     >
       {beats.map((b) => {
         const active = b.key === value
@@ -179,7 +177,7 @@ export function RecordBeats({
           >
             <span className="flex items-center gap-1.5">
               <span
-                className={`font-display text-sm font-bold tracking-[0.07em] ${
+                className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${
                   active ? 'text-paper-ink' : 'text-paper-ink-faded'
                 }`}
               >
@@ -187,27 +185,12 @@ export function RecordBeats({
               </span>
               {/* The glyph is decorative; "done" rides on the tab's own name. */}
               {b.done && (
-                <svg
+                <span
                   aria-hidden="true"
-                  viewBox="0 0 18 18"
-                  fill="none"
-                  className="ink-check"
+                  className="grid h-3.5 w-3.5 flex-none place-items-center rounded-full bg-jungle-600 text-[9px] font-bold text-white"
                 >
-                  <path
-                    d="M2.2 9.5c1.8 1.1 3.2 2.6 4.5 4.2C9.2 8.9 12.1 5.2 16 2.8"
-                    stroke="currentColor"
-                    strokeWidth="2.25"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M2.8 10.1c1.6.9 2.8 2.2 3.9 3.4"
-                    stroke="currentColor"
-                    strokeWidth=".7"
-                    strokeLinecap="round"
-                    opacity=".45"
-                  />
-                </svg>
+                  ✓
+                </span>
               )}
               {/* The doubled beat echoes the roster row's wax seal, shrunk to a
                   small stamp on the tab (#397/#407). */}

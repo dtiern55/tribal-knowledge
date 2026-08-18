@@ -14,12 +14,6 @@ function points(value: number) {
   return `${value > 0 ? '+' : ''}${value} pts`
 }
 
-function pointTone(value: number) {
-  if (value > 0) return 'text-jungle-700'
-  if (value < 0) return 'text-rust'
-  return 'text-paper-ink-faded'
-}
-
 function ballotLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
   if (kind === 'early_boot') return 'First boot'
   if (kind === 'fire_loss') return 'Fire-making loser'
@@ -96,18 +90,19 @@ export function EpisodeResultReveal({
 
   return (
     <div
-      className="reveal-scene fixed inset-0 z-50 overflow-y-auto px-3 py-4 sm:px-6 sm:py-8"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 px-3 py-4 sm:px-6 sm:py-8"
       role="dialog"
       aria-modal="true"
       aria-labelledby="episode-result-title"
     >
       <article
-        className="record-paper reveal-ledger reveal-enter mx-auto w-full max-w-5xl overflow-hidden rounded-xl border border-paper-edge"
+        className="reveal-enter mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-sand-50 shadow-2xl"
       >
-        <header className="reveal-head relative overflow-hidden border-b-2 border-paper-edge px-5 py-6 text-paper-ink sm:px-8 sm:py-8">
+        <header className="relative overflow-hidden bg-gradient-to-br from-ocean-900 via-ocean-800 to-jungle-800 px-5 py-6 text-white sm:px-8 sm:py-8">
+          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-ember-500/20 blur-2xl" />
           <div className="relative">
             <div className="flex min-w-0 items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ocean-700">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember-200">
                 Episode {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
               </p>
               {mode === 'replay' && (
@@ -115,7 +110,7 @@ export function EpisodeResultReveal({
                   type="button"
                   onClick={onClose}
                   aria-label="Close episode replay"
-                  className="shrink-0 rounded-lg border border-ocean-300 bg-paper/70 px-3 py-1 text-xs font-semibold text-ocean-800 hover:bg-ocean-50"
+                  className="shrink-0 rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white hover:bg-white/10"
                 >
                   Close
                 </button>
@@ -126,7 +121,7 @@ export function EpisodeResultReveal({
               id="episode-result-title"
               ref={headingRef}
               tabIndex={-1}
-              className="mt-5 max-w-3xl font-display text-3xl font-bold tracking-wide text-ocean-800 outline-none focus-visible:!outline-none sm:text-4xl"
+              className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
               {result.eliminated.length === 0
                 ? 'No one was eliminated'
@@ -140,7 +135,7 @@ export function EpisodeResultReveal({
                 {result.eliminated.map((castaway) => (
                   <li
                     key={castaway.contestant_id}
-                    className="flex min-w-0 items-center gap-2 rounded-full border border-paper-edge bg-paper/65 py-1 pl-1 pr-3 text-sm text-paper-ink"
+                    className="flex min-w-0 items-center gap-2 rounded-full bg-black/20 py-1 pl-1 pr-3 text-sm"
                   >
                     <ContestantAvatar
                       name={castaway.name}
@@ -155,25 +150,22 @@ export function EpisodeResultReveal({
               </ul>
             )}
 
-            <p className="mt-3 text-sm text-paper-ink-faded">
+            <p className="mt-3 text-sm text-white/75">
               {result.ballot.length === 0
                 ? 'You did not submit a ballot for this episode.'
                 : `You called ${correct} of ${result.ballot.length} ballot ${result.ballot.length === 1 ? 'vote' : 'votes'} correctly.`}
             </p>
 
-            <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-paper-edge pt-5">
+            <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-paper-ink-faded">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/55">
                   Episode total
                 </p>
-                <p className={`font-display text-5xl font-bold tracking-wide ${pointTone(result.total_points)}`}>
+                <p className="font-display text-5xl tracking-wide text-ember-200">
                   {result.total_points > 0 ? '+' : ''}{result.total_points}
                 </p>
               </div>
-              <div className="flex min-w-0 flex-col items-end gap-3">
-                <p className="results-stamp" aria-label="Results recorded">Results recorded</p>
-                {rank && <p className="min-w-0 text-right text-sm font-semibold text-paper-ink">{rank}</p>}
-              </div>
+              {rank && <p className="min-w-0 text-right text-sm font-semibold text-white">{rank}</p>}
             </div>
           </div>
         </header>
@@ -193,7 +185,7 @@ export function EpisodeResultReveal({
                 : 'space-y-5 lg:grid lg:grid-cols-3 lg:items-start lg:gap-4 lg:space-y-0'
             }
           >
-          <ResultLane title="Roster earnings" total={rosterLane} tone="roster">
+          <ResultLane title="Roster earnings" total={rosterLane}>
             {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
               <p className="text-sm text-gray-500">No active roster members scored this episode.</p>
             ) : (
@@ -218,7 +210,7 @@ export function EpisodeResultReveal({
             )}
           </ResultLane>
 
-          <ResultLane title="Ballot earnings" total={result.ballot_points} tone="ballot">
+          <ResultLane title="Ballot earnings" total={result.ballot_points}>
             {result.ballot.length === 0 ? (
               <p className="text-sm text-gray-500">No ballot was submitted, so there are no ballot points.</p>
             ) : (
@@ -241,7 +233,7 @@ export function EpisodeResultReveal({
                         {ballotLabel(pick.prediction_type)} · {pick.correct ? 'Correct' : incorrectBallotCopy(pick.prediction_type)}
                       </span>
                     </span>
-                    <span className={`shrink-0 text-sm font-semibold ${pointTone(pick.points)}`}>
+                    <span className={`shrink-0 text-sm font-semibold ${pick.correct ? 'text-jungle-700' : 'text-gray-500'}`}>
                       {points(pick.points)}
                     </span>
                   </li>
@@ -250,7 +242,7 @@ export function EpisodeResultReveal({
             )}
           </ResultLane>
 
-          <ResultLane title="Weekly play" total={result.weekly_play_bonus} tone="weekly">
+          <ResultLane title="Weekly play" total={result.weekly_play_bonus}>
             {result.weekly_plays.length === 0 ? (
               <p className="text-sm text-gray-500">No weekly play was used. Your base score is unchanged.</p>
             ) : (
@@ -328,18 +320,16 @@ function ResultLane({
   title,
   total,
   children,
-  tone,
 }: {
   title: string
   total: number
   children: React.ReactNode
-  tone: 'roster' | 'ballot' | 'weekly'
 }) {
   return (
-    <section className={`result-lane result-lane-${tone} rounded-lg border p-4`}>
+    <section className="rounded-xl border border-sand-200 bg-white p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="font-display text-base font-bold tracking-wide text-paper-ink">{title}</h3>
-        <span className={`shrink-0 text-sm font-bold ${pointTone(total)}`}>{points(total)}</span>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</h3>
+        <span className="shrink-0 text-sm font-semibold text-gray-900">{points(total)}</span>
       </div>
       {children}
     </section>
@@ -365,7 +355,7 @@ function ResultRow({
         size="sm"
       />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{name}</span>
-      <span className={`shrink-0 text-sm font-semibold ${pointTone(value)}`}>{points(value)}</span>
+      <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
     </li>
   )
 }
