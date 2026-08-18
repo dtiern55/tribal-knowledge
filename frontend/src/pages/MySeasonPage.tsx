@@ -1312,9 +1312,20 @@ function RosterSection({
           <button
             type="button"
             onClick={() => onStartSwap?.()}
-            className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+            aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
           >
-            Swap {nextSwapCost === 0 ? '· free' : `· ${nextSwapCost}`}
+            <span className="tribe-marker bg-gold-500" aria-hidden="true" />
+            <span>Roster swap</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
+                nextSwapCost === 0
+                  ? 'bg-jade-600 text-cream-50'
+                  : 'bg-terracotta-100 text-terracotta-800'
+              }`}
+            >
+                              {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
+            </span>
           </button>
         ) : thisEpisodeSwap ? (
           /* Reversible until picks lock — see the swap-undo decision. */
