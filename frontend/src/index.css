@@ -50,11 +50,13 @@
   --color-ember-600: #b54e13;
   --color-ember-700: #913e13;
   --color-ember-800: #713214;
+  --color-aged-gold: #8a642d;
+  --color-rust: #9a3f2f;
 
-  --font-display: "Anton", "Arial Narrow", system-ui, sans-serif;
-  /* Brand lockup only (the TRIBAL KNOWLEDGE wordmark). Anton stays the
-     workhorse display face for headings. */
-  --font-brand: "Skranji", "Anton", system-ui, sans-serif;
+  --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Alegreya SC", Georgia, serif;
+  /* Brand lockup only (the TRIBAL KNOWLEDGE wordmark). */
+  --font-brand: "Skranji", system-ui, sans-serif;
   /* The hand that writes a vote (#395). One face, not a set — mixed
      handwriting on a single player's ballot read as noise, not character. */
   --font-hand: "Kalam", "Segoe Print", "Bradley Hand", cursive;
@@ -83,6 +85,7 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   background: var(--color-sand-50);
+  font-family: var(--font-sans);
 }
 
 #root,
@@ -90,26 +93,66 @@ body {
   min-height: 100dvh;
 }
 
-/* Firelight (#392): the unlocked state is the daylight side of the same room
-   as locked-night. Same corner ember gesture, daylight strength (12%) — so the lock
-   reads as the sun going down rather than a repaint. background-image only,
-   so the bg-sand-50 utility on the same element keeps supplying the color
-   underneath and locked-night's `background` shorthand still overrides both.
-
-   Anchored to the element exactly like locked-night's glow, which means it
-   scrolls with a long page. Deliberate: consistency between the two states is
-   the point, and background-attachment: fixed is unreliable on iOS Safari.
-   If a tall page reads wrong, move BOTH states to a fixed pseudo-element.
-
-   The radius is viewport-relative on purpose. A fixed 14rem circle vanished on
-   desktop: the sticky header covered the top of it and the rest sat out in the
-   right margin, ~144px clear of the content column at 1440px wide. 62vw tracks
-   the layout — ~240px on a phone, ~890px on a desktop — so the wash reaches the
-   content at every width. */
+/* The whole app sits on the expedition document (#410). One page surface,
+   fixed behind everything so it never tiles or scroll-jumps — day mode only;
+   locked-night keeps its own dark room below. Header and bottom nav go
+   translucent paper so the surface reads through them instead of white
+   toolbars.
+   Piece 1 of the art pass: the inked FRAME and row rules land in later pieces;
+   until then the record's plain warm border (.expedition-ledger) is the
+   placeholder. */
 .app-shell {
-  background-image:
-    radial-gradient(circle at 100% 0%, rgb(213 98 27 / 12%), transparent 62vw),
-    linear-gradient(180deg, #faf7ef, #f4efe2);
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-paper);
+}
+
+html:not(.locked-night) .app-shell::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  background: url('./assets/expedition-page-surface.webp') center / cover no-repeat;
+}
+
+html:not(.locked-night) .app-header {
+  border-color: rgb(128 100 61 / 22%);
+  background-color: rgb(247 240 226 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+html:not(.locked-night) .app-bottom-nav {
+  /* Fixed over scrolling content, so this one stays mostly opaque paper. */
+  border-color: rgb(128 100 61 / 22%);
+  background-color: rgb(244 236 220 / 92%);
+}
+
+.app-top-link[aria-current='page'] {
+  background-color: transparent;
+  background-image: linear-gradient(
+    176deg,
+    transparent 70%,
+    rgb(213 98 27 / 75%) 72% 83%,
+    transparent 86%
+  );
+}
+
+.app-bottom-link[aria-current='page'] {
+  position: relative;
+  border-top-color: transparent;
+}
+
+.app-bottom-link[aria-current='page']::after {
+  position: absolute;
+  top: 0.2rem;
+  left: 28%;
+  right: 28%;
+  height: 0.16rem;
+  content: '';
+  border-radius: 100%;
+  background: var(--color-ember-500);
+  transform: rotate(-1.5deg);
 }
 
 /* While an episode is locked and awaiting scoring, carry the torchlit night
@@ -125,7 +168,8 @@ html.locked-night body {
 
 html.locked-night .app-shell {
   background:
-    radial-gradient(circle at 78% 8%, rgb(239 119 45 / 10%), transparent 28rem),
+    radial-gradient(ellipse at 104% 18%, rgb(239 119 45 / 18%), transparent 42rem),
+    radial-gradient(ellipse at 2% 48%, rgb(5 18 32 / 42%), transparent 34rem),
     linear-gradient(to bottom, #082b3c, #071f2d);
   color: white;
 }
@@ -236,10 +280,317 @@ html.locked-night .braid-rule {
   );
 }
 
-/* The sheet. Flat warm cream — the aging mottle went with the parchment, and
-   a texture at this size reads as wallpaper rather than paper. */
+/* The ledger sheet: the quieter inner paper under live record content. Day
+   only — locked-night keeps the flat cream it darkens elsewhere. The inked
+   frame and row rules are later pieces; the warm border below stands in. */
 .record-paper {
   background-color: var(--color-paper);
+  box-shadow:
+    0 12px 30px rgb(44 37 27 / 14%),
+    0 2px 5px rgb(44 37 27 / 12%);
+}
+
+html:not(.locked-night) .record-paper {
+  background-image: url('./assets/expedition-ledger-surface.webp');
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  /* The paper photo covers the card, but its near-white base colour peeked a
+     bright hairline at the rounded edge where the image doesn't quite reach.
+     A mid paper tone underneath makes any such peek invisible. */
+  background-color: #cdb789;
+}
+
+/* Piece 3: the record's hand-drawn frame. A CSS border reads as ink, not
+   pencil; so the frame is the mockup's actual pencil rule (keyed to transparent
+   graphite, same as the row rule), tiled on all four edges — horizontal strip
+   repeat-x on top/bottom, the same strip rotated for repeat-y on left/right.
+   Natural height, no stretch, so it holds at 1x. Day only. */
+html:not(.locked-night) .expedition-ledger {
+  position: relative;
+  /* The pencil frame is the border now; the light paper-edge line underneath
+     just read as a stray white outline. */
+  border-color: transparent;
+}
+
+html:not(.locked-night) .expedition-ledger::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  /* Ripped pencil frame with real rounded corners (border-image slices the
+     corners fixed and tiles the edges), so the corners are drawn arcs, not two
+     straight rules crossing. */
+  border: 14px solid transparent;
+  border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
+}
+
+/* The record's inner rules — header, points-label and beat-bar dividers — were
+   the light paper-edge borders reading as white lines. In the pencil ledger
+   they become the same pencil rule as the roster rows. */
+html:not(.locked-night) .ledger-divide {
+  position: relative;
+  border-bottom-color: transparent;
+}
+
+html:not(.locked-night) .ledger-divide::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 9px;
+  pointer-events: none;
+  background: url('./assets/expedition-pencil-rule.png') left top / auto 9px repeat-x;
+}
+
+.open-ledger .record-head h1 {
+  font-size: clamp(1.65rem, 7.2vw, 2.15rem);
+  line-height: 0.98;
+  letter-spacing: 0.015em;
+  text-shadow: 0.03em 0.025em 0 rgb(20 63 89 / 12%);
+}
+
+.open-ledger .header-points-button {
+  border: 2px solid rgb(44 39 30 / 76%);
+  border-radius: 0.35rem;
+  background: #134c6b;
+  box-shadow:
+    2px 3px 0 rgb(63 48 28 / 34%),
+    inset 0 0 0 1px rgb(235 220 183 / 28%);
+}
+
+.record-head {
+  background: linear-gradient(102deg, rgb(255 255 255 / 8%), transparent 42%);
+}
+
+.record-beats > [role='tab'] {
+  position: relative;
+  border-bottom-color: transparent;
+}
+
+.record-beats > [role='tab'][aria-selected='true']::after {
+  position: absolute;
+  right: 0.55rem;
+  bottom: -0.12rem;
+  left: 0.55rem;
+  height: 0.2rem;
+  content: '';
+  border-radius: 60% 45% 55% 40%;
+  background: var(--color-ember-500);
+  transform: rotate(-0.8deg);
+}
+
+.roster-manifest {
+  background: rgb(255 252 244 / 18%);
+}
+
+.open-ledger .roster-manifest {
+  border-color: rgb(58 49 37 / 52%);
+  background: rgb(255 244 215 / 13%);
+}
+
+.ledger-photo-mount {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  background: #f2e7cd;
+  border-radius: 4px;
+  filter: drop-shadow(1px 2px 0 rgb(68 51 29 / 24%));
+}
+
+/* Piece 6: the mounted photo's pencil frame. Same keyed pencil rule as the
+   record frame and row rules — four thin edges tiled around the mount — so the
+   whole ledger reads as one hand-drawn pass. The cream mount shows through as
+   the paper mat. */
+.ledger-photo-mount::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  /* Same ripped pencil frame as the record, scaled down — its rounded corners
+     stay centred on the mat instead of four rules crossing off-centre. */
+  border: 7px solid transparent;
+  border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
+}
+
+.ledger-photo {
+  position: absolute;
+  z-index: 1;
+  inset: 4px;
+  width: 44px;
+  height: 44px;
+  border-radius: 2px;
+}
+
+/* Piece 4: the row rule. A CSS border (even displaced/grained) is a solid
+   opaque stroke — it reads as ink, never the mockup's pencil. So the divider is
+   the mockup's *actual* pencil rule, ripped and keyed to transparent graphite
+   (paper shows through the tooth), mirror-doubled for a seamless repeat-x, and
+   tiled at natural height — no stretch, so it holds at 1x. */
+.open-ledger .roster-card {
+  position: relative;
+  border-top-color: transparent;
+}
+
+.open-ledger .roster-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 9px;
+  pointer-events: none;
+  background: url('./assets/expedition-pencil-rule.png') left top / auto 9px repeat-x;
+}
+
+.open-ledger .roster-card:first-child::before {
+  content: none;
+}
+
+.open-ledger .roster-card .stage-row {
+  min-height: 4.15rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+.open-ledger .roster-card .roster-name {
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: 0.025em;
+  text-shadow: 0.025em 0.025em 0 rgb(43 37 28 / 10%);
+}
+
+.open-ledger .roster-card .roster-points {
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+html.locked-night .record-paper {
+  background-color: var(--color-paper);
+}
+
+html.locked-night .locked-ledger {
+  background-image:
+    linear-gradient(90deg, rgb(12 43 58 / 11%), transparent 42%),
+    radial-gradient(ellipse at 108% 34%, rgb(244 168 79 / 49%), transparent 58%),
+    radial-gradient(ellipse at 91% 74%, rgb(213 98 27 / 18%), transparent 46%),
+    linear-gradient(96deg, transparent 0 18%, rgb(92 68 39 / 5%) 18.15%, transparent 18.5%),
+    linear-gradient(174deg, transparent 0 64%, rgb(92 68 39 / 4%) 64.1%, transparent 64.55%),
+    radial-gradient(ellipse at center, transparent 58%, rgb(89 63 31 / 12%) 126%),
+    url('./assets/expedition-paper-grain.webp');
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 512px 512px;
+  box-shadow:
+    22px 18px 54px rgb(239 119 45 / 13%),
+    -14px 20px 50px rgb(0 8 15 / 48%),
+    inset 0 0 28px rgb(76 49 22 / 11%);
+  color: var(--color-paper-ink);
+}
+
+html.locked-night .app-main .locked-ledger h1 {
+  color: var(--color-ocean-800);
+}
+
+.locked-status,
+.locked-awaiting {
+  background: rgb(255 247 226 / 12%);
+}
+
+.locked-roster-line.is-doubled {
+  background:
+    radial-gradient(ellipse at 15% 50%, rgb(31 122 168 / 17%), transparent 45%),
+    rgb(168 221 246 / 18%);
+  box-shadow: inset 3px 0 0 var(--color-ocean-700);
+}
+
+/* Reveal is a bright morning-after record, even if the shell's last locked
+   state is still clearing. Watercolor separates the scoring lanes without
+   turning them back into generic white cards. */
+.reveal-scene {
+  background:
+    radial-gradient(ellipse at 4% 12%, rgb(31 122 168 / 30%), transparent 43%),
+    radial-gradient(ellipse at 92% 86%, rgb(47 122 52 / 28%), transparent 46%),
+    linear-gradient(145deg, #dce8d4, #f5ecd1 48%, #d5e7d2);
+}
+
+.reveal-ledger {
+  box-shadow:
+    0 24px 70px rgb(15 42 36 / 27%),
+    0 3px 8px rgb(44 37 27 / 18%),
+    inset 0 0 30px rgb(91 65 34 / 7%);
+}
+
+.reveal-head {
+  background:
+    radial-gradient(ellipse at 0% 20%, rgb(31 122 168 / 19%), transparent 45%),
+    radial-gradient(ellipse at 100% 80%, rgb(47 122 52 / 16%), transparent 43%),
+    linear-gradient(100deg, rgb(255 255 255 / 8%), transparent 52%);
+}
+
+.results-stamp {
+  border: 2px solid rgb(47 122 52 / 72%);
+  border-radius: 0.15rem;
+  padding: 0.25rem 0.55rem 0.18rem;
+  color: var(--color-jungle-700);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+}
+
+.result-lane {
+  background-color: rgb(255 252 244 / 52%);
+  box-shadow: inset 0 0 18px rgb(74 54 30 / 4%);
+}
+
+.result-lane-roster {
+  border-color: rgb(31 122 168 / 30%);
+  background-image: radial-gradient(ellipse at 0% 0%, rgb(31 122 168 / 11%), transparent 54%);
+}
+
+.result-lane-ballot {
+  border-color: rgb(47 122 52 / 30%);
+  background-image: radial-gradient(ellipse at 100% 0%, rgb(47 122 52 / 11%), transparent 54%);
+}
+
+.result-lane-weekly {
+  border-color: rgb(154 63 47 / 25%);
+  background-image: radial-gradient(ellipse at 50% 100%, rgb(213 98 27 / 9%), transparent 58%);
+}
+
+html.locked-night .app-shell .reveal-ledger {
+  color: var(--color-paper-ink);
+}
+
+html.locked-night .app-shell .reveal-ledger .bg-white {
+  background-color: rgb(255 252 244 / 72%);
+}
+
+html.locked-night .app-shell .reveal-ledger :is(.text-gray-900, .text-gray-800) {
+  color: var(--color-paper-ink);
+}
+
+html.locked-night .app-shell .reveal-ledger :is(.text-gray-700, .text-gray-600, .text-gray-500) {
+  color: var(--color-paper-ink-faded);
+}
+
+.ink-check {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  overflow: visible;
+  color: var(--color-jungle-600);
+  filter: drop-shadow(0.03rem 0.04rem 0 rgb(39 97 43 / 18%));
+  transform: rotate(-4deg);
 }
 
 /* The ledger keeps its paper at night. Repainting it dark left brown ink on a
@@ -329,7 +680,10 @@ html.locked-night .app-shell .vote-slip { color: #2a2016; }
 }
 
 .stage-pick {
-  background-color: #a8ddf6;
+  background-color: rgb(168 221 246 / 72%);
+  background-image:
+    radial-gradient(ellipse at 14% 42%, rgb(255 255 255 / 32%), transparent 32%),
+    radial-gradient(ellipse at 88% 70%, rgb(31 122 168 / 17%), transparent 40%);
   color: var(--color-ocean-900);
   box-shadow:
     inset 0 0 0 1px var(--color-ocean-500),
@@ -352,13 +706,32 @@ html.locked-night .app-shell .vote-slip { color: #2a2016; }
    an outer glow here would be clipped the moment the record's overflow closes,
    which is a snap you can see. */
 .stage-held {
-  background-color: rgb(168 221 246 / 38%);
+  background-color: rgb(168 221 246 / 25%);
+  background-image:
+    radial-gradient(ellipse at 12% 48%, rgb(255 255 255 / 22%), transparent 30%),
+    radial-gradient(ellipse at 82% 60%, rgb(31 122 168 / 13%), transparent 43%);
   box-shadow:
-    inset 3px 0 0 var(--color-ocean-500),
+    inset 3px 0 0 var(--color-ocean-700),
     0 0 5px rgb(47 155 216 / 0%),
     0 0 20px rgb(47 155 216 / 0%),
     0 0 50px rgb(47 155 216 / 0%),
     0 0 100px rgb(47 155 216 / 0%);
+}
+
+/* Piece 5: the selected row's ocean wash. A full-width, text-free strip ripped
+   from Christian's selected row (keeps the real watercolor's left->right
+   gradient). Stretching it vertically to fill the row smeared the paint, so it
+   tiles at natural height instead: the asset is the strip mirror-doubled top
+   over flipped-bottom, so repeat-y is seamless; only the width stretches (~2%)
+   to fill. The crisp darker-blue left bar is the mockup's edge, an inset shadow
+   (vector, solid at every DPR). */
+.open-ledger .roster-card .stage-held {
+  background-color: transparent;
+  background-image: url('./assets/expedition-ocean-wash-tile.webp');
+  background-position: left top;
+  background-repeat: repeat-y;
+  background-size: 100% 52px;
+  box-shadow: inset 3px 0 0 var(--color-ocean-700);
 }
 
 @media (prefers-reduced-motion: no-preference) {
