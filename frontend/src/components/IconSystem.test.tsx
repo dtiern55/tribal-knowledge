@@ -20,7 +20,6 @@ describe('approved icon system', () => {
     rerender(<DoubleBadge size={15} />)
     patch = container.querySelector('[data-mark="double-patch"]')
     expect(patch).toHaveAttribute('data-detail', 'compact')
-    expect(patch?.querySelector('[data-part="compact-field"]')).toBeInTheDocument()
     expect(patch?.querySelector('[data-part="compact-mark"]')).toBeInTheDocument()
     expect(patch?.querySelector('[data-part="tropical-scene"]')).not.toBeInTheDocument()
     expect(patch?.querySelector('[data-part="palms"]')).not.toBeInTheDocument()

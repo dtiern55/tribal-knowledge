@@ -52,12 +52,6 @@ export function DoubleBadge({
           fill="#1e3a2f"
         />
 
-        {compact && (
-          <g data-part="compact-field" clipPath={`url(#${fieldId})`}>
-            <path d="M6 9h36v13H6Z" fill="#c45432" />
-          </g>
-        )}
-
         {!compact && (
           <g data-part="tropical-scene" clipPath={`url(#${fieldId})`}>
             <path d="M6 9h36v16H6Z" fill="#c45432" />

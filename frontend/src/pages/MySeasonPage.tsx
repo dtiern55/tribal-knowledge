@@ -216,7 +216,6 @@ function useWeeklyPlay(
     try {
       if (play) {
         await api.delete(`/advantage-plays/${play.id}`)
-        setPlays((prev) => prev.filter((p) => p.id !== play.id))
       }
       const created = await api.post<AdvantagePlay>(
         `/seasons/${season.id}/advantage-plays`,
@@ -225,7 +224,13 @@ function useWeeklyPlay(
           target_contestant_id: targetContestantId ?? null,
         },
       )
-      setPlays((prev) => [...prev, created])
+      // Replace the shared play in one render. Removing the old entry after
+      // DELETE and adding the new one after POST made the Roster and Advantage
+      // tabs briefly fall back to their unused labels between requests.
+      setPlays((prev) => [
+        ...prev.filter((p) => p.id !== play?.id),
+        created,
+      ])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Advantage failed')
     } finally {

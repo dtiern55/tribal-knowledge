@@ -194,10 +194,12 @@ export function RecordBeats({
                 </svg>
               )}
               {b.doubled && (
-                <DoubleBadge
-                  size={17}
-                  title={`Double ${b.key === 'ballot' ? 'Ballot' : 'Roster'} Points this episode`}
-                />
+                <span className="relative z-10 -my-2 -ml-0.5 -mr-2 translate-y-0.5 rotate-[9deg]">
+                  <DoubleBadge
+                    size={36}
+                    title={`Double ${b.key === 'ballot' ? 'Ballot' : 'Roster'} Points this episode`}
+                  />
+                </span>
               )}
               <span className="sr-only">{b.note}</span>
               <span className="sr-only">{b.done ? '— done' : ''}</span>
