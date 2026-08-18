@@ -216,7 +216,6 @@ function useWeeklyPlay(
     try {
       if (play) {
         await api.delete(`/advantage-plays/${play.id}`)
-        setPlays((prev) => prev.filter((p) => p.id !== play.id))
       }
       const created = await api.post<AdvantagePlay>(
         `/seasons/${season.id}/advantage-plays`,
@@ -225,7 +224,13 @@ function useWeeklyPlay(
           target_contestant_id: targetContestantId ?? null,
         },
       )
-      setPlays((prev) => [...prev, created])
+      // Replace the shared play in one render. Removing the old entry after
+      // DELETE and adding the new one after POST made the Roster and Advantage
+      // tabs briefly fall back to their unused labels between requests.
+      setPlays((prev) => [
+        ...prev.filter((p) => p.id !== play?.id),
+        created,
+      ])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Advantage failed')
     } finally {
@@ -1118,6 +1123,12 @@ function RosterSection({
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
+  // On a successful drop, show the seal on its destination immediately while
+  // the delete-and-create request catches up. Without this bridge the server-
+  // backed target briefly renders old → none → new, which reads as a snap-back.
+  const [pendingDoubleTarget, setPendingDoubleTarget] = useState<string | null>(null)
+  const displayedDoubleTarget =
+    pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
 
   // Drag the ×2 seal from the doubled castaway onto another one to move the
   // play (#407) — the direct-manipulation twin of the Advantage → Roster ×2 →
@@ -1134,8 +1145,8 @@ function RosterSection({
       contestantMap.get(id)?.eliminated_in_episode == null
     )
   }
-  const dragCtx = useRef({ canDropOn, replace: weekly.replace, setLit })
-  dragCtx.current = { canDropOn, replace: weekly.replace, setLit }
+  const dragCtx = useRef({ canDropOn, replace: weekly.replace })
+  dragCtx.current = { canDropOn, replace: weekly.replace }
 
   function startSealDrag(e: React.PointerEvent) {
     if (weekly.locked || weekly.busy) return
@@ -1157,16 +1168,18 @@ function RosterSection({
       setDrag((d) => d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY) })
     const end = (e: PointerEvent) => {
       const overId = targetAt(e.clientX, e.clientY)
+      if (!overId) {
+        setDrag(null)
+        return
+      }
+      // Move the in-row seal in the same render that removes the lifted copy.
+      // The quiet held treatment is enough feedback here; the old delayed glow
+      // made the async handoff feel like a second, separate interaction.
+      setPendingDoubleTarget(overId)
       setDrag(null)
-      if (!overId) return
-      const ctx = dragCtx.current
-      // Let the stamp land first, then light it: await the reassign so the glow
-      // chases the seal onto the new row rather than beating it there (#407).
-      void ctx.replace('double_roster_points', overId).then(() => {
-        ctx.setLit(overId)
-        const hold = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1300
-        window.setTimeout(() => ctx.setLit(null), hold)
-      })
+      void dragCtx.current
+        .replace('double_roster_points', overId)
+        .finally(() => setPendingDoubleTarget(null))
     }
     const cancel = () => setDrag(null)
     window.addEventListener('pointermove', move, { passive: false })
@@ -1401,7 +1414,7 @@ function RosterSection({
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
-                isDoubled={rosterDouble?.target_contestant_id === pick.contestant_id}
+                isDoubled={displayedDoubleTarget === pick.contestant_id}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
@@ -1433,7 +1446,7 @@ function RosterSection({
                 selected={
                   picking === 'swap'
                     ? dropping === pick.contestant_id
-                    : rosterDouble?.target_contestant_id === pick.contestant_id
+                    : displayedDoubleTarget === pick.contestant_id
                 }
                 lit={lit === pick.contestant_id}
                 expanded={expandedId === pick.contestant_id}
@@ -1441,12 +1454,12 @@ function RosterSection({
                 // #407: the doubled row's seal is a drag handle (only when not
                 // already tap-picking); every row is a drop target for it.
                 onSealPointerDown={
-                  !picking && rosterDouble?.target_contestant_id === pick.contestant_id
+                  !picking && displayedDoubleTarget === pick.contestant_id
                     ? startSealDrag
                     : undefined
                 }
                 sealLifted={
-                  dragging && rosterDouble?.target_contestant_id === pick.contestant_id
+                  dragging && displayedDoubleTarget === pick.contestant_id
                 }
                 dropId={pick.contestant_id}
                 dropActive={drag?.overId === pick.contestant_id}
@@ -1802,10 +1815,14 @@ function PicksSection({
             // earnings render as a separate chip beside it (#136).
             return (
               <span key={p.id} className="contents">
-                <span className={`text-sm px-2 py-1 border rounded-md ${cls}`}>
+                <span className={`relative inline-flex items-center text-sm px-2 py-1 border rounded-md ${cls}`}>
                   {scored && result?.correct && '✓ '}
                   {name}
-                  {doubled && <span className="text-forest-600 font-semibold"> ×2</span>}
+                  {doubled && (
+                    <span className="absolute -right-2 -top-2 z-10 rotate-[10deg]">
+                      <DoubleBadge size={22} title="Double Ballot Points this episode" />
+                    </span>
+                  )}
                   {scored && result?.correct && result.points > 0 && (
                     <span className="ml-1 font-semibold">+{result.points}</span>
                   )}
@@ -1935,15 +1952,19 @@ function PicksSection({
                         sc.eliminated_in_episode < ep.episode_number
                       return (
                         <span key={p.id} className="inline-flex items-center gap-1.5">
-                          <VoteSlip
-                            name={sc?.name ?? '—'}
-                            stale={stale}
-                            tribeColor={sc?.tribe_color}
-                            rotation={[-0.7, 0.5, -0.2][index % 3]}
-                          />
-                          {ballotDoubled && (
-                            <span className="text-xs font-semibold text-forest-600">×2</span>
-                          )}
+                          <span className="relative inline-flex">
+                            <VoteSlip
+                              name={sc?.name ?? '—'}
+                              stale={stale}
+                              tribeColor={sc?.tribe_color}
+                              rotation={[-0.7, 0.5, -0.2][index % 3]}
+                            />
+                            {ballotDoubled && (
+                              <span className="absolute -right-2.5 -top-2.5 z-10 rotate-[10deg]">
+                                <DoubleBadge size={27} title="Double Ballot Points this episode" />
+                              </span>
+                            )}
+                          </span>
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
                       )
@@ -2001,13 +2022,17 @@ function PicksSection({
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
+                                  <span className={`absolute right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white ${isDoubled ? 'bottom-1.5' : 'top-1.5'}`} aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M5 13l4 4L19 7" />
                                     </svg>
                                   </span>
                                 )}
-                                {isDoubled && <span className="text-forest-600 font-semibold"> ×2</span>}
+                                {isDoubled && (
+                                  <span className="absolute -right-1.5 -top-2.5 z-10 rotate-[10deg]">
+                                    <DoubleBadge size={28} title="Double Ballot Points this episode" />
+                                  </span>
+                                )}
                               </button>
                             )
                           })}

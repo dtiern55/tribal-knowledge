@@ -393,14 +393,20 @@ describe('MySeasonPage state shell', () => {
       if (path.endsWith('/reveal')) return undefined
       return []
     })
-    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-2' })
-    vi.mocked(api.delete).mockResolvedValue(undefined)
+    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-2' })
+    let finishDelete!: () => void
+    vi.mocked(api.delete).mockImplementation(
+      () => new Promise<void>((resolve) => { finishDelete = resolve }),
+    )
 
     renderWithApp(<MySeasonPage />, { auth })
     const roster = await openBeat('Roster')
 
     // The seal on the doubled row (Kenzie) is the drag handle.
     const seal = await within(roster).findByRole('img', { name: /Double Roster Points/ })
+    const kenzieRow = within(roster).getByText('Kenzie').closest('[data-drop-id]')!
+    const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
+    const advantageTab = screen.getByRole('tab', { name: /^Advantage/ })
     // The other row is the drop target; jsdom does no layout, so stub the one
     // primitive the drop hit-test relies on to point at Charlie's row.
     const charlieRow = within(roster).getByText('Charlie').closest('[data-drop-id]')!
@@ -410,7 +416,15 @@ describe('MySeasonPage state shell', () => {
     fireEvent(window, new MouseEvent('pointermove', { clientX: 60, clientY: 200 }))
     fireEvent(window, new MouseEvent('pointerup', { clientX: 60, clientY: 200 }))
 
+    // The visible seal lands optimistically instead of flashing on Kenzie,
+    // disappearing during delete, and only then reappearing on Charlie.
+    expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
+    expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Roster Points/ })).toBeVisible()
+    expect(within(rosterTab).getByRole('img', { name: /Double Roster Points/ })).toBeVisible()
+    expect(advantageTab).toHaveTextContent('Kenzie')
+
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
+    finishDelete()
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/seasons/season-1/advantage-plays', {
         advantage_type: 'double_roster_points',
@@ -418,6 +432,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
+    await waitFor(() => expect(advantageTab).toHaveTextContent('Charlie'))
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
