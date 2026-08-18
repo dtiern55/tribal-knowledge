@@ -5,19 +5,19 @@ import { Torch } from './Torch'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
-  it('uses the same single-name ballot strip for actions and confirmations', () => {
+  it('marks a cast ballot with a clean, decorative slip-and-check icon', () => {
     const { container, rerender } = render(<VoteMark className="h-5 w-5" />)
     let ballot = container.querySelector('svg')
 
-    expect(ballot).toHaveAttribute('viewBox', '0 0 64 40')
+    expect(ballot).toHaveAttribute('viewBox', '0 0 24 24')
     expect(ballot).toHaveAttribute('data-mark', 'ballot')
     expect(ballot).toHaveAttribute('aria-hidden', 'true')
-    expect(ballot?.querySelectorAll('path')).toHaveLength(2)
+    expect(ballot?.querySelectorAll('rect')).toHaveLength(1)
+    expect(ballot?.querySelectorAll('path')).toHaveLength(1)
 
     rerender(<VoteMark className="h-10 w-10" />)
     ballot = container.querySelector('svg')
     expect(ballot).toHaveClass('h-10', 'w-10')
-    expect(ballot?.querySelectorAll('path')).toHaveLength(2)
   })
 
   it('distinguishes lit and snuffed states on the same carved torch', () => {
