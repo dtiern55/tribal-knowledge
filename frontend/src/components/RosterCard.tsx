@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
-import { WaxSeal } from './WaxSeal'
+import { DoubleBadge } from './DoubleBadge'
 
 /**
  * One line in the roster manifest (#380 follow-on).
@@ -116,10 +116,10 @@ export function RosterCard({
                 className="shrink-0 cursor-grab touch-none transition-opacity active:cursor-grabbing"
                 style={{ opacity: sealLifted ? 0.3 : 1 }}
               >
-                <WaxSeal size={34} />
+                <DoubleBadge size={24} />
               </span>
             ) : (
-              <WaxSeal size={34} />
+              <DoubleBadge size={24} />
             ))}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">

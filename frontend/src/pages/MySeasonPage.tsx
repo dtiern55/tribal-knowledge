@@ -15,7 +15,7 @@ import {
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
-import { WaxSeal } from '../components/WaxSeal'
+import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
@@ -1287,7 +1287,7 @@ function RosterSection({
             filter: 'drop-shadow(0 4px 8px rgb(0 0 0 / 35%))',
           }}
         >
-          <WaxSeal size={40} />
+          <DoubleBadge size={28} />
         </div>,
         document.body,
       )}
