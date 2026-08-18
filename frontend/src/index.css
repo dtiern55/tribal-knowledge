@@ -352,13 +352,33 @@ html:not(.locked-night) .ledger-divide::after {
   text-shadow: 0.03em 0.025em 0 rgb(20 63 89 / 12%);
 }
 
+/* #416: the My Points box is a hero element — a watercolor slate-blue wash
+   (ripped from the mockup) inside the record's pencil frame, with cream ink.
+   The wash is a 2x2 mirror tile so it fills the box seamlessly. */
 .open-ledger .header-points-button {
-  border: 2px solid rgb(44 39 30 / 76%);
-  border-radius: 0.35rem;
-  background: #134c6b;
-  box-shadow:
-    2px 3px 0 rgb(63 48 28 / 34%),
-    inset 0 0 0 1px rgb(235 220 183 / 28%);
+  position: relative;
+  border: none;
+  border-radius: 8px;
+  background-color: #14425c;
+  background-image: url('./assets/expedition-points-wash.webp');
+  background-size: cover;
+  background-position: center;
+  color: #f4ecd8;
+  box-shadow: 2px 3px 0 rgb(63 48 28 / 30%);
+}
+
+.open-ledger .header-points-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 9px solid transparent;
+  border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
+}
+
+.open-ledger .header-points-button div {
+  color: #f4ecd8;
+  text-shadow: 0 1px 2px rgb(9 34 48 / 45%);
 }
 
 .record-head {
