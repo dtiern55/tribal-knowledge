@@ -771,9 +771,12 @@ html.locked-night .app-shell .vote-slip { color: #2a2016; }
 .open-ledger .roster-card .stage-held {
   background-color: transparent;
   background-image: url('./assets/expedition-ocean-wash-tile.webp');
-  background-position: left top;
-  background-repeat: repeat-y;
-  background-size: 100% 44px;
+  /* Fill the row with the (vertically mirror-symmetric) wash rather than tiling
+     it — repeat-y left a lighter band low in the row that read as the wash
+     sitting too high. Stretched ~1.5x, still soft watercolor. */
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   box-shadow: inset 3px 0 0 var(--color-ocean-700);
 }
 
