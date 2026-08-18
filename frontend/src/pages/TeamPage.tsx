@@ -144,7 +144,7 @@ export function TeamPage() {
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
         <section>
-          <SectionShell title="Roster" prominent collapsible={false} right={<SectionPoints value={player.roster_points} />}>
+          <SectionShell title="Roster" prominent right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
               <Notice title="Team details are still private">Roster and weekly-play choices unlock when rosters lock.</Notice>
             ) : active.length === 0 ? (
