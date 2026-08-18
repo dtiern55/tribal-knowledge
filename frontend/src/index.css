@@ -359,20 +359,25 @@ html:not(.locked-night) .ledger-divide::after {
   position: relative;
   border: none;
   border-radius: 8px;
-  background-color: #14425c;
-  background-image: url('./assets/expedition-points-wash.webp');
-  background-size: cover;
-  background-position: center;
+  background-color: #0f3346;
+  /* Watercolor wash under a right->left dark-to-light fade, matching the
+     mockup (darker on the right, slightly lighter on the left). */
+  background-image:
+    linear-gradient(to left, rgb(7 27 39 / 55%), rgb(7 27 39 / 14%)),
+    url('./assets/expedition-points-wash.webp');
+  background-size: cover, cover;
+  background-position: center, center;
   color: #f4ecd8;
-  box-shadow: 2px 3px 0 rgb(63 48 28 / 30%);
 }
 
+/* The record's pencil frame IS the box's border (no drop shadow — the mockup
+   has an inked border, not a shadow). */
 .open-ledger .header-points-button::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border: 9px solid transparent;
+  border: 11px solid transparent;
   border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
 }
 
