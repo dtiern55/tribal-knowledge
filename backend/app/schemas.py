@@ -94,6 +94,8 @@ class StandingSurvivor(BaseModel):
     contestant_id: UUID
     name: str
     image_url: Optional[str] = None
+    tribe_name: Optional[str] = None
+    tribe_color: Optional[str] = None
 
 
 class StandingEntry(BaseModel):

@@ -231,8 +231,82 @@ Same treatment. Torch icon in terracotta. Tribe-bordered avatars carry the syste
 - Source Sans 3 as body font (stays)
 - Kalam as ballot accent (stays)
 
+## Component treatments
+
+### Ballot tab — vote slips (5d)
+
+Submitted ballot picks display as forest-green chips with Kalam handwriting font, slight random rotation per slip, and a tribe-colored left border. The handwritten + rotated style gives the ballot a "written vote" personality distinct from the structured roster.
+
+```css
+.ballot-slip {
+  background: #1e3a2f;
+  color: #f2e9db;
+  padding: 10px 18px;
+  border-radius: 4px;
+  border-left: 3px solid; /* tribe color */
+  box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.12);
+  font-family: "Kalam", cursive;
+  font-size: 16px;
+}
+```
+
+Apply slight rotation per slip (vary between -0.7deg and 0.5deg). Display slips in a flex-wrap layout. "Edit ballot" button uses terracotta outline style.
+
+### Advantage tab — stamp cards (2c)
+
+The weekly play options display as large stamp-style cards. The selected play uses a forest-to-jade gradient fill with gold ×2 numeral, a tribal border accent below the label, and an "Active" status indicator. The unselected option uses a dashed border, muted colors.
+
+```css
+/* Selected play */
+.advantage-card--active {
+  background: linear-gradient(135deg, #1e3a2f, #2a5040);
+  border-radius: 6px;
+  padding: 20px 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(30, 58, 47, 0.25);
+}
+.advantage-card--active .multiplier {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  font-size: 36px;
+  color: #d4913a; /* Gold */
+}
+.advantage-card--active .label {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #f2e9db;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Unselected play */
+.advantage-card--inactive {
+  border: 1.5px dashed rgba(30, 58, 47, 0.2);
+  border-radius: 6px;
+  padding: 20px 12px;
+  text-align: center;
+}
+```
+
+Include a tribal border between the label and "Active" status. "Remove play" replaces "Undo" — styled as an underlined terracotta text link, not a button.
+
+### Standings — ledger rows (3a)
+
+Remove white cards entirely. Player rows sit directly on the cream page surface, separated by subtle 1px dividers. Rank numbers in Rajdhani 700 with gold color for 1st place, stone for others. Avatar stack (overlapping tribe-bordered circles) sits inline. Score in Rajdhani 700 on the right. "+N last ep" in jade below.
+
+Your Position section uses a 2px bottom border and no card container.
+
+### Cast — flat rows (4a)
+
+Same flat-row treatment as standings and roster. No white cards. Tribe-bordered avatars, diamond tribe markers, Rajdhani names, jade points. Ordered by most points at top, eliminated castaways at the bottom in elimination order. No tribe grouping — single continuous list.
+
 ## Reference artifacts
 
-See `Direction Spec.dc.html` in the design project for rendered reference mockups of:
+See `Direction Spec.dc.html` and `Component Treatments.dc.html` in the design project for rendered reference mockups of:
 - My Season Open (roster tab) — full system applied
 - My Season Locked — dark state with ember glow
+- Ballot slip treatments
+- Advantage stamp cards
+- Standings ledger rows
+- Cast flat rows

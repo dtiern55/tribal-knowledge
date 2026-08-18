@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -31,6 +32,44 @@ def test_standings_lists_members_at_zero(client, db_conn, current_user):
     assert data[0]["display_name"] == current_user["display_name"]
     assert data[0]["total_points"] == 0
     assert data[0]["roster_points"] == 0
+
+
+@pytest.mark.integration
+def test_standings_survivors_include_tribe_treatment_data(
+    client, db_conn, current_user
+):
+    season = insert_season(db_conn, roster_lock_episode=1)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    contestant = insert_contestant(db_conn, season["id"], "Kenzie")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "insert into tribes (season_id, name, color)"
+            " values (%s, %s, %s) returning id",
+            [str(season["id"]), "Yanu", "#7651a1"],
+        )
+        tribe_id = cur.fetchone()["id"]
+        cur.execute(
+            "insert into contestant_tribes (contestant_id, tribe_id, from_episode)"
+            " values (%s, %s, 1)",
+            [str(contestant["id"]), str(tribe_id)],
+        )
+    insert_roster_pick(db_conn, current_user["id"], season["id"], contestant["id"])
+
+    entry = client.get(f"/seasons/{season['id']}/standings").json()[0]
+    assert entry["active_survivors"] == [
+        {
+            "contestant_id": str(contestant["id"]),
+            "name": "Kenzie",
+            "image_url": None,
+            "tribe_name": "Yanu",
+            "tribe_color": "#7651a1",
+        }
+    ]
 
 
 @pytest.mark.integration

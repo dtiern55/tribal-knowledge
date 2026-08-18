@@ -53,8 +53,8 @@ describe('StandingsPage', () => {
           trend_delta: 0,
           last_episode_points: 0,
           active_survivors: [
-            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null },
-            { contestant_id: 'cast-2', name: 'Charlie', image_url: null },
+            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', tribe_color: '#7651a1' },
+            { contestant_id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', tribe_color: '#4ca56a' },
           ],
         }]
       }
@@ -65,6 +65,7 @@ describe('StandingsPage', () => {
 
     expect(await screen.findByTitle('Kenzie')).toBeVisible()
     expect(screen.getByTitle('Charlie')).toBeVisible()
+    expect(screen.getByTitle('Yanu')).toHaveStyle({ '--tribe-color': '#7651a1' })
     expect(screen.queryByText('2 still playing')).not.toBeInTheDocument()
   })
 })

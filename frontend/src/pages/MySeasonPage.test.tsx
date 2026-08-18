@@ -254,6 +254,10 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    expect(within(ballot).getByText('Kenzie').closest('.ballot-slip')).toHaveStyle({
+      '--ballot-tribe-color': '#7651a1',
+      '--ballot-rotation': '-0.7deg',
+    })
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
     })
@@ -294,6 +298,7 @@ describe('MySeasonPage state shell', () => {
     // picker only appears once that play is chosen.
     const rosterDouble = within(advantage).getByRole('button', { name: 'Roster ×2' })
     expect(rosterDouble).toBeVisible()
+    expect(rosterDouble).toHaveClass('advantage-card--inactive')
     expect(within(advantage).getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
     // #404: the swap left this economy — Advantage is two options again.
     expect(within(advantage).queryByRole('button', { name: /^Swap/ })).not.toBeInTheDocument()
@@ -359,7 +364,9 @@ describe('MySeasonPage state shell', () => {
     // and the other one stays reachable so it can be switched to.
     expect(within(advantage).getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
     expect(within(advantage).getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
-    expect(within(advantage).getByRole('button', { name: 'Undo' })).toBeVisible()
+    expect(within(advantage).getByRole('button', { name: 'Roster ×2' })).toHaveClass('advantage-card--active')
+    expect(within(advantage).getByText('Active')).toBeVisible()
+    expect(within(advantage).getByRole('button', { name: 'Remove play' })).toBeVisible()
   })
 
   it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {

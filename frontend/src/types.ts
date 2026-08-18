@@ -68,6 +68,8 @@ export interface StandingSurvivor {
   contestant_id: string
   name: string
   image_url: string | null
+  tribe_name: string | null
+  tribe_color: string | null
 }
 
 export interface StandingEntry {
