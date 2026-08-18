@@ -84,6 +84,26 @@ export function RosterCard({
   // visible (#406 review).
   const note = outEp != null ? `Out · episode ${outEp}` : (contestant?.tribe_name ?? null)
 
+  // At row scale the patch is a physical seal sitting near the points column,
+  // not a tiny suffix on the castaway's name. The tilt keeps the placement
+  // feeling stamped by hand while preserving the seal as the drag handle.
+  const doubleSeal = isDoubled ? (
+    onSealPointerDown ? (
+      <span
+        onPointerDown={onSealPointerDown}
+        title="Drag to move the double to another castaway"
+        className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg] cursor-grab touch-none transition-opacity active:cursor-grabbing"
+        style={{ opacity: sealLifted ? 0.3 : 1 }}
+      >
+        <DoubleBadge size={36} />
+      </span>
+    ) : (
+      <span className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg]">
+        <DoubleBadge size={36} />
+      </span>
+    )
+  ) : null
+
   const inner = (
     <>
       <span
@@ -106,22 +126,6 @@ export function RosterCard({
           >
             {contestant?.name ?? '—'}
           </span>
-          {/* A wax seal stamped beside the name, not a badge (#397/#407): the
-              play is sealed onto this castaway, like a Survivor advantage. When
-              draggable (#407), grabbing it lifts the double to move elsewhere. */}
-          {isDoubled &&
-            (onSealPointerDown ? (
-              <span
-                onPointerDown={onSealPointerDown}
-                title="Drag to move the double to another castaway"
-                className="shrink-0 cursor-grab touch-none transition-opacity active:cursor-grabbing"
-                style={{ opacity: sealLifted ? 0.3 : 1 }}
-              >
-                <DoubleBadge size={24} />
-              </span>
-            ) : (
-              <DoubleBadge size={24} />
-            ))}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (
@@ -185,7 +189,10 @@ export function RosterCard({
             className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
           >
             {inner}
-            <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">{right}</span>
+            <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+              {doubleSeal}
+              {right}
+            </span>
           </button>
         ) : (
           <>
@@ -207,6 +214,7 @@ export function RosterCard({
               <span className="flex min-w-0 flex-1 items-center gap-3">{inner}</span>
             )}
             <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+              {doubleSeal}
               {right}
               {onToggle && (
                 <button

@@ -52,14 +52,7 @@ export function DoubleBadge({
           fill="#1e3a2f"
         />
 
-        {compact ? (
-          <g data-part="compact-scene" clipPath={`url(#${fieldId})`}>
-            <path d="M6 11h36v10H6Z" fill="#c45432" />
-            <circle cx="24" cy="20" r="4.5" fill="#d4913a" />
-            <path d="M6 20h36v3H6Z" fill="#2e6b52" />
-            <path d="M6 23h36v2H6Z" fill="#f2e9db" />
-          </g>
-        ) : (
+        {!compact && (
           <g data-part="tropical-scene" clipPath={`url(#${fieldId})`}>
             <path d="M6 9h36v16H6Z" fill="#c45432" />
             <circle cx="24" cy="20.5" r="6" fill="#d4913a" />
@@ -82,16 +75,17 @@ export function DoubleBadge({
           </g>
         )}
 
-        <path d="M6.5 27.5h35" stroke="#d4913a" strokeWidth="2" />
+        {!compact && <path d="M6.5 27.5h35" stroke="#d4913a" strokeWidth="2" />}
         <text
+          data-part={compact ? 'compact-mark' : 'multiplier'}
           x="24"
-          y="42.5"
+          y={compact ? 35 : 42.5}
           textAnchor="middle"
           fill="#f2e9db"
           fontFamily="Rajdhani, system-ui, sans-serif"
-          fontSize={compact ? 21 : 19}
+          fontSize={compact ? 25 : 19}
           fontWeight="700"
-          letterSpacing="-1"
+          letterSpacing={compact ? '-1.4' : '-1'}
         >
           ×2
         </text>

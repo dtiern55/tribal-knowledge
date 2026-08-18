@@ -1802,10 +1802,14 @@ function PicksSection({
             // earnings render as a separate chip beside it (#136).
             return (
               <span key={p.id} className="contents">
-                <span className={`text-sm px-2 py-1 border rounded-md ${cls}`}>
+                <span className={`relative inline-flex items-center text-sm px-2 py-1 border rounded-md ${cls}`}>
                   {scored && result?.correct && '✓ '}
                   {name}
-                  {doubled && <span className="text-forest-600 font-semibold"> ×2</span>}
+                  {doubled && (
+                    <span className="absolute -right-2 -top-2 z-10 rotate-[10deg]">
+                      <DoubleBadge size={22} title="Double Ballot Points this episode" />
+                    </span>
+                  )}
                   {scored && result?.correct && result.points > 0 && (
                     <span className="ml-1 font-semibold">+{result.points}</span>
                   )}
@@ -1935,15 +1939,19 @@ function PicksSection({
                         sc.eliminated_in_episode < ep.episode_number
                       return (
                         <span key={p.id} className="inline-flex items-center gap-1.5">
-                          <VoteSlip
-                            name={sc?.name ?? '—'}
-                            stale={stale}
-                            tribeColor={sc?.tribe_color}
-                            rotation={[-0.7, 0.5, -0.2][index % 3]}
-                          />
-                          {ballotDoubled && (
-                            <span className="text-xs font-semibold text-forest-600">×2</span>
-                          )}
+                          <span className="relative inline-flex">
+                            <VoteSlip
+                              name={sc?.name ?? '—'}
+                              stale={stale}
+                              tribeColor={sc?.tribe_color}
+                              rotation={[-0.7, 0.5, -0.2][index % 3]}
+                            />
+                            {ballotDoubled && (
+                              <span className="absolute -right-2.5 -top-2.5 z-10 rotate-[10deg]">
+                                <DoubleBadge size={27} title="Double Ballot Points this episode" />
+                              </span>
+                            )}
+                          </span>
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
                       )
@@ -2001,13 +2009,17 @@ function PicksSection({
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
+                                  <span className={`absolute right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white ${isDoubled ? 'bottom-1.5' : 'top-1.5'}`} aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M5 13l4 4L19 7" />
                                     </svg>
                                   </span>
                                 )}
-                                {isDoubled && <span className="text-forest-600 font-semibold"> ×2</span>}
+                                {isDoubled && (
+                                  <span className="absolute -right-1.5 -top-2.5 z-10 rotate-[10deg]">
+                                    <DoubleBadge size={28} title="Double Ballot Points this episode" />
+                                  </span>
+                                )}
                               </button>
                             )
                           })}
