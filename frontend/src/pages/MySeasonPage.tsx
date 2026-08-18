@@ -1324,7 +1324,7 @@ function RosterSection({
                   : 'bg-terracotta-100 text-terracotta-800'
               }`}
             >
-              {nextSwapCost === 0 ? 'free pass' : `${nextSwapCost} pts`}
+                              {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
             </span>
           </button>
         ) : thisEpisodeSwap ? (
