@@ -265,7 +265,7 @@ export function MySeasonPage() {
   }, [picking])
 
   if (d.loading) return <PageLoader />
-  if (d.error) return <p className="text-red-600">{d.error}</p>
+  if (d.error) return <p className="text-terracotta-600">{d.error}</p>
   if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
 
   const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
@@ -360,7 +360,7 @@ export function MySeasonPage() {
       >
       {state.kind !== 'open' && (
         <div className="flex items-start justify-between gap-3">
-          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-ocean-800">
+          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-forest-800">
             {d.season.name}
           </h1>
           <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
@@ -488,8 +488,8 @@ export function MySeasonPage() {
 
 function WatchOnlyState({ episode }: { episode: Episode }) {
   return (
-    <section className="p-5 bg-ocean-50 border border-ocean-200 rounded-xl">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700 mb-1">
+    <section className="p-5 bg-forest-50 border border-forest-200 rounded-xl">
+      <p className="text-xs font-semibold uppercase tracking-wide text-forest-700 mb-1">
         Episode {episode.episode_number} · watch only
       </p>
       <p className="text-sm text-gray-700">
@@ -502,8 +502,8 @@ function WatchOnlyState({ episode }: { episode: Episode }) {
 
 function IntermissionState() {
   return (
-    <section className="p-5 bg-white border border-sand-200 rounded-xl">
-      <h2 className="font-display text-xl tracking-wide text-ocean-800">Between episodes</h2>
+    <section className="p-5 bg-white border border-cream-200 rounded-xl">
+      <h2 className="font-display text-xl tracking-wide text-forest-800">Between episodes</h2>
       <p className="text-sm text-gray-600 mt-1">
         You are caught up. The next episode will appear here when it is available.
       </p>
@@ -513,8 +513,8 @@ function IntermissionState() {
 
 function CompleteState() {
   return (
-    <section className="p-5 bg-white border border-sand-200 rounded-xl">
-      <h2 className="font-display text-xl tracking-wide text-ocean-800">Season complete</h2>
+    <section className="p-5 bg-white border border-cream-200 rounded-xl">
+      <h2 className="font-display text-xl tracking-wide text-forest-800">Season complete</h2>
       <p className="text-sm text-gray-600 mt-1">
         Final standings are settled. Your episode scores and play history remain below.
       </p>
@@ -558,7 +558,7 @@ function LockedState({
     }
   }, [episode.id, season.id, userId])
 
-  if (loadError) return <p className="text-red-600">{loadError}</p>
+  if (loadError) return <p className="text-terracotta-600">{loadError}</p>
   if (picks == null || roster == null) return <PageLoader />
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
@@ -571,13 +571,13 @@ function LockedState({
       data-variant={broadcast ? 'broadcast' : 'delayed'}
       className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
         broadcast
-          ? 'border-ocean-800 bg-[radial-gradient(circle_at_top_right,rgba(239,119,45,0.18),transparent_35%),linear-gradient(to_bottom,#0b3347,#123d34)] text-white shadow-xl'
-          : 'border-sand-200 bg-white text-gray-900 shadow-sm'
+          ? 'border-forest-800 bg-[radial-gradient(circle_at_top_right,rgba(196,84,50,0.18),transparent_35%),linear-gradient(to_bottom,#132e25,#0e1f19)] text-cream-100 shadow-xl'
+          : 'border-cream-200 bg-white text-gray-900 shadow-sm'
       }`}
     >
       <div>
         <div>
-          <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
+          <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
             Episode {episode.episode_number} · locked
           </p>
           <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
@@ -595,7 +595,7 @@ function LockedState({
             {roster.map((pick) => {
               const contestant = contestantMap.get(pick.contestant_id)
               return (
-                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-sand-200 bg-sand-50'}`}>
+                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'}`}>
                   <ContestantAvatar
                     name={contestant?.name ?? '—'}
                     imageUrl={contestant?.image_url ?? null}
@@ -609,8 +609,8 @@ function LockedState({
                       <span
                         className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${
                           broadcast
-                            ? 'bg-ember-300/20 text-ember-100 ring-ember-200/40'
-                            : 'bg-ember-100 text-ember-800 ring-ember-300'
+                            ? 'bg-gold-300/20 text-gold-100 ring-gold-200/40'
+                            : 'bg-gold-100 text-gold-800 ring-gold-300'
                         }`}
                         title="Double Roster Points is active for this episode"
                       >
@@ -623,7 +623,8 @@ function LockedState({
           </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
         </div>
 
-        <div className={`border-t pt-6 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+        <div className="tribal-border tribal-border--dim" aria-hidden="true" />
+        <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Ballot
           </h3>
@@ -635,7 +636,7 @@ function LockedState({
                   <li
                     key={pick.id}
                     className={`min-w-0 flex items-center gap-2 rounded-xl border p-2 text-sm font-medium ${
-                      broadcast ? 'border-white/20 bg-white/10' : 'border-sand-200 bg-sand-50'
+                      broadcast ? 'border-white/20 bg-white/10' : 'border-cream-200 bg-cream-50'
                     }`}
                   >
                     <ContestantAvatar
@@ -655,7 +656,8 @@ function LockedState({
           )}
         </div>
 
-        <div className={`border-t pt-5 ${broadcast ? 'border-white/15' : 'border-sand-200'}`}>
+        <div className="tribal-border tribal-border--dim" aria-hidden="true" />
+        <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Advantage
           </h3>
@@ -670,8 +672,8 @@ function LockedState({
           </p>
         </div>
 
-        <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-ocean-50 ring-1 ring-ocean-100'}`}>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-ember-200' : 'text-ocean-700'}`}>
+        <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-forest-50 ring-1 ring-forest-100'}`}>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
             {broadcast ? 'Scoring comes next' : 'Awaiting league scoring'}
           </p>
           <p className={`mt-1 text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
@@ -757,7 +759,7 @@ function EpisodeHistorySection({
                 type="button"
                 onClick={() => void onReplay(episode)}
                 disabled={replayLoading != null}
-                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-sand-200 bg-sand-50 p-3 text-left text-sm hover:border-ocean-300 hover:bg-ocean-50 disabled:opacity-50"
+                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-cream-200 bg-cream-50 p-3 text-left text-sm hover:border-forest-300 hover:bg-forest-50 disabled:opacity-50"
               >
                 <span className="min-w-0">
                   <span className="block font-semibold text-gray-900">
@@ -765,7 +767,7 @@ function EpisodeHistorySection({
                   </span>
                   <span className="block text-xs text-gray-500">View your scored result</span>
                 </span>
-                <span className="shrink-0 text-xs font-semibold text-ocean-700">
+                <span className="shrink-0 text-xs font-semibold text-forest-700">
                   {replayLoading === episode.id ? 'Loading…' : 'Replay'}
                 </span>
               </button>
@@ -773,10 +775,10 @@ function EpisodeHistorySection({
           ))}
         </ul>
       )}
-      {replayError && <p role="alert" className="mt-2 text-sm text-red-700">{replayError}</p>}
+      {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
 
       {spent.length > 0 && (
-        <div className={scoredEpisodes.length > 0 ? 'mt-5 border-t border-sand-200 pt-4' : ''}>
+        <div className={scoredEpisodes.length > 0 ? 'mt-5 border-t border-cream-200 pt-4' : ''}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
             Weekly plays
           </p>
@@ -802,7 +804,7 @@ function EpisodeHistorySection({
               {p.points_earned != null && (
                 <span
                   className={`text-xs shrink-0 ${
-                    p.points_earned > 0 ? 'text-green-600 font-medium' : 'text-gray-500'
+                    p.points_earned > 0 ? 'text-jade-600 font-medium' : 'text-gray-500'
                   }`}
                 >
                   {p.points_earned > 0 ? '+' : ''}
@@ -876,20 +878,20 @@ function HeaderPoints({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="rounded-xl px-4 py-2 bg-gradient-to-br from-ocean-500 to-ocean-700 text-white text-right shadow-md hover:from-ocean-600 hover:to-ocean-800 transition-colors"
+        className="header-points rounded-xl border border-forest-700 px-4 py-2 bg-gradient-to-br from-forest-500 to-forest-700 text-cream-100 text-right shadow-md hover:from-forest-600 hover:to-forest-800 transition-colors"
       >
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-white">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-cream-100/75">
           My Points
         </div>
         <div className="text-2xl font-bold leading-none tabular-nums">{total}</div>
         {rank != null && (
-          <div className="text-[11px] text-white/90 mt-0.5">
+          <div className="text-[11px] text-cream-100/75 mt-0.5">
             {ordinal(rank)} of {count}
           </div>
         )}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border border-sand-200 rounded-xl shadow-lg p-3 z-20">
+        <div className="absolute right-0 mt-2 w-48 bg-white border border-cream-200 rounded-xl shadow-lg p-3 z-20">
           <ul className="space-y-1">
             {components.map((c) => (
               <li key={c.label} className="flex justify-between text-sm">
@@ -912,7 +914,7 @@ function HeaderPoints({
 
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
-  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-500'
+  const color = value > 0 ? 'text-jade-600' : value < 0 ? 'text-terracotta-500' : 'text-gray-500'
   return (
     <span className={`text-xs font-medium ${color}`}>
       {value > 0 ? '+' : ''}
@@ -969,8 +971,8 @@ function WeeklyPlaySection({
 
         const base =
           'relative min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors'
-        const chosen = 'border-ocean-600 bg-ocean-50 text-ocean-900 ring-1 ring-ocean-300'
-        const idle = 'border-ocean-300 bg-white/60 text-ocean-800 hover:border-ocean-500'
+        const chosen = 'border-forest-600 bg-forest-50 text-forest-900 ring-1 ring-forest-300'
+        const idle = 'border-forest-300 bg-white/60 text-forest-800 hover:border-forest-500'
         // Lightly dimmed, not disabled — the unchosen one is how you switch.
         const dimmed = 'border-paper-edge bg-white/40 text-paper-ink-faded opacity-60'
 
@@ -1010,7 +1012,7 @@ function WeeklyPlaySection({
         )
       })()}
 
-      {weekly.error && <p className="text-red-600 text-xs">{weekly.error}</p>}
+      {weekly.error && <p className="text-terracotta-600 text-xs">{weekly.error}</p>}
       </div>
     </RecordSection>
   )
@@ -1302,7 +1304,7 @@ function RosterSection({
               setDropping(null)
               onPickingDone?.()
             }}
-            className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
+            className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
           >
             Cancel
           </button>
@@ -1310,14 +1312,14 @@ function RosterSection({
           <button
             type="button"
             onClick={() => onStartSwap?.()}
-            className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
+            className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
           >
             Swap {nextSwapCost === 0 ? '· free' : `· ${nextSwapCost}`}
           </button>
         ) : thisEpisodeSwap ? (
           /* Reversible until picks lock — see the swap-undo decision. */
           <span className="inline-flex items-baseline gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-red-700">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
               Swapped this episode
               {thisEpisodeSwap.swap_penalty_points !== 0 &&
                 ` · ${thisEpisodeSwap.swap_penalty_points}`}
@@ -1326,7 +1328,7 @@ function RosterSection({
               type="button"
               onClick={() => void undoSwap()}
               disabled={swapping}
-              className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2 disabled:opacity-40"
+              className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
             >
               Undo
             </button>
@@ -1335,7 +1337,7 @@ function RosterSection({
       }
     >
       {picking && (
-        <p className="border-b border-ember-200 bg-ember-50/80 px-4 py-2 text-xs font-semibold text-ember-800">
+        <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {picking === 'double'
             ? 'Choose a castaway to double this episode'
             : dropping
@@ -1343,7 +1345,7 @@ function RosterSection({
               : 'Choose a castaway to drop'}
         </p>
       )}
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+      {error && <p className="text-terracotta-600 text-sm mb-3">{error}</p>}
 
       {hasRoster && !(windowOpen && editing) ? (
         <div className="space-y-6">
@@ -1358,7 +1360,7 @@ function RosterSection({
                   setSelected(new Set(savedContestantIds))
                   setEditing(true)
                 }}
-                className="shrink-0 text-sm text-ocean-600 font-medium hover:text-ocean-800"
+                className="shrink-0 text-sm text-forest-600 font-medium hover:text-forest-800"
               >
                 Edit
               </button>
@@ -1463,7 +1465,7 @@ function RosterSection({
                     key={c.id}
                     onClick={() => void commitSwap(c.id)}
                     disabled={swapping}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-sand-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-ocean-500 disabled:opacity-40"
+                    className="flex items-center gap-2 p-3 rounded-lg border border-cream-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-forest-500 disabled:opacity-40"
                   >
                     <ContestantAvatar
                       name={c.name}
@@ -1500,7 +1502,7 @@ function RosterSection({
                         <span>
                           ep {pick.active_from_episode}–{pick.active_until_episode}
                           {pick.swap_penalty_points !== 0 && (
-                            <span className="ml-1 text-red-400">· swap {pick.swap_penalty_points}</span>
+                            <span className="ml-1 text-terracotta-400">· swap {pick.swap_penalty_points}</span>
                           )}
                         </span>
                       </span>
@@ -1538,18 +1540,18 @@ function RosterSection({
                   className={[
                     'flex items-center gap-2 p-3 rounded-lg border text-left text-sm font-medium transition-colors',
                     isSelected && isOut
-                      ? 'border-red-300 bg-red-50 text-red-700'
+                      ? 'border-terracotta-300 bg-terracotta-50 text-terracotta-700'
                       : isSelected
-                        ? 'border-ocean-500 bg-ocean-50 text-ocean-900'
+                        ? 'border-forest-500 bg-forest-50 text-forest-900'
                         : blocked
                           ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                          : 'border-sand-200 bg-white text-gray-700 hover:border-gray-300',
+                          : 'border-cream-200 bg-white text-gray-700 hover:border-gray-300',
                   ].join(' ')}
                 >
                   <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                   <span className={isOut ? 'line-through' : ''}>{c.name}</span>
                   {isOut && (
-                    <span className="ml-auto text-[11px] uppercase tracking-wide text-red-500">
+                    <span className="ml-auto text-[11px] uppercase tracking-wide text-terracotta-500">
                       out
                     </span>
                   )}
@@ -1561,7 +1563,7 @@ function RosterSection({
             <button
               onClick={submitRoster}
               disabled={selected.size !== season.roster_size || !rosterDirty || submitting}
-              className="px-4 py-2 bg-jungle-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
+              className="px-4 py-2 bg-jade-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jade-700 transition-colors"
             >
               {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Roster'}
             </button>
@@ -1577,7 +1579,7 @@ function RosterSection({
               </button>
             )}
             {hasRoster && (
-              <span className={`text-xs ${rosterDirty ? 'text-amber-700' : 'text-gray-500'}`}>
+              <span className={`text-xs ${rosterDirty ? 'text-gold-700' : 'text-gray-500'}`}>
                 {rosterDirty ? 'Unsaved changes' : 'Saved ✓'}
               </span>
             )}
@@ -1748,7 +1750,7 @@ function PicksSection({
             "upcoming", the opposite of true (#272). */}
         <span
           className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-            scored ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+            scored ? 'bg-jade-50 text-jade-700' : 'bg-gold-50 text-gold-700'
           }`}
         >
           {scored ? 'Scored' : 'Awaiting scoring'}
@@ -1774,10 +1776,10 @@ function PicksSection({
             // (#53). Incorrect stays neutral, not red — most votes
             // miss, and a wall of red feels bad (#135).
             const cls = !scored
-              ? 'bg-white border-sand-200 text-gray-700'
+              ? 'bg-white border-cream-200 text-gray-700'
               : result?.correct
-                ? 'bg-green-50 border-green-300 text-green-800'
-                : 'bg-white border-sand-200 text-gray-500'
+                ? 'bg-jade-50 border-jade-300 text-jade-800'
+                : 'bg-white border-cream-200 text-gray-500'
             // Pick chip shows the BASE points; the double's own
             // earnings render as a separate chip beside it (#136).
             return (
@@ -1785,13 +1787,13 @@ function PicksSection({
                 <span className={`text-sm px-2 py-1 border rounded-md ${cls}`}>
                   {scored && result?.correct && '✓ '}
                   {name}
-                  {doubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
+                  {doubled && <span className="text-forest-600 font-semibold"> ×2</span>}
                   {scored && result?.correct && result.points > 0 && (
                     <span className="ml-1 font-semibold">+{result.points}</span>
                   )}
                 </span>
                 {doubled && scored && result?.correct && result.points > 0 && (
-                  <span className="text-sm px-2 py-1 border rounded-md bg-ocean-50 border-ocean-200 text-ocean-700">
+                  <span className="text-sm px-2 py-1 border rounded-md bg-forest-50 border-forest-200 text-forest-700">
                     Double Ballot Points <span className="font-semibold">+{result.points}</span>
                   </span>
                 )}
@@ -1804,7 +1806,7 @@ function PicksSection({
       )
 
     return current ? (
-      <div key={ep.id} className="mb-6 p-4 bg-white border-2 border-ocean-500 rounded-xl">
+      <div key={ep.id} className="mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
         {header}
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Ballot locked {formatCentral(ep.picks_lock_at)}
@@ -1887,21 +1889,21 @@ function PicksSection({
           }
 
           return (
-            <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-ocean-500 bg-white p-4'}>
+            <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5">
                   {/* Submitted is the state people look for, so it gets a mark
                       and the strongest type in the section rather than a line
                       of prose. */}
-                  <p className="mb-2 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jungle-700">
+                  <p className="mb-2 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
                     <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
                     Ballot submitted
                   </p>
                   {savedPicks.length < maxPicks && (
-                    <p className="text-xs text-green-700 mb-3">
+                    <p className="text-xs text-jade-700 mb-3">
                       {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
@@ -1917,7 +1919,7 @@ function PicksSection({
                         <span key={p.id} className="inline-flex items-center gap-1">
                           <VoteSlip name={sc?.name ?? '—'} stale={stale} />
                           {ballotDoubled && (
-                            <span className="text-xs font-semibold text-ocean-600">×2</span>
+                            <span className="text-xs font-semibold text-forest-600">×2</span>
                           )}
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
@@ -1927,11 +1929,11 @@ function PicksSection({
                 </div>
               ) : (
                 <>
-                  <div className="mb-5 flex items-center justify-between gap-3 border-b border-sand-200 pb-3 text-sm">
+                  <div className="mb-5 flex items-center justify-between gap-3 border-b border-cream-200 pb-3 text-sm">
                     <span className="text-gray-600">Vote for up to {maxPicks} castaways</span>
                     <span
                       aria-live="polite"
-                      className={`shrink-0 font-semibold ${epPending.size === maxPicks ? 'text-jungle-700' : 'text-ocean-800'}`}
+                      className={`shrink-0 font-semibold ${epPending.size === maxPicks ? 'text-jade-700' : 'text-forest-800'}`}
                     >
                       {epPending.size} of {maxPicks} selected
                     </span>
@@ -1942,8 +1944,9 @@ function PicksSection({
                         <div className="mb-3 flex items-center gap-2">
                           {members[0].tribe_color && (
                             <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              className="tribe-marker"
                               style={{ backgroundColor: members[0].tribe_color }}
+                              aria-hidden="true"
                             />
                           )}
                           <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
@@ -1966,22 +1969,22 @@ function PicksSection({
                                 className={[
                                   'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
                                   isSelected
-                                    ? 'border-ocean-500 bg-ocean-50 text-ocean-900 shadow-sm ring-1 ring-ocean-200'
+                                    ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
                                     : maxed
                                       ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-ocean-300',
+                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
                                 ].join(' ')}
                               >
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-ocean-600 text-white" aria-hidden="true">
+                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M5 13l4 4L19 7" />
                                     </svg>
                                   </span>
                                 )}
-                                {isDoubled && <span className="text-ocean-600 font-semibold"> ×2</span>}
+                                {isDoubled && <span className="text-forest-600 font-semibold"> ×2</span>}
                               </button>
                             )
                           })}
@@ -1993,8 +1996,8 @@ function PicksSection({
               )}
 
               {!activeOnly && !play.locked && (
-                <div className="mb-4 p-3 bg-ocean-50 border border-ocean-100 rounded-lg space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
+                <div className="mb-4 p-3 bg-forest-50 border border-forest-100 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-forest-700">
                     Your play · Episode {ep.episode_number}
                   </p>
                   {ballotDoubled ? (
@@ -2005,7 +2008,7 @@ function PicksSection({
                       <button
                         onClick={() => void play.takeBack(play.play!)}
                         disabled={play.busy}
-                        className="text-xs text-ocean-700 hover:text-ocean-900 font-medium"
+                        className="text-xs text-forest-700 hover:text-forest-900 font-medium"
                       >
                         Take back
                       </button>
@@ -2024,16 +2027,16 @@ function PicksSection({
                     <button
                       onClick={() => void play.spend('double_vote_points')}
                       disabled={play.busy}
-                      className="w-full px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+                      className="w-full px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
                     >
                       Double Ballot Points ×2
                     </button>
                   )}
-                  {play.error && <p className="text-red-600 text-xs">{play.error}</p>}
+                  {play.error && <p className="text-terracotta-600 text-xs">{play.error}</p>}
                 </div>
               )}
 
-              {episodeError && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{episodeError}</p>}
+              {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
               {confirmed ? (
                 <div className="flex items-center justify-between">
                   <button
@@ -2050,7 +2053,7 @@ function PicksSection({
                     type="button"
                     onClick={() => submitPicks(ep.id)}
                     disabled={submitting === ep.id || epPending.size === 0 || !dirty}
-                    className="min-h-11 flex-1 rounded-lg bg-jungle-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jungle-700 disabled:opacity-40"
+                    className="min-h-11 flex-1 rounded-lg bg-jade-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jade-700 disabled:opacity-40"
                   >
                     {submitting === ep.id ? (
                       'Saving…'
@@ -2220,7 +2223,7 @@ function FinaleBallot({
   const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
 
   return (
-    <div className="mb-6 p-4 bg-white border border-sand-200 rounded-xl">
+    <div className="mb-6 p-4 bg-white border border-cream-200 rounded-xl">
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-semibold text-gray-900">
           Finale · Episode {finaleEp.episode_number}
@@ -2236,16 +2239,16 @@ function FinaleBallot({
           No ballot submitted — the window has closed.
         </p>
       ) : locked || (hasSaved && !editing) ? (
-        <div className="mt-2 p-5 bg-green-50 border-2 border-green-500 rounded-xl text-center">
+        <div className="mt-2 p-5 bg-jade-50 border-2 border-jade-500 rounded-xl text-center">
           <div className="flex justify-center mb-1"><VoteMark className="w-10 h-10" /></div>
-          <p className="font-semibold text-green-800 mb-3">
+          <p className="font-semibold text-jade-800 mb-3">
             {locked ? 'Finale ballot locked' : 'Finale ballot in'}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {picks.map(({ id, label, value }) => (
               <span
                 key={id}
-                className="text-sm px-3 py-1.5 bg-white border border-green-200 rounded-lg text-left"
+                className="text-sm px-3 py-1.5 bg-white border border-jade-200 rounded-lg text-left"
               >
                 <span className="block text-[11px] uppercase tracking-wide text-gray-500 font-semibold">
                   {label}
@@ -2262,7 +2265,7 @@ function FinaleBallot({
                 setEditing(true)
                 setSaved(false)
               }}
-              className="mt-4 px-4 py-1.5 text-sm font-medium text-green-800 bg-white border border-green-300 rounded-lg hover:bg-green-100 transition-colors"
+              className="mt-4 px-4 py-1.5 text-sm font-medium text-jade-800 bg-white border border-jade-300 rounded-lg hover:bg-jade-100 transition-colors"
             >
               Edit ballot
             </button>
@@ -2275,7 +2278,7 @@ function FinaleBallot({
           <div className="space-y-4 mb-4">
             {picks.map(({ id, label, description, value, onChange }) => (
               <div key={id}>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-ember-500 pl-2 mb-0.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-terracotta-500 pl-2 mb-0.5">
                   {label}
                 </label>
                 <p className="text-xs text-gray-500 mb-1.5">{description}</p>
@@ -2285,7 +2288,7 @@ function FinaleBallot({
                     onChange(e.target.value)
                     setSaved(false)
                   }}
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+                  className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="">No prediction</option>
                   {alive.map((c) => (
@@ -2298,13 +2301,13 @@ function FinaleBallot({
             ))}
           </div>
 
-          {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-          {saved && <p className="text-green-600 text-sm mb-3">Ballot saved.</p>}
+          {error && <p className="text-terracotta-600 text-sm mb-3">{error}</p>}
+          {saved && <p className="text-jade-600 text-sm mb-3">Ballot saved.</p>}
 
           <button
             onClick={() => void submitBallot()}
             disabled={submitting}
-            className="w-full px-4 py-2.5 bg-jungle-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jungle-700 transition-colors"
+            className="w-full px-4 py-2.5 bg-jade-600 text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-jade-700 transition-colors"
           >
             {submitting ? (
               'Saving…'
@@ -2395,7 +2398,7 @@ function SoleSurvivorLine({
   }
 
   return (
-    <div className="mt-4 pt-3 border-t border-sand-100">
+    <div className="mt-4 pt-3 border-t border-cream-100">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Sole Survivor
@@ -2437,7 +2440,7 @@ function SoleSurvivorLine({
                 setSaved(false)
               }}
               aria-label="Sole Survivor"
-              className="flex-1 min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm"
+              className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Select your Sole Survivor…</option>
               {active.map((p) => (
@@ -2449,13 +2452,13 @@ function SoleSurvivorLine({
             <button
               onClick={designate}
               disabled={!choice || saving}
-              className="px-4 py-2 bg-ocean-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-ocean-700 transition-colors"
+              className="px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
             >
               {saving ? 'Saving…' : 'Designate'}
             </button>
           </div>
-          {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
-          {saved && <p className="text-green-600 text-sm mt-2">Designated.</p>}
+          {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
+          {saved && <p className="text-jade-600 text-sm mt-2">Designated.</p>}
         </>
       )}
     </div>

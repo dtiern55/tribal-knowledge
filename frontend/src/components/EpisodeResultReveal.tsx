@@ -96,13 +96,13 @@ export function EpisodeResultReveal({
       aria-labelledby="episode-result-title"
     >
       <article
-        className="reveal-enter mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-sand-50 shadow-2xl"
+        className="reveal-enter mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-cream-50 shadow-2xl"
       >
-        <header className="relative overflow-hidden bg-gradient-to-br from-ocean-900 via-ocean-800 to-jungle-800 px-5 py-6 text-white sm:px-8 sm:py-8">
-          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-ember-500/20 blur-2xl" />
+        <header className="relative overflow-hidden bg-gradient-to-br from-forest-900 via-forest-800 to-jade-800 px-5 py-6 text-white sm:px-8 sm:py-8">
+          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-terracotta-500/20 blur-2xl" />
           <div className="relative">
             <div className="flex min-w-0 items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember-200">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-terracotta-200">
                 Episode {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
               </p>
               {mode === 'replay' && (
@@ -161,7 +161,7 @@ export function EpisodeResultReveal({
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/55">
                   Episode total
                 </p>
-                <p className="font-display text-5xl tracking-wide text-ember-200">
+                <p className="font-display text-5xl tracking-wide text-terracotta-200">
                   {result.total_points > 0 ? '+' : ''}{result.total_points}
                 </p>
               </div>
@@ -189,7 +189,7 @@ export function EpisodeResultReveal({
             {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
               <p className="text-sm text-gray-500">No active roster members scored this episode.</p>
             ) : (
-              <ul className="divide-y divide-sand-100">
+              <ul className="divide-y divide-cream-100">
                 {result.roster.map((member) => (
                   <ResultRow
                     key={member.contestant_id}
@@ -214,7 +214,7 @@ export function EpisodeResultReveal({
             {result.ballot.length === 0 ? (
               <p className="text-sm text-gray-500">No ballot was submitted, so there are no ballot points.</p>
             ) : (
-              <ul className="divide-y divide-sand-100">
+              <ul className="divide-y divide-cream-100">
                 {result.ballot.map((pick) => (
                   <li
                     key={`${pick.prediction_type}:${pick.contestant_id}`}
@@ -229,11 +229,11 @@ export function EpisodeResultReveal({
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-gray-800">{pick.name}</span>
-                      <span className={`block text-xs ${pick.correct ? 'text-jungle-700' : 'text-gray-500'}`}>
+                      <span className={`block text-xs ${pick.correct ? 'text-jade-700' : 'text-gray-500'}`}>
                         {ballotLabel(pick.prediction_type)} · {pick.correct ? 'Correct' : incorrectBallotCopy(pick.prediction_type)}
                       </span>
                     </span>
-                    <span className={`shrink-0 text-sm font-semibold ${pick.correct ? 'text-jungle-700' : 'text-gray-500'}`}>
+                    <span className={`shrink-0 text-sm font-semibold ${pick.correct ? 'text-jade-700' : 'text-gray-500'}`}>
                       {points(pick.points)}
                     </span>
                   </li>
@@ -268,15 +268,15 @@ export function EpisodeResultReveal({
           </div>
 
           {result.insights && result.insights.length > 0 && (
-            <section aria-labelledby="episode-insights-title" className="mt-5 border-t border-sand-200 pt-5 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
-              <h3 id="episode-insights-title" className="text-xs font-semibold uppercase tracking-wide text-ocean-700">
+            <section aria-labelledby="episode-insights-title" className="mt-5 border-t border-cream-200 pt-5 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+              <h3 id="episode-insights-title" className="text-xs font-semibold uppercase tracking-wide text-forest-700">
                 Episode insight
               </h3>
               <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                 {result.insights.map((insight) => (
-                  <li key={insight.id} className="rounded-xl bg-ocean-50 p-3">
-                    <p className="text-xs text-ocean-700">{insight.label}</p>
-                    <p className="mt-0.5 text-lg font-semibold text-ocean-900">{insight.value}</p>
+                  <li key={insight.id} className="rounded-xl bg-forest-50 p-3">
+                    <p className="text-xs text-forest-700">{insight.label}</p>
+                    <p className="mt-0.5 text-lg font-semibold text-forest-900">{insight.value}</p>
                     {insight.detail && <p className="mt-1 text-xs text-gray-600">{insight.detail}</p>}
                   </li>
                 ))}
@@ -285,18 +285,18 @@ export function EpisodeResultReveal({
           )}
           </div>
 
-          <div className="mt-5 border-t border-sand-200 pt-5">
+          <div className="mt-5 border-t border-cream-200 pt-5">
             <div className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900">
               <span>Roster + ballot + weekly play</span>
               <span className="shrink-0">{points(result.total_points)}</span>
             </div>
-            {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+            {error && <p role="alert" className="mt-3 text-sm text-terracotta-700">{error}</p>}
             {mode === 'automatic' ? (
               <button
                 type="button"
                 onClick={() => void continueReveal()}
                 disabled={submitting}
-                className="mt-5 w-full rounded-xl bg-jungle-600 px-4 py-3 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50"
+                className="mt-5 w-full rounded-xl bg-jade-600 px-4 py-3 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50"
               >
                 {submitting ? 'Continuing…' : 'Continue'}
               </button>
@@ -304,7 +304,7 @@ export function EpisodeResultReveal({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-5 w-full rounded-xl border border-ocean-300 bg-white px-4 py-3 text-sm font-semibold text-ocean-800 hover:bg-ocean-50"
+                className="mt-5 w-full rounded-xl border border-forest-300 bg-white px-4 py-3 text-sm font-semibold text-forest-800 hover:bg-forest-50"
               >
                 Back to My Season
               </button>
@@ -326,7 +326,7 @@ function ResultLane({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-sand-200 bg-white p-4">
+    <section className="rounded-xl border border-cream-200 bg-white p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</h3>
         <span className="shrink-0 text-sm font-semibold text-gray-900">{points(total)}</span>

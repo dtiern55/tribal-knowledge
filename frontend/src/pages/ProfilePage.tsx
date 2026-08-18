@@ -12,9 +12,9 @@ import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
 
 const inputCls =
-  'min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm'
+  'min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm'
 const buttonCls =
-  'min-h-11 w-full cursor-pointer rounded-lg bg-jungle-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50'
+  'min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50'
 
 function DisplayNameSection() {
   const { profile, refreshProfile } = useAuth()
@@ -60,8 +60,8 @@ function DisplayNameSection() {
           className={inputCls}
         />
       </div>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {saved && <p role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">League profile saved.</p>}
+      {error && <p role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
+      {saved && <p role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">League profile saved.</p>}
       <button
         type="submit"
         disabled={saving || unchanged || !displayName.trim()}
@@ -153,8 +153,8 @@ function EmailSection() {
           className={inputCls}
         />
       </div>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {info && <p role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">{info}</p>}
+      {error && <p role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
+      {info && <p role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">{info}</p>}
       <button
         type="submit"
         disabled={
@@ -259,8 +259,8 @@ function PasswordSection() {
           className={inputCls}
         />
       </div>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {info && <p role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">{info}</p>}
+      {error && <p role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
+      {info && <p role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">{info}</p>}
       <button
         type="submit"
         disabled={saving || !current || !password || !confirm}
@@ -283,7 +283,7 @@ function InstallSection() {
   if (isInstalled() || (!canPrompt && !isIos())) return null
 
   return (
-    <section aria-labelledby="install-app-title" className="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-6">
+    <section aria-labelledby="install-app-title" className="rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:p-6">
       <h2 id="install-app-title" className="text-sm font-medium text-gray-700 mb-1">
         Add to home screen
       </h2>
@@ -342,29 +342,29 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">Identity and security</p>
-        <h1 className="mt-1 font-display text-3xl tracking-wide text-ocean-800">Profile</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-terracotta-700">Identity and security</p>
+        <h1 className="mt-1 font-display text-3xl tracking-wide text-forest-800">Profile</h1>
         <p className="mt-1 text-sm text-gray-600">Keep your league name distinct from the account you use to sign in.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 md:items-start">
-        <section aria-labelledby="league-profile-title" className="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 id="league-profile-title" className="font-display text-xl tracking-wide text-ocean-800">League profile</h2>
+        <section aria-labelledby="league-profile-title" className="rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 id="league-profile-title" className="font-display text-xl tracking-wide text-forest-800">League profile</h2>
           <p className="mt-1 mb-5 text-sm text-gray-500">This is how other players see you in standings and team views.</p>
           <DisplayNameSection />
-          {profile?.is_admin && <p className="mt-4 text-xs font-semibold text-ember-700">League commissioner</p>}
+          {profile?.is_admin && <p className="mt-4 text-xs font-semibold text-terracotta-700">League commissioner</p>}
         </section>
 
-        <section aria-labelledby="account-identity-title" className="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 id="account-identity-title" className="font-display text-xl tracking-wide text-ocean-800">Account identity</h2>
+        <section aria-labelledby="account-identity-title" className="rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 id="account-identity-title" className="font-display text-xl tracking-wide text-forest-800">Account identity</h2>
           <p className="mt-1 text-sm text-gray-500">Used only for signing in and account recovery.</p>
           <p className="mt-3 break-all text-sm font-medium text-gray-800">{session?.user.email ?? 'Email unavailable'}</p>
-          <div className="mt-6 border-t border-sand-200 pt-5">
+          <div className="mt-6 border-t border-cream-200 pt-5">
             <Collapsible label="Change email">
               <EmailSection />
             </Collapsible>
           </div>
-          <div className="mt-5 border-t border-sand-200 pt-5">
+          <div className="mt-5 border-t border-cream-200 pt-5">
             <Collapsible label="Change password">
               <PasswordSection />
             </Collapsible>

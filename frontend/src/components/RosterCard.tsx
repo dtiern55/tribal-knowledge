@@ -93,7 +93,8 @@ export function RosterCard({
         <ContestantAvatar
           name={contestant?.name ?? '—'}
           imageUrl={contestant?.image_url ?? null}
-          square
+          tribeColor={contestant?.tribe_color ?? null}
+          tribeName={contestant?.tribe_name ?? null}
         />
       </span>
       <span className="min-w-0 text-left">
@@ -127,7 +128,7 @@ export function RosterCard({
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
               {outEp == null && contestant?.tribe_color && (
                 <span
-                  className="size-1.5 rounded-full ring-1 ring-black/15"
+                  className="tribe-marker"
                   style={{ backgroundColor: contestant.tribe_color }}
                   aria-hidden
                 />
@@ -148,7 +149,7 @@ export function RosterCard({
               className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
                 ssWindowOpen
                   ? 'border-stone-400 text-stone-500'
-                  : 'border-amber-500 bg-amber-400/20 text-amber-800'
+                  : 'border-gold-500 bg-gold-400/20 text-gold-800'
               }`}
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
@@ -172,7 +173,7 @@ export function RosterCard({
         className={`stage-row flex items-center gap-3 ${
           lit ? 'stage-pick' : selected ? 'stage-held' : onSelect ? '' : ''
         } ${
-          dropActive ? 'ring-2 ring-inset ring-ocean-500 bg-ocean-50/70' : ''
+          dropActive ? 'ring-2 ring-inset ring-forest-500 bg-forest-50/70' : ''
         } ${onSelect ? 'p-0' : `px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}`}
         onClick={onSelect ? undefined : onToggle}
       >

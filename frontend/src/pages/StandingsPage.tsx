@@ -10,9 +10,9 @@ import { movementLabel, rankStandings } from '../lib/standings'
 import type { Season, StandingEntry } from '../types'
 
 const RANK_CHIP = [
-  'bg-amber-400 text-white',
+  'bg-gold-400 text-white',
   'bg-gray-300 text-gray-700',
-  'bg-amber-700/70 text-white',
+  'bg-gold-700/70 text-white',
 ]
 
 function Trend({ entry }: { entry: StandingEntry }) {
@@ -20,9 +20,9 @@ function Trend({ entry }: { entry: StandingEntry }) {
   if (!label) return null
   const color =
     entry.trend === 'up'
-      ? 'text-jungle-700'
+      ? 'text-jade-700'
       : entry.trend === 'down'
-        ? 'text-red-600'
+        ? 'text-terracotta-600'
         : 'text-gray-500'
   return <span className={`text-xs font-medium ${color}`}>{label}</span>
 }
@@ -32,7 +32,7 @@ function Rank({ rank, tied }: { rank: number; tied: boolean }) {
   return (
     <span className="flex flex-col items-center gap-1">
       <span
-        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs font-bold ${chip ?? 'bg-sand-100 text-gray-600'}`}
+        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs font-bold ${chip ?? 'bg-cream-100 text-gray-600'}`}
         aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
       >
         {rank}
@@ -100,14 +100,14 @@ export function StandingsPage() {
       {mine && (
         <Link
           to={`/seasons/${season.id}/team/${mine.entry.user_id}`}
-          className="mb-6 block rounded-2xl border border-ocean-200 bg-ocean-50 p-4 transition hover:border-ocean-300 hover:bg-ocean-100/70 sm:p-5"
+          className="mb-6 block rounded-2xl border border-forest-200 bg-forest-50 p-4 transition hover:border-forest-300 hover:bg-forest-100/70 sm:p-5"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ocean-700">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-700">
                 Your position
               </p>
-              <p className="mt-1 font-display text-2xl tracking-wide text-ocean-900">
+              <p className="mt-1 font-display text-2xl tracking-wide text-forest-900">
                 {mine.tied ? `Tied for #${mine.rank}` : `#${mine.rank}`}
                 <span className="ml-2 font-sans text-sm font-normal tracking-normal text-gray-600">
                   of {ranked.length}
@@ -116,9 +116,9 @@ export function StandingsPage() {
               <div className="mt-1"><Trend entry={mine.entry} /></div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-ocean-900">{mine.entry.total_points}</p>
+              <p className="text-3xl font-bold text-forest-900">{mine.entry.total_points}</p>
               <p className="text-xs text-gray-500">season points</p>
-              <p className="mt-2 text-xs font-semibold text-ocean-700">View your team →</p>
+              <p className="mt-2 text-xs font-semibold text-forest-700">View your team →</p>
             </div>
           </div>
         </Link>
@@ -128,7 +128,7 @@ export function StandingsPage() {
         <Notice title="No players yet">The standings will appear after players join this season.</Notice>
       ) : (
         <section aria-label="League standings">
-          <div className="mb-2 hidden grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] gap-3 border-b-2 border-ocean-100 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-ocean-700 md:grid">
+          <div className="mb-2 hidden grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] gap-3 border-b-2 border-forest-100 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-forest-700 md:grid">
             <span>Rank</span><span>Player</span><span className="text-right">Roster</span>
             <span className="text-right">Ballot</span>
             <span className={`text-right ${showFinale ? '' : 'invisible'}`}>Finale</span>
@@ -144,15 +144,15 @@ export function StandingsPage() {
                     aria-current={isMe ? 'true' : undefined}
                     className={`group grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-3 transition md:grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] ${
                       isMe
-                        ? 'border-ocean-300 bg-ocean-50'
-                        : 'border-sand-200 bg-white hover:border-ocean-200 hover:bg-sand-50'
+                        ? 'border-forest-300 bg-forest-50'
+                        : 'border-cream-200 bg-white hover:border-forest-200 hover:bg-cream-50'
                     }`}
                   >
                     <Rank rank={rank} tied={tied} />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-semibold text-gray-900 group-hover:text-ocean-700">{entry.display_name}</span>
-                        {isMe && <span className="rounded bg-jungle-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
+                        <span className="truncate font-semibold text-gray-900 group-hover:text-forest-700">{entry.display_name}</span>
+                        {isMe && <span className="rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
                         <Trend entry={entry} />
                       </div>
                       <p className="mt-1 text-xs text-gray-500 md:hidden">
@@ -173,9 +173,9 @@ export function StandingsPage() {
                     <span className="hidden text-right text-gray-700 md:block">{entry.elimination_points}</span>
                     <span className={`hidden text-right text-gray-700 md:block ${showFinale ? '' : 'invisible'}`}>{entry.finale_points}</span>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-ocean-900">{entry.total_points}</p>
+                      <p className="text-lg font-bold text-forest-900">{entry.total_points}</p>
                       {entry.last_episode_points !== 0 ? (
-                        <p className={`text-[11px] font-medium ${entry.last_episode_points > 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        <p className={`text-[11px] font-medium ${entry.last_episode_points > 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
                           {entry.last_episode_points > 0 ? '+' : ''}{entry.last_episode_points} last episode
                         </p>
                       ) : (

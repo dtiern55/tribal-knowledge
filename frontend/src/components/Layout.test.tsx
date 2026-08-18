@@ -97,7 +97,7 @@ describe('Layout', () => {
     renderLayout()
 
     await waitFor(() => expect(document.documentElement).toHaveClass('locked-night'))
-    expect(themeColor).toHaveAttribute('content', '#071f2d')
+    expect(themeColor).toHaveAttribute('content', '#0e1f19')
     expect(localStorage.getItem('tribal-knowledge-shell-theme')).toBe('locked')
     await user.click(screen.getAllByRole('link', { name: 'Standings' })[0])
     expect(await screen.findByRole('heading', { name: 'Standings page' })).toBeVisible()

@@ -32,15 +32,15 @@ interface EpisodeVotes {
 
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
-  const color = value > 0 ? 'text-green-700' : value < 0 ? 'text-red-600' : 'text-gray-500'
+  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-gray-500'
   return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value} pts</span>
 }
 
 function ScoreLane({ label, value, detail }: { label: string; value: number; detail: string }) {
   return (
-    <div className="rounded-xl border border-sand-200 bg-white p-4">
+    <div className="rounded-xl border border-cream-200 bg-white p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-ocean-900">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-forest-900">{value}</p>
       <p className="mt-1 text-xs leading-relaxed text-gray-500">{detail}</p>
     </div>
   )
@@ -114,7 +114,7 @@ export function TeamPage() {
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load this team">{error}</Notice>
-  if (!player) return <Notice title="Player not found"><Link className="text-ocean-700 underline" to="/standings">Return to standings</Link></Notice>
+  if (!player) return <Notice title="Player not found"><Link className="text-forest-700 underline" to="/standings">Return to standings</Link></Notice>
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
@@ -132,23 +132,23 @@ export function TeamPage() {
 
   return (
     <div>
-      <Link to="/standings" className="text-sm font-medium text-ocean-700 hover:text-ocean-900">← Back to standings</Link>
+      <Link to="/standings" className="text-sm font-medium text-forest-700 hover:text-forest-900">← Back to standings</Link>
       <div className="mt-4">
         <PageHeader
           eyebrow={ranked ? (ranked.tied ? `Tied for #${ranked.rank}` : `Rank #${ranked.rank}`) : undefined}
           title={player.display_name}
           description="Season score and the choices behind it."
-          meta={<span><strong className="text-lg text-ocean-900">{player.total_points}</strong> season points</span>}
+          meta={<span><strong className="text-lg text-forest-900">{player.total_points}</strong> season points</span>}
         />
       </div>
 
       <section aria-labelledby="score-breakdown-title">
         <div className="mb-3 flex items-end justify-between gap-4">
           <div>
-            <h2 id="score-breakdown-title" className="font-display text-xl tracking-wide text-ocean-800">Score breakdown</h2>
+            <h2 id="score-breakdown-title" className="font-display text-xl tracking-wide text-forest-800">Score breakdown</h2>
             <p className="mt-1 text-xs text-gray-500">Season total = roster + ballot + finale.</p>
           </div>
-          <p className="text-right text-sm font-semibold text-ocean-800">{player.total_points} total</p>
+          <p className="text-right text-sm font-semibold text-forest-800">{player.total_points} total</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <ScoreLane label="Roster" value={player.roster_points} detail="Points earned by active castaways." />
@@ -212,8 +212,8 @@ export function TeamPage() {
                           const correct = eliminatedIds.has(pick.contestant_id)
                           const doubled = doubles.some((play) => play.episode_id === episode.id && (play.target_contestant_id === null || play.target_contestant_id === pick.contestant_id))
                           return (
-                            <span key={pick.id} className={`rounded-md border px-2 py-1 text-sm ${correct ? 'border-green-300 bg-green-50 text-green-800' : 'border-sand-200 bg-white text-gray-500'}`}>
-                              {correct ? '✓ ' : ''}{contestantMap.get(pick.contestant_id)?.name ?? '—'}{doubled && <span className="font-semibold text-ocean-700"> ×2</span>}
+                            <span key={pick.id} className={`rounded-md border px-2 py-1 text-sm ${correct ? 'border-jade-300 bg-jade-50 text-jade-800' : 'border-cream-200 bg-white text-gray-500'}`}>
+                              {correct ? '✓ ' : ''}{contestantMap.get(pick.contestant_id)?.name ?? '—'}{doubled && <span className="font-semibold text-forest-700"> ×2</span>}
                             </span>
                           )
                         })}
@@ -238,7 +238,7 @@ export function TeamPage() {
                     const episode = episodes.find((row) => row.id === play.episode_id)
                     const target = play.target_contestant_id ? contestantMap.get(play.target_contestant_id)?.name : null
                     return (
-                      <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-sand-200 bg-white p-3 text-sm">
+                      <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-cream-200 bg-white p-3 text-sm">
                         <div><p className="font-medium text-gray-800">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-gray-500">Episode {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
                         <Points value={play.points_earned ?? undefined} />
                       </li>

@@ -27,8 +27,8 @@ const ELIMINATION_TYPES = [
 
 function SectionHeader({ id, title, description }: { id: string; title: string; description?: string }) {
   return (
-    <div id={id} className="scroll-mt-24 mb-4 mt-10 border-l-4 border-ember-500 pl-3 first:mt-0">
-      <h2 className="font-display text-xl tracking-wide text-ocean-900">{title}</h2>
+    <div id={id} className="scroll-mt-24 mb-4 mt-10 border-l-4 border-terracotta-500 pl-3 first:mt-0">
+      <h2 className="font-display text-xl tracking-wide text-forest-900">{title}</h2>
       {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
     </div>
   )
@@ -50,8 +50,8 @@ function ConfirmAction({
   const [confirming, setConfirming] = useState(false)
   if (!confirming) return <ActionBtn onClick={() => setConfirming(true)} disabled={busy}>{label}</ActionBtn>
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3" role="alert">
-      <p className="text-sm font-medium text-amber-900">{impact}</p>
+    <div className="rounded-xl border border-gold-300 bg-gold-50 p-3" role="alert">
+      <p className="text-sm font-medium text-gold-900">{impact}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <ActionBtn onClick={onConfirm} disabled={busy}>{busy ? 'Working…' : confirmLabel}</ActionBtn>
         <ActionBtn variant="secondary" onClick={() => setConfirming(false)} disabled={busy}>Cancel</ActionBtn>
@@ -62,12 +62,12 @@ function ConfirmAction({
 
 function ErrorMsg({ msg }: { msg: string | null }) {
   if (!msg) return null
-  return <p className="text-red-600 text-sm mt-2">{msg}</p>
+  return <p className="text-terracotta-600 text-sm mt-2">{msg}</p>
 }
 
 function SuccessMsg({ msg }: { msg: string | null }) {
   if (!msg) return null
-  return <p className="text-green-600 text-sm mt-2">{msg}</p>
+  return <p className="text-jade-600 text-sm mt-2">{msg}</p>
 }
 
 /** Standard async-action wrapper: toggles a busy flag and captures the error. */
@@ -100,9 +100,9 @@ function ActionBtn({
 }) {
   const cls =
     variant === 'primary'
-      ? 'bg-jungle-600 text-white hover:bg-jungle-700'
+      ? 'bg-jade-600 text-white hover:bg-jade-700'
       : variant === 'danger'
-        ? 'bg-red-600 text-white hover:bg-red-700'
+        ? 'bg-terracotta-600 text-white hover:bg-terracotta-700'
         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
   return (
     <button
@@ -166,7 +166,7 @@ function SeasonSection({
 
   if (!editing) {
     return (
-      <div className="p-4 bg-white border border-sand-200 rounded-xl">
+      <div className="p-4 bg-white border border-cream-200 rounded-xl">
         <div className="flex items-start justify-between">
           <div>
             <p className="font-semibold text-gray-900">{season.name}</p>
@@ -195,14 +195,14 @@ function SeasonSection({
   }
 
   return (
-    <div className="p-4 bg-white border border-sand-200 rounded-xl space-y-3">
+    <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="col-span-2">
           <label className="block text-xs text-gray-500 mb-1">Name</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -210,7 +210,7 @@ function SeasonSection({
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as Season['status'])}
-            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
           >
             <option value="upcoming">upcoming</option>
             <option value="active">active</option>
@@ -224,7 +224,7 @@ function SeasonSection({
               type="number"
               value={swapCost}
               onChange={(e) => setSwapCost(e.target.value)}
-              className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
             />
           </div>
         )}
@@ -234,7 +234,7 @@ function SeasonSection({
             type="number"
             value={lockEp}
             onChange={(e) => setLockEp(e.target.value)}
-            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -243,7 +243,7 @@ function SeasonSection({
             type="number"
             value={mergeEp}
             onChange={(e) => setMergeEp(e.target.value)}
-            className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div className="col-span-2">
@@ -260,7 +260,7 @@ function SeasonSection({
                   min={1}
                   value={tier.from_episode}
                   onChange={(e) => setTier(i, 'from_episode', e.target.value)}
-                  className="w-20 border border-sand-200 rounded-lg px-2 py-1 text-sm"
+                  className="w-20 border border-cream-200 rounded-lg px-2 py-1 text-sm"
                 />
                 <span className="text-xs text-gray-500">votes</span>
                 <input
@@ -269,7 +269,7 @@ function SeasonSection({
                   max={3}
                   value={tier.picks}
                   onChange={(e) => setTier(i, 'picks', e.target.value)}
-                  className="w-20 border border-sand-200 rounded-lg px-2 py-1 text-sm"
+                  className="w-20 border border-cream-200 rounded-lg px-2 py-1 text-sm"
                 />
                 <ActionBtn
                   variant="secondary"
@@ -296,7 +296,7 @@ function SeasonSection({
           <ConfirmAction
             label="Review season completion"
             confirmLabel="Complete season"
-            impact="Completing the season changes member-facing composition to final standings. Existing scores and historical rules remain unchanged."
+            impact="Completing the season changes mterracotta-facing composition to final standings. Existing scores and historical rules remain unchanged."
             onConfirm={save}
             busy={saving}
           />
@@ -371,20 +371,20 @@ function ContestantsSection({
         editingId === c.id ? (
           <div
             key={c.id}
-            className="p-3 bg-white border border-ocean-200 rounded-lg space-y-2"
+            className="p-3 bg-white border border-forest-200 rounded-lg space-y-2"
           >
             <div className="flex items-center gap-2">
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 border border-sand-200 rounded px-2 py-1 text-sm"
+                className="flex-1 border border-cream-200 rounded px-2 py-1 text-sm"
                 placeholder="Name"
               />
               <input
                 type="number"
                 value={editPlacement}
                 onChange={(e) => setEditPlacement(e.target.value)}
-                className="w-20 border border-sand-200 rounded px-2 py-1 text-sm"
+                className="w-20 border border-cream-200 rounded px-2 py-1 text-sm"
                 placeholder="Place"
               />
               <ActionBtn onClick={() => saveEdit(c.id)} disabled={saving}>
@@ -399,7 +399,7 @@ function ContestantsSection({
               <input
                 value={editImageUrl}
                 onChange={(e) => setEditImageUrl(e.target.value)}
-                className="flex-1 border border-sand-200 rounded px-2 py-1 text-sm"
+                className="flex-1 border border-cream-200 rounded px-2 py-1 text-sm"
                 placeholder="Photo URL (upload in Supabase Studio, paste the public link)"
               />
             </div>
@@ -430,7 +430,7 @@ function ContestantsSection({
           value={addText}
           onChange={(e) => setAddText(e.target.value)}
           rows={4}
-          className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mb-2"
+          className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm mb-2"
           placeholder="Castaway 01&#10;Castaway 02"
         />
         <ErrorMsg msg={addError} />
@@ -590,7 +590,7 @@ function ImportSection({
             placeholder="US season # (default: this season)"
             value={sourceSeason}
             onChange={(e) => setSourceSeason(e.target.value)}
-            className="w-64 border border-sand-200 rounded px-2 py-1 text-sm"
+            className="w-64 border border-cream-200 rounded px-2 py-1 text-sm"
           />
           <ActionBtn variant="secondary" onClick={load} disabled={loading}>
             {loading ? 'Loading…' : 'Load proposal'}
@@ -612,7 +612,7 @@ function ImportSection({
             (CC BY).
           </p>
           {proposal.unmatched.length > 0 && (
-            <p className="text-xs text-red-600">
+            <p className="text-xs text-terracotta-600">
               No matching contestant (items dropped): {proposal.unmatched.join('; ')}
             </p>
           )}
@@ -653,9 +653,9 @@ function ImportSection({
             </div>
           )}
           {proposal.warnings.length > 0 && (
-            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-1">
+            <div className="p-3 bg-gold-50 border border-gold-100 rounded-lg space-y-1">
               {proposal.warnings.map((w, i) => (
-                <p key={i} className="text-xs text-amber-700">
+                <p key={i} className="text-xs text-gold-700">
                   ! {w}
                 </p>
               ))}
@@ -795,7 +795,7 @@ function EpisodeInsightEditor({
           {options.map((option) => {
             const checked = selected.includes(option.key)
             return (
-              <label key={option.key} className="flex items-start gap-2 rounded-lg border border-sand-200 p-2.5 text-sm">
+              <label key={option.key} className="flex items-start gap-2 rounded-lg border border-cream-200 p-2.5 text-sm">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -979,7 +979,7 @@ function EpisodePanel({
               type="number"
               value={epNum}
               onChange={(e) => setEpNum(e.target.value)}
-              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div>
@@ -988,7 +988,7 @@ function EpisodePanel({
               type="date"
               value={airDate}
               onChange={(e) => setAirDate(e.target.value)}
-              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div>
@@ -997,7 +997,7 @@ function EpisodePanel({
               type="datetime-local"
               value={locksAt}
               onChange={(e) => setLocksAt(e.target.value)}
-              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div>
@@ -1006,7 +1006,7 @@ function EpisodePanel({
               type="number"
               value={maxPicks}
               onChange={(e) => setMaxPicks(e.target.value)}
-              className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+              className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -1060,7 +1060,7 @@ function EpisodePanel({
                       value={draft.elimination_type}
                       disabled={elimBusy === c.id}
                       onChange={(e) => setElimType(c.id, e.target.value)}
-                      className="border border-sand-200 rounded px-2 py-1 text-xs"
+                      className="border border-cream-200 rounded px-2 py-1 text-xs"
                     >
                       {ELIMINATION_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>
@@ -1101,7 +1101,7 @@ function EpisodePanel({
                     <button
                       onClick={() => removeEvent(ev.id)}
                       disabled={eventsBusy}
-                      className="text-gray-500 hover:text-red-500 text-xs disabled:opacity-40"
+                      className="text-gray-500 hover:text-terracotta-500 text-xs disabled:opacity-40"
                     >
                       ✕
                     </button>
@@ -1113,7 +1113,7 @@ function EpisodePanel({
               <select
                 value={newContestant}
                 onChange={(e) => setNewContestant(e.target.value)}
-                className="border border-sand-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
+                className="border border-cream-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
               >
                 <option value="">Contestant…</option>
                 {contestants.map((c) => (
@@ -1125,7 +1125,7 @@ function EpisodePanel({
               <select
                 value={newEventType}
                 onChange={(e) => setNewEventType(e.target.value)}
-                className="border border-sand-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
+                className="border border-cream-200 rounded px-2 py-1 text-sm flex-1 min-w-0"
               >
                 {eventTypes.map((t) => (
                   <option key={t.event_type} value={t.event_type}>
@@ -1138,7 +1138,7 @@ function EpisodePanel({
                 value={newQty}
                 onChange={(e) => setNewQty(Number(e.target.value))}
                 min={1}
-                className="w-16 border border-sand-200 rounded px-2 py-1 text-sm"
+                className="w-16 border border-cream-200 rounded px-2 py-1 text-sm"
               />
               <ActionBtn
                 variant="secondary"
@@ -1300,7 +1300,7 @@ function EpisodeProposalSection({
             placeholder="US season # (default: this season)"
             value={tvmazeSeason}
             onChange={(e) => setTvmazeSeason(e.target.value)}
-            className="w-64 border border-sand-200 rounded px-2 py-1 text-sm"
+            className="w-64 border border-cream-200 rounded px-2 py-1 text-sm"
           />
           <ActionBtn variant="secondary" onClick={load} disabled={loading}>
             {loading ? 'Loading…' : 'Load schedule'}
@@ -1414,10 +1414,10 @@ function EpisodesSection({
     const status = commissionerEpisodeLabel(episode)
     const cls =
       status === 'Scored'
-        ? 'bg-green-50 text-green-700'
+        ? 'bg-jade-50 text-jade-700'
         : status === 'Scheduled'
           ? 'bg-blue-50 text-blue-700'
-          : 'bg-amber-50 text-amber-800'
+          : 'bg-gold-50 text-gold-800'
     return (
       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cls}`}>{status}</span>
     )
@@ -1427,7 +1427,7 @@ function EpisodesSection({
     <div className="space-y-2">
       {episodes.length === 0 && <Notice title="No episodes scheduled">Create the schedule from TVmaze or add the first episode manually.</Notice>}
       {episodes.map((ep) => (
-        <div id={`episode-${ep.id}`} key={ep.id} className={`scroll-mt-24 p-4 bg-white border rounded-xl ${ep.id === focusEpisodeId ? 'border-ocean-300 ring-1 ring-ocean-100' : 'border-sand-200'}`}>
+        <div id={`episode-${ep.id}`} key={ep.id} className={`scroll-mt-24 p-4 bg-white border rounded-xl ${ep.id === focusEpisodeId ? 'border-forest-300 ring-1 ring-forest-100' : 'border-cream-200'}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
               <span className="font-medium text-gray-900">Ep {ep.episode_number}</span>
@@ -1469,7 +1469,7 @@ function EpisodesSection({
                 type="number"
                 value={epNum}
                 onChange={(e) => setEpNum(e.target.value)}
-                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div>
@@ -1478,7 +1478,7 @@ function EpisodesSection({
                 type="date"
                 value={airDate}
                 onChange={(e) => setAirDate(e.target.value)}
-                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div>
@@ -1487,7 +1487,7 @@ function EpisodesSection({
                 type="datetime-local"
                 value={locksAt}
                 onChange={(e) => setLocksAt(e.target.value)}
-                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div>
@@ -1497,7 +1497,7 @@ function EpisodesSection({
                 placeholder="from schedule"
                 value={maxPicks}
                 onChange={(e) => setMaxPicks(e.target.value)}
-                className="w-full border border-sand-200 rounded px-2 py-1 text-sm"
+                className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -1525,7 +1525,7 @@ function EpisodesSection({
       ) : (
         <button
           onClick={() => setShowAddForm(true)}
-          className="w-full py-2 text-sm text-gray-500 border border-dashed border-sand-200 rounded-xl hover:border-gray-300 hover:text-gray-700 transition-colors"
+          className="w-full py-2 text-sm text-gray-500 border border-dashed border-cream-200 rounded-xl hover:border-gray-300 hover:text-gray-700 transition-colors"
         >
           + Add episode
         </button>
@@ -1577,7 +1577,7 @@ function LeagueSettingsSection({
   }
 
   return (
-    <div className="p-4 bg-white border border-sand-200 rounded-xl space-y-3 max-w-sm">
+    <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3 max-w-sm">
       <p className="text-xs text-gray-500">
         Share this code with new members — they enter it at /join to create their
         profile.
@@ -1585,7 +1585,7 @@ function LeagueSettingsSection({
       <input
         value={joinCode}
         onChange={(e) => setJoinCode(e.target.value)}
-        className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm"
+        className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
       />
       <ErrorMsg msg={error} />
       <SuccessMsg msg={success} />
@@ -1659,15 +1659,15 @@ export function AdminPage() {
         eyebrow="Commissioner"
         title="League operations"
         description="Schedule, review, score, and correct the active season. Changes here affect the whole league."
-        meta={<span className="rounded-full bg-ocean-50 px-3 py-1 font-medium text-ocean-800">{season.name}</span>}
+        meta={<span className="rounded-full bg-forest-50 px-3 py-1 font-medium text-forest-800">{season.name}</span>}
       />
 
-      <section aria-labelledby="current-work-title" className={`rounded-2xl border p-5 sm:p-6 ${context.stage === 'review' ? 'border-amber-300 bg-amber-50' : context.stage === 'complete' ? 'border-jungle-200 bg-jungle-50' : 'border-ocean-200 bg-ocean-50'}`}>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ocean-700">Current work</p>
-        <h2 id="current-work-title" className="mt-1 font-display text-2xl tracking-wide text-ocean-900">{context.title}</h2>
+      <section aria-labelledby="current-work-title" className={`rounded-2xl border p-5 sm:p-6 ${context.stage === 'review' ? 'border-gold-300 bg-gold-50' : context.stage === 'complete' ? 'border-jade-200 bg-jade-50' : 'border-forest-200 bg-forest-50'}`}>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-700">Current work</p>
+        <h2 id="current-work-title" className="mt-1 font-display text-2xl tracking-wide text-forest-900">{context.title}</h2>
         <p className="mt-2 text-sm text-gray-700">{context.action}</p>
         {context.episode && (
-          <a href={`#episode-${context.episode.id}`} className="mt-4 inline-flex rounded-lg bg-ocean-700 px-4 py-2 text-sm font-semibold text-white hover:bg-ocean-800">
+          <a href={`#episode-${context.episode.id}`} className="mt-4 inline-flex rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800">
             Open Episode {context.episode.episode_number} →
           </a>
         )}
@@ -1675,7 +1675,7 @@ export function AdminPage() {
 
       <nav aria-label="Commissioner workflow" className="mt-5 overflow-x-auto pb-1">
         <ol className="flex min-w-max gap-2">
-          {workflow.map((step) => <li key={step.id}><a href={`#${step.id}`} className="block rounded-full border border-sand-200 bg-white px-3 py-2 text-sm text-ocean-700 hover:border-ocean-300">{step.label}</a></li>)}
+          {workflow.map((step) => <li key={step.id}><a href={`#${step.id}`} className="block rounded-full border border-cream-200 bg-white px-3 py-2 text-sm text-forest-700 hover:border-forest-300">{step.label}</a></li>)}
         </ol>
       </nav>
 

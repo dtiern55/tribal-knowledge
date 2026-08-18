@@ -50,7 +50,7 @@ export function CastPage() {
               <li key={member.id}>
                 <Link
                   to={`/contestants/${member.id}`}
-                  className={`flex items-center justify-between gap-2 rounded-lg border border-sand-200 bg-white p-3 font-medium transition-colors hover:border-ocean-300 hover:text-ocean-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-600 ${
+                  className={`flex items-center justify-between gap-2 rounded-lg border border-cream-200 bg-white p-3 font-medium transition-colors hover:border-forest-300 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 ${
                     eliminated ? 'text-gray-500' : 'text-gray-900'
                   }`}
                 >
@@ -73,7 +73,7 @@ export function CastPage() {
                       {member.name}
                     </span>
                     {member.placement != null ? (
-                      <span className="rounded bg-amber-50 px-2 py-1 text-[11px] uppercase tracking-wide text-amber-700">
+                      <span className="rounded bg-gold-50 px-2 py-1 text-[11px] uppercase tracking-wide text-gold-700">
                         #{member.placement}
                       </span>
                     ) : eliminated ? (
@@ -85,9 +85,9 @@ export function CastPage() {
                   <span
                     className={`w-16 shrink-0 text-right text-sm font-semibold ${
                       member.total_points > 0
-                        ? 'text-green-600'
+                        ? 'text-jade-600'
                         : member.total_points < 0
-                          ? 'text-red-500'
+                          ? 'text-terracotta-500'
                           : 'text-gray-500'
                     }`}
                   >

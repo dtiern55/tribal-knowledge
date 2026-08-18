@@ -53,14 +53,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto mt-4 grid max-w-3xl overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm md:mt-10 md:grid-cols-[0.8fr_1.2fr]">
-      <section className="bg-gradient-to-br from-ocean-900 to-jungle-800 p-6 text-white sm:p-8" aria-labelledby="welcome-title">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ember-200">Private Survivor league</p>
+    <div className="mx-auto mt-4 grid max-w-3xl overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-sm md:mt-10 md:grid-cols-[0.8fr_1.2fr]">
+      <section className="bg-gradient-to-br from-forest-900 to-jade-800 p-6 text-white sm:p-8" aria-labelledby="welcome-title">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-terracotta-200">Private Survivor league</p>
         <h1 id="welcome-title" className="mt-2 font-display text-3xl tracking-wide">Welcome to Tribal Knowledge</h1>
       </section>
 
       <section className="p-5 sm:p-8" aria-labelledby="auth-form-title">
-        <h2 id="auth-form-title" className="font-display text-2xl tracking-wide text-ocean-800">
+        <h2 id="auth-form-title" className="font-display text-2xl tracking-wide text-forest-800">
           {mode === 'signin' ? 'Sign in' : 'Create your account'}
         </h2>
         {mode === 'signup' && (
@@ -80,7 +80,7 @@ export function LoginPage() {
             autoComplete="email"
             autoCapitalize="none"
             spellCheck={false}
-            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
         </div>
         <div>
@@ -95,15 +95,15 @@ export function LoginPage() {
             required
             minLength={mode === 'signup' ? 8 : undefined}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
         </div>
-        {error && <p id="auth-error" role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        {info && <p id="auth-info" role="status" className="rounded-lg bg-jungle-50 px-3 py-2 text-sm text-jungle-700">{info}</p>}
+        {error && <p id="auth-error" role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
+        {info && <p id="auth-info" role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">{info}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="min-h-11 w-full cursor-pointer rounded-lg bg-jungle-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50"
+          className="min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50"
         >
           {submitting
             ? mode === 'signin'
@@ -121,7 +121,7 @@ export function LoginPage() {
           setError(null)
           setInfo(null)
         }}
-        className="mt-5 min-h-11 cursor-pointer text-sm font-medium text-ocean-700 hover:text-ocean-900"
+        className="mt-5 min-h-11 cursor-pointer text-sm font-medium text-forest-700 hover:text-forest-900"
       >
         {mode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}
       </button>
