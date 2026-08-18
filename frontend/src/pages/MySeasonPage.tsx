@@ -1118,6 +1118,12 @@ function RosterSection({
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
+  // On a successful drop, show the seal on its destination immediately while
+  // the delete-and-create request catches up. Without this bridge the server-
+  // backed target briefly renders old → none → new, which reads as a snap-back.
+  const [pendingDoubleTarget, setPendingDoubleTarget] = useState<string | null>(null)
+  const displayedDoubleTarget =
+    pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
 
   // Drag the ×2 seal from the doubled castaway onto another one to move the
   // play (#407) — the direct-manipulation twin of the Advantage → Roster ×2 →
@@ -1134,8 +1140,8 @@ function RosterSection({
       contestantMap.get(id)?.eliminated_in_episode == null
     )
   }
-  const dragCtx = useRef({ canDropOn, replace: weekly.replace, setLit })
-  dragCtx.current = { canDropOn, replace: weekly.replace, setLit }
+  const dragCtx = useRef({ canDropOn, replace: weekly.replace })
+  dragCtx.current = { canDropOn, replace: weekly.replace }
 
   function startSealDrag(e: React.PointerEvent) {
     if (weekly.locked || weekly.busy) return
@@ -1157,16 +1163,18 @@ function RosterSection({
       setDrag((d) => d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY) })
     const end = (e: PointerEvent) => {
       const overId = targetAt(e.clientX, e.clientY)
+      if (!overId) {
+        setDrag(null)
+        return
+      }
+      // Move the in-row seal in the same render that removes the lifted copy.
+      // The quiet held treatment is enough feedback here; the old delayed glow
+      // made the async handoff feel like a second, separate interaction.
+      setPendingDoubleTarget(overId)
       setDrag(null)
-      if (!overId) return
-      const ctx = dragCtx.current
-      // Let the stamp land first, then light it: await the reassign so the glow
-      // chases the seal onto the new row rather than beating it there (#407).
-      void ctx.replace('double_roster_points', overId).then(() => {
-        ctx.setLit(overId)
-        const hold = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1300
-        window.setTimeout(() => ctx.setLit(null), hold)
-      })
+      void dragCtx.current
+        .replace('double_roster_points', overId)
+        .finally(() => setPendingDoubleTarget(null))
     }
     const cancel = () => setDrag(null)
     window.addEventListener('pointermove', move, { passive: false })
@@ -1401,7 +1409,7 @@ function RosterSection({
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
-                isDoubled={rosterDouble?.target_contestant_id === pick.contestant_id}
+                isDoubled={displayedDoubleTarget === pick.contestant_id}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
@@ -1433,7 +1441,7 @@ function RosterSection({
                 selected={
                   picking === 'swap'
                     ? dropping === pick.contestant_id
-                    : rosterDouble?.target_contestant_id === pick.contestant_id
+                    : displayedDoubleTarget === pick.contestant_id
                 }
                 lit={lit === pick.contestant_id}
                 expanded={expandedId === pick.contestant_id}
@@ -1441,12 +1449,12 @@ function RosterSection({
                 // #407: the doubled row's seal is a drag handle (only when not
                 // already tap-picking); every row is a drop target for it.
                 onSealPointerDown={
-                  !picking && rosterDouble?.target_contestant_id === pick.contestant_id
+                  !picking && displayedDoubleTarget === pick.contestant_id
                     ? startSealDrag
                     : undefined
                 }
                 sealLifted={
-                  dragging && rosterDouble?.target_contestant_id === pick.contestant_id
+                  dragging && displayedDoubleTarget === pick.contestant_id
                 }
                 dropId={pick.contestant_id}
                 dropActive={drag?.overId === pick.contestant_id}
