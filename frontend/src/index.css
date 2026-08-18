@@ -319,7 +319,7 @@ html:not(.locked-night) .expedition-ledger::after {
      corners fixed and tiles the edges), so the corners are drawn arcs, not two
      straight rules crossing. */
   border: 14px solid transparent;
-  border-image: url('./assets/expedition-pencil-border.png') 36 repeat;
+  border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
 }
 
 /* The record's inner rules — header, points-label and beat-bar dividers — were
@@ -411,7 +411,7 @@ html:not(.locked-night) .ledger-divide::after {
   /* Same ripped pencil frame as the record, scaled down — its rounded corners
      stay centred on the mat instead of four rules crossing off-centre. */
   border: 7px solid transparent;
-  border-image: url('./assets/expedition-pencil-border.png') 36 repeat;
+  border-image: url('./assets/expedition-pencil-frame.png') 36 repeat;
 }
 
 .ledger-photo {
