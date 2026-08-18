@@ -1,5 +1,5 @@
-/** A small carved advantage idol for Double Roster Points. On the roster it
- * also remains the drag handle for moving the play. Detail steps down with the
+/** A carved pendant idol for Double Roster Points. On the roster it also
+ * remains the drag handle for moving the play. Detail steps down with the
  * rendered size so the mark stays legible in the 15px beat tab. */
 export function DoubleBadge({
   size = 22,
@@ -29,9 +29,21 @@ export function DoubleBadge({
         data-detail={compact ? 'compact' : 'carved'}
         className="block h-full w-full overflow-visible"
       >
+        {!compact && (
+          <g
+            data-part="cord"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15-2c3.5 5.5 5.8 9 9 16M33-2c-3.5 5.5-5.8 9-9 16" stroke="#c45432" strokeWidth="3.2" />
+            <path d="M15-2c3.5 5.5 5.8 9 9 16M33-2c-3.5 5.5-5.8 9-9 16" stroke="#d4913a" strokeWidth="1.05" />
+          </g>
+        )}
+
         <path
           data-part="idol"
-          d="M13 2.5 19 7 24 1.5 29 7 35 2.5 34 10.5 42 14.5 38 22 43 27.5 36 32 35 45 29 42 24 50 19 42 13 45 12 32 5 27.5 10 22 6 14.5 14 10.5Z"
+          d="M24 6.5c9-.3 17.2 6.1 20 15 2.5 8.5-1 18.5-8.5 24C28.2 51 18 51.2 10.5 45.3 3 39.4.8 29.4 4.2 20.7 7.7 11.9 15 6.8 24 6.5Z"
           fill="#d4913a"
           stroke="#1c1917"
           strokeWidth="1.25"
@@ -39,34 +51,34 @@ export function DoubleBadge({
         />
         <path
           data-part="field"
-          d="M15.5 8 20 11.5 24 7 28 11.5 32.5 8 31.5 13.5 37.5 16.5 34 22.5 38.5 27 32 29.5 31.5 39.5 27 37.5 24 43.5 21 37.5 16.5 39.5 16 29.5 9.5 27 14 22.5 10.5 16.5 16.5 13.5Z"
+          d="M24 9.8c7.7-.3 14.5 5.1 17 12.4 2.3 7.1-.7 15.6-7 20.4-6 4.7-14.7 4.8-21 .1-6.3-4.7-8.1-13.1-5.2-20.4C10.7 15 16.3 10.1 24 9.8Z"
           fill="#1e3a2f"
         />
 
         {!compact && (
-          <g data-part="carved-face">
-            <path d="M15.5 15.5 24 10l8.5 5.5-2 4.5H17.5Z" fill="#c45432" />
-            <path d="m16.5 20.5 6 1.4-4.6 3.8Z" fill="#f2e9db" />
-            <path d="m31.5 20.5-6 1.4 4.6 3.8Z" fill="#f2e9db" />
-            <path d="m24 18.5 2.2 8-2.2 2.2-2.2-2.2Z" fill="#d4913a" />
+          <>
+            <circle cx="24" cy="14" r="4.4" fill="#c45432" stroke="#d4913a" strokeWidth="1.25" />
+            <circle data-part="cord-hole" cx="24" cy="14" r="2.15" fill="#1c1917" />
             <path
-              d="M19 30.5c3.2 2 6.8 2 10 0"
+              data-part="carved-grooves"
+              d="M8.5 22c2-5 5-8 9.5-10M39.5 22c-2-5-5-8-9.5-10M7.5 28c3-4 7.5-4.5 10-1.2m-10 1.2c-.8 4 1 7 4.5 8m28.5-8c-3-4-7.5-4.5-10-1.2m10 1.2c.8 4-1 7-4.5 8M13 41c3-2.3 5.3-2.1 8 .7l3 3 3-3c2.7-2.8 5-3 8-.7"
               fill="none"
-              stroke="#2e6b52"
-              strokeWidth="2"
+              stroke="#d4913a"
+              strokeWidth="1.55"
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
-          </g>
+          </>
         )}
 
         <text
           data-part={compact ? 'compact-mark' : 'multiplier'}
           x="24"
-          y={compact ? 34 : 41}
+          y={compact ? 35 : 36.5}
           textAnchor="middle"
           fill="#f2e9db"
           fontFamily="Rajdhani, system-ui, sans-serif"
-          fontSize={compact ? 23 : 15}
+          fontSize={compact ? 22 : 18}
           fontWeight="700"
           letterSpacing={compact ? '-1.3' : '-0.8'}
         >
@@ -82,8 +94,8 @@ export function DoubleBadge({
             strokeLinecap="round"
             opacity="0.68"
           >
-            <path d="m13 7 3.5 2.5M35 7l-3.5 2.5M8.5 16.5l4 1.5M39.5 16.5l-4 1.5" />
-            <path d="m8.5 27.5 4 1M39.5 27.5l-4 1M15 39l3.5-1M33 39l-3.5-1" />
+            <path d="m11 17 3.5 2-2.8 3M37 17l-3.5 2 2.8 3M7.5 32l4-1.5 1.2 3.5M40.5 32l-4-1.5-1.2 3.5" />
+            <path d="m15 45 3-2M33 45l-3-2" />
           </g>
         )}
       </svg>

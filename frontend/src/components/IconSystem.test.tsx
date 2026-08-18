@@ -6,7 +6,7 @@ import { Torch } from './Torch'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
-  it('steps the carved Double Roster Points idol down at small sizes', () => {
+  it('steps the carved Double Roster Points pendant down at small sizes', () => {
     const { container, rerender } = render(<DoubleBadge />)
     let idol = container.querySelector('[data-mark="double-idol"]')
 
@@ -14,14 +14,18 @@ describe('approved icon system', () => {
     expect(idol).toHaveAttribute('data-detail', 'carved')
     expect(idol).toHaveTextContent('×2')
     expect(idol?.querySelector('[data-part="idol"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="carved-face"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="cord"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="cord-hole"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="carved-grooves"]')).toBeInTheDocument()
     expect(idol?.querySelector('[data-part="carved-notches"]')).not.toBeInTheDocument()
 
     rerender(<DoubleBadge size={15} />)
     idol = container.querySelector('[data-mark="double-idol"]')
     expect(idol).toHaveAttribute('data-detail', 'compact')
     expect(idol?.querySelector('[data-part="compact-mark"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="carved-face"]')).not.toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="cord"]')).not.toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="cord-hole"]')).not.toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="carved-grooves"]')).not.toBeInTheDocument()
 
     rerender(<DoubleBadge size={28} />)
     idol = container.querySelector('[data-mark="double-idol"]')
