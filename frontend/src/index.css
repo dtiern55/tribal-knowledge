@@ -730,7 +730,7 @@ html.locked-night .app-shell .vote-slip { color: #2a2016; }
   background-image: url('./assets/expedition-ocean-wash-tile.webp');
   background-position: left top;
   background-repeat: repeat-y;
-  background-size: 100% 52px;
+  background-size: 100% 44px;
   box-shadow: inset 3px 0 0 var(--color-ocean-700);
 }
 
