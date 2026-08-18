@@ -37,3 +37,12 @@ hidden immunity idols) — possibly tracking the current season — if we revisi
 
 Concept board: https://claude.ai/code/artifact/eb296bee-0d12-4997-be79-2d51f01768b2
 SVGs are 512×512, palette-matched to the app (ocean/ember/cream/gold/bone).
+
+## 2026-08-18 Jungle Earth update
+
+The three-seat fire ring remains the app identity, but its production palette
+now follows the Jungle Earth system: forest ground, cream council ring,
+terracotta flame, and a gold inner ember. The ring is slightly larger and the
+flame is nudged right for better optical centering. This keeps the established
+Final Tribal meaning and small-size silhouette while bringing the icon into the
+same visual world as the application.

@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <title>Tribal Knowledge — Final Tribal fire</title>
-  <rect width="512" height="512" rx="96" fill="#14628c"/>
+  <title>Tribal Knowledge — Jungle Earth Final Tribal fire</title>
+  <rect width="512" height="512" rx="96" fill="#1e3a2f"/>
 
   <!-- Three seats around the fire: the final three at Final Tribal Council. -->
   <circle
     cx="256"
     cy="256"
-    r="166"
+    r="172"
     fill="none"
-    stroke="#f3e3c3"
-    stroke-width="62"
+    stroke="#f2e9db"
+    stroke-width="60"
     stroke-linecap="round"
     stroke-dasharray="247 100.67"
     stroke-dashoffset="-50.33"
@@ -17,9 +17,9 @@
   />
 
   <!-- A forked outer edge keeps the flame expressive without an interior cut. -->
-  <g transform="translate(-16 16)">
+  <g transform="translate(-13 16)">
     <path
-      fill="#d5621b"
+      fill="#c45432"
       d="M256 361
        C207 358 176 328 176 286
        C176 249 198 224 225 197
@@ -29,6 +29,17 @@
        C305 238 322 217 330 191
        C361 230 368 281 347 319
        C329 351 295 364 256 361Z"
+    />
+    <path
+      fill="#d4913a"
+      d="M261 337
+       C238 334 225 320 225 301
+       C225 284 236 272 247 260
+       C259 247 266 233 265 218
+       C284 234 291 253 285 269
+       C297 264 305 256 311 246
+       C321 265 322 288 313 306
+       C304 325 284 339 261 337Z"
     />
   </g>
 </svg>
