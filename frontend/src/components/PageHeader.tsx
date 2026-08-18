@@ -12,15 +12,15 @@ export function PageHeader({
   actions?: React.ReactNode
 }) {
   return (
-    <header className="mb-6 border-b border-sand-200 pb-5">
+    <header className="mb-6">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           {eyebrow && (
-            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ember-700">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">
               {eyebrow}
             </p>
           )}
-          <h1 className="font-display text-3xl tracking-wide text-ocean-800 md:text-4xl">
+          <h1 className="font-display text-3xl tracking-wide text-forest-800 md:text-4xl">
             {title}
           </h1>
           {description && (
@@ -36,6 +36,7 @@ export function PageHeader({
           </div>
         )}
       </div>
+      <div className="tribal-border mt-5" aria-hidden="true" />
     </header>
   )
 }

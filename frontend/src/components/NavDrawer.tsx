@@ -21,7 +21,7 @@ import {
 } from './icons'
 
 const rowCls =
-  'flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-gray-700 hover:bg-sand-100'
+  'flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-gray-700 hover:bg-cream-100'
 
 /** Slide-in navigation drawer (#219): the app-wide home for the season
  * switcher, account links, install, and sign out — reachable from the
@@ -107,7 +107,7 @@ export function NavDrawer({
       <button
         type="button"
         onClick={onClose}
-        className={`fixed inset-0 z-40 bg-ocean-900/40 transition-opacity ${
+        className={`fixed inset-0 z-40 bg-forest-900/40 transition-opacity ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         aria-label="Dismiss menu"
@@ -122,28 +122,28 @@ export function NavDrawer({
         aria-label="Menu"
         aria-hidden={!open}
         inert={!open ? true : undefined}
-        className={`fixed top-0 right-0 z-50 flex h-full w-80 max-w-[85vw] flex-col bg-sand-50 shadow-xl transition-transform duration-200 motion-reduce:transition-none ${
+        className={`fixed top-0 right-0 z-50 flex h-full w-80 max-w-[85vw] flex-col bg-cream-50 shadow-xl transition-transform duration-200 motion-reduce:transition-none ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex h-14 items-center justify-between border-b border-sand-200 px-4">
-          <span className="font-display text-lg tracking-wide text-ocean-800">Menu</span>
+        <div className="flex h-14 items-center justify-between border-b border-cream-200 px-4">
+          <span className="font-display text-lg tracking-wide text-forest-800">Menu</span>
           <button
             ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="inline-flex size-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-sand-100 hover:text-gray-800"
+            className="inline-flex size-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-cream-100 hover:text-gray-800"
           >
             <CloseIcon />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="border-b border-sand-200 p-4">
+          <div className="border-b border-cream-200 p-4">
             <label
               htmlFor="drawer-season"
-              className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-ocean-600"
+              className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-forest-600"
             >
               Season
             </label>
@@ -151,7 +151,7 @@ export function NavDrawer({
               id="drawer-season"
               value={activeId}
               onChange={(e) => changeSeason(e.target.value)}
-              className="w-full rounded-lg border border-ocean-200 bg-white px-3 py-2 font-display tracking-wide text-ocean-900"
+              className="w-full rounded-lg border border-forest-200 bg-white px-3 py-2 font-display tracking-wide text-forest-900"
             >
               {/* Active season first, then past seasons newest→oldest (#236). */}
               {[...seasons]
@@ -174,7 +174,7 @@ export function NavDrawer({
             <div className={`${rowCls} cursor-default text-gray-500 hover:bg-transparent`}>
               <EnvelopeIcon />
               <span className="flex-1">Treemail</span>
-              <span className="rounded border border-sand-200 px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
+              <span className="rounded border border-cream-200 px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
                 Soon
               </span>
             </div>
@@ -185,7 +185,7 @@ export function NavDrawer({
             <div className={`${rowCls} cursor-default text-gray-500 hover:bg-transparent`}>
               <GearIcon />
               <span className="flex-1">Settings</span>
-              <span className="rounded border border-sand-200 px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
+              <span className="rounded border border-cream-200 px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
                 Soon
               </span>
             </div>
@@ -208,11 +208,11 @@ export function NavDrawer({
           </nav>
         </div>
 
-        <div className="border-t border-sand-200">
+        <div className="border-t border-cream-200">
           <button
             type="button"
             onClick={() => void signOut()}
-            className={`${rowCls} text-ember-700 hover:bg-ember-50`}
+            className={`${rowCls} text-terracotta-700 hover:bg-terracotta-50`}
           >
             <LogOutIcon />
             Sign out

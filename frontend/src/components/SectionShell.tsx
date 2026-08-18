@@ -37,7 +37,7 @@ export function SectionShell({
   // small uppercase labels. Colour alone wasn't enough of a difference —
   // My Roster and Sole Survivor looked like peers.
   const label = prominent ? (
-    <span className="font-display text-lg tracking-wide text-ocean-800">{title}</span>
+    <span className="font-display text-lg tracking-wide text-forest-800">{title}</span>
   ) : (
     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
       {title}
@@ -48,7 +48,7 @@ export function SectionShell({
   // supporting split still reads, because it was never carried by hue: the
   // display face against small uppercase is what separates them.
   const bar = `w-full flex items-center gap-2 ${shown ? 'mb-3' : ''} ${
-    prominent ? 'pl-3 border-l-[3px] border-ember-700' : 'pl-2 border-l-2 border-ember-500'
+    prominent ? 'pl-3 border-l-[3px] border-terracotta-700' : 'pl-2 border-l-2 border-terracotta-500'
   }`
   return (
     <div>

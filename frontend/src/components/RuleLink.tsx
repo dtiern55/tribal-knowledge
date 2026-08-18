@@ -4,7 +4,7 @@ export function RuleLink({ anchor, children }: { anchor: string; children: React
   return (
     <Link
       to={`/rules#${anchor}`}
-      className="inline-flex items-center gap-1 text-xs font-semibold text-ocean-700 underline decoration-ocean-300 underline-offset-2 hover:text-ocean-900"
+      className="inline-flex items-center gap-1 text-xs font-semibold text-forest-700 underline decoration-forest-300 underline-offset-2 hover:text-forest-900"
     >
       {children} <span aria-hidden>→</span>
     </Link>

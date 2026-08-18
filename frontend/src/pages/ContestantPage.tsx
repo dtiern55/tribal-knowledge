@@ -11,7 +11,7 @@ import { useSwipeNav } from '../lib/swipe'
 import type { CastMember, ContestantPerformance, RosterPick, ScoringBreakdown } from '../types'
 
 function Points({ value, suffix = 'pts' }: { value: number; suffix?: string }) {
-  const color = value > 0 ? 'text-green-700' : value < 0 ? 'text-red-600' : 'text-gray-600'
+  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-gray-600'
   return <span className={`font-semibold ${color}`}>{value > 0 ? '+' : ''}{value} {suffix}</span>
 }
 
@@ -100,7 +100,7 @@ export function ContestantPage() {
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load this castaway">{error}</Notice>
-  if (!perf) return <Notice title="Contestant not found"><Link className="text-ocean-700 underline" to={backHref}>{fromRoster ? 'Return to My Season' : 'Return to the cast'}</Link></Notice>
+  if (!perf) return <Notice title="Contestant not found"><Link className="text-forest-700 underline" to={backHref}>{fromRoster ? 'Return to My Season' : 'Return to the cast'}</Link></Notice>
 
   const eliminated = perf.eliminated_in_episode != null
   // Any of the three can be missing for a season imported before #262
@@ -117,24 +117,24 @@ export function ContestantPage() {
 
   return (
     <div>
-      <Link to={backHref} className="text-sm font-medium text-ocean-700 hover:text-ocean-900">
+      <Link to={backHref} className="text-sm font-medium text-forest-700 hover:text-forest-900">
         ← {fromRoster ? 'Back to My Season' : 'Back to cast'}
       </Link>
 
-      <header className="mt-4 grid gap-5 border-b border-sand-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm sm:mx-0">
+      <header className="mt-4 grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-sm sm:mx-0">
           <ContestantPortrait name={perf.name} imageUrl={perf.image_url} className={eliminated ? 'grayscale opacity-80' : ''} />
         </div>
         <div className="min-w-0">
-          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-stone-200 text-stone-700' : 'bg-jungle-100 text-jungle-800'}`}>
+          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-stone-200 text-stone-700' : 'bg-jade-100 text-jade-800'}`}>
             {castStatus(perf)}
           </span>
-          <h1 className="mt-3 font-display text-3xl tracking-wide text-ocean-900 md:text-5xl">{perf.name}</h1>
+          <h1 className="mt-3 font-display text-3xl tracking-wide text-forest-900 md:text-5xl">{perf.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
             <span className="inline-flex items-center gap-2">
               {perf.tribe_name ? (
                 <>
-                  <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: perf.tribe_color ?? undefined }} />
+                  <span className="tribe-marker" style={{ backgroundColor: perf.tribe_color ?? undefined }} aria-hidden="true" />
                   <strong className="font-medium text-gray-800">{perf.tribe_name} tribe</strong>
                 </>
               ) : 'No tribe assigned'}
@@ -168,22 +168,22 @@ export function ContestantPage() {
 
       <section className="mt-8" aria-labelledby="season-performance-title">
         <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ember-700">Season performance</p>
-          <h2 id="season-performance-title" className="mt-1 font-display text-2xl tracking-wide text-ocean-900">Scoring history</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">Season performance</p>
+          <h2 id="season-performance-title" className="mt-1 font-display text-2xl tracking-wide text-forest-900">Scoring history</h2>
         </div>
         <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
-          <div className="rounded-xl border border-sand-200 bg-white p-4">
+          <div className="rounded-xl border border-cream-200 bg-white p-4">
             <p className="text-xs text-gray-500">Total points</p>
             <p className="mt-1 text-2xl"><Points value={perf.total_points} suffix="" /></p>
           </div>
-          <div className="rounded-xl border border-sand-200 bg-white p-4">
+          <div className="rounded-xl border border-cream-200 bg-white p-4">
             <p className="text-xs text-gray-500">Episodes with activity</p>
-            <p className="mt-1 text-2xl font-bold text-ocean-900">{scoredEpisodes.length}</p>
+            <p className="mt-1 text-2xl font-bold text-forest-900">{scoredEpisodes.length}</p>
           </div>
-          <div className="rounded-xl border border-sand-200 bg-white p-4">
+          <div className="rounded-xl border border-cream-200 bg-white p-4">
             <p className="text-xs text-gray-500">Best episode</p>
             {bestEpisode && scoredEpisodes.length > 0 ? (
-              <p className="mt-1 text-lg font-bold text-ocean-900">Ep {bestEpisode.episode_number} <span className="text-sm"><Points value={bestEpisode.points} /></span></p>
+              <p className="mt-1 text-lg font-bold text-forest-900">Ep {bestEpisode.episode_number} <span className="text-sm"><Points value={bestEpisode.points} /></span></p>
             ) : <p className="mt-1 text-sm font-medium text-gray-500">Not scored yet</p>}
           </div>
         </div>
@@ -195,11 +195,11 @@ export function ContestantPage() {
             {[...perf.episodes].sort((a, b) => b.episode_number - a.episode_number).map((episode) => {
               const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
               return (
-                <li key={episode.episode_number} className="rounded-2xl border border-sand-200 bg-white p-4 sm:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-sand-100 pb-3">
+                <li key={episode.episode_number} className="rounded-2xl border border-cream-200 bg-white p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-cream-100 pb-3">
                     <div>
                       <p className="font-semibold text-gray-900">Episode {episode.episode_number}</p>
-                      {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-ember-700">Finale</p>}
+                      {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</p>}
                     </div>
                     <Points value={episode.points} />
                   </div>
@@ -215,7 +215,7 @@ export function ContestantPage() {
                               {event.token_value !== 0 && (
                                 episode.tokens_locked ? (
                                   <span className="text-gray-500 line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
-                                ) : <span className="font-medium text-amber-600">+{event.token_value} tokens</span>
+                                ) : <span className="font-medium text-gold-600">+{event.token_value} tokens</span>
                               )}
                             </span>
                           </li>

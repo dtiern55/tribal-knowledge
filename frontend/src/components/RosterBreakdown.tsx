@@ -49,7 +49,7 @@ export function RosterBreakdown({
             onClick={() =>
               setOpenEps(allOpen ? new Set() : new Set(eps.map((e) => e.episode_number)))
             }
-            className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700 underline underline-offset-2"
+            className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
           >
             {allOpen ? 'Collapse all' : 'Expand all'}
           </button>
@@ -70,14 +70,14 @@ export function RosterBreakdown({
               <span className="flex flex-col items-start gap-0.5">
                 <span>Episode {ep.episode_number}</span>
                 {bonus !== 0 && (
-                  <span className="rounded-full bg-ocean-50 border border-ocean-100 px-1.5 py-0.5 text-[11px] font-semibold text-ocean-700">
+                  <span className="rounded-full bg-forest-50 border border-forest-100 px-1.5 py-0.5 text-[11px] font-semibold text-forest-700">
                     2x Points
                   </span>
                 )}
               </span>
               <span
                 className={`ml-auto ${
-                  total > 0 ? 'text-green-600' : total < 0 ? 'text-red-500' : 'text-gray-500'
+                  total > 0 ? 'text-jade-600' : total < 0 ? 'text-terracotta-500' : 'text-gray-500'
                 }`}
               >
                 {total} pts
@@ -102,13 +102,13 @@ export function RosterBreakdown({
                       {e.label}
                       {e.quantity > 1 && ` ×${e.quantity}`}
                     </span>
-                    <span className={e.points > 0 ? 'text-green-600' : 'text-red-500'}>
+                    <span className={e.points > 0 ? 'text-jade-600' : 'text-terracotta-500'}>
                       {e.points} pts
                     </span>
                   </li>
                 ))}
                 {bonus !== 0 && (
-                  <li className="flex justify-between gap-2 text-ocean-600 font-medium">
+                  <li className="flex justify-between gap-2 text-forest-600 font-medium">
                     <span>Double Roster Points bonus</span>
                     <span>{bonus} pts</span>
                   </li>

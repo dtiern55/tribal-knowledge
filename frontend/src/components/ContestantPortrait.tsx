@@ -24,11 +24,11 @@ export function ContestantPortrait({
   useEffect(() => setFailed(false), [imageUrl])
 
   const aspect = crop === 'card' ? 'aspect-[5/4]' : 'aspect-[4/5]'
-  const classes = `${aspect} w-full overflow-hidden bg-sand-100 ${className}`
+  const classes = `${aspect} w-full overflow-hidden bg-cream-100 ${className}`
   if (!imageUrl || failed) {
     return (
       <div
-        className={`${classes} flex items-center justify-center bg-gradient-to-br from-sand-100 to-sand-200 text-3xl font-semibold text-ocean-700`}
+        className={`${classes} flex items-center justify-center bg-gradient-to-br from-cream-100 to-cream-200 text-3xl font-semibold text-forest-700`}
         role="img"
         aria-label={`No photo available for ${name}`}
       >

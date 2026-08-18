@@ -1,8 +1,8 @@
 const styles = {
-  error: 'border-red-200 bg-red-50 text-red-800',
-  info: 'border-ocean-200 bg-ocean-50 text-ocean-900',
-  success: 'border-jungle-200 bg-jungle-50 text-jungle-800',
-  neutral: 'border-sand-200 bg-white text-gray-600',
+  error: 'border-terracotta-200 bg-terracotta-50 text-terracotta-800',
+  info: 'border-forest-200 bg-forest-50 text-forest-900',
+  success: 'border-jade-200 bg-jade-50 text-jade-800',
+  neutral: 'border-cream-200 bg-white text-gray-600',
 }
 
 export function Notice({

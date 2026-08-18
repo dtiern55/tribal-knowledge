@@ -17,7 +17,7 @@ const base =
  * where the lock is a rule rather than a deadline (advantages, swaps). */
 export function LockedBadge() {
   return (
-    <span className={`${base} bg-gray-800 text-sand-100`}>
+    <span className={`${base} bg-gray-800 text-cream-100`}>
       <LockGlyph /> Locked
     </span>
   )
@@ -39,20 +39,20 @@ export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: 
   const mins = Math.floor(ms / 60_000)
   if (mins < 60) {
     return (
-      <span className={`${base} bg-ember-100 text-ember-700 animate-pulse`}>
+      <span className={`${base} bg-terracotta-100 text-terracotta-700 animate-pulse`}>
         <LockGlyph /> Locks in {mins}m
       </span>
     )
   }
   if (mins < 24 * 60) {
     return (
-      <span className={`${base} bg-amber-100 text-amber-700`}>
+      <span className={`${base} bg-gold-100 text-gold-700`}>
         <LockGlyph /> Locks in {Math.floor(mins / 60)}h
       </span>
     )
   }
   return (
-    <span className={`${base} bg-sand-100 text-gray-600`}>
+    <span className={`${base} bg-cream-100 text-gray-600`}>
       <LockGlyph /> Locks {formatCentral(lockAt)}
     </span>
   )

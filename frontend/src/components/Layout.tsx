@@ -71,7 +71,7 @@ export function Layout() {
     document.documentElement.classList.toggle('locked-night', nightMode)
     document
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', nightMode ? '#071f2d' : '#1793C7')
+      ?.setAttribute('content', nightMode ? '#0e1f19' : '#1e3a2f')
     try {
       localStorage.setItem('tribal-knowledge-shell-theme', nightMode ? 'locked' : 'day')
     } catch {
@@ -83,28 +83,27 @@ export function Layout() {
   const topLink = ({ isActive }: { isActive: boolean }) =>
     `app-top-link inline-flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors ${
       isActive
-        ? 'bg-ember-50 text-ember-700 font-semibold'
-        : 'text-gray-600 hover:bg-sand-100 hover:text-gray-900'
+        ? 'bg-terracotta-600 text-cream-50 font-semibold'
+        : 'text-stone-300 hover:bg-forest-500 hover:text-cream-50'
     }`
 
   return (
-    <div className="app-shell min-h-screen bg-sand-50 text-gray-900">
+    <div className="app-shell min-h-screen bg-cream-100 text-ink">
       <a
         href="#main-content"
-        className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-lg bg-ocean-900 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0"
+        className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-lg bg-forest-900 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0"
       >
         Skip to main content
       </a>
-      <div className="torch-stripe h-1" />
-      <header className="app-header border-b border-sand-200 bg-white">
+      <header className="app-header border-b border-forest-700 bg-forest-600 text-cream-50">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink
             to="/"
             aria-label="Tribal Knowledge home"
-            className="inline-flex min-h-11 shrink-0 items-center font-brand text-lg font-bold leading-none tracking-wide md:text-xl"
+            className="inline-flex min-h-11 shrink-0 items-center rounded-sm bg-cream-100 px-2 font-brand text-lg font-bold leading-none tracking-wide md:text-xl"
           >
-            <span className="app-brand-primary text-ocean-700">TRIBAL</span>{' '}
-            <span className="app-brand-secondary text-jungle-600">KNOWLEDGE</span>
+            <span className="app-brand-primary text-forest-700">TRIBAL</span>{' '}
+            <span className="app-brand-secondary text-terracotta-600">KNOWLEDGE</span>
           </NavLink>
 
           {authed && (
@@ -125,14 +124,14 @@ export function Layout() {
                 onClick={() => setDrawerOpen(true)}
                 aria-label="Open menu"
                 aria-haspopup="dialog"
-                className="app-menu-button inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-ocean-700 transition-colors hover:bg-ocean-50 hover:text-ocean-900"
+                className="app-menu-button inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-cream-50 transition-colors hover:bg-forest-500 hover:text-white"
               >
                 <MenuIcon />
               </button>
             ) : (
               <NavLink
                 to="/login"
-                className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50"
+                className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-cream-50 hover:bg-forest-500"
               >
                 Sign in
               </NavLink>
@@ -140,6 +139,7 @@ export function Layout() {
           </div>
         </div>
       </header>
+      <div className="tribal-border" aria-hidden="true" />
 
       <main
         id="main-content"
@@ -152,7 +152,7 @@ export function Layout() {
       {authed && (
         <nav
           aria-label="Primary navigation"
-          className="app-bottom-nav fixed inset-x-0 bottom-0 z-30 flex border-t border-sand-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(18,52,74,0.08)] backdrop-blur md:hidden"
+          className="app-bottom-nav fixed inset-x-0 bottom-0 z-30 flex border-t border-forest-700 bg-forest-600/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(30,58,47,0.18)] backdrop-blur md:hidden"
         >
           {tabs.map(({ to, label, Icon, end }) => (
             <NavLink
@@ -162,8 +162,8 @@ export function Layout() {
               className={({ isActive }) =>
                 `app-bottom-link flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-[11px] ${
                   isActive
-                    ? 'text-ember-600 border-ember-500 font-semibold'
-                    : 'text-gray-500 border-transparent'
+                    ? 'text-terracotta-200 border-terracotta-500 font-semibold'
+                    : 'text-stone-300 border-transparent'
                 }`
               }
             >

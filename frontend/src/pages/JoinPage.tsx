@@ -35,9 +35,9 @@ export function JoinPage() {
   }
 
   return (
-    <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:mt-10 sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">Private league</p>
-      <h1 className="mt-1 font-display text-3xl tracking-wide text-ocean-800">Join your league</h1>
+    <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:mt-10 sm:p-8">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-terracotta-700">Private league</p>
+      <h1 className="mt-1 font-display text-3xl tracking-wide text-forest-800">Join your league</h1>
       <p className="mt-2 text-sm leading-6 text-gray-600">
         Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name other players will see, then enter your join code.
       </p>
@@ -52,7 +52,7 @@ export function JoinPage() {
             maxLength={40}
             autoComplete="name"
             enterKeyHint="next"
-            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">This is how you will appear in standings.</p>
         </div>
@@ -67,14 +67,14 @@ export function JoinPage() {
             autoCapitalize="none"
             spellCheck={false}
             enterKeyHint="go"
-            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-base tracking-wide focus:outline-none focus:ring-2 focus:ring-ocean-500 sm:text-sm"
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-base tracking-wide focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
         </div>
-        {error && <p id="join-error" role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {error && <p id="join-error" role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
         <button
           type="submit"
           disabled={submitting || !displayName.trim() || !joinCode.trim()}
-          className="min-h-11 w-full cursor-pointer rounded-lg bg-jungle-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jungle-700 disabled:opacity-50"
+          className="min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50"
         >
           {submitting ? 'Joining league…' : 'Join league'}
         </button>

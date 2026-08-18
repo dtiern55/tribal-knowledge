@@ -14,8 +14,8 @@ export function SwipeNavBar({
   const navigate = useNavigate()
   if (!prev && !next) return null
   const cls =
-    'flex-1 min-w-0 flex items-center gap-1 px-3 py-2 text-sm text-ocean-700' +
-    ' border border-sand-200 rounded-lg bg-white hover:border-ocean-300' +
+    'flex-1 min-w-0 flex items-center gap-1 px-3 py-2 text-sm text-forest-700' +
+    ' border border-cream-200 rounded-lg bg-white hover:border-forest-300' +
     ' disabled:opacity-0 disabled:pointer-events-none transition-colors'
   return (
     <div className="flex items-center gap-2 mt-8">

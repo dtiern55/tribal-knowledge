@@ -42,7 +42,7 @@ export function RecordHead({
   return (
     <div className="flex items-start justify-between gap-3 border-b-2 border-paper-edge px-4 py-3">
       <div className="min-w-0">
-        <h1 className="font-display text-xl tracking-wide text-ocean-800 md:text-2xl">{title}</h1>
+        <h1 className="font-display text-xl tracking-wide text-forest-800 md:text-2xl">{title}</h1>
         {meta && (
           <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-paper-ink-faded">
             {meta}
@@ -172,7 +172,7 @@ export function RecordBeats({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(b.key)}
             className={`flex min-h-12 min-w-0 flex-1 flex-col items-start gap-0.5 px-3 py-2 text-left border-b-[3px] ${
-              active ? 'border-ember-500' : 'border-transparent'
+              active ? 'border-terracotta-500' : 'border-transparent'
             }`}
           >
             <span className="flex items-center gap-1.5">
@@ -187,7 +187,7 @@ export function RecordBeats({
               {b.done && (
                 <span
                   aria-hidden="true"
-                  className="grid h-3.5 w-3.5 flex-none place-items-center rounded-full bg-jungle-600 text-[9px] font-bold text-white"
+                  className="grid h-3.5 w-3.5 flex-none place-items-center rounded-full bg-jade-600 text-[9px] font-bold text-white"
                 >
                   ✓
                 </span>

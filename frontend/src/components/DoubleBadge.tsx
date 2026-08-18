@@ -16,7 +16,7 @@ export function DoubleBadge({
       role="img"
       aria-label={title}
       title={title}
-      className="inline-flex select-none items-center justify-center rounded-full bg-ocean-600 font-bold leading-none text-white ring-1 ring-ocean-800/25"
+      className="inline-flex select-none items-center justify-center rounded-full bg-forest-600 font-bold leading-none text-white ring-1 ring-forest-800/25"
       style={{
         height: size,
         minWidth: size,
