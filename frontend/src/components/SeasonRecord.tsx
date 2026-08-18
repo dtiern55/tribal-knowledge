@@ -42,7 +42,7 @@ export function RecordHead({
   right?: ReactNode
 }) {
   return (
-    <div className="record-head flex items-start justify-between gap-3 border-b-2 border-paper-edge px-4 py-4 sm:px-5">
+    <div className="record-head ledger-divide flex items-start justify-between gap-3 border-b-2 border-paper-edge px-4 py-4 sm:px-5">
       <div className="min-w-0">
         <h1 className="font-display text-2xl font-bold tracking-[0.025em] text-ocean-800 md:text-3xl">{title}</h1>
         {meta && (
@@ -86,7 +86,7 @@ export function RecordSection({
   }
   return (
     <section aria-label={title}>
-      <div className="flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
+      <div className="ledger-divide flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
         <h2 className="font-display text-base font-bold tracking-[0.08em] text-paper-ink">
           {title}
         </h2>
@@ -159,7 +159,7 @@ export function RecordBeats({
       role="tablist"
       aria-label="Season record"
       onKeyDown={onKeyDown}
-      className="record-beats flex items-stretch border-b-2 border-paper-edge bg-black/[.018]"
+      className="record-beats ledger-divide flex items-stretch border-b-2 border-paper-edge bg-black/[.018]"
     >
       {beats.map((b) => {
         const active = b.key === value

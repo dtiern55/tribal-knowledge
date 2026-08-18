@@ -304,6 +304,9 @@ html:not(.locked-night) .record-paper {
    Natural height, no stretch, so it holds at 1x. Day only. */
 html:not(.locked-night) .expedition-ledger {
   position: relative;
+  /* The pencil frame is the border now; the light paper-edge line underneath
+     just read as a stray white outline. */
+  border-color: transparent;
 }
 
 html:not(.locked-night) .expedition-ledger::after {
@@ -312,14 +315,30 @@ html:not(.locked-night) .expedition-ledger::after {
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  background-image:
-    url('./assets/expedition-pencil-frame-h.png'),
-    url('./assets/expedition-pencil-frame-h.png'),
-    url('./assets/expedition-pencil-frame-v.png'),
-    url('./assets/expedition-pencil-frame-v.png');
-  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-  background-position: left top, left bottom, left top, right top;
-  background-size: auto 16px, auto 16px, 16px auto, 16px auto;
+  /* Ripped pencil frame with real rounded corners (border-image slices the
+     corners fixed and tiles the edges), so the corners are drawn arcs, not two
+     straight rules crossing. */
+  border: 14px solid transparent;
+  border-image: url('./assets/expedition-pencil-border.png') 36 repeat;
+}
+
+/* The record's inner rules — header, points-label and beat-bar dividers — were
+   the light paper-edge borders reading as white lines. In the pencil ledger
+   they become the same pencil rule as the roster rows. */
+html:not(.locked-night) .ledger-divide {
+  position: relative;
+  border-bottom-color: transparent;
+}
+
+html:not(.locked-night) .ledger-divide::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 9px;
+  pointer-events: none;
+  background: url('./assets/expedition-pencil-rule.png') left top / auto 9px repeat-x;
 }
 
 .open-ledger .record-head h1 {
@@ -389,15 +408,10 @@ html:not(.locked-night) .expedition-ledger::after {
   inset: 0;
   content: '';
   pointer-events: none;
-  background-image:
-    url('./assets/expedition-pencil-rule.png'),
-    url('./assets/expedition-pencil-rule.png'),
-    url('./assets/expedition-pencil-rule-v.png'),
-    url('./assets/expedition-pencil-rule-v.png');
-  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-  background-position: left top, left bottom, left top, right top;
-  background-size: auto 9px, auto 9px, 9px auto, 9px auto;
-  transform: rotate(-0.7deg);
+  /* Same ripped pencil frame as the record, scaled down — its rounded corners
+     stay centred on the mat instead of four rules crossing off-centre. */
+  border: 7px solid transparent;
+  border-image: url('./assets/expedition-pencil-border.png') 36 repeat;
 }
 
 .ledger-photo {
@@ -407,14 +421,6 @@ html:not(.locked-night) .expedition-ledger::after {
   width: 44px;
   height: 44px;
   border-radius: 2px;
-}
-
-.roster-card:nth-child(3n + 2) .ledger-photo-mount::after {
-  transform: rotate(0.65deg);
-}
-
-.roster-card:nth-child(3n) .ledger-photo-mount::after {
-  transform: rotate(-0.25deg);
 }
 
 /* Piece 4: the row rule. A CSS border (even displaced/grained) is a solid
