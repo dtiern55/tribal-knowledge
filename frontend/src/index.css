@@ -295,6 +295,10 @@ html:not(.locked-night) .record-paper {
   background-position: top center;
   background-repeat: no-repeat;
   background-size: cover;
+  /* The paper photo covers the card, but its near-white base colour peeked a
+     bright hairline at the rounded edge where the image doesn't quite reach.
+     A mid paper tone underneath makes any such peek invisible. */
+  background-color: #cdb789;
 }
 
 /* Piece 3: the record's hand-drawn frame. A CSS border reads as ink, not
