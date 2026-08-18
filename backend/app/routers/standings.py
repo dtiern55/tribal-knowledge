@@ -78,9 +78,18 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                 cur.execute(
                     """
                     select rp.user_id::text as user_id,
-                           c.id::text as contestant_id, c.name, c.image_url
+                           c.id::text as contestant_id, c.name, c.image_url,
+                           tribe.name as tribe_name, tribe.color as tribe_color
                     from roster_picks rp
                     join contestants c on c.id = rp.contestant_id
+                    left join lateral (
+                      select t.name, t.color
+                      from contestant_tribes ct
+                      join tribes t on t.id = ct.tribe_id
+                      where ct.contestant_id = c.id
+                      order by ct.from_episode desc
+                      limit 1
+                    ) tribe on true
                     where rp.season_id = %s
                       and rp.active_until_episode is null
                       and not exists (
@@ -96,6 +105,8 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                             "contestant_id": row["contestant_id"],
                             "name": row["name"],
                             "image_url": row["image_url"],
+                            "tribe_name": row["tribe_name"],
+                            "tribe_color": row["tribe_color"],
                         }
                     )
 

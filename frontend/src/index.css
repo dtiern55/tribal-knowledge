@@ -419,6 +419,100 @@ html.locked-night .tribal-border {
   border-width: var(--tribe-border-width, 0);
 }
 
+/* Submitted votes read as handwritten Tribal Council slips rather than
+   structured roster chips. Rotation is supplied per slip and remains stable
+   across renders. */
+.ballot-slip {
+  display: inline-flex;
+  align-items: center;
+  border-left: 3px solid var(--ballot-tribe-color, var(--color-gold-500));
+  border-radius: 4px;
+  padding: 10px 18px;
+  background: #1e3a2f;
+  color: #f2e9db;
+  box-shadow: 1px 2px 5px rgb(0 0 0 / 12%);
+  font-family: "Kalam", cursive;
+  font-size: 16px;
+  line-height: 1.25;
+  transform: rotate(var(--ballot-rotation, 0deg));
+}
+
+.ballot-slip--stale {
+  border-left-color: var(--color-stone-400);
+  background: var(--color-stone-600);
+  color: rgb(242 233 219 / 70%);
+}
+
+/* Weekly plays borrow the compact geometry of a rubber stamp: oversized
+   multiplier, display label, patterned rule, and one plain status line. */
+.advantage-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 20px 12px;
+  text-align: center;
+}
+
+.advantage-card--active {
+  border: 1px solid var(--color-forest-600);
+  background: linear-gradient(135deg, #1e3a2f, #2a5040);
+  box-shadow: 0 2px 8px rgb(30 58 47 / 25%);
+}
+
+.advantage-card--inactive {
+  border: 1.5px dashed rgb(30 58 47 / 20%);
+  background: rgb(248 242 232 / 35%);
+  color: var(--color-stone-500);
+}
+
+.advantage-card .multiplier {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 0.95;
+}
+
+.advantage-card--active .multiplier { color: #d4913a; }
+.advantage-card--inactive .multiplier { color: var(--color-stone-400); }
+
+.advantage-card .label {
+  margin-top: 6px;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.advantage-card--active .label { color: #f2e9db; }
+
+.advantage-card__rule {
+  width: min(100%, 8rem);
+  height: 2px;
+  margin: 11px 0 7px;
+  background: repeating-linear-gradient(
+    90deg,
+    #c45432 0 8px,
+    transparent 8px 12px,
+    #d4913a 12px 16px,
+    transparent 16px 20px
+  );
+}
+
+.advantage-card--inactive .advantage-card__rule { opacity: 0.3; }
+
+.advantage-card__status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.advantage-card--active .advantage-card__status { color: #f2e9db; }
+
 html.locked-night .contestant-avatar {
   border-color: color-mix(in srgb, var(--tribe-color, transparent) 35%, transparent);
 }

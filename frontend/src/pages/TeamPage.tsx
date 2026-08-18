@@ -177,6 +177,7 @@ export function TeamPage() {
                       isSoleSurvivor={pick.is_sole_survivor}
                       swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
                       right={<Points value={rosterPoints.get(pick.contestant_id)} />}
+                      bioLink={false}
                       expanded={expandedId === pick.contestant_id}
                       onToggle={() => toggleExpand(pick.contestant_id)}
                     >

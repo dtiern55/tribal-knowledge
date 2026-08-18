@@ -969,12 +969,11 @@ function WeeklyPlaySection({
           onPick?.('double')
         }
 
-        const base =
-          'relative min-h-11 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors'
-        const chosen = 'border-forest-600 bg-forest-50 text-forest-900 ring-1 ring-forest-300'
-        const idle = 'border-forest-300 bg-white/60 text-forest-800 hover:border-forest-500'
+        const base = 'advantage-card relative min-h-36 transition-all disabled:opacity-60'
+        const chosen = 'advantage-card--active'
+        const idle = 'advantage-card--inactive hover:border-forest-400 hover:bg-cream-50/60'
         // Lightly dimmed, not disabled — the unchosen one is how you switch.
-        const dimmed = 'border-paper-edge bg-white/40 text-paper-ink-faded opacity-60'
+        const dimmed = 'advantage-card--inactive opacity-55 hover:opacity-80'
 
         return (
           <div className="space-y-2">
@@ -983,17 +982,25 @@ function WeeklyPlaySection({
                 type="button"
                 onClick={() => pick('roster')}
                 aria-pressed={rosterPlayed || picking === 'double'}
+                aria-label="Roster ×2"
                 className={`${base} ${rosterPlayed ? chosen : ballotPlayed ? dimmed : idle}`}
               >
-                Roster ×2
+                <span className="multiplier" aria-hidden="true">×2</span>
+                <span className="label">Roster points</span>
+                <span className="advantage-card__rule" aria-hidden="true" />
+                <span className="advantage-card__status">{rosterPlayed ? 'Active' : 'Choose'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => pick('ballot')}
                 aria-pressed={ballotPlayed}
+                aria-label="Ballot ×2"
                 className={`${base} ${ballotPlayed ? chosen : rosterPlayed ? dimmed : idle}`}
               >
-                Ballot ×2
+                <span className="multiplier" aria-hidden="true">×2</span>
+                <span className="label">Ballot points</span>
+                <span className="advantage-card__rule" aria-hidden="true" />
+                <span className="advantage-card__status">{ballotPlayed ? 'Active' : 'Choose'}</span>
               </button>
             </div>
 
@@ -1002,9 +1009,9 @@ function WeeklyPlaySection({
                 type="button"
                 onClick={() => void weekly.takeBack(play)}
                 disabled={weekly.busy}
-                className="text-xs font-medium text-paper-ink-faded underline underline-offset-2 hover:text-paper-ink"
+                className="text-xs font-semibold text-terracotta-600 underline underline-offset-2 hover:text-terracotta-800"
               >
-                Undo
+                Remove play
               </button>
             )}
 
@@ -1919,16 +1926,21 @@ function PicksSection({
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
                   )}
-                  <div className="flex flex-col items-start gap-2">
-                    {savedPicks.map((p) => {
+                  <div className="flex flex-wrap items-start gap-3 py-1">
+                    {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
                       const stale =
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       return (
-                        <span key={p.id} className="inline-flex items-center gap-1">
-                          <VoteSlip name={sc?.name ?? '—'} stale={stale} />
+                        <span key={p.id} className="inline-flex items-center gap-1.5">
+                          <VoteSlip
+                            name={sc?.name ?? '—'}
+                            stale={stale}
+                            tribeColor={sc?.tribe_color}
+                            rotation={[-0.7, 0.5, -0.2][index % 3]}
+                          />
                           {ballotDoubled && (
                             <span className="text-xs font-semibold text-forest-600">×2</span>
                           )}
@@ -2053,7 +2065,7 @@ function PicksSection({
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
+                    className="rounded-lg border border-terracotta-600 px-4 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-50 hover:text-terracotta-800"
                   >
                     Edit ballot
                   </button>
