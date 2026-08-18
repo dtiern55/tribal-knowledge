@@ -6,12 +6,25 @@ import { Torch } from './Torch'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
-  it('marks Double Roster Points with a stitched field patch', () => {
-    const { container } = render(<DoubleBadge />)
-    const patch = container.querySelector('[data-mark="double-patch"]')
+  it('steps the tropical Double Roster Points patch down at small sizes', () => {
+    const { container, rerender } = render(<DoubleBadge />)
+    let patch = container.querySelector('[data-mark="double-patch"]')
 
-    expect(patch).toHaveAttribute('viewBox', '0 0 40 44')
+    expect(patch).toHaveAttribute('viewBox', '0 0 48 52')
+    expect(patch).toHaveAttribute('data-detail', 'scene')
+    expect(patch).toHaveTextContent('×2')
     expect(patch?.querySelector('[data-part="patch"]')).toBeInTheDocument()
+    expect(patch?.querySelector('[data-part="tropical-scene"]')).toBeInTheDocument()
+    expect(patch?.querySelector('[data-part="stitching"]')).not.toBeInTheDocument()
+
+    rerender(<DoubleBadge size={15} />)
+    patch = container.querySelector('[data-mark="double-patch"]')
+    expect(patch).toHaveAttribute('data-detail', 'compact')
+    expect(patch?.querySelector('[data-part="compact-scene"]')).toBeInTheDocument()
+    expect(patch?.querySelector('[data-part="palms"]')).not.toBeInTheDocument()
+
+    rerender(<DoubleBadge size={28} />)
+    patch = container.querySelector('[data-mark="double-patch"]')
     expect(patch?.querySelector('[data-part="stitching"]')).toBeInTheDocument()
   })
 
