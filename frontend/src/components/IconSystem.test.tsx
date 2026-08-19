@@ -6,30 +6,25 @@ import { Torch } from './Torch'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
-  it('steps the carved Double Roster Points pendant down at small sizes', () => {
+  it('steps the carved Double Roster Points idol down at small sizes', () => {
     const { container, rerender } = render(<DoubleBadge />)
     let idol = container.querySelector('[data-mark="double-idol"]')
 
-    expect(idol).toHaveAttribute('viewBox', '0 0 48 52')
-    expect(idol).toHaveAttribute('data-detail', 'carved')
+    expect(idol).toHaveAttribute('viewBox', '0 0 48 48')
+    expect(idol).toHaveAttribute('data-detail', 'scene')
     expect(idol).toHaveTextContent('×2')
-    expect(idol?.querySelector('[data-part="idol"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="cord"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="cord-hole"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="carved-grooves"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="carved-notches"]')).not.toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="idol-scene"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="skull"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="multiplier-seal"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="compact-mark"]')).not.toBeInTheDocument()
 
     rerender(<DoubleBadge size={15} />)
     idol = container.querySelector('[data-mark="double-idol"]')
     expect(idol).toHaveAttribute('data-detail', 'compact')
     expect(idol?.querySelector('[data-part="compact-mark"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="cord"]')).not.toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="cord-hole"]')).not.toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="carved-grooves"]')).not.toBeInTheDocument()
-
-    rerender(<DoubleBadge size={28} />)
-    idol = container.querySelector('[data-mark="double-idol"]')
-    expect(idol?.querySelector('[data-part="carved-notches"]')).toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="idol-scene"]')).not.toBeInTheDocument()
+    expect(idol?.querySelector('[data-part="skull"]')).not.toBeInTheDocument()
+    expect(idol).toHaveTextContent('×2')
   })
 
   it('marks a cast ballot with a clean, decorative slip-and-check icon', () => {
