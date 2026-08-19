@@ -37,11 +37,26 @@ function Points({ value }: { value: number | undefined }) {
 
 // The section's contribution to the season total, shown on the section header
 // so the breakdown lives with the detail instead of in a separate tile row.
+// Roster + Ballot (+ Finale) are the additive buckets that make up the total.
 function SectionPoints({ value }: { value: number }) {
   return (
     <span className="ml-auto flex items-baseline gap-1">
       <strong className="font-display text-lg tabular-nums text-forest-800">{value}</strong>
       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">pts</span>
+    </span>
+  )
+}
+
+// Advantage bonus is a *subset* of the roster/ballot points, not a fourth
+// bucket, so it reads as an annotation ("+12 earned") rather than a peer total
+// to avoid implying roster + ballot + advantages sums to the season score.
+function AdvantageEarned({ value }: { value: number }) {
+  if (value === 0) return null
+  const color = value > 0 ? 'text-jade-700' : 'text-terracotta-600'
+  return (
+    <span className={`ml-auto inline-flex items-baseline gap-1 text-sm font-semibold ${color}`}>
+      <span className="tabular-nums">{value > 0 ? '+' : '−'}{Math.abs(value)}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">earned</span>
     </span>
   )
 }
@@ -236,7 +251,7 @@ export function TeamPage() {
             )}
           </SectionShell>
 
-          <SectionShell title="Advantages" prominent defaultOpen={scoredPlays.length > 0} right={<SectionPoints value={weeklyBonus} />}>
+          <SectionShell title="Advantages" prominent defaultOpen={scoredPlays.length > 0} right={<AdvantageEarned value={weeklyBonus} />}>
             {hidden ? (
               <p className="text-sm text-gray-500">Advantages unlock with the roster.</p>
             ) : scoredPlays.length === 0 ? (
