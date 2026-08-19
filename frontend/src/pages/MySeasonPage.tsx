@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
@@ -602,14 +603,19 @@ function LockedState({
               const contestant = contestantMap.get(pick.contestant_id)
               return (
                 <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'}`}>
-                  <ContestantAvatar
-                    name={contestant?.name ?? '—'}
-                    imageUrl={contestant?.image_url ?? null}
-                    tribeColor={contestant?.tribe_color ?? null}
-                    tribeName={contestant?.tribe_name ?? null}
-                    size="sm"
-                  />
-                  <span className="font-medium">{contestant?.name ?? '—'}</span>
+                  <Link
+                    to={`/contestants/${pick.contestant_id}`}
+                    className="flex min-w-0 flex-1 items-center gap-2 hover:underline"
+                  >
+                    <ContestantAvatar
+                      name={contestant?.name ?? '—'}
+                      imageUrl={contestant?.image_url ?? null}
+                      tribeColor={contestant?.tribe_color ?? null}
+                      tribeName={contestant?.tribe_name ?? null}
+                      size="sm"
+                    />
+                    <span className="truncate font-medium">{contestant?.name ?? '—'}</span>
+                  </Link>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
                       <span
@@ -631,9 +637,21 @@ function LockedState({
 
         <div className="tribal-border tribal-border--dim" aria-hidden="true" />
         <div>
-          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Ballot
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+              Ballot
+            </h3>
+            {played?.advantage_type === 'double_vote_points' && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${
+                  broadcast ? 'bg-gold-300/20 text-gold-100 ring-gold-200/40' : 'bg-gold-100 text-gold-800 ring-gold-300'
+                }`}
+                title="Double Ballot Points is active for this episode"
+              >
+                ×2
+              </span>
+            )}
+          </div>
           {picks.length > 0 ? (
             <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
               {picks.map((pick) => {
@@ -660,22 +678,6 @@ function LockedState({
           ) : (
             <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No ballot was submitted.</p>
           )}
-        </div>
-
-        <div className="tribal-border tribal-border--dim" aria-hidden="true" />
-        <div>
-          <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Advantage
-          </h3>
-          <p className="mt-1 text-sm font-medium">
-            {played
-              ? `${ADV_LABELS[played.advantage_type] ?? played.advantage_type}${
-                  played.target_contestant_id
-                    ? ` · ${contestantMap.get(played.target_contestant_id)?.name ?? 'Roster member'}`
-                    : ''
-                }`
-              : 'No weekly play used'}
-          </p>
         </div>
 
         <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-forest-50 ring-1 ring-forest-100'}`}>

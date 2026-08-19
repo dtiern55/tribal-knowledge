@@ -114,7 +114,8 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Episode 2 · locked')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Results are pending' })).toBeVisible()
     expect(screen.getByText('No ballot was submitted.')).toBeVisible()
-    expect(screen.getByText('No weekly play used')).toBeVisible()
+    // #451: the redundant standalone Advantage section is dropped while locked.
+    expect(screen.queryByRole('heading', { name: 'Advantage' })).not.toBeInTheDocument()
     expect(screen.getByText('Awaiting league scoring')).toBeVisible()
     expect(screen.queryByText(/episode is over/i)).not.toBeInTheDocument()
     const lockedState = screen.getByRole('region', { name: 'Results are pending' })
@@ -653,7 +654,10 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.getByText('Charlie')).toBeVisible()
     expect(screen.getByRole('img', { name: 'Kenzie' })).toHaveAttribute('src', '/kenzie.jpg')
-    expect(screen.getByText('Double Ballot Points')).toBeVisible()
+    // #451: locked roster survivors link to their contestant page.
+    expect(screen.getByText('Charlie').closest('a')).toHaveAttribute('href', '/contestants/cast-2')
+    // #451: a played ballot double now reads as a ×2 mark on the Ballot heading.
+    expect(screen.getByTitle('Double Ballot Points is active for this episode')).toBeVisible()
   })
 
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {
