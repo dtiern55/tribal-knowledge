@@ -48,15 +48,17 @@ function SectionPoints({ value }: { value: number }) {
 }
 
 // Advantage bonus is a *subset* of the roster/ballot points, not a fourth
-// bucket, so it reads as an annotation ("+12 earned") rather than a peer total
-// to avoid implying roster + ballot + advantages sums to the season score.
+// bucket. Shown in the same face as the Roster/Ballot totals so it doesn't clash,
+// but muted and labelled "included" so it plainly reads as already inside the
+// season score rather than a number that adds on top of it.
 function AdvantageEarned({ value }: { value: number }) {
   if (value === 0) return null
-  const color = value > 0 ? 'text-jade-700' : 'text-terracotta-600'
   return (
-    <span className={`ml-auto inline-flex items-baseline gap-1 text-sm font-semibold ${color}`}>
-      <span className="tabular-nums">{value > 0 ? '+' : '−'}{Math.abs(value)}</span>
-      <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">earned</span>
+    <span className="ml-auto flex items-baseline gap-1.5">
+      <strong className="font-display text-lg tabular-nums text-gray-500">
+        {value < 0 ? `−${Math.abs(value)}` : value}
+      </strong>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">pts&nbsp;included</span>
     </span>
   )
 }
