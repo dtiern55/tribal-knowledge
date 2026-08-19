@@ -65,8 +65,8 @@ export function RosterCard({
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
   onToggle?: () => void
-  // #407 drag-to-reassign: the seal on a doubled row is a handle you grab to
-  // move the Double Roster Points onto another castaway. When given, the seal
+  // #407 drag-to-reassign: the idol on a doubled row is a handle you grab to
+  // move the Double Roster Points onto another castaway. When given, the idol
   // becomes draggable; `sealLifted` dims it while it's in the air.
   onSealPointerDown?: (e: React.PointerEvent) => void
   sealLifted?: boolean
@@ -84,9 +84,9 @@ export function RosterCard({
   // visible (#406 review).
   const note = outEp != null ? `Out · episode ${outEp}` : (contestant?.tribe_name ?? null)
 
-  // At row scale the patch is a physical seal sitting near the points column,
-  // not a tiny suffix on the castaway's name. The tilt keeps the placement
-  // feeling stamped by hand while preserving the seal as the drag handle.
+  // At row scale the idol rests near the points column, not as a tiny suffix on
+  // the castaway's name. The tilt keeps it feeling hand-placed while preserving
+  // the idol as the drag handle.
   const doubleSeal = isDoubled ? (
     onSealPointerDown ? (
       <span
