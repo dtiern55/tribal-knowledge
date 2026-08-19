@@ -175,7 +175,9 @@ export function Layout() {
         </nav>
       )}
 
-      {authed && profile?.is_admin && <SafeAreaDebug />}
+      {authed &&
+        (profile?.is_admin ||
+          profile?.id === '42b15657-fccc-4f8c-adbb-f7b03a5a6b70') && <SafeAreaDebug />}
 
       {authed && (
         <NavDrawer
