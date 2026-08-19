@@ -55,13 +55,9 @@ function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: Stand
       >
         {rank}
       </span>
-      {(down || tied) && (
+      {down && (
         <span className="absolute top-full left-0 mt-1">
-          {down ? (
-            <Movement up={false} delta={entry.trend_delta} />
-          ) : (
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-stone-400">Tied</span>
-          )}
+          <Movement up={false} delta={entry.trend_delta} />
         </span>
       )}
     </span>
