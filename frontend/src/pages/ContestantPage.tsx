@@ -33,6 +33,14 @@ export function ContestantPage() {
   const userId = session?.user?.id
   const [rosterIds, setRosterIds] = useState<string[] | null>(null)
   const [earnedForYou, setEarnedForYou] = useState<number | null>(null)
+  // Each episode is its own collapsed row, matching the roster breakdown (#257).
+  const [openEps, setOpenEps] = useState<Set<number>>(new Set())
+  const toggleEp = (n: number) =>
+    setOpenEps((cur) => {
+      const next = new Set(cur)
+      if (!next.delete(n)) next.add(n)
+      return next
+    })
   const backHref = fromRoster ? '/my-season' : castQuery ? `/cast?${castQuery}` : '/cast'
   const detailSuffix = fromRoster
     ? '?from=roster'
@@ -113,6 +121,9 @@ export function ContestantPage() {
     perf.occupation,
     perf.hometown,
   ].filter((fact): fact is string => Boolean(fact))
+  // Newest episode first — the most recent airing is what you check.
+  const sortedEps = [...perf.episodes].sort((a, b) => b.episode_number - a.episode_number)
+  const allEpsOpen = sortedEps.length > 0 && sortedEps.every((e) => openEps.has(e.episode_number))
 
   return (
     <div>
@@ -179,46 +190,77 @@ export function ContestantPage() {
           {perf.episodes.length === 0 ? (
             <Notice title="No scored activity yet">Episode scoring will appear here once this castaway earns or loses points.</Notice>
           ) : (
-            <ol className="space-y-3">
-              {[...perf.episodes].sort((a, b) => b.episode_number - a.episode_number).map((episode) => {
-                const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
-                return (
-                  <li key={episode.episode_number} className="rounded-2xl border border-paper-edge record-paper p-4 sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-paper-line pb-3">
-                      <div>
-                        <p className="font-semibold text-paper-ink">Episode {episode.episode_number}</p>
-                        {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</p>}
-                      </div>
-                      <Points value={episode.points} />
-                    </div>
-                    {events.length > 0 ? (
-                      <ul className="mt-3 space-y-2 text-sm text-paper-ink-faded">
-                        {[...events]
-                          .sort((a, b) => Number(a.points === 0) - Number(b.points === 0))
-                          .map((event, index) => (
-                            <li key={index} className="flex items-start justify-between gap-3">
-                              <span>{event.label}{event.quantity > 1 && <span className="font-medium text-paper-ink-faded"> ×{event.quantity}</span>}</span>
-                              <span className="flex shrink-0 flex-wrap justify-end gap-2 text-xs">
-                                {event.points !== 0 && <Points value={event.points} />}
-                                {event.token_value !== 0 && (
-                                  episode.tokens_locked ? (
-                                    <span className="text-paper-ink-faded line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
-                                  ) : <span className="font-medium text-gold-600">+{event.token_value} tokens</span>
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                      </ul>
-                    ) : <p className="mt-3 text-sm text-paper-ink-faded">No point-scoring events this episode.</p>}
-                    {episode.eliminated_type && (
-                      <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
-                        Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
-                      </p>
-                    )}
-                  </li>
-                )
-              })}
-            </ol>
+            <>
+              {sortedEps.length > 1 && (
+                <div className="mb-2 flex justify-end">
+                  <button
+                    onClick={() => setOpenEps(allEpsOpen ? new Set() : new Set(sortedEps.map((e) => e.episode_number)))}
+                    className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+                  >
+                    {allEpsOpen ? 'Collapse all' : 'Expand all'}
+                  </button>
+                </div>
+              )}
+              <ol className="space-y-3">
+                {sortedEps.map((episode) => {
+                  const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
+                  const open = openEps.has(episode.episode_number)
+                  return (
+                    <li key={episode.episode_number} className="overflow-hidden rounded-2xl border border-paper-edge record-paper">
+                      <button
+                        onClick={() => toggleEp(episode.episode_number)}
+                        aria-expanded={open}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left sm:px-5"
+                      >
+                        <span className="flex flex-col items-start">
+                          <span className="font-semibold text-paper-ink">Episode {episode.episode_number}</span>
+                          {episode.is_finale && <span className="text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</span>}
+                        </span>
+                        <span className="ml-auto"><Points value={episode.points} /></span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          className={`size-4 shrink-0 text-paper-ink-faded transition-transform ${open ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </button>
+                      {open && (
+                        <div className="border-t border-paper-line px-4 py-3 sm:px-5">
+                          {events.length > 0 ? (
+                            <ul className="space-y-2 text-sm text-paper-ink-faded">
+                              {[...events]
+                                .sort((a, b) => Number(a.points === 0) - Number(b.points === 0))
+                                .map((event, index) => (
+                                  <li key={index} className="flex items-start justify-between gap-3">
+                                    <span>{event.label}{event.quantity > 1 && <span className="font-medium text-paper-ink-faded"> ×{event.quantity}</span>}</span>
+                                    <span className="flex shrink-0 flex-wrap justify-end gap-2 text-xs">
+                                      {event.points !== 0 && <Points value={event.points} />}
+                                      {event.token_value !== 0 && (
+                                        episode.tokens_locked ? (
+                                          <span className="text-paper-ink-faded line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
+                                        ) : <span className="font-medium text-gold-600">+{event.token_value} tokens</span>
+                                      )}
+                                    </span>
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : <p className="text-sm text-paper-ink-faded">No point-scoring events this episode.</p>}
+                          {episode.eliminated_type && (
+                            <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
+                              Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            </>
           )}
         </SectionShell>
       </div>
