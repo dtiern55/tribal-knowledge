@@ -62,6 +62,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
         # nothing until the roster lock passes, otherwise this would leak picks
         # while they're still being chosen.
         survivors: dict[str, list[dict]] = {}
+        recently_eliminated: dict[str, list[dict]] = {}
         with conn.cursor() as cur:
             rosters_visible = False
             if season["roster_lock_episode"] is not None:
@@ -110,6 +111,48 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                         }
                     )
 
+                # Kept visible (greyed out) for one scored episode instead of
+                # vanishing the instant they're voted out (#457). "Recently"
+                # means eliminated in the latest *scored* episode specifically
+                # — approximated from "airs" for simplicity.
+                if last_scored is not None:
+                    cur.execute(
+                        """
+                        select rp.user_id::text as user_id,
+                               c.id::text as contestant_id, c.name, c.image_url,
+                               tribe.name as tribe_name, tribe.color as tribe_color,
+                               ep.episode_number as eliminated_episode
+                        from roster_picks rp
+                        join contestants c on c.id = rp.contestant_id
+                        join eliminations el on el.contestant_id = c.id
+                        join episodes ep on ep.id = el.episode_id
+                        left join lateral (
+                          select t.name, t.color
+                          from contestant_tribes ct
+                          join tribes t on t.id = ct.tribe_id
+                          where ct.contestant_id = c.id
+                          order by ct.from_episode desc
+                          limit 1
+                        ) tribe on true
+                        where rp.season_id = %s
+                          and rp.active_until_episode is null
+                          and ep.episode_number = %s
+                        order by c.name
+                        """,
+                        [str(season_id), last_scored],
+                    )
+                    for row in cur.fetchall():
+                        recently_eliminated.setdefault(row["user_id"], []).append(
+                            {
+                                "contestant_id": row["contestant_id"],
+                                "name": row["name"],
+                                "image_url": row["image_url"],
+                                "tribe_name": row["tribe_name"],
+                                "tribe_color": row["tribe_color"],
+                                "eliminated_episode": row["eliminated_episode"],
+                            }
+                        )
+
     entries = []
     for p in profiles:
         uid = p["id"]
@@ -125,6 +168,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                 finale_points=f,
                 total_points=r + e + f,
                 active_survivors=survivors.get(uid, []),
+                recently_eliminated_survivors=recently_eliminated.get(uid, []),
             )
         )
     entries.sort(key=lambda s: (-s.total_points, s.display_name))

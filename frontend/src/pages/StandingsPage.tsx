@@ -166,10 +166,25 @@ export function StandingsPage() {
                         <span className="truncate font-display text-lg font-semibold text-gray-900 group-hover:text-forest-700">{entry.display_name}</span>
                         {isMe && <span className="rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
                       </div>
-                      {entry.active_survivors.length > 0 && (
+                      {(entry.active_survivors.length > 0 ||
+                        entry.recently_eliminated_survivors.length > 0) && (
                         <span className="mt-2 flex -space-x-2 pl-0.5">
                           {entry.active_survivors.map((survivor) => (
                             <span key={survivor.contestant_id} className="rounded-full" title={survivor.name}>
+                              <ContestantAvatar
+                                name={survivor.name}
+                                imageUrl={survivor.image_url}
+                                tribeColor={survivor.tribe_color}
+                                tribeName={survivor.tribe_name}
+                              />
+                            </span>
+                          ))}
+                          {entry.recently_eliminated_survivors.map((survivor) => (
+                            <span
+                              key={survivor.contestant_id}
+                              className="rounded-full grayscale opacity-70"
+                              title={`Eliminated ep ${survivor.eliminated_episode}`}
+                            >
                               <ContestantAvatar
                                 name={survivor.name}
                                 imageUrl={survivor.image_url}

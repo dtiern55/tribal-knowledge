@@ -89,13 +89,17 @@ class EliminationPick(BaseModel):
 
 
 class StandingSurvivor(BaseModel):
-    """One still-in-the-game roster pick, for the standings glance (#83)."""
+    """One roster pick, for the standings glance (#83).
+
+    `eliminated_episode` is only set for `recently_eliminated_survivors` entries.
+    """
 
     contestant_id: UUID
     name: str
     image_url: Optional[str] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
+    eliminated_episode: Optional[int] = None
 
 
 class StandingEntry(BaseModel):
@@ -115,6 +119,10 @@ class StandingEntry(BaseModel):
     # Rostered castaways still in the game. Empty until rosters lock — same
     # visibility rule as the roster itself (#83/#160).
     active_survivors: list[StandingSurvivor] = []
+    # Rostered castaways eliminated in the latest scored episode, kept visible
+    # (greyed out in the UI) for one episode instead of vanishing immediately
+    # (#457). Approximated as "until the next episode is scored", not "airs".
+    recently_eliminated_survivors: list[StandingSurvivor] = []
 
 
 class ContestantPoints(BaseModel):
