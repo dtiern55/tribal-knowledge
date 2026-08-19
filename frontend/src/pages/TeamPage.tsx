@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { SwipeNavBar } from '../components/SwipeNav'
 import { ADV_LABELS } from '../lib/advantages'
 import { api } from '../lib/api'
 import { episodeClosed } from '../lib/episodes'
@@ -36,12 +35,49 @@ function Points({ value }: { value: number | undefined }) {
   return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value} pts</span>
 }
 
-function ScoreLane({ label, value, detail }: { label: string; value: number; detail: string }) {
+// The section's contribution to the season total, shown on the section header
+// so the breakdown lives with the detail instead of in a separate tile row.
+// Roster + Ballot (+ Finale) are the additive buckets that make up the total.
+function SectionPoints({ value }: { value: number }) {
   return (
-    <div className="rounded-xl border border-paper-edge record-paper p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-paper-ink-faded">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-paper-ink">{value}</p>
-      <p className="mt-1 text-xs leading-relaxed text-paper-ink-faded">{detail}</p>
+    <span className="ml-auto flex items-baseline gap-1">
+      <strong className="font-display text-lg tabular-nums text-forest-800">{value}</strong>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">pts</span>
+    </span>
+  )
+}
+
+// Advantage bonus is a *subset* of the roster/ballot points, not a fourth
+// bucket. Shown in the same face as the Roster/Ballot totals so it doesn't clash,
+// but muted and labelled "included" so it plainly reads as already inside the
+// season score rather than a number that adds on top of it.
+function AdvantageEarned({ value }: { value: number }) {
+  if (value === 0) return null
+  return (
+    <span className="ml-auto flex items-baseline gap-1.5">
+      <strong className="font-display text-lg tabular-nums text-gray-500">
+        {value < 0 ? `−${Math.abs(value)}` : value}
+      </strong>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">pts&nbsp;included</span>
+    </span>
+  )
+}
+
+// Step to the previous/next player by rank — the desktop stand-in for the swipe
+// gesture, sitting in the header instead of a bottom button bar.
+function PlayerPager({ prev, next, prevLabel, nextLabel }: { prev?: string; next?: string; prevLabel?: string; nextLabel?: string }) {
+  const navigate = useNavigate()
+  const btn =
+    'inline-flex size-9 items-center justify-center rounded-full border border-cream-200 bg-cream-50 text-lg text-forest-800' +
+    ' transition-colors hover:border-forest-400 hover:bg-white disabled:opacity-30 disabled:pointer-events-none'
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={() => prev && navigate(prev, { replace: true })} disabled={!prev} aria-label={prevLabel ? `Previous: ${prevLabel}` : 'Previous player'} className={btn}>
+        <span aria-hidden>‹</span>
+      </button>
+      <button onClick={() => next && navigate(next, { replace: true })} disabled={!next} aria-label={nextLabel ? `Next: ${nextLabel}` : 'Next player'} className={btn}>
+        <span aria-hidden>›</span>
+      </button>
     </div>
   )
 }
@@ -132,35 +168,26 @@ export function TeamPage() {
 
   return (
     <div>
-      <Link to="/standings" className="text-sm font-medium text-forest-700 hover:text-forest-900">← Back to standings</Link>
-      <div className="mt-4">
-        <PageHeader
-          eyebrow={ranked ? (ranked.tied ? `Tied for #${ranked.rank}` : `Rank #${ranked.rank}`) : undefined}
-          title={player.display_name}
-          description="Season score and the choices behind it."
-          meta={<span><strong className="text-lg text-forest-900">{player.total_points}</strong> season points</span>}
-        />
-      </div>
+      <PageHeader
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5">
+            <Link to="/standings" className="inline-flex items-center gap-1 hover:underline"><span aria-hidden>‹</span> Standings</Link>
+            {ranked && (
+              <>
+                <span className="text-gray-400" aria-hidden>/</span>
+                <span className="text-gray-500">{ranked.tied ? `Tied #${ranked.rank}` : `Rank #${ranked.rank}`}</span>
+              </>
+            )}
+          </span>
+        }
+        title={player.display_name}
+        description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
+        actions={<PlayerPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
+      />
 
-      <section aria-labelledby="score-breakdown-title">
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <div>
-            <h2 id="score-breakdown-title" className="font-display text-xl tracking-wide text-forest-800">Score breakdown</h2>
-            <p className="mt-1 text-xs text-gray-500">Season total = roster + ballot + finale.</p>
-          </div>
-          <p className="text-right text-sm font-semibold text-forest-800">{player.total_points} total</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <ScoreLane label="Roster" value={player.roster_points} detail="Points earned by active castaways." />
-          <ScoreLane label="Ballot" value={player.elimination_points} detail="Points from correct elimination predictions." />
-          <ScoreLane label="Weekly play bonus" value={weeklyBonus} detail="Already included in the roster or ballot total." />
-          <ScoreLane label="Finale" value={player.finale_points} detail={finaleScored ? 'Finale predictions scored.' : 'Not scored yet.'} />
-        </div>
-      </section>
-
-      <div className="mt-10 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
+      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
         <section>
-          <SectionShell title="Roster detail" prominent collapsible={false}>
+          <SectionShell title="Roster" prominent right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
               <Notice title="Team details are still private">Roster and weekly-play choices unlock when rosters lock.</Notice>
             ) : active.length === 0 ? (
@@ -201,7 +228,7 @@ export function TeamPage() {
         </section>
 
         <div className="space-y-8">
-          <SectionShell title="Ballot history" prominent defaultOpen={votes.length > 0}>
+          <SectionShell title="Ballot" prominent defaultOpen={votes.length > 0} right={<SectionPoints value={player.elimination_points} />}>
             {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
               <div className="space-y-3">
                 {votes.map(({ episode, picks, eliminatedIds }) => (
@@ -226,11 +253,11 @@ export function TeamPage() {
             )}
           </SectionShell>
 
-          <SectionShell title="Weekly play history" prominent defaultOpen={scoredPlays.length > 0}>
+          <SectionShell title="Advantages" prominent defaultOpen={scoredPlays.length > 0} right={<AdvantageEarned value={weeklyBonus} />}>
             {hidden ? (
-              <p className="text-sm text-gray-500">Weekly plays unlock with the roster.</p>
+              <p className="text-sm text-gray-500">Advantages unlock with the roster.</p>
             ) : scoredPlays.length === 0 ? (
-              <p className="text-sm text-gray-500">No weekly plays used yet.</p>
+              <p className="text-sm text-gray-500">No advantages used yet.</p>
             ) : (
               <ol className="space-y-2">
                 {scoredPlays
@@ -250,8 +277,6 @@ export function TeamPage() {
           </SectionShell>
         </div>
       </div>
-
-      <SwipeNavBar prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />
     </div>
   )
 }
