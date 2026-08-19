@@ -880,7 +880,7 @@ function HeaderPoints({
   ]
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative z-40 shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
         className="header-points rounded-xl border border-forest-700 px-4 py-2 bg-gradient-to-br from-forest-500 to-forest-700 text-cream-100 text-right shadow-md hover:from-forest-600 hover:to-forest-800 transition-colors"

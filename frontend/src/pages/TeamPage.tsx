@@ -32,16 +32,16 @@ interface EpisodeVotes {
 
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
-  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-gray-500'
+  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
   return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value} pts</span>
 }
 
 function ScoreLane({ label, value, detail }: { label: string; value: number; detail: string }) {
   return (
-    <div className="rounded-xl border border-cream-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-forest-900">{value}</p>
-      <p className="mt-1 text-xs leading-relaxed text-gray-500">{detail}</p>
+    <div className="rounded-xl border border-paper-edge record-paper p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-paper-ink-faded">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-paper-ink">{value}</p>
+      <p className="mt-1 text-xs leading-relaxed text-paper-ink-faded">{detail}</p>
     </div>
   )
 }
@@ -205,21 +205,21 @@ export function TeamPage() {
             {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
               <div className="space-y-3">
                 {votes.map(({ episode, picks, eliminatedIds }) => (
-                  <div key={episode.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                    <p className="mb-2 font-medium text-gray-700">Episode {episode.episode_number}</p>
+                  <div key={episode.id} className="rounded-xl border border-paper-edge record-paper p-4">
+                    <p className="mb-2 font-medium text-paper-ink">Episode {episode.episode_number}</p>
                     {picks.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {picks.map((pick) => {
                           const correct = eliminatedIds.has(pick.contestant_id)
                           const doubled = doubles.some((play) => play.episode_id === episode.id && (play.target_contestant_id === null || play.target_contestant_id === pick.contestant_id))
                           return (
-                            <span key={pick.id} className={`rounded-md border px-2 py-1 text-sm ${correct ? 'border-jade-300 bg-jade-50 text-jade-800' : 'border-cream-200 bg-white text-gray-500'}`}>
-                              {correct ? '✓ ' : ''}{contestantMap.get(pick.contestant_id)?.name ?? '—'}{doubled && <span className="font-semibold text-forest-700"> ×2</span>}
+                            <span key={pick.id} className={`rounded-md border px-2 py-1 text-sm ${correct ? 'border-jade-300 bg-jade-50 text-jade-800' : 'border-paper-edge bg-black/[.03] text-paper-ink-faded'}`}>
+                              {correct ? '✓ ' : ''}{contestantMap.get(pick.contestant_id)?.name ?? '—'}{doubled && <span className="font-semibold text-terracotta-700"> ×2</span>}
                             </span>
                           )
                         })}
                       </div>
-                    ) : <p className="text-sm text-gray-500">No ballot submitted.</p>}
+                    ) : <p className="text-sm text-paper-ink-faded">No ballot submitted.</p>}
                   </div>
                 ))}
               </div>
@@ -239,8 +239,8 @@ export function TeamPage() {
                     const episode = episodes.find((row) => row.id === play.episode_id)
                     const target = play.target_contestant_id ? contestantMap.get(play.target_contestant_id)?.name : null
                     return (
-                      <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-cream-200 bg-white p-3 text-sm">
-                        <div><p className="font-medium text-gray-800">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-gray-500">Episode {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
+                      <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-paper-edge record-paper p-3 text-sm">
+                        <div><p className="font-medium text-paper-ink">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-paper-ink-faded">Episode {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
                         <Points value={play.points_earned ?? undefined} />
                       </li>
                     )

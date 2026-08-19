@@ -11,7 +11,7 @@ import { useSwipeNav } from '../lib/swipe'
 import type { CastMember, ContestantPerformance, RosterPick, ScoringBreakdown } from '../types'
 
 function Points({ value, suffix = 'pts' }: { value: number; suffix?: string }) {
-  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-gray-600'
+  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
   return <span className={`font-semibold ${color}`}>{value > 0 ? '+' : ''}{value} {suffix}</span>
 }
 
@@ -122,7 +122,7 @@ export function ContestantPage() {
       </Link>
 
       <header className="mt-4 grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-sm sm:mx-0">
+        <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-paper-edge record-paper shadow-sm sm:mx-0">
           <ContestantPortrait name={perf.name} imageUrl={perf.image_url} className={eliminated ? 'grayscale opacity-80' : ''} />
         </div>
         <div className="min-w-0">
@@ -172,19 +172,19 @@ export function ContestantPage() {
           <h2 id="season-performance-title" className="mt-1 font-display text-2xl tracking-wide text-forest-900">Scoring history</h2>
         </div>
         <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
-          <div className="rounded-xl border border-cream-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Total points</p>
+          <div className="rounded-xl border border-paper-edge record-paper p-4">
+            <p className="text-xs text-paper-ink-faded">Total points</p>
             <p className="mt-1 text-2xl"><Points value={perf.total_points} suffix="" /></p>
           </div>
-          <div className="rounded-xl border border-cream-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Episodes with activity</p>
-            <p className="mt-1 text-2xl font-bold text-forest-900">{scoredEpisodes.length}</p>
+          <div className="rounded-xl border border-paper-edge record-paper p-4">
+            <p className="text-xs text-paper-ink-faded">Episodes with activity</p>
+            <p className="mt-1 text-2xl font-bold text-paper-ink">{scoredEpisodes.length}</p>
           </div>
-          <div className="rounded-xl border border-cream-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Best episode</p>
+          <div className="rounded-xl border border-paper-edge record-paper p-4">
+            <p className="text-xs text-paper-ink-faded">Best episode</p>
             {bestEpisode && scoredEpisodes.length > 0 ? (
-              <p className="mt-1 text-lg font-bold text-forest-900">Ep {bestEpisode.episode_number} <span className="text-sm"><Points value={bestEpisode.points} /></span></p>
-            ) : <p className="mt-1 text-sm font-medium text-gray-500">Not scored yet</p>}
+              <p className="mt-1 text-lg font-bold text-paper-ink">Ep {bestEpisode.episode_number} <span className="text-sm"><Points value={bestEpisode.points} /></span></p>
+            ) : <p className="mt-1 text-sm font-medium text-paper-ink-faded">Not scored yet</p>}
           </div>
         </div>
 
@@ -195,33 +195,33 @@ export function ContestantPage() {
             {[...perf.episodes].sort((a, b) => b.episode_number - a.episode_number).map((episode) => {
               const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
               return (
-                <li key={episode.episode_number} className="rounded-2xl border border-cream-200 bg-white p-4 sm:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-cream-100 pb-3">
+                <li key={episode.episode_number} className="rounded-2xl border border-paper-edge record-paper p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-paper-line pb-3">
                     <div>
-                      <p className="font-semibold text-gray-900">Episode {episode.episode_number}</p>
+                      <p className="font-semibold text-paper-ink">Episode {episode.episode_number}</p>
                       {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</p>}
                     </div>
                     <Points value={episode.points} />
                   </div>
                   {events.length > 0 ? (
-                    <ul className="mt-3 space-y-2 text-sm text-gray-600">
+                    <ul className="mt-3 space-y-2 text-sm text-paper-ink-faded">
                       {[...events]
                         .sort((a, b) => Number(a.points === 0) - Number(b.points === 0))
                         .map((event, index) => (
                           <li key={index} className="flex items-start justify-between gap-3">
-                            <span>{event.label}{event.quantity > 1 && <span className="font-medium text-gray-500"> ×{event.quantity}</span>}</span>
+                            <span>{event.label}{event.quantity > 1 && <span className="font-medium text-paper-ink-faded"> ×{event.quantity}</span>}</span>
                             <span className="flex shrink-0 flex-wrap justify-end gap-2 text-xs">
                               {event.points !== 0 && <Points value={event.points} />}
                               {event.token_value !== 0 && (
                                 episode.tokens_locked ? (
-                                  <span className="text-gray-500 line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
+                                  <span className="text-paper-ink-faded line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
                                 ) : <span className="font-medium text-gold-600">+{event.token_value} tokens</span>
                               )}
                             </span>
                           </li>
                         ))}
                     </ul>
-                  ) : <p className="mt-3 text-sm text-gray-500">No point-scoring events this episode.</p>}
+                  ) : <p className="mt-3 text-sm text-paper-ink-faded">No point-scoring events this episode.</p>}
                   {episode.eliminated_type && (
                     <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
                       Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
