@@ -67,5 +67,8 @@ describe('StandingsPage', () => {
     expect(screen.getByTitle('Charlie')).toBeVisible()
     expect(screen.getByTitle('Yanu')).toHaveStyle({ '--tribe-color': '#7651a1' })
     expect(screen.queryByText('2 still playing')).not.toBeInTheDocument()
+    // #437: the roster/ballot/finale breakdown moved to the detail page.
+    expect(screen.queryByText(/Roster 12/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ballot 15/)).not.toBeInTheDocument()
   })
 })
