@@ -152,7 +152,7 @@ export function Layout() {
       {authed && (
         <nav
           aria-label="Primary navigation"
-          className="app-bottom-nav fixed inset-x-0 bottom-0 z-30 flex border-t border-forest-700 bg-forest-600/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(30,58,47,0.18)] backdrop-blur md:hidden"
+          className="app-bottom-nav fixed inset-x-0 bottom-0 z-30 flex border-t border-forest-700 bg-forest-600 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(30,58,47,0.18)] md:hidden"
         >
           {tabs.map(({ to, label, Icon, end }) => (
             <NavLink
