@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ContestantPortrait } from '../components/ContestantPortrait'
+import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
 import { PageLoader } from '../components/PageLoader'
-import { SwipeNavBar } from '../components/SwipeNav'
+import { SectionShell } from '../components/SectionShell'
 import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
 import { castStatus } from '../lib/cast'
@@ -103,33 +104,40 @@ export function ContestantPage() {
   if (!perf) return <Notice title="Contestant not found"><Link className="text-forest-700 underline" to={backHref}>{fromRoster ? 'Return to My Season' : 'Return to the cast'}</Link></Notice>
 
   const eliminated = perf.eliminated_in_episode != null
-  // Any of the three can be missing for a season imported before #262
+  // Only surface a status chip when it says something — a placement or a boot.
+  // "Still in the game" is the default and adds nothing.
+  const showStatus = perf.placement != null || eliminated
+  // Any of the three can be missing for a season imported before #262.
   const bioFacts = [
     perf.age != null && `${perf.age}`,
     perf.occupation,
     perf.hometown,
   ].filter((fact): fact is string => Boolean(fact))
-  const scoredEpisodes = perf.episodes.filter((episode) => episode.events.some((event) => event.points !== 0 || event.token_value !== 0))
-  const bestEpisode = perf.episodes.reduce<(typeof perf.episodes)[number] | null>(
-    (best, episode) => best == null || episode.points > best.points ? episode : best,
-    null,
-  )
 
   return (
     <div>
-      <Link to={backHref} className="text-sm font-medium text-forest-700 hover:text-forest-900">
-        ← {fromRoster ? 'Back to My Season' : 'Back to cast'}
-      </Link>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link
+          to={backHref}
+          aria-label={fromRoster ? 'Back to My Season' : 'Back to cast'}
+          className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700 hover:underline"
+        >
+          <span aria-hidden>‹</span> {fromRoster ? 'My Season' : 'Cast'}
+        </Link>
+        <HeaderPager prev={href(prevC)} next={href(nextC)} prevLabel={prevC?.name} nextLabel={nextC?.name} />
+      </div>
 
-      <header className="mt-4 grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
+      <header className="grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
         <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-paper-edge record-paper shadow-sm sm:mx-0">
           <ContestantPortrait name={perf.name} imageUrl={perf.image_url} className={eliminated ? 'grayscale opacity-80' : ''} />
         </div>
         <div className="min-w-0">
-          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-stone-200 text-stone-700' : 'bg-jade-100 text-jade-800'}`}>
-            {castStatus(perf)}
-          </span>
-          <h1 className="mt-3 font-display text-3xl tracking-wide text-forest-900 md:text-5xl">{perf.name}</h1>
+          {showStatus && (
+            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-stone-200 text-stone-700' : 'bg-jade-100 text-jade-800'}`}>
+              {castStatus(perf)}
+            </span>
+          )}
+          <h1 className={`font-display text-3xl tracking-wide text-forest-900 md:text-5xl ${showStatus ? 'mt-3' : ''}`}>{perf.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
             <span className="inline-flex items-center gap-2">
               {perf.tribe_name ? (
@@ -158,83 +166,62 @@ export function ContestantPage() {
           )}
           {perf.bio ? (
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-600">{perf.bio}</p>
-          ) : bioFacts.length === 0 ? (
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-500">
-              Biography details have not been added for this castaway yet.
+          ) : (
+            <p className="mt-5 max-w-xl text-sm italic leading-relaxed text-gray-500">
+              Bio coming soon — {perf.name}'s background and story will live here once bios are added.
             </p>
-          ) : null}
+          )}
         </div>
       </header>
 
-      <section className="mt-8" aria-labelledby="season-performance-title">
-        <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">Season performance</p>
-          <h2 id="season-performance-title" className="mt-1 font-display text-2xl tracking-wide text-forest-900">Scoring history</h2>
-        </div>
-        <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
-          <div className="rounded-xl border border-paper-edge record-paper p-4">
-            <p className="text-xs text-paper-ink-faded">Total points</p>
-            <p className="mt-1 text-2xl"><Points value={perf.total_points} suffix="" /></p>
-          </div>
-          <div className="rounded-xl border border-paper-edge record-paper p-4">
-            <p className="text-xs text-paper-ink-faded">Episodes with activity</p>
-            <p className="mt-1 text-2xl font-bold text-paper-ink">{scoredEpisodes.length}</p>
-          </div>
-          <div className="rounded-xl border border-paper-edge record-paper p-4">
-            <p className="text-xs text-paper-ink-faded">Best episode</p>
-            {bestEpisode && scoredEpisodes.length > 0 ? (
-              <p className="mt-1 text-lg font-bold text-paper-ink">Ep {bestEpisode.episode_number} <span className="text-sm"><Points value={bestEpisode.points} /></span></p>
-            ) : <p className="mt-1 text-sm font-medium text-paper-ink-faded">Not scored yet</p>}
-          </div>
-        </div>
-
-        {perf.episodes.length === 0 ? (
-          <div className="mt-6"><Notice title="No scored activity yet">Episode scoring will appear here once this castaway earns or loses points.</Notice></div>
-        ) : (
-          <ol className="mt-6 space-y-3">
-            {[...perf.episodes].sort((a, b) => b.episode_number - a.episode_number).map((episode) => {
-              const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
-              return (
-                <li key={episode.episode_number} className="rounded-2xl border border-paper-edge record-paper p-4 sm:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-paper-line pb-3">
-                    <div>
-                      <p className="font-semibold text-paper-ink">Episode {episode.episode_number}</p>
-                      {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</p>}
+      <div className="mt-8">
+        <SectionShell title="Episodes" prominent>
+          {perf.episodes.length === 0 ? (
+            <Notice title="No scored activity yet">Episode scoring will appear here once this castaway earns or loses points.</Notice>
+          ) : (
+            <ol className="space-y-3">
+              {[...perf.episodes].sort((a, b) => b.episode_number - a.episode_number).map((episode) => {
+                const events = episode.events.filter((event) => event.points !== 0 || event.token_value !== 0)
+                return (
+                  <li key={episode.episode_number} className="rounded-2xl border border-paper-edge record-paper p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-paper-line pb-3">
+                      <div>
+                        <p className="font-semibold text-paper-ink">Episode {episode.episode_number}</p>
+                        {episode.is_finale && <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</p>}
+                      </div>
+                      <Points value={episode.points} />
                     </div>
-                    <Points value={episode.points} />
-                  </div>
-                  {events.length > 0 ? (
-                    <ul className="mt-3 space-y-2 text-sm text-paper-ink-faded">
-                      {[...events]
-                        .sort((a, b) => Number(a.points === 0) - Number(b.points === 0))
-                        .map((event, index) => (
-                          <li key={index} className="flex items-start justify-between gap-3">
-                            <span>{event.label}{event.quantity > 1 && <span className="font-medium text-paper-ink-faded"> ×{event.quantity}</span>}</span>
-                            <span className="flex shrink-0 flex-wrap justify-end gap-2 text-xs">
-                              {event.points !== 0 && <Points value={event.points} />}
-                              {event.token_value !== 0 && (
-                                episode.tokens_locked ? (
-                                  <span className="text-paper-ink-faded line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
-                                ) : <span className="font-medium text-gold-600">+{event.token_value} tokens</span>
-                              )}
-                            </span>
-                          </li>
-                        ))}
-                    </ul>
-                  ) : <p className="mt-3 text-sm text-paper-ink-faded">No point-scoring events this episode.</p>}
-                  {episode.eliminated_type && (
-                    <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
-                      Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
-                    </p>
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-        )}
-      </section>
-
-      <SwipeNavBar prev={href(prevC)} next={href(nextC)} prevLabel={prevC?.name} nextLabel={nextC?.name} />
+                    {events.length > 0 ? (
+                      <ul className="mt-3 space-y-2 text-sm text-paper-ink-faded">
+                        {[...events]
+                          .sort((a, b) => Number(a.points === 0) - Number(b.points === 0))
+                          .map((event, index) => (
+                            <li key={index} className="flex items-start justify-between gap-3">
+                              <span>{event.label}{event.quantity > 1 && <span className="font-medium text-paper-ink-faded"> ×{event.quantity}</span>}</span>
+                              <span className="flex shrink-0 flex-wrap justify-end gap-2 text-xs">
+                                {event.points !== 0 && <Points value={event.points} />}
+                                {event.token_value !== 0 && (
+                                  episode.tokens_locked ? (
+                                    <span className="text-paper-ink-faded line-through" title="Advantages were locked; no tokens were granted">+{event.token_value} tokens</span>
+                                  ) : <span className="font-medium text-gold-600">+{event.token_value} tokens</span>
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    ) : <p className="mt-3 text-sm text-paper-ink-faded">No point-scoring events this episode.</p>}
+                    {episode.eliminated_type && (
+                      <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
+                        Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
+                      </p>
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </SectionShell>
+      </div>
     </div>
   )
 }
