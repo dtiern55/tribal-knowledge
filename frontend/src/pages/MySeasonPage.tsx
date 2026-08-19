@@ -15,6 +15,7 @@ import {
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
+import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
@@ -1803,33 +1804,31 @@ function PicksSection({
                 (pl.target_contestant_id === null ||
                   pl.target_contestant_id === p.contestant_id),
             )
-            // Only scored episodes have a settled result to color
-            // (#53). Incorrect stays neutral, not red — most votes
-            // miss, and a wall of red feels bad (#135).
-            const cls = !scored
-              ? 'bg-white border-cream-200 text-gray-700'
-              : result?.correct
-                ? 'bg-jade-50 border-jade-300 text-jade-800'
-                : 'bg-white border-cream-200 text-gray-500'
-            // Pick chip shows the BASE points; the double's own
-            // earnings render as a separate chip beside it (#136).
+            // Only scored episodes have a settled result. A correct vote gets
+            // the CorrectVote pill; incorrect stays neutral, not red — most
+            // votes miss and a wall of red feels bad (#53, #135).
+            const isCorrect = scored && result?.correct === true
+            // Pick chip shows the BASE points; the double's own earnings render
+            // as a separate chip beside it (#136).
+            const votePoints = result && result.points > 0 ? result.points : undefined
+            const badge = doubled ? (
+              <span className="absolute -right-2 -top-2 z-10 rotate-[10deg]">
+                <DoubleBadge size={22} title="Double Ballot Points this episode" />
+              </span>
+            ) : null
             return (
               <span key={p.id} className="contents">
-                <span className={`relative inline-flex items-center text-sm px-2 py-1 border rounded-md ${cls}`}>
-                  {scored && result?.correct && '✓ '}
-                  {name}
-                  {doubled && (
-                    <span className="absolute -right-2 -top-2 z-10 rotate-[10deg]">
-                      <DoubleBadge size={22} title="Double Ballot Points this episode" />
-                    </span>
-                  )}
-                  {scored && result?.correct && result.points > 0 && (
-                    <span className="ml-1 font-semibold">+{result.points}</span>
-                  )}
-                </span>
-                {doubled && scored && result?.correct && result.points > 0 && (
+                {isCorrect ? (
+                  <CorrectVote name={name} points={votePoints} trailing={badge} />
+                ) : (
+                  <span className={`relative inline-flex items-center text-sm px-2 py-1 border rounded-md bg-white border-cream-200 ${scored ? 'text-gray-500' : 'text-gray-700'}`}>
+                    {name}
+                    {badge}
+                  </span>
+                )}
+                {doubled && isCorrect && votePoints != null && (
                   <span className="text-sm px-2 py-1 border rounded-md bg-forest-50 border-forest-200 text-forest-700">
-                    Double Ballot Points <span className="font-semibold">+{result.points}</span>
+                    Double Ballot Points <span className="font-semibold">+{votePoints}</span>
                   </span>
                 )}
               </span>

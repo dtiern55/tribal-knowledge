@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { CorrectVote } from '../components/CorrectVote'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -221,9 +222,12 @@ export function TeamPage() {
                         {picks.map((pick) => {
                           const correct = eliminatedIds.has(pick.contestant_id)
                           const doubled = doubles.some((play) => play.episode_id === episode.id && (play.target_contestant_id === null || play.target_contestant_id === pick.contestant_id))
+                          const name = contestantMap.get(pick.contestant_id)?.name ?? '—'
+                          const x2 = doubled ? <span className="font-semibold text-terracotta-700"> ×2</span> : null
+                          if (correct) return <CorrectVote key={pick.id} name={name} trailing={x2} />
                           return (
-                            <span key={pick.id} className={`rounded-md border px-2 py-1 text-sm ${correct ? 'border-jade-300 bg-jade-50 text-jade-800' : 'border-paper-edge bg-black/[.03] text-paper-ink-faded'}`}>
-                              {correct ? '✓ ' : ''}{contestantMap.get(pick.contestant_id)?.name ?? '—'}{doubled && <span className="font-semibold text-terracotta-700"> ×2</span>}
+                            <span key={pick.id} className="rounded-md border border-paper-edge bg-black/[.03] px-2 py-1 text-sm text-paper-ink-faded">
+                              {name}{x2}
                             </span>
                           )
                         })}
