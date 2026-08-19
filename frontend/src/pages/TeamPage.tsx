@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { SwipeNavBar } from '../components/SwipeNav'
 import { ADV_LABELS } from '../lib/advantages'
 import { api } from '../lib/api'
 import { episodeClosed } from '../lib/episodes'
@@ -44,6 +43,25 @@ function SectionPoints({ value }: { value: number }) {
       <strong className="font-display text-lg tabular-nums text-forest-800">{value}</strong>
       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">pts</span>
     </span>
+  )
+}
+
+// Step to the previous/next player by rank — the desktop stand-in for the swipe
+// gesture, sitting in the header instead of a bottom button bar.
+function PlayerPager({ prev, next, prevLabel, nextLabel }: { prev?: string; next?: string; prevLabel?: string; nextLabel?: string }) {
+  const navigate = useNavigate()
+  const btn =
+    'inline-flex size-9 items-center justify-center rounded-full border border-cream-200 bg-cream-50 text-lg text-forest-800' +
+    ' transition-colors hover:border-forest-400 hover:bg-white disabled:opacity-30 disabled:pointer-events-none'
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={() => prev && navigate(prev, { replace: true })} disabled={!prev} aria-label={prevLabel ? `Previous: ${prevLabel}` : 'Previous player'} className={btn}>
+        <span aria-hidden>‹</span>
+      </button>
+      <button onClick={() => next && navigate(next, { replace: true })} disabled={!next} aria-label={nextLabel ? `Next: ${nextLabel}` : 'Next player'} className={btn}>
+        <span aria-hidden>›</span>
+      </button>
+    </div>
   )
 }
 
@@ -133,14 +151,22 @@ export function TeamPage() {
 
   return (
     <div>
-      <Link to="/standings" className="text-sm font-medium text-forest-700 hover:text-forest-900">← Back to standings</Link>
-      <div className="mt-4">
-        <PageHeader
-          eyebrow={ranked ? (ranked.tied ? `Tied for #${ranked.rank}` : `Rank #${ranked.rank}`) : undefined}
-          title={player.display_name}
-          meta={<span><strong className="text-lg text-forest-900">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
-        />
-      </div>
+      <PageHeader
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5">
+            <Link to="/standings" className="inline-flex items-center gap-1 hover:underline"><span aria-hidden>‹</span> Standings</Link>
+            {ranked && (
+              <>
+                <span className="text-gray-400" aria-hidden>/</span>
+                <span className="text-gray-500">{ranked.tied ? `Tied #${ranked.rank}` : `Rank #${ranked.rank}`}</span>
+              </>
+            )}
+          </span>
+        }
+        title={player.display_name}
+        description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
+        actions={<PlayerPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
+      />
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
         <section>
@@ -234,8 +260,6 @@ export function TeamPage() {
           </SectionShell>
         </div>
       </div>
-
-      <SwipeNavBar prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />
     </div>
   )
 }
