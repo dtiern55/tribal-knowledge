@@ -108,7 +108,6 @@ export function StandingsPage() {
 
   const ranked = rankStandings(entries)
   const mine = ranked.find(({ entry }) => entry.user_id === userId)
-  const showFinale = season.status === 'completed' || entries.some((e) => e.finale_points !== 0)
   const hasScoring = entries.some((e) => e.total_points !== 0)
 
   return (
@@ -149,12 +148,6 @@ export function StandingsPage() {
         <Notice title="No players yet">The standings will appear after players join this season.</Notice>
       ) : (
         <section aria-label="League standings">
-          <div className="mb-2 hidden grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] gap-3 border-b-2 border-forest-100 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-forest-700 md:grid">
-            <span>Rank</span><span>Player</span><span className="text-right">Roster</span>
-            <span className="text-right">Ballot</span>
-            <span className={`text-right ${showFinale ? '' : 'invisible'}`}>Finale</span>
-            <span className="text-right">Total</span>
-          </div>
           <ol className="divide-y divide-cream-300 border-b border-cream-300">
             {ranked.map(({ entry, rank, tied }) => {
               const isMe = entry.user_id === userId
@@ -163,7 +156,7 @@ export function StandingsPage() {
                   <Link
                     to={`/seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 px-1 py-4 transition-colors md:grid-cols-[3.5rem_minmax(0,1fr)_repeat(3,minmax(4.5rem,.45fr))_6rem] ${
+                    className={`group grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 px-1 py-4 transition-colors md:grid-cols-[3.5rem_minmax(0,1fr)_auto] ${
                       isMe ? 'bg-forest-50/45' : 'hover:bg-cream-50/70'
                     }`}
                   >
@@ -173,10 +166,6 @@ export function StandingsPage() {
                         <span className="truncate font-display text-lg font-semibold text-gray-900 group-hover:text-forest-700">{entry.display_name}</span>
                         {isMe && <span className="rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
                       </div>
-                      <p className="mt-1 text-xs text-gray-500 md:hidden">
-                        Roster {entry.roster_points} · Ballot {entry.elimination_points}
-                        {showFinale ? ` · Finale ${entry.finale_points}` : ''}
-                      </p>
                       {entry.active_survivors.length > 0 && (
                         <span className="mt-2 flex -space-x-2 pl-0.5">
                           {entry.active_survivors.map((survivor) => (
@@ -192,9 +181,6 @@ export function StandingsPage() {
                         </span>
                       )}
                     </div>
-                    <span className="hidden text-right text-gray-700 md:block">{entry.roster_points}</span>
-                    <span className="hidden text-right text-gray-700 md:block">{entry.elimination_points}</span>
-                    <span className={`hidden text-right text-gray-700 md:block ${showFinale ? '' : 'invisible'}`}>{entry.finale_points}</span>
                     <div className="text-right">
                       <p className="font-display text-xl font-bold text-forest-900">{entry.total_points}</p>
                       {entry.last_episode_points !== 0 ? (
