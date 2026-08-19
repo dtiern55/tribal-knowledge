@@ -86,15 +86,10 @@
   --color-paper-ink-faded: #8b7358;
 }
 
-/* The root background is forest, not cream, so the OS chrome that reads it —
-   the bottom system/nav bar and the overscroll gutters — matches the forest
-   `theme-color` painting the top status bar. The daylight app itself stays
-   cream: `.app-shell` overpaints the whole viewport, so forest only shows in
-   the edges the browser hands to the OS. locked-night overrides both below. */
 html {
   color-scheme: light;
   min-height: 100%;
-  background: var(--color-forest-600);
+  background: var(--color-cream-100);
   scroll-padding-top: 5rem;
 }
 
@@ -102,7 +97,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
-  background: var(--color-forest-600);
+  background: var(--color-cream-100);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
