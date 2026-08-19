@@ -50,7 +50,7 @@ describe('CastPage', () => {
       expect.stringContaining('First Boot'),
     ])
     expect(screen.getByText('Kenzie')).toHaveClass('font-display')
-    expect(screen.getByText('+12 pts')).toHaveClass('text-jade-600')
+    expect(screen.getByText('+12 pts')).toHaveClass('text-jade-700')
     expect(screen.getByTitle('Siga')).toHaveStyle({ '--tribe-color': '#4ca56a' })
     expect(screen.queryByTitle('Still in the game')).not.toBeInTheDocument()
   })
