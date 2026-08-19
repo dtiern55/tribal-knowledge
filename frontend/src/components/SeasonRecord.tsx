@@ -127,7 +127,7 @@ export type Beat = {
  *
  * Roster, Ballot and Advantage were three stacked sections of one sheet; they
  * are now one at a time under the masthead. Each tab carries only its settled
- * check and optional ×2 patch; detailed state remains accessible to assistive
+ * check and optional ×2 idol; detailed state remains accessible to assistive
  * technology without adding a second visible row.
  *
  * A real tablist: roving tabindex, arrow keys, and panels that stay mounted so

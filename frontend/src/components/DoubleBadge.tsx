@@ -1,8 +1,8 @@
-import { useId } from 'react'
-
-/** A tropical national-park patch for Double Roster Points. On the roster it
- * also remains the drag handle for moving the play. Detail steps down with the
- * rendered size so the mark stays legible in the 15px beat tab. */
+/** A carved hidden-immunity idol for Double Roster Points. On the roster it
+ * also remains the drag handle for moving the play. Above the beat-tab
+ * threshold it's the Tocantins bone-skull disc with a gold ×2 seal; at small
+ * sizes it steps down to the plain engraved ×2 so the multiplier always reads.
+ * Replaces the earlier tropical national-park patch. */
 export function DoubleBadge({
   size = 22,
   title = 'Double Roster Points this episode',
@@ -11,8 +11,6 @@ export function DoubleBadge({
   title?: string
 }) {
   const compact = size < 20
-  const stitched = size >= 28
-  const fieldId = `double-badge-field-${useId().replaceAll(':', '')}`
 
   return (
     <span
@@ -20,87 +18,100 @@ export function DoubleBadge({
       aria-label={title}
       title={title}
       className="inline-flex shrink-0 select-none items-center justify-center drop-shadow-[0_1px_1px_rgb(28_25_23_/_0.25)]"
-      style={{
-        height: size,
-        width: Math.round(size * 0.94),
-      }}
+      style={{ height: size, width: size }}
     >
       <svg
-        viewBox="0 0 48 52"
+        viewBox="0 0 48 48"
         aria-hidden="true"
-        data-mark="double-patch"
+        data-mark="double-idol"
         data-detail={compact ? 'compact' : 'scene'}
         className="block h-full w-full overflow-visible"
       >
-        <defs>
-          <clipPath id={fieldId}>
-            <path d="M24 5 41.5 12v15.5c0 8-6 14.2-17.5 18.8C12.5 41.7 6.5 35.5 6.5 27.5V12Z" />
-          </clipPath>
-        </defs>
-
-        <path
-          data-part="patch"
-          d="M24 1.5 45 10v18c0 10-7.5 17.5-21 22.5C10.5 45.5 3 38 3 28V10Z"
-          fill="#d4913a"
-          stroke="#1c1917"
-          strokeWidth="1.25"
-          strokeLinejoin="round"
-        />
-        <path
-          data-part="field"
-          d="M24 5 41.5 12v15.5c0 8-6 14.2-17.5 18.8C12.5 41.7 6.5 35.5 6.5 27.5V12Z"
-          fill="#1e3a2f"
-        />
-
-        {!compact && (
-          <g data-part="tropical-scene" clipPath={`url(#${fieldId})`}>
-            <path d="M6 9h36v16H6Z" fill="#c45432" />
-            <circle cx="24" cy="20.5" r="6" fill="#d4913a" />
-            <path d="M6 20.5h36v7H6Z" fill="#2e6b52" />
-            <path d="M6 23h36v1.5H6Z" fill="#f2e9db" opacity="0.9" />
-
-            <g
-              data-part="palms"
-              fill="none"
-              stroke="#1e3a2f"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        {compact ? (
+          <g data-part="compact-mark">
+            {/* Wood body */}
+            <circle cx="24" cy="24" r="23.2" fill="#3a2818" stroke="#160d06" strokeWidth="2" />
+            {/* Terracotta channel + solid carved ring */}
+            <circle cx="24" cy="24" r="19.6" fill="none" stroke="#c45432" strokeWidth="1.8" />
+            <circle cx="24" cy="24" r="17.4" fill="none" stroke="#ece0c4" strokeWidth="3.4" />
+            {/* Forest accent ring */}
+            <circle cx="24" cy="24" r="12.6" fill="none" stroke="#1e3a2f" strokeWidth="1.6" />
+            {/* Bone plug + engraved multiplier */}
+            <circle cx="24" cy="24.2" r="11.8" fill="#ece0c4" stroke="#a87d2f" strokeWidth="1" />
+            <text
+              x="24"
+              y="29.8"
+              textAnchor="middle"
+              fill="#2a1d12"
+              fontFamily="Rajdhani, system-ui, sans-serif"
+              fontSize="17.5"
+              fontWeight="700"
+              letterSpacing="-0.9"
             >
-              <path d="M10.5 27c0-6.5 1.8-11 5.5-14" />
-              <path d="M16 13c-3.5-2.2-6.5-2-8.7-.2M16 13c-.8-3.4-3-5.2-5.7-5.8M16 13c1.1-3.2 3.4-4.7 6.2-4.7M16 13c3.4-1.5 6.1-.8 7.8 1" />
-              <path d="M37.5 27c0-6.5-1.8-11-5.5-14" />
-              <path d="M32 13c3.5-2.2 6.5-2 8.7-.2M32 13c.8-3.4 3-5.2 5.7-5.8M32 13c-1.1-3.2-3.4-4.7-6.2-4.7M32 13c-3.4-1.5-6.1-.8-7.8 1" />
+              ×2
+            </text>
+          </g>
+        ) : (
+          <g data-part="idol-scene">
+            {/* Wood body with warm-gold bevel */}
+            <circle cx="24" cy="24" r="23.2" fill="#3a2818" stroke="#160d06" strokeWidth="1.8" />
+            <circle cx="24" cy="24" r="22" fill="none" stroke="#b98a4a" strokeWidth="1.3" opacity="0.85" />
+            {/* Terracotta channel */}
+            <circle cx="24" cy="24" r="19.8" fill="none" stroke="#c45432" strokeWidth="1.5" />
+            {/* Carved tooth ring — shadow copy for relief, then bone */}
+            <circle
+              cx="24.5"
+              cy="24.6"
+              r="17.6"
+              fill="none"
+              stroke="#160d06"
+              strokeWidth="3.6"
+              strokeDasharray="4 3.1"
+              opacity="0.55"
+            />
+            <circle
+              cx="24"
+              cy="24"
+              r="17.6"
+              fill="none"
+              stroke="#ece0c4"
+              strokeWidth="3.1"
+              strokeDasharray="4 3.1"
+            />
+            {/* Forest accent ring with jade highlight */}
+            <circle cx="24" cy="24" r="12.6" fill="none" stroke="#1e3a2f" strokeWidth="2.1" />
+            <circle cx="24" cy="24" r="12.6" fill="none" stroke="#2e6b52" strokeWidth="0.7" opacity="0.7" />
+            {/* Bone disc */}
+            <circle cx="24" cy="23.4" r="11.4" fill="#ece0c4" stroke="#a87d2f" strokeWidth="0.9" />
+            {/* Skull glyph (from the Tocantins idol concept) */}
+            <g data-part="skull" fill="#231a10">
+              <circle cx="20.6" cy="22.2" r="3.1" />
+              <circle cx="27.4" cy="22.2" r="3.1" />
+              <path d="M24 25 l2.3 4.1 h-4.6 z" />
+            </g>
+            <g fill="#3a2818">
+              <rect x="21" y="30" width="0.9" height="2.6" />
+              <rect x="23.55" y="30" width="0.9" height="2.6" />
+              <rect x="26.1" y="30" width="0.9" height="2.6" />
+            </g>
+            {/* Gold ×2 seal */}
+            <g data-part="multiplier-seal">
+              <circle cx="34.4" cy="34.6" r="8.9" fill="#d4913a" stroke="#160d06" strokeWidth="1.2" />
+              <circle cx="34.4" cy="34.6" r="8.9" fill="none" stroke="#1e3a2f" strokeWidth="0.9" opacity="0.55" />
+              <text
+                x="34.4"
+                y="38.6"
+                textAnchor="middle"
+                fill="#2a1d12"
+                fontFamily="Rajdhani, system-ui, sans-serif"
+                fontSize="11.4"
+                fontWeight="700"
+                letterSpacing="-0.7"
+              >
+                ×2
+              </text>
             </g>
           </g>
-        )}
-
-        {!compact && <path d="M6.5 27.5h35" stroke="#d4913a" strokeWidth="2" />}
-        <text
-          data-part={compact ? 'compact-mark' : 'multiplier'}
-          x="24"
-          y={compact ? 35 : 42.5}
-          textAnchor="middle"
-          fill="#f2e9db"
-          fontFamily="Rajdhani, system-ui, sans-serif"
-          fontSize={compact ? 25 : 19}
-          fontWeight="700"
-          letterSpacing={compact ? '-1.4' : '-1'}
-        >
-          ×2
-        </text>
-
-        {stitched && (
-          <path
-            data-part="stitching"
-            d="M24 3.5 43 11v17c0 9-6.8 15.8-19 20.5C11.8 43.8 5 37 5 28V11Z"
-            fill="none"
-            stroke="#f2e9db"
-            strokeWidth="0.85"
-            strokeDasharray="1.8 2.1"
-            strokeLinecap="round"
-            opacity="0.72"
-          />
         )}
       </svg>
     </span>
