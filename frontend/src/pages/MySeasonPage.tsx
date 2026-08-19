@@ -810,7 +810,7 @@ function EpisodeHistorySection({
               {p.points_earned != null && (
                 <span
                   className={`text-xs shrink-0 ${
-                    p.points_earned > 0 ? 'text-jade-600 font-medium' : 'text-gray-500'
+                    p.points_earned > 0 ? 'text-jade-700 font-medium' : 'text-gray-500'
                   }`}
                 >
                   {p.points_earned > 0 ? '+' : ''}
@@ -920,7 +920,7 @@ function HeaderPoints({
 
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
-  const color = value > 0 ? 'text-jade-600' : value < 0 ? 'text-terracotta-500' : 'text-gray-500'
+  const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-500' : 'text-gray-500'
   return (
     <span className={`text-xs font-medium ${color}`}>
       {value > 0 ? '+' : ''}

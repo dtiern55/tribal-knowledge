@@ -92,7 +92,7 @@ export function CastPage() {
                   <span
                     className={`w-20 shrink-0 text-right font-display text-lg font-bold ${
                       member.total_points > 0
-                        ? 'text-jade-600'
+                        ? 'text-jade-700'
                         : member.total_points < 0
                           ? 'text-terracotta-500'
                           : 'text-gray-500'

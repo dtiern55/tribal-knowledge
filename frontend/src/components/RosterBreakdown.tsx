@@ -77,7 +77,7 @@ export function RosterBreakdown({
               </span>
               <span
                 className={`ml-auto ${
-                  total > 0 ? 'text-jade-600' : total < 0 ? 'text-terracotta-500' : 'text-gray-500'
+                  total > 0 ? 'text-jade-700' : total < 0 ? 'text-terracotta-500' : 'text-gray-500'
                 }`}
               >
                 {total} pts
@@ -102,7 +102,7 @@ export function RosterBreakdown({
                       {e.label}
                       {e.quantity > 1 && ` ×${e.quantity}`}
                     </span>
-                    <span className={e.points > 0 ? 'text-jade-600' : 'text-terracotta-500'}>
+                    <span className={e.points > 0 ? 'text-jade-700' : 'text-terracotta-500'}>
                       {e.points} pts
                     </span>
                   </li>
