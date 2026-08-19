@@ -5,6 +5,7 @@ import { api, getActiveSeason } from '../lib/api'
 import { resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode } from '../types'
 import { NavDrawer } from './NavDrawer'
+import { SafeAreaDebug } from './SafeAreaDebug'
 import {
   BuffPairIcon,
   GearIcon,
@@ -173,6 +174,8 @@ export function Layout() {
           ))}
         </nav>
       )}
+
+      {authed && profile?.is_admin && <SafeAreaDebug />}
 
       {authed && (
         <NavDrawer
