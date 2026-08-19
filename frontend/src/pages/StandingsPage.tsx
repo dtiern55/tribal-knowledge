@@ -21,16 +21,45 @@ function Trend({ entry }: { entry: StandingEntry }) {
   return <span className={`text-xs font-medium ${color}`}>{label}</span>
 }
 
-function Rank({ rank, tied }: { rank: number; tied: boolean }) {
+// A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
+function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
-    <span className="flex flex-col items-start">
+    <span
+      className={`inline-flex items-center gap-0.5 text-[11px] font-bold leading-none ${up ? 'text-jade-700' : 'text-terracotta-600'}`}
+      aria-label={`${up ? 'Up' : 'Down'} ${delta} since last episode`}
+    >
+      <span aria-hidden>{up ? '▲' : '▼'}</span>
+      <span className="tabular-nums">{delta}</span>
+    </span>
+  )
+}
+
+// Rank with position movement placed *spatially*: the triangle sits above the
+// number for a climb and below for a slip, so direction reads at a glance. The
+// number is the only thing in normal flow and the triangles float absolutely
+// above/below it, so the rank number never shifts and the column stays a clean
+// aligned line row to row regardless of who moved.
+function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: StandingEntry }) {
+  const up = entry.trend === 'up'
+  const down = entry.trend === 'down'
+  return (
+    <span className="relative inline-flex flex-col items-start leading-none">
+      {up && (
+        <span className="absolute bottom-full left-0 mb-1">
+          <Movement up delta={entry.trend_delta} />
+        </span>
+      )}
       <span
         className={`font-display text-2xl font-bold leading-none ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
         aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
       >
         {rank}
       </span>
-      {tied && <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-400">Tied</span>}
+      {down && (
+        <span className="absolute top-full left-0 mt-1">
+          <Movement up={false} delta={entry.trend_delta} />
+        </span>
+      )}
     </span>
   )
 }
@@ -111,7 +140,6 @@ export function StandingsPage() {
             <div className="text-right">
               <p className="font-display text-3xl font-bold text-forest-900">{mine.entry.total_points}</p>
               <p className="text-xs text-gray-500">season points</p>
-              <p className="mt-2 text-xs font-semibold text-forest-700">View your team →</p>
             </div>
           </div>
         </Link>
@@ -139,12 +167,11 @@ export function StandingsPage() {
                       isMe ? 'bg-forest-50/45' : 'hover:bg-cream-50/70'
                     }`}
                   >
-                    <Rank rank={rank} tied={tied} />
+                    <Rank rank={rank} tied={tied} entry={entry} />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-display text-lg font-semibold text-gray-900 group-hover:text-forest-700">{entry.display_name}</span>
                         {isMe && <span className="rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
-                        <Trend entry={entry} />
                       </div>
                       <p className="mt-1 text-xs text-gray-500 md:hidden">
                         Roster {entry.roster_points} · Ballot {entry.elimination_points}
