@@ -77,7 +77,8 @@ Show Danny one readable block:
 Ask him to: confirm or drop each flagged/auto-mapped item, and name any
 **judgment calls** to add (contestant + event). Pull valid slugs+labels from
 `GET {API}/seasons/{season_id}/scoring-event-types` so you use real event
-types, never guessed ones. Assemble the final batch:
+types, never guessed ones. It returns only *enabled* types, so retired ones
+(the four TV moments) won't appear; the three judgment calls below still do. Assemble the final batch:
 **(approved proposal items) + (Danny's manual events).**
 
 ## 5. Apply (additive, dedup-aware)
@@ -93,7 +94,14 @@ Skip anything already recorded (same contestant + type), then:
 - `POST {API}/episodes/{episode_id}/eliminations` — `[{contestant_id, elimination_type}, ...]`
 - `POST {API}/episodes/{episode_id}/scoring-events` — `[{contestant_id, event_type, quantity, notes}, ...]`
   (scoring events are points-only now; the token grant path is inert — #307)
-- Finale placements: `PATCH {API}/contestants/{contestant_id}` — `{placement}`
+- **Finale placements:** `PATCH {API}/contestants/{contestant_id}` — `{placement: 1|2|3}`.
+  A DB trigger now auto-generates the finale scoring events from `placement`
+  (`made_final_tribal` / `runner_up` / `won_season`), so **PATCH placement is the
+  ONLY thing you do — never also POST those events** (double-count). Point model:
+  30 / 20 / 50 for made-final / runner-up / won, and they stack, so totals are
+  **1st = 80, 2nd = 50, 3rd = 30**. The Sole-Survivor designee bonus is **+50%**
+  now (not ×2), applied for free by the finale multiplier. `import-proposal` still
+  returns `placements`; apply them via PATCH, nothing more.
 
 Use a traceable `notes` like `import: {source}` on applied events.
 
@@ -105,7 +113,10 @@ leaking future tribes (#212). Run it every week with this episode's number.
 
 **If the merge airs this episode**, also turn on post-merge scoring:
 `PATCH {API}/seasons/{season_id}` `{"merge_episode": N}`. (Don't set it before
-it happens — that's future knowledge, and it changes point values.)
+it happens — that's future knowledge.) The point values it changes:
+`vote_correctly_at_tribal` **3 → 5** and `correct_elimination` **15 → 18** from
+this episode on (#413). Global template only — seasons snapshotted before the
+change keep the old values.
 
 ## 7. Verify & score
 
@@ -114,6 +125,10 @@ it happens — that's future knowledge, and it changes point values.)
   - the new standings order,
   - and **flag anything suspicious**: a voted-out contestant not marked out, a
     contestant sitting at 0 where you expected points.
+  - **Not** an anomaly: a player with a *negative* swap delta you didn't enter.
+    Roster swaps past the free one are priced in points (#405) and docked
+    automatically at swap time (`roster_picks.swap_penalty_points`, summed into
+    standings by scoring) — the commissioner enters nothing for them.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
 ## 8. Close the episode out
@@ -147,8 +162,11 @@ the pipeline knows the result before the commissioner does.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, or steals.
 - **Tokens are retired (#307).** Players get one free advantage play per
-  episode instead, so there is no allocation to grant and nothing to create
-  episode N+1 *for* — create it whenever the schedule is known. Episode rows
-  for a full season are usually made up front at setup.
+  episode instead — **Double Roster Points or Double Ballot Points** (the
+  advantage is labeled "Double Ballot Points"; the key `double_vote_points` is
+  unchanged). Roster swap **left** this economy (it's points-priced now, above),
+  and **Extra Vote is retired**. So there is no allocation to grant and nothing
+  to create episode N+1 *for* — create it whenever the schedule is known.
+  Episode rows for a full season are usually made up front at setup.
 - Fine-grained fixes after applying are easy: scoring events are additive with
   per-item delete (`DELETE {API}/scoring-events/{id}`) in the admin UI.
