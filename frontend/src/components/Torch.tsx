@@ -67,7 +67,7 @@ export function Torch({
         strokeLinejoin="round"
       />
       <path
-        d="M21 39 L27 39 L27 93 L21 93 Z"
+        d="M19 40 L29 40 L29 93 L19 93 Z"
         fill={lit ? '#95653e' : '#74685a'}
         stroke={lit ? '#493322' : '#4f4941'}
         strokeWidth="1.2"
