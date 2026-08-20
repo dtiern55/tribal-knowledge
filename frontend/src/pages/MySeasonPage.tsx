@@ -30,7 +30,6 @@ import {
   RecordSection,
   SeasonRecord,
 } from '../components/SeasonRecord'
-import { Torch } from '../components/Torch'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
 import { formatCentral } from '../lib/time'
@@ -1802,8 +1801,16 @@ function RosterSection({
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
                     >
                       <span className="flex items-center gap-2">
-                        <span className="shrink-0 grayscale opacity-70" title="Swapped out">
-                          <Torch lit={false} />
+                        {/* A swap icon, not a snuffed torch (#457): swapped off
+                            your roster ≠ eliminated from the game. The torch is
+                            kept for the recap's real elimination moment. */}
+                        <span className="shrink-0 text-gray-400" title="Swapped out" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M7 4 3 8l4 4" />
+                            <path d="M3 8h14" />
+                            <path d="m17 20 4-4-4-4" />
+                            <path d="M21 16H7" />
+                          </svg>
                         </span>
                         {c?.name ?? '—'}
                       </span>
