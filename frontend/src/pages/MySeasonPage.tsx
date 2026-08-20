@@ -21,6 +21,7 @@ import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
+import { Torch } from '../components/Torch'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import {
   RecordBeats,
@@ -1801,15 +1802,9 @@ function RosterSection({
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
                     >
                       <span className="flex items-center gap-2">
-                        {/* No snuffed torch here (#457) — it's kept for the
-                            recap's real elimination moment. A swapped-off member
-                            may still be playing, so mark the ones actually voted
-                            out with a plain text tag instead of a glyph. */}
-                        {c?.eliminated_in_episode != null && (
-                          <span className="shrink-0 rounded bg-terracotta-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-terracotta-700">
-                            Voted out
-                          </span>
-                        )}
+                        <span className="shrink-0 grayscale opacity-70" title="Swapped out">
+                          <Torch lit={false} />
+                        </span>
                         {c?.name ?? '—'}
                       </span>
                       <span className="text-xs flex items-center gap-2">

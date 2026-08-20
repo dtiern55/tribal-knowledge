@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
-import { Torch } from './Torch'
 
 interface EpisodeResultRevealProps {
   result: EpisodeResult
@@ -367,10 +366,11 @@ function ResultRow({
         />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{name}</span>
         {eliminated && (
-          <>
-            <span className="sr-only">voted out this episode</span>
-            <Torch lit={false} className="torch-snuff h-5 w-3.5 shrink-0" />
-          </>
+          // A readable text tag, not a thumbnail-sized torch (#457) — at this
+          // size the snuffed torch was unreadable.
+          <span className="shrink-0 rounded bg-terracotta-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-terracotta-700">
+            Voted out
+          </span>
         )}
         <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
         {expandable && (
