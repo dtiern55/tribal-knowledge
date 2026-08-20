@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
@@ -260,9 +260,74 @@ export function MySeasonPage() {
   // open until the halo has finished fading, or the glow is guillotined at the
   // card edge the instant you pick.
   const [stageOpen, setStageOpen] = useState(false)
+  // The recap overlay is driven by a `recap=<episode_id>` URL param (#479) so
+  // Back closes it instead of leaving the page, and a refresh restores it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const recapId = searchParams.get('recap')
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
+
+  const setRecapParam = useCallback(
+    (id: string | null) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (id) next.set('recap', id)
+        else next.delete('recap')
+        return next
+      })
+    },
+    [setSearchParams],
+  )
+
+  // The automatic reveal gets its own history entry too, but only the first
+  // time it appears — otherwise dismissing it with Back would immediately
+  // re-push the param and undo the dismissal. It reappears on the next visit
+  // (a fresh mount resets this ref) since it stays unacknowledged.
+  const autoPushedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (
+      d.automaticResult &&
+      recapId == null &&
+      autoPushedFor.current !== d.automaticResult.episode_id
+    ) {
+      autoPushedFor.current = d.automaticResult.episode_id
+      setRecapParam(d.automaticResult.episode_id)
+    }
+  }, [d.automaticResult, recapId, setRecapParam])
+
+  // Derives what the recap shows from the URL param alone: absent closes it,
+  // matching the automatic result shows that (no fetch needed), otherwise
+  // fetch (or reuse) the replay for that episode.
+  useEffect(() => {
+    if (!recapId) {
+      setReplayResult(null)
+      return
+    }
+    if (recapId === d.automaticResult?.episode_id) return
+    if (replayResult?.episode_id === recapId) return
+    if (!d.season) return
+    let live = true
+    setReplayLoading(recapId)
+    setReplayError(null)
+    api
+      .get<EpisodeResult>(`/seasons/${d.season.id}/episode-results/${recapId}`)
+      .then((res) => {
+        if (live) setReplayResult(res)
+      })
+      .catch((error) => {
+        if (!live) return
+        setReplayError(error instanceof Error ? error.message : 'Could not load episode result')
+        setRecapParam(null)
+      })
+      .finally(() => {
+        if (live) setReplayLoading(null)
+      })
+    return () => {
+      live = false
+    }
+  }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
+
   useEffect(() => {
     // Only swap uses the in-page stage lighting now; double picks in a focused
     // sheet (#449), so it needs no scrim/halo behind it.
@@ -284,19 +349,9 @@ export function MySeasonPage() {
   )
   const state = resolveMySeasonState(d.season, d.episodes)
 
-  async function openReplay(episode: Episode) {
-    setReplayLoading(episode.id)
-    setReplayError(null)
-    try {
-      const result = await api.get<EpisodeResult>(
-        `/seasons/${d.season!.id}/episode-results/${episode.id}`,
-      )
-      setReplayResult(result)
-    } catch (error) {
-      setReplayError(error instanceof Error ? error.message : 'Could not load episode result')
-    } finally {
-      setReplayLoading(null)
-    }
+  function openReplay(episode: Episode) {
+    if (recapId === episode.id) return
+    setRecapParam(episode.id)
   }
 
   async function acknowledgeResult() {
@@ -305,9 +360,18 @@ export function MySeasonPage() {
       episode_id: d.automaticResult.episode_id,
     })
     d.setAutomaticResult(null)
+    setRecapParam(null)
   }
 
-  const visibleResult = replayResult ?? d.automaticResult
+  const visibleResult =
+    recapId == null
+      ? null
+      : recapId === d.automaticResult?.episode_id
+        ? d.automaticResult
+        : replayResult?.episode_id === recapId
+          ? replayResult
+          : null
+  const recapMode = recapId === d.automaticResult?.episode_id ? 'automatic' : 'replay'
 
   // What each beat says about itself. All derived — nothing is stored (#396
   // follow-up). Mirrors the markers already inside the sections.
@@ -490,9 +554,9 @@ export function MySeasonPage() {
       {visibleResult && (
         <EpisodeResultReveal
           result={visibleResult}
-          mode={replayResult ? 'replay' : 'automatic'}
-          onContinue={replayResult ? undefined : acknowledgeResult}
-          onClose={replayResult ? () => setReplayResult(null) : undefined}
+          mode={recapMode}
+          onContinue={recapMode === 'automatic' ? acknowledgeResult : undefined}
+          onClose={recapMode === 'replay' ? () => setRecapParam(null) : undefined}
         />
       )}
     </>
@@ -722,7 +786,7 @@ function EpisodeHistorySection({
   plays: AdvantagePlay[]
   contestants: Contestant[]
   episodes: Episode[]
-  onReplay: (episode: Episode) => Promise<void>
+  onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
 }) {
@@ -771,7 +835,7 @@ function EpisodeHistorySection({
             <li key={episode.id}>
               <button
                 type="button"
-                onClick={() => void onReplay(episode)}
+                onClick={() => onReplay(episode)}
                 disabled={replayLoading != null}
                 className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-cream-200 bg-cream-50 p-3 text-left text-sm hover:border-forest-300 hover:bg-forest-50 disabled:opacity-50"
               >
