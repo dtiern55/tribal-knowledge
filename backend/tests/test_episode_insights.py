@@ -70,6 +70,59 @@ def test_curated_insights_compute_multiple_elimination_aggregates(
 
 
 @pytest.mark.integration
+def test_auto_league_call_leads_without_configuration(client, db_conn, current_user):
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    episode = insert_episode(db_conn, season["id"], status="scored")
+    other = insert_user(db_conn, display_name="Other")
+    boot = insert_contestant(db_conn, season["id"], "Boot")
+    safe = insert_contestant(db_conn, season["id"], "Safe")
+    insert_elimination(db_conn, episode["id"], boot["id"])
+    insert_elimination_pick(db_conn, current_user["id"], episode["id"], boot["id"])
+    insert_elimination_pick(db_conn, other["id"], episode["id"], safe["id"])
+
+    insights = client.get(
+        f"/seasons/{season['id']}/episode-results/{episode['id']}"
+    ).json()["insights"]
+    assert len(insights) == 1
+    assert insights[0]["label"] == "League call: Boot"
+    assert insights[0]["value"] == "50%"
+    assert insights[0]["detail"] == "1 of 2 ballots picked Boot."
+
+
+@pytest.mark.integration
+def test_manual_notes_merge_and_validate(client, db_conn):
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    episode = insert_episode(db_conn, season["id"], status="scored")
+    url = f"/episodes/{episode['id']}/insights"
+
+    saved = client.put(
+        url,
+        json=[
+            {
+                "insight_type": "manual_note",
+                "label": "Blindside",
+                "value": "Genevieve",
+                "detail": "Flipped on her alliance.",
+            },
+            {"insight_type": "manual_note", "label": "Idol", "value": "Q"},
+        ],
+    )
+    assert saved.status_code == 200
+
+    insights = client.get(
+        f"/seasons/{season['id']}/episode-results/{episode['id']}"
+    ).json()["insights"]
+    assert [(i["label"], i["value"], i["detail"]) for i in insights] == [
+        ("Blindside", "Genevieve", "Flipped on her alliance."),
+        ("Idol", "Q", None),
+    ]
+
+    bad = client.put(url, json=[{"insight_type": "manual_note", "value": "x"}])
+    assert bad.status_code == 400
+    assert "need a label and value" in bad.json()["detail"]
+
+
+@pytest.mark.integration
 def test_weekly_play_usage_and_empty_configuration(client, db_conn, current_user):
     season = insert_season(db_conn, status="active", roster_lock_episode=1)
     episode = insert_episode(db_conn, season["id"], status="scored")

@@ -462,11 +462,15 @@ class EpisodeInsightConfigEntry(BaseModel):
         "multiple_correct_ballots",
         "performance_vs_median",
         "weekly_play_usage",
+        "manual_note",
     ]
     contestant_id: Optional[UUID] = None
     advantage_type: Optional[
         Literal["double_roster_points", "double_vote_points", "roster_swap"]
     ] = None
+    label: Optional[str] = None
+    value: Optional[str] = None
+    detail: Optional[str] = None
 
 
 class EpisodeInsightConfig(EpisodeInsightConfigEntry):

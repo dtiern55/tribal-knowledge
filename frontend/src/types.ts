@@ -221,6 +221,7 @@ export type EpisodeInsightType =
   | 'multiple_correct_ballots'
   | 'performance_vs_median'
   | 'weekly_play_usage'
+  | 'manual_note'
 
 export interface EpisodeInsightConfig {
   id: string
@@ -228,6 +229,9 @@ export interface EpisodeInsightConfig {
   insight_type: EpisodeInsightType
   contestant_id: string | null
   advantage_type: 'double_roster_points' | 'double_vote_points' | 'roster_swap' | null
+  label: string | null
+  value: string | null
+  detail: string | null
   display_order: number
 }
 

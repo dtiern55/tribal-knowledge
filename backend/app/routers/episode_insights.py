@@ -1,4 +1,5 @@
 from statistics import median
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -51,9 +52,11 @@ def set_episode_insights(
 ):
     if len(body) > 3:
         raise HTTPException(status_code=400, detail="Choose at most three insights")
+    # Manual notes are distinct free text; only computed insights dedupe on target.
     selections = [
         (item.insight_type, str(item.contestant_id), item.advantage_type)
         for item in body
+        if item.insight_type != "manual_note"
     ]
     if len(selections) != len(set(selections)):
         raise HTTPException(status_code=400, detail="Duplicate insight selection")
@@ -101,6 +104,16 @@ def set_episode_insights(
                             status_code=400,
                             detail="Weekly play usage needs one supported play type",
                         )
+                elif item.insight_type == "manual_note":
+                    if not (item.label or "").strip() or not (item.value or "").strip():
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Manual notes need a label and value",
+                        )
+                    if item.contestant_id or item.advantage_type:
+                        raise HTTPException(
+                            status_code=400, detail="This insight takes no target"
+                        )
                 elif item.contestant_id is not None or item.advantage_type is not None:
                     raise HTTPException(
                         status_code=400, detail="This insight takes no target"
@@ -112,23 +125,65 @@ def set_episode_insights(
             )
             rows = []
             for order, item in enumerate(body):
+                is_note = item.insight_type == "manual_note"
                 cur.execute(
                     """
                     insert into episode_insights
                         (episode_id, insight_type, contestant_id,
-                         advantage_type, display_order)
-                    values (%s, %s, %s, %s, %s) returning *
+                         advantage_type, label, value, detail, display_order)
+                    values (%s, %s, %s, %s, %s, %s, %s, %s) returning *
                     """,
                     [
                         str(episode_id),
                         item.insight_type,
                         str(item.contestant_id) if item.contestant_id else None,
                         item.advantage_type,
+                        item.label.strip() if is_note else None,
+                        item.value.strip() if is_note else None,
+                        (item.detail or "").strip() or None if is_note else None,
                         order,
                     ],
                 )
                 rows.append(cur.fetchone())
             return rows
+
+
+def _auto_league_call(conn, episode: dict) -> Optional[dict]:
+    """The guaranteed boot-caught insight: what share of ballots called the boot."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "select c.name from eliminations el"
+            " join contestants c on c.id = el.contestant_id"
+            " where el.episode_id = %s order by el.created_at, c.name",
+            [str(episode["id"])],
+        )
+        boots = [row["name"] for row in cur.fetchall()]
+        if not boots:
+            return None
+        cur.execute(
+            """
+            select count(distinct pick.user_id)::int as total,
+                   count(distinct pick.user_id) filter (
+                     where el.contestant_id is not null)::int as caught
+            from elimination_picks pick
+            left join eliminations el
+              on el.episode_id = pick.episode_id
+             and el.contestant_id = pick.contestant_id
+            where pick.episode_id = %s
+            """,
+            [str(episode["id"])],
+        )
+        counts = cur.fetchone()
+    if counts["total"] == 0:
+        return None
+    pct = round(counts["caught"] * 100 / counts["total"])
+    if len(boots) == 1:
+        label = f"League call: {boots[0]}"
+        detail = f"{counts['caught']} of {counts['total']} ballots picked {boots[0]}."
+    else:
+        label = "League call"
+        detail = f"{counts['caught']} of {counts['total']} ballots caught a boot."
+    return {"id": episode["id"], "label": label, "value": f"{pct}%", "detail": detail}
 
 
 def compute_episode_insights(
@@ -145,8 +200,19 @@ def compute_episode_insights(
             [str(episode["id"])],
         )
         configured = cur.fetchall()
+
+    insights: list[dict] = []
+    # Always lead with the boot-caught League Call, unless an admin curated their
+    # own pick-popularity card (which owns that slot instead).
+    if not episode["is_finale"] and not any(
+        item["insight_type"] == "pick_popularity" for item in configured
+    ):
+        league_call = _auto_league_call(conn, episode)
+        if league_call:
+            insights.append(league_call)
+
     if not configured:
-        return []
+        return insights
 
     episode_scores = scoring.episode_points(
         conn, season["id"], episode["episode_number"]
@@ -160,7 +226,6 @@ def compute_episode_insights(
         )
         participants = [row["id"] for row in cur.fetchall()]
 
-    insights = []
     for item in configured:
         kind = item["insight_type"]
         if kind == "pick_popularity":
@@ -257,6 +322,15 @@ def compute_episode_insights(
                     "label": f"{label} usage",
                     "value": f"{used} of {len(participants)}",
                     "detail": f"league players used {label} this episode.",
+                }
+            )
+        elif kind == "manual_note":
+            insights.append(
+                {
+                    "id": item["id"],
+                    "label": item["label"],
+                    "value": item["value"],
+                    "detail": item["detail"],
                 }
             )
     return insights
