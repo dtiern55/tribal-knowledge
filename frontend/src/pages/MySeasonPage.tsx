@@ -51,24 +51,16 @@ import type {
 } from '../types'
 
 // The whole ballot is doubled when Double Ballot Points is played (#303), so the
-// ×2 belongs on the ballot once, not on every vote (#484). A horizontal twin of
-// the advantage-card you play it from.
-function BallotDoubleBanner({ compact = false }: { compact?: boolean }) {
+// carved ×2 idol is stamped onto the ballot once, like a seal pressed on the
+// paper (#484) — not repeated per vote, not a banner. Corner press: the host
+// container must be `relative`.
+function BallotStamp({ size = 54 }: { size?: number }) {
   return (
-    <div
-      className={`ballot-x2${compact ? ' ballot-x2--compact' : ''}`}
-      role="img"
-      aria-label="Double Ballot Points active — every vote scores double this episode"
+    <span
+      className="pointer-events-none absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]"
     >
-      <span className="ballot-x2__mult" aria-hidden="true">×2</span>
-      <span className="ballot-x2__label" aria-hidden="true">Ballot points</span>
-      {!compact && (
-        <>
-          <span className="ballot-x2__rule" aria-hidden="true" />
-          <span className="ballot-x2__status" aria-hidden="true">Active</span>
-        </>
-      )}
-    </div>
+      <DoubleBadge size={size} title="Double Ballot Points this episode" />
+    </span>
   )
 }
 
@@ -2059,8 +2051,10 @@ function PicksSection({
   function episodeRow(ep: Episode, current: boolean) {
     const picks = picksByEpisode.get(ep.id) ?? []
     const scored = ep.status === 'scored'
-    // One banner for the doubled ballot (#484) instead of an idol per pick. The
-    // per-pick earnings chips below still name which vote the double paid on.
+    // The doubled ballot wears the ×2 idol once (#484): a corner-seal stamp on
+    // the prominent current ballot, a small inline seal by the episode number on
+    // the compact Past Ballots rows. The per-pick earnings chips still name
+    // which vote the double paid on.
     const ballotDoubled = plays.some(
       (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
     )
@@ -2069,6 +2063,9 @@ function PicksSection({
         <span className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}>
           Episode {ep.episode_number}
         </span>
+        {!current && ballotDoubled && (
+          <DoubleBadge size={22} title="Double Ballot Points this episode" />
+        )}
         {/* Never show the raw DB status — a locked, unscored episode said
             "upcoming", the opposite of true (#272). */}
         <span
@@ -2125,28 +2122,19 @@ function PicksSection({
       )
 
     return current ? (
-      <div key={ep.id} className="mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
+      <div key={ep.id} className="relative mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
+        {ballotDoubled && <BallotStamp size={48} />}
         {header}
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Ballot locked {formatCentral(ep.picks_lock_at)}
         </p>
-        {ballotDoubled && (
-          <div className="mb-3">
-            <BallotDoubleBanner compact />
-          </div>
-        )}
         {body}
       </div>
     ) : (
       // Flat record line inside the "Past Ballots" section (#478) — ruled like
-      // the rest of the record, not a grey card.
+      // the rest of the record, not a grey card. The ×2 seal rides in the header.
       <div key={ep.id} className="border-b border-paper-line px-4 py-3 last:border-b-0">
         {header}
-        {ballotDoubled && (
-          <div className="mt-2">
-            <BallotDoubleBanner compact />
-          </div>
-        )}
         <div className="mt-2">{body}</div>
       </div>
     )
@@ -2218,15 +2206,9 @@ function PicksSection({
           }
 
           return (
-            <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
+            <div className={activeOnly ? 'relative' : 'relative mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
+              {ballotDoubled && <BallotStamp />}
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
-              {ballotDoubled && (
-                <div className="mb-4">
-                  {/* Compact on the Advantage beat — the ×2 tiles sit right
-                      above there; full-height on the standalone My Votes tab. */}
-                  <BallotDoubleBanner compact={activeOnly} />
-                </div>
-              )}
               {confirmed ? (
                 <div className="mb-5">
                   {/* Submitted is the state people look for, so it gets a mark
