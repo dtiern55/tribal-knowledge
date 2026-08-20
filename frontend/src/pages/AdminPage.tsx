@@ -687,10 +687,12 @@ function EpisodeInsightEditor({
   eliminations: EliminationRow[]
 }) {
   const [selected, setSelected] = useState<string[]>([])
+  const [notes, setNotes] = useState<{ label: string; value: string; detail: string }[]>([])
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const stored = selected.length + notes.length
 
   useEffect(() => {
     let live = true
@@ -699,15 +701,26 @@ function EpisodeInsightEditor({
       .then((items) => {
         if (!live) return
         setSelected(
-          items.map((item) => {
-            if (item.insight_type === 'pick_popularity') {
-              return `pick:${item.contestant_id ?? ''}`
-            }
-            if (item.insight_type === 'weekly_play_usage') {
-              return `play:${item.advantage_type ?? ''}`
-            }
-            return item.insight_type
-          }),
+          items
+            .filter((item) => item.insight_type !== 'manual_note')
+            .map((item) => {
+              if (item.insight_type === 'pick_popularity') {
+                return `pick:${item.contestant_id ?? ''}`
+              }
+              if (item.insight_type === 'weekly_play_usage') {
+                return `play:${item.advantage_type ?? ''}`
+              }
+              return item.insight_type
+            }),
+        )
+        setNotes(
+          items
+            .filter((item) => item.insight_type === 'manual_note')
+            .map((item) => ({
+              label: item.label ?? '',
+              value: item.value ?? '',
+              detail: item.detail ?? '',
+            })),
         )
         setLoaded(true)
       })
@@ -757,16 +770,23 @@ function EpisodeInsightEditor({
     setSaved(false)
     setSelected((current) => {
       if (current.includes(key)) return current.filter((item) => item !== key)
-      if (current.length === 3) return current
+      if (stored === 3) return current
       return [...current, key]
     })
+  }
+
+  function updateNote(index: number, field: 'label' | 'value' | 'detail', text: string) {
+    setSaved(false)
+    setNotes((current) =>
+      current.map((note, i) => (i === index ? { ...note, [field]: text } : note)),
+    )
   }
 
   function save() {
     setSaving(true)
     setError(null)
     setSaved(false)
-    const body = selected.map((key) => {
+    const toggles = selected.map((key) => {
       if (key.startsWith('pick:')) {
         return { insight_type: 'pick_popularity', contestant_id: key.slice(5) }
       }
@@ -775,6 +795,15 @@ function EpisodeInsightEditor({
       }
       return { insight_type: key }
     })
+    const noteEntries = notes
+      .filter((note) => note.label.trim() && note.value.trim())
+      .map((note) => ({
+        insight_type: 'manual_note',
+        label: note.label.trim(),
+        value: note.value.trim(),
+        detail: note.detail.trim() || null,
+      }))
+    const body = [...toggles, ...noteEntries]
     api
       .put<EpisodeInsightConfig[]>(`/episodes/${episode.id}/insights`, body)
       .then(() => setSaved(true))
@@ -786,31 +815,86 @@ function EpisodeInsightEditor({
     <div className="pt-4 border-t border-gray-100">
       <p className="text-xs font-semibold text-gray-500">Reveal Insights</p>
       <p className="mt-1 text-xs text-gray-500">
-        Choose up to three post-score league facts. Nothing appears in Reveal when none are selected.
+        Reveal always leads with the League Call (who caught the boot). Add up to three
+        more curated facts or commissioner notes below.
       </p>
       {!loaded ? (
         <p className="mt-3 text-xs text-gray-500">Loading…</p>
       ) : (
-        <div className="mt-3 space-y-2">
-          {options.map((option) => {
-            const checked = selected.includes(option.key)
-            return (
-              <label key={option.key} className="flex items-start gap-2 rounded-lg border border-cream-200 p-2.5 text-sm">
+        <>
+          <div className="mt-3 space-y-2">
+            {options.map((option) => {
+              const checked = selected.includes(option.key)
+              return (
+                <label key={option.key} className="flex items-start gap-2 rounded-lg border border-cream-200 p-2.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={!checked && stored === 3}
+                    onChange={() => toggle(option.key)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-medium text-gray-800">{option.label}</span>
+                    <span className="block text-xs text-gray-500">{option.description}</span>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-500">Commissioner notes</p>
+            {notes.map((note, index) => (
+              <div key={index} className="space-y-1.5 rounded-lg border border-cream-200 p-2.5">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={note.label}
+                    onChange={(event) => updateNote(index, 'label', event.target.value)}
+                    placeholder="Label (e.g. Blindside)"
+                    className="min-w-0 flex-1 rounded border border-cream-200 px-2 py-1 text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={note.value}
+                    onChange={(event) => updateNote(index, 'value', event.target.value)}
+                    placeholder="Value (e.g. Genevieve)"
+                    className="min-w-0 flex-1 rounded border border-cream-200 px-2 py-1 text-sm"
+                  />
+                </div>
                 <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={!checked && selected.length === 3}
-                  onChange={() => toggle(option.key)}
-                  className="mt-0.5"
+                  type="text"
+                  value={note.detail}
+                  onChange={(event) => updateNote(index, 'detail', event.target.value)}
+                  placeholder="Detail (optional)"
+                  className="w-full rounded border border-cream-200 px-2 py-1 text-sm"
                 />
-                <span>
-                  <span className="block font-medium text-gray-800">{option.label}</span>
-                  <span className="block text-xs text-gray-500">{option.description}</span>
-                </span>
-              </label>
-            )
-          })}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaved(false)
+                    setNotes((current) => current.filter((_, i) => i !== index))
+                  }}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove note
+                </button>
+              </div>
+            ))}
+            {stored < 3 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSaved(false)
+                  setNotes((current) => [...current, { label: '', value: '', detail: '' }])
+                }}
+                className="text-xs font-medium text-jade-700 hover:underline"
+              >
+                + Add commissioner note
+              </button>
+            )}
+          </div>
+        </>
       )}
       <ErrorMsg msg={error} />
       <SuccessMsg msg={saved ? 'Reveal insights saved.' : null} />
@@ -819,7 +903,7 @@ function EpisodeInsightEditor({
           <ActionBtn onClick={save} disabled={saving}>
             {saving ? 'Saving…' : 'Save reveal insights'}
           </ActionBtn>
-          <span className="text-xs text-gray-500">{selected.length}/3 selected</span>
+          <span className="text-xs text-gray-500">{stored}/3 added</span>
         </div>
       )}
     </div>
