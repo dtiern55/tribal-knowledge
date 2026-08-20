@@ -645,8 +645,8 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByRole('heading', { name: 'The votes are in' })).toBeVisible()
-    expect(screen.getByRole('region', { name: 'The votes are in' })).toHaveAttribute('data-variant', 'broadcast')
+    expect(await screen.findByRole('heading', { name: 'Tribal Council' })).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Tribal Council' })).toHaveAttribute('data-variant', 'broadcast')
     expect(screen.getByText('Scoring comes next')).toBeVisible()
     expect(screen.queryByText(/ballot, roster, and weekly play are final/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Read only')).not.toBeInTheDocument()

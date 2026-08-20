@@ -689,7 +689,7 @@ function LockedState({
             Episode {episode.episode_number} · locked
           </p>
           <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
-            {broadcast ? 'The votes are in' : 'Results are pending'}
+            {broadcast ? 'Tribal Council' : 'Results are pending'}
           </h2>
         </div>
       </div>
