@@ -62,6 +62,7 @@ export interface Episode {
   picks_lock_at: string
   status: string
   created_at: string
+  title: string | null
 }
 
 export interface StandingSurvivor {

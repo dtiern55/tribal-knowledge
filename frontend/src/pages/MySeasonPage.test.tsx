@@ -52,6 +52,7 @@ function episode(number: number, status: string, lock: string): Episode {
     picks_lock_at: lock,
     status,
     created_at: lock,
+    title: null,
   }
 }
 

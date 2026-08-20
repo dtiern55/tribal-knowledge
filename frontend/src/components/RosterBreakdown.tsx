@@ -15,11 +15,15 @@ export function RosterBreakdown({
   activeFrom,
   activeUntil,
   doubledByEp,
+  episodeTitles,
 }: {
   perf: ContestantPerformance | undefined
   activeFrom: number
   activeUntil: number | null
   doubledByEp: Map<number, number>
+  // Episode number -> title (#450). Optional — callers that don't pass it
+  // just get "Episode N" with no secondary line.
+  episodeTitles?: Map<number, string | null>
 }) {
   const [openEps, setOpenEps] = useState<Set<number>>(new Set())
   function toggle(n: number) {
@@ -69,6 +73,11 @@ export function RosterBreakdown({
             >
               <span className="flex flex-col items-start gap-0.5">
                 <span>Episode {ep.episode_number}</span>
+                {episodeTitles?.get(ep.episode_number) && (
+                  <span className="text-[11px] font-normal text-gray-500 truncate max-w-[12rem]">
+                    {episodeTitles.get(ep.episode_number)}
+                  </span>
+                )}
                 {bonus !== 0 && (
                   <span className="rounded-full bg-forest-50 border border-forest-100 px-1.5 py-0.5 text-[11px] font-semibold text-forest-700">
                     2x Points

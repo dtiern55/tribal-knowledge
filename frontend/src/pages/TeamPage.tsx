@@ -136,6 +136,7 @@ export function TeamPage() {
   if (!player) return <Notice title="Player not found"><Link className="text-forest-700 underline" to="/standings">Return to standings</Link></Notice>
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
+  const episodeTitles = new Map(episodes.map((episode) => [episode.episode_number, episode.title]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((pick) => pick.active_until_episode === null)
   const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
@@ -191,7 +192,7 @@ export function TeamPage() {
                       expanded={expandedId === pick.contestant_id}
                       onToggle={() => toggleExpand(pick.contestant_id)}
                     >
-                      <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} />
+                      <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} />
                     </RosterCard>
                   ))}
               </RosterManifest>
@@ -216,7 +217,14 @@ export function TeamPage() {
               <div className="space-y-3">
                 {votes.map(({ episode, picks, eliminatedIds }) => (
                   <div key={episode.id} className="rounded-xl border border-paper-edge record-paper p-4">
-                    <p className="mb-2 font-medium text-paper-ink">Episode {episode.episode_number}</p>
+                    <p className="mb-2 font-medium text-paper-ink">
+                      Episode {episode.episode_number}
+                      {episode.title && (
+                        <span className="ml-1.5 font-normal text-paper-ink-faded truncate max-w-[16rem] inline-block align-bottom">
+                          · {episode.title}
+                        </span>
+                      )}
+                    </p>
                     {picks.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {picks.map((pick) => {

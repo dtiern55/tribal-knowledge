@@ -70,10 +70,11 @@ def create_episode(
                 """
                 insert into episodes
                     (season_id, episode_number, air_date, max_elimination_picks,
-                     is_finale, picks_lock_at)
+                     is_finale, picks_lock_at, title)
                 values
                     (%(season_id)s, %(episode_number)s, %(air_date)s,
-                     %(max_elimination_picks)s, %(is_finale)s, %(picks_lock_at)s)
+                     %(max_elimination_picks)s, %(is_finale)s, %(picks_lock_at)s,
+                     %(title)s)
                 returning *
                 """,
                 params,

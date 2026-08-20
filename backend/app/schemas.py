@@ -63,6 +63,8 @@ class Episode(BaseModel):
     picks_lock_at: datetime
     status: str
     created_at: datetime
+    # Manually entered by the admin (#450) — no TVmaze auto-fetch.
+    title: Optional[str] = None
 
 
 class RosterPick(BaseModel):
@@ -358,6 +360,7 @@ class EpisodeCreateRequest(BaseModel):
     max_elimination_picks: Optional[int] = Field(default=None, ge=1, le=3)
     is_finale: bool = False
     picks_lock_at: datetime
+    title: Optional[str] = None
 
 
 class EpisodeUpdateRequest(BaseModel):
@@ -366,6 +369,7 @@ class EpisodeUpdateRequest(BaseModel):
     max_elimination_picks: Optional[int] = Field(default=None, ge=1, le=3)
     is_finale: Optional[bool] = None
     picks_lock_at: Optional[datetime] = None
+    title: Optional[str] = None
 
 
 class AdvantagePlay(BaseModel):
