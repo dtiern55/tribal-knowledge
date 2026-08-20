@@ -851,15 +851,14 @@ function EpisodeHistorySection({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Episode History"
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-paper-edge bg-white/60 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-cream-100"
+        className="inline-flex min-h-9 items-center gap-2 rounded-full border border-paper-edge bg-white/70 px-3.5 py-1.5 font-display text-sm font-semibold uppercase tracking-[0.06em] text-forest-700 shadow-sm transition-colors hover:border-forest-300 hover:bg-cream-100"
       >
-        <svg viewBox="0 0 24 24" className="h-4 w-4 text-forest-600" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="h-4 w-4 text-forest-600" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 3v5h5" />
           <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
           <path d="M12 7v5l3 2" />
         </svg>
-        <span>History</span>
+        <span>Episode History</span>
         {scoredEpisodes.length > 0 && (
           <span className="rounded-full bg-forest-100 px-1.5 py-0.5 font-sans text-[9px] font-bold tracking-[0.08em] text-forest-700">
             {scoredEpisodes.length}
@@ -1622,15 +1621,6 @@ function RosterSection({
         ) : undefined
       }
     >
-      <EpisodeHistorySection
-        season={season}
-        userId={userId}
-        episodes={episodes}
-        onReplay={onReplay}
-        replayLoading={replayLoading}
-        replayError={replayError}
-        wrapperClassName="flex justify-end px-4 pt-2"
-      />
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {dropping
@@ -1818,6 +1808,15 @@ function RosterSection({
             </SectionShell>
           )}
 
+          <EpisodeHistorySection
+            season={season}
+            userId={userId}
+            episodes={episodes}
+            onReplay={onReplay}
+            replayLoading={replayLoading}
+            replayError={replayError}
+            wrapperClassName="flex justify-center border-t border-paper-line pt-4"
+          />
         </div>
       ) : windowOpen ? (
         <div>
