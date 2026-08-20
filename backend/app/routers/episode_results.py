@@ -75,6 +75,63 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             ],
         )
         roster = cur.fetchall()
+
+        # Per-event breakdown (#473): one row per scoring event, mirroring the
+        # aggregate above so the reveal can show how each member's total was
+        # earned. Summed per contestant this equals raw_points above; any gap
+        # is the finale Sole Survivor bonus, which isn't a scoring_events row,
+        # so it's folded in as its own line below rather than recomputed.
+        cur.execute(
+            """
+            select rp.contestant_id::text as contestant_id, se.event_type, et.label,
+                   (case when et.is_per_unit then se.quantity else 1 end) as quantity,
+                   (case
+                      when s.merge_episode is not null
+                       and ep.episode_number >= s.merge_episode
+                       and et.postmerge_point_value is not null
+                      then et.postmerge_point_value else et.point_value
+                    end)
+                   * (case when et.is_per_unit then se.quantity else 1 end)
+                     as points
+            from roster_picks rp
+            join seasons s on s.id = rp.season_id
+            join episodes ep on ep.id = %s
+            join scoring_events se
+              on se.episode_id = ep.id and se.contestant_id = rp.contestant_id
+            join season_scoring_event_types et
+              on et.season_id = s.id and et.event_type = se.event_type
+            where rp.season_id = %s and rp.user_id = %s
+              and rp.active_from_episode <= ep.episode_number
+              and (rp.active_until_episode is null
+                   or rp.active_until_episode >= ep.episode_number)
+            order by et.label
+            """,
+            [str(episode["id"]), str(season_id), str(user_id)],
+        )
+        events_by_contestant: dict[str, list[dict]] = {}
+        for row in cur.fetchall():
+            events_by_contestant.setdefault(row["contestant_id"], []).append(
+                {
+                    "event_type": row["event_type"],
+                    "label": row["label"],
+                    "quantity": row["quantity"],
+                    "points": row["points"],
+                }
+            )
+        for member in roster:
+            events = events_by_contestant.get(member["contestant_id"], [])
+            gap = member["points"] - sum(e["points"] for e in events)
+            if gap:
+                events = events + [
+                    {
+                        "event_type": "sole_survivor_bonus",
+                        "label": "Sole Survivor bonus",
+                        "quantity": 1,
+                        "points": gap,
+                    }
+                ]
+            member["breakdown"] = events
+
         cur.execute(
             "select coalesce(sum(swap_penalty_points), 0)::int as points"
             " from roster_picks where season_id = %s and user_id = %s"

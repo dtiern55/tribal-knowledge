@@ -406,8 +406,16 @@ class EpisodeResultBallotPick(EpisodeResultContestant):
     points: int
 
 
+class EpisodeResultBreakdownLine(BaseModel):
+    event_type: str
+    label: str
+    quantity: int
+    points: int
+
+
 class EpisodeResultRosterMember(EpisodeResultContestant):
     points: int
+    breakdown: list[EpisodeResultBreakdownLine] = Field(default_factory=list)
 
 
 class EpisodeResultWeeklyPlay(BaseModel):

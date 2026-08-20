@@ -52,7 +52,15 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
       { contestant_id: 'cast-3', name: 'Venus', image_url: null, prediction_type: 'elimination', correct: false, points: 0 },
     ],
     roster: [
-      { contestant_id: 'cast-4', name: 'Tiffany', image_url: null, points: 15 },
+      {
+        contestant_id: 'cast-4',
+        name: 'Tiffany',
+        image_url: null,
+        points: 15,
+        breakdown: [
+          { event_type: 'win_individual_immunity', label: 'Win individual immunity', quantity: 1, points: 15 },
+        ],
+      },
     ],
     roster_points: 15,
     roster_adjustment_points: 0,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ADV_LABELS } from '../lib/advantages'
-import type { EpisodeResult } from '../types'
+import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
 import { Torch } from './Torch'
 
@@ -201,6 +201,7 @@ export function EpisodeResultReveal({
                     imageUrl={member.image_url}
                     value={member.points}
                     eliminated={eliminatedIds.has(member.contestant_id)}
+                    breakdown={member.breakdown}
                   />
                 ))}
                 {result.roster_adjustment_points !== 0 && (
@@ -346,29 +347,76 @@ function ResultRow({
   imageUrl,
   value,
   eliminated = false,
+  breakdown = [],
 }: {
   name: string
   imageUrl: string | null
   value: number
   eliminated?: boolean
+  breakdown?: EpisodeResultBreakdownLine[]
 }) {
+  const [open, setOpen] = useState(false)
+  const expandable = breakdown.length > 0
+
   return (
-    <li className="flex min-w-0 items-center gap-2 py-2">
-      <ContestantAvatar
-        name={name}
-        imageUrl={imageUrl}
-        tribeColor={null}
-        tribeName={null}
-        size="sm"
-      />
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{name}</span>
-      {eliminated && (
-        <>
-          <span className="sr-only">voted out this episode</span>
-          <Torch lit={false} className="torch-snuff h-5 w-3.5 shrink-0" />
-        </>
+    <li className="py-2">
+      <button
+        type="button"
+        onClick={() => expandable && setOpen((current) => !current)}
+        aria-expanded={expandable ? open : undefined}
+        disabled={!expandable}
+        className="flex w-full min-w-0 items-center gap-2 text-left disabled:cursor-default"
+      >
+        <ContestantAvatar
+          name={name}
+          imageUrl={imageUrl}
+          tribeColor={null}
+          tribeName={null}
+          size="sm"
+        />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{name}</span>
+        {eliminated && (
+          <>
+            <span className="sr-only">voted out this episode</span>
+            <Torch lit={false} className="torch-snuff h-5 w-3.5 shrink-0" />
+          </>
+        )}
+        <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
+        {expandable && (
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        )}
+      </button>
+      {expandable && open && (
+        <ul className="mt-1 space-y-0.5 pl-9 text-xs text-gray-500">
+          {breakdown.map((line, i) => (
+            <li key={i} className="flex justify-between gap-2">
+              <span>
+                {line.label}
+                {line.quantity > 1 && ` ×${line.quantity}`}
+              </span>
+              <span
+                className={
+                  line.points > 0
+                    ? 'text-jade-700'
+                    : line.points < 0
+                      ? 'text-terracotta-500'
+                      : 'text-gray-500'
+                }
+              >
+                {points(line.points)}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
-      <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
     </li>
   )
 }
