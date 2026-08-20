@@ -34,7 +34,7 @@ export type DragState = { x: number; y: number; overId: string | null; releasing
 // The ghost floats this far above the finger (so the thumb doesn't cover it),
 // and the drop hit-tests at the same offset — so you aim the idol, not the
 // finger, at the target. Shared with the ghost's own transform (#487).
-export const SEAL_LIFT_Y = 34
+export const SEAL_LIFT_Y = 28
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
