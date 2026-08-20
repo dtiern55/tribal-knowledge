@@ -299,12 +299,12 @@ html.locked-night .braid-rule { opacity: 0.55; }
 }
 
 .stage-lit {
-  /* Warmth dialed back from the original (#449): the 40% peach wash + heavy
-     inset glow muddied the cards and dropped text contrast. Keep the framing,
-     lose the haze. */
-  box-shadow:
-    inset 0 0 0 2px rgb(196 84 50 / 42%),
-    inset 0 0 34px rgb(196 84 50 / 12%);
+  /* No hard inset ring (#449): the 2px terracotta outline drew a box that
+     overran the castaway list into the empty space above and below it. The
+     per-row cards and the dark scrim already signal picking mode, so a soft
+     inner glow + the top wash are all the 'lit' framing this needs — and the
+     warmth is dialed back from the original 40% wash to restore contrast. */
+  box-shadow: inset 0 0 40px rgb(196 84 50 / 12%);
   background-image: radial-gradient(
     ellipse at 50% 0%,
     rgb(255 214 170 / 20%),
