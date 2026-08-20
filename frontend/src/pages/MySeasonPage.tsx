@@ -571,15 +571,19 @@ export function MySeasonPage() {
             </div>
           </RecordPanel>
         </SeasonRecord>
-        {/* Below the record, not inside it (#478): a small history affordance. */}
-        <EpisodeHistorySection
-          season={d.season}
-          userId={d.userId}
-          episodes={d.episodes}
-          onReplay={openReplay}
-          replayLoading={replayLoading}
-          replayError={replayError}
-        />
+        {/* Below the record, not inside it, and only under the Roster beat
+            (#478): a small history affordance that doesn't follow you to the
+            Ballot/Advantage beats. */}
+        {beat === 'roster' && (
+          <EpisodeHistorySection
+            season={d.season}
+            userId={d.userId}
+            episodes={d.episodes}
+            onReplay={openReplay}
+            replayLoading={replayLoading}
+            replayError={replayError}
+          />
+        )}
         </div>
       )}
 
@@ -958,15 +962,15 @@ function EpisodeHistorySheet({
                     type="button"
                     onClick={() => onReplay(episode)}
                     disabled={replayLoading != null}
-                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-cream-200 bg-white p-3 text-left text-sm hover:border-forest-300 hover:bg-forest-50 disabled:opacity-50"
+                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-paper-edge bg-cream-100 p-3 text-left transition-colors hover:border-forest-400 hover:bg-forest-50 disabled:opacity-50"
                   >
                     <span className="min-w-0">
-                      <span className="block font-semibold text-gray-900">
+                      <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
                         {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
                       </span>
-                      <span className="block text-xs text-gray-500">View your scored result</span>
+                      <span className="block text-xs text-paper-ink-faded">View your scored result</span>
                     </span>
-                    <span className="shrink-0 text-xs font-semibold text-forest-700">
+                    <span className="shrink-0 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream-50">
                       {replayLoading === episode.id ? 'Loading…' : 'Replay'}
                     </span>
                   </button>
