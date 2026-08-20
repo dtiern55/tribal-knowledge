@@ -473,7 +473,7 @@ export function MySeasonPage() {
       {state.kind === 'intermission' && <IntermissionState />}
       {state.kind === 'complete' && <CompleteState />}
 
-      {(state.kind === 'intermission' || state.kind === 'complete') && (
+      {state.kind !== 'watch_only' && (
         <EpisodeHistorySection
           season={d.season}
           userId={d.userId}

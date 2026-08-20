@@ -88,6 +88,7 @@ export function EpisodeResultReveal({
   const correct = result.ballot.filter((pick) => pick.correct).length
   const rosterLane = result.roster_points + result.roster_adjustment_points
   const rank = rankCopy(result)
+  const eliminatedIds = new Set(result.eliminated.map((e) => e.contestant_id))
 
   return (
     <div
@@ -122,16 +123,13 @@ export function EpisodeResultReveal({
               id="episode-result-title"
               ref={headingRef}
               tabIndex={-1}
-              className="mt-5 flex items-center gap-2 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
+              className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              <span>
-                {result.eliminated.length === 0
-                  ? 'No one was eliminated'
-                  : result.eliminated.length === 1
-                    ? `${result.eliminated[0].name} was eliminated`
-                    : `${result.eliminated.length} castaways were eliminated`}
-              </span>
-              {result.eliminated.length === 1 && <Torch lit={false} className="torch-snuff h-9 w-7 shrink-0" />}
+              {result.eliminated.length === 0
+                ? 'No one was eliminated'
+                : result.eliminated.length === 1
+                  ? `${result.eliminated[0].name} was eliminated`
+                  : `${result.eliminated.length} castaways were eliminated`}
             </h2>
 
             {result.eliminated.length > 1 && (
@@ -149,16 +147,17 @@ export function EpisodeResultReveal({
                       size="sm"
                     />
                     <span className="truncate">{castaway.name}</span>
-                    <Torch lit={false} className="torch-snuff h-6 w-4 shrink-0" />
                   </li>
                 ))}
               </ul>
             )}
 
-            <p className="mt-3 text-sm text-white/75">
+            <p className={`mt-3 text-sm ${correct > 0 ? 'font-semibold text-jade-200' : 'text-white/75'}`}>
               {result.ballot.length === 0
                 ? 'You did not submit a ballot for this episode.'
-                : `You called ${correct} of ${result.ballot.length} ballot ${result.ballot.length === 1 ? 'vote' : 'votes'} correctly.`}
+                : correct === 0
+                  ? `No correct calls from your ${result.ballot.length} ${result.ballot.length === 1 ? 'vote' : 'votes'} this episode.`
+                  : `You called ${correct} ${correct === 1 ? 'vote' : 'votes'} right${correct === result.ballot.length && result.ballot.length > 1 ? ' — perfect ballot!' : ''}.`}
             </p>
 
             <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">
@@ -190,7 +189,7 @@ export function EpisodeResultReveal({
                 : 'space-y-5 lg:grid lg:grid-cols-3 lg:items-start lg:gap-4 lg:space-y-0'
             }
           >
-          <ResultLane title="Roster earnings" total={rosterLane}>
+          <ResultLane title="Roster" total={rosterLane}>
             {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
               <p className="text-sm text-gray-500">No active roster members scored this episode.</p>
             ) : (
@@ -201,6 +200,7 @@ export function EpisodeResultReveal({
                     name={member.name}
                     imageUrl={member.image_url}
                     value={member.points}
+                    eliminated={eliminatedIds.has(member.contestant_id)}
                   />
                 ))}
                 {result.roster_adjustment_points !== 0 && (
@@ -215,7 +215,7 @@ export function EpisodeResultReveal({
             )}
           </ResultLane>
 
-          <ResultLane title="Ballot earnings" total={result.ballot_points}>
+          <ResultLane title="Ballot" total={result.ballot_points}>
             {result.ballot.length === 0 ? (
               <p className="text-sm text-gray-500">No ballot was submitted, so there are no ballot points.</p>
             ) : (
@@ -247,7 +247,7 @@ export function EpisodeResultReveal({
             )}
           </ResultLane>
 
-          <ResultLane title="Weekly play" total={result.weekly_play_bonus}>
+          <ResultLane title="Advantage" total={result.weekly_play_bonus}>
             {result.weekly_plays.length === 0 ? (
               <p className="text-sm text-gray-500">No weekly play was used. Your base score is unchanged.</p>
             ) : (
@@ -262,7 +262,7 @@ export function EpisodeResultReveal({
                       <span className="block text-xs text-gray-500">Used for this episode's roster swap.</span>
                     ) : (
                       <span className="block text-xs text-gray-500">
-                        Added {points(play.bonus_points)} beyond the base score.
+                        {points(play.bonus_points)} from your double.
                       </span>
                     )}
                   </li>
@@ -292,7 +292,7 @@ export function EpisodeResultReveal({
 
           <div className="mt-5 border-t border-cream-200 pt-5">
             <div className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900">
-              <span>Roster + ballot + weekly play</span>
+              <span>Roster + Ballot + Advantage</span>
               <span className="shrink-0">{points(result.total_points)}</span>
             </div>
             {error && <p role="alert" className="mt-3 text-sm text-terracotta-700">{error}</p>}
@@ -345,10 +345,12 @@ function ResultRow({
   name,
   imageUrl,
   value,
+  eliminated = false,
 }: {
   name: string
   imageUrl: string | null
   value: number
+  eliminated?: boolean
 }) {
   return (
     <li className="flex min-w-0 items-center gap-2 py-2">
@@ -360,6 +362,12 @@ function ResultRow({
         size="sm"
       />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{name}</span>
+      {eliminated && (
+        <>
+          <span className="sr-only">voted out this episode</span>
+          <Torch lit={false} className="torch-snuff h-5 w-3.5 shrink-0" />
+        </>
+      )}
       <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
     </li>
   )
