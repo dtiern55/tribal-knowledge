@@ -255,13 +255,13 @@ def _rank_context(conn, season: dict, user_id: UUID, result_episode: dict):
         if season["status"] == "completed":
             cur.execute(
                 "select p.id::text as id, p.display_name from profiles p"
-                " where not p.is_admin and exists (select 1 from roster_picks rp"
+                " where p.is_player and exists (select 1 from roster_picks rp"
                 " where rp.user_id = p.id and rp.season_id = %s)",
                 [str(season["id"])],
             )
         else:
             cur.execute(
-                "select id::text as id, display_name from profiles where not is_admin"
+                "select id::text as id, display_name from profiles where is_player"
             )
         profiles = cur.fetchall()
         cur.execute(

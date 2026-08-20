@@ -106,7 +106,7 @@ def create_episode(
                     select p.id, %(season)s, %(episode)s, 'weekly_allocation',
                            %(amount)s
                     from profiles p
-                    where not p.is_admin
+                    where p.is_player
                     on conflict do nothing
                     """,
                     {
