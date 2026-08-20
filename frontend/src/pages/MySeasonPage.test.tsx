@@ -681,10 +681,11 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.getByText('Charlie')).toBeVisible()
     expect(screen.getByRole('img', { name: 'Kenzie' })).toHaveAttribute('src', '/kenzie.jpg')
-    // #451: locked roster survivors link to their contestant page.
-    expect(screen.getByText('Charlie').closest('a')).toHaveAttribute('href', '/contestants/cast-2')
-    // #451: a played ballot double now reads as a ×2 mark on the Ballot heading.
-    expect(screen.getByTitle('Double Ballot Points is active for this episode')).toBeVisible()
+    // #451: My Roster behaves the same locked — scores in place, no jump to the
+    // Cast page — so the locked roster no longer links out.
+    expect(screen.getByText('Charlie').closest('a')).toBeNull()
+    // #451: a played ballot double now reads as the idol ×2 mark on the Ballot heading.
+    expect(screen.getByTitle('Double Ballot Points this episode')).toBeVisible()
   })
 
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {

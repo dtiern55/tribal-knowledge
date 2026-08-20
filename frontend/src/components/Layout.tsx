@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
 import { resolveMySeasonState } from '../lib/mySeasonState'
@@ -72,7 +72,13 @@ export function Layout() {
     }
   }, [authed, authLoading])
 
-  const effectiveNight = themeOverride === 'auto' ? nightMode : themeOverride === 'night'
+  // The Admin console is a tool, not part of the themed game view — the
+  // torchlit repaint left half of it dark-on-dark and unreadable (#451). Keep
+  // Admin in daylight; you still preview night by toggling it and viewing the
+  // game pages.
+  const onAdmin = useLocation().pathname.startsWith('/admin')
+  const effectiveNight =
+    !onAdmin && (themeOverride === 'auto' ? nightMode : themeOverride === 'night')
 
   useEffect(() => {
     document.documentElement.classList.toggle('locked-night', effectiveNight)

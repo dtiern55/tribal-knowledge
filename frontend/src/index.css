@@ -216,6 +216,27 @@ html.locked-night .app-shell .text-gray-400 {
   color: rgb(242 233 219 / 35%);
 }
 
+/* The "record paper" surface (Team, Contestant, and the season record) and its
+   ink/edge tokens aren't cream utilities, so the rules above miss them and the
+   page stays daylight under lock (#451). Repaint the whole paper palette to
+   match .bg-white above. */
+html.locked-night .app-shell .record-paper,
+html.locked-night .app-shell .bg-paper,
+html.locked-night .app-shell .bg-cream-200,
+html.locked-night .app-shell .bg-cream-300 {
+  background-color: #132e25;
+}
+html.locked-night .app-shell .border-paper-edge,
+html.locked-night .app-shell .border-paper-line {
+  border-color: rgb(242 233 219 / 12%);
+}
+html.locked-night .app-shell .text-paper-ink {
+  color: rgb(242 233 219 / 90%);
+}
+html.locked-night .app-shell .text-paper-ink-faded {
+  color: rgb(242 233 219 / 45%);
+}
+
 html.locked-night .app-shell input,
 html.locked-night .app-shell select,
 html.locked-night .app-shell textarea {

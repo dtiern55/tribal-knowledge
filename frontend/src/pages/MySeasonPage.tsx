@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
@@ -479,6 +479,7 @@ export function MySeasonPage() {
           contestants={d.contestants}
           userId={d.userId}
           plays={d.plays}
+          rosterPoints={rosterPoints}
         />
       )}
 
@@ -636,12 +637,14 @@ function LockedState({
   contestants,
   userId,
   plays,
+  rosterPoints,
 }: {
   episode: Episode
   season: Season
   contestants: Contestant[]
   userId: string
   plays: AdvantagePlay[]
+  rosterPoints: Map<string, number>
 }) {
   const [picks, setPicks] = useState<EliminationPick[] | null>(null)
   const [roster, setRoster] = useState<RosterPick[] | null>(null)
@@ -704,10 +707,10 @@ function LockedState({
               const contestant = contestantMap.get(pick.contestant_id)
               return (
                 <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'}`}>
-                  <Link
-                    to={`/contestants/${pick.contestant_id}`}
-                    className="flex min-w-0 flex-1 items-center gap-2 hover:underline"
-                  >
+                  {/* My Roster behaves the same locked as unlocked (#451): it
+                      shows your scores in place, it does not send you to the Cast
+                      page. */}
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
                     <ContestantAvatar
                       name={contestant?.name ?? '—'}
                       imageUrl={contestant?.image_url ?? null}
@@ -716,20 +719,34 @@ function LockedState({
                       size="sm"
                     />
                     <span className="truncate font-medium">{contestant?.name ?? '—'}</span>
-                  </Link>
+                  </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
-                      <span
-                        className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${
-                          broadcast
-                            ? 'bg-gold-300/20 text-gold-100 ring-gold-200/40'
-                            : 'bg-gold-100 text-gold-800 ring-gold-300'
-                        }`}
-                        title="Double Roster Points is active for this episode"
-                      >
-                        ×2
+                      <span className="shrink-0">
+                        <DoubleBadge size={26} title="Double Roster Points this episode" />
                       </span>
                     )}
+                  {(() => {
+                    const v = rosterPoints.get(pick.contestant_id)
+                    if (v == null) return null
+                    const cls = broadcast
+                      ? v > 0
+                        ? 'text-jade-200'
+                        : v < 0
+                          ? 'text-terracotta-200'
+                          : 'text-white/55'
+                      : v > 0
+                        ? 'text-jade-700'
+                        : v < 0
+                          ? 'text-terracotta-500'
+                          : 'text-gray-500'
+                    return (
+                      <span className={`ml-auto shrink-0 text-xs font-semibold tabular-nums ${cls}`}>
+                        {v > 0 ? '+' : ''}
+                        {v} pts
+                      </span>
+                    )
+                  })()}
                 </li>
               )
             })}
@@ -743,14 +760,7 @@ function LockedState({
               Ballot
             </h3>
             {played?.advantage_type === 'double_vote_points' && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${
-                  broadcast ? 'bg-gold-300/20 text-gold-100 ring-gold-200/40' : 'bg-gold-100 text-gold-800 ring-gold-300'
-                }`}
-                title="Double Ballot Points is active for this episode"
-              >
-                ×2
-              </span>
+              <DoubleBadge size={24} title="Double Ballot Points this episode" />
             )}
           </div>
           {picks.length > 0 ? (
