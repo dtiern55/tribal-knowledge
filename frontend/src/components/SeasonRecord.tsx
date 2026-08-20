@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { DoubleBadge } from './DoubleBadge'
 
 /**
  * My Season as one document (#396).
@@ -127,8 +126,10 @@ export type Beat = {
  *
  * Roster, Ballot and Advantage were three stacked sections of one sheet; they
  * are now one at a time under the masthead. Each tab carries only its settled
- * check and optional ×2 idol; detailed state remains accessible to assistive
- * technology without adding a second visible row.
+ * check and a small ×2 chip when the week's play rests on it — the idol itself
+ * lives on its target (the doubled roster row / ballot seal), not here (#487).
+ * Detailed state remains accessible to assistive technology without a second
+ * visible row. The tabs double as cross-beat drop targets for the idol drag.
  *
  * A real tablist: roving tabindex, arrow keys, and panels that stay mounted so
  * an unsaved ballot survives a look at the roster.
@@ -172,6 +173,7 @@ export function RecordBeats({
               aria-controls={`panel-${b.key}`}
               tabIndex={active ? 0 : -1}
               onClick={() => onChange(b.key)}
+              data-drop-id={`beat:${b.key}`}
               className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 text-center ${
                 active ? 'border-terracotta-600 text-terracotta-600' : 'border-transparent text-stone-500'
               }`}
@@ -194,11 +196,11 @@ export function RecordBeats({
                 </svg>
               )}
               {b.doubled && (
-                <span className="relative z-10 -my-2 -ml-0.5 -mr-2 translate-y-0.5 rotate-[9deg]">
-                  <DoubleBadge
-                    size={36}
-                    title={`Double ${b.key === 'ballot' ? 'Ballot' : 'Roster'} Points this episode`}
-                  />
+                <span
+                  aria-hidden="true"
+                  className="ml-0.5 flex-none rounded-md border border-gold-600 bg-gold-400 px-1 py-0.5 font-display text-[0.7rem] font-bold leading-none text-gold-900"
+                >
+                  ×2
                 </span>
               )}
               <span className="sr-only">{b.note}</span>

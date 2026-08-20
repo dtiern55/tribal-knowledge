@@ -5,6 +5,7 @@ import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
+import { resolveDrop, useSealDrag } from '../lib/sealDrag'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
@@ -53,10 +54,30 @@ import type {
 // carved ×2 idol is stamped onto the ballot once, like a seal pressed on the
 // paper (#484) — not repeated per vote, not a banner. Corner press: the host
 // container must be `relative`.
-function BallotStamp({ size = 54 }: { size?: number }) {
+function BallotStamp({
+  size = 54,
+  onPointerDown,
+  lifted = false,
+}: {
+  size?: number
+  /** When given, the seal is the drag handle for moving the play to the roster
+   *  (#487); otherwise it's a passive stamp. */
+  onPointerDown?: (e: React.PointerEvent) => void
+  lifted?: boolean
+}) {
+  const draggable = onPointerDown != null
   return (
     <span
-      className="pointer-events-none absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]"
+      onPointerDown={onPointerDown}
+      title={
+        draggable
+          ? 'Drag to the Roster tab to double a castaway instead'
+          : 'Double Ballot Points this episode'
+      }
+      className={`absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
+        draggable ? 'cursor-grab touch-none' : 'pointer-events-none'
+      }`}
+      style={draggable ? { opacity: lifted ? 0.3 : 1 } : undefined}
     >
       <DoubleBadge size={size} title="Double Ballot Points this episode" />
     </span>
@@ -521,6 +542,7 @@ export function MySeasonPage() {
                 picking={picking}
                 onPickingDone={() => setPicking(null)}
                 onStartSwap={() => setPicking('swap')}
+                onBeatChange={setBeat}
                 bare
               />
             </div>
@@ -537,6 +559,7 @@ export function MySeasonPage() {
                 setPlays={d.setPlays}
                 pickResults={pickResults}
                 onBallotSaved={d.bumpBallot}
+                onDragToRoster={() => setPicking('double')}
                 activeOnly
                 bare
               />
@@ -1322,6 +1345,7 @@ function RosterSection({
   picking = null,
   onPickingDone,
   onStartSwap,
+  onBeatChange,
   bare = false,
 }: {
   season: Season
@@ -1339,6 +1363,9 @@ function RosterSection({
   picking?: 'double' | 'swap' | null
   onPickingDone?: () => void
   onStartSwap?: () => void
+  /** Switch the visible beat — used when a seal drag moves the play to the
+   *  Ballot beat so its landing is visible (#487). */
+  onBeatChange?: (beat: BeatKey) => void
   bare?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
@@ -1413,67 +1440,38 @@ function RosterSection({
   const displayedDoubleTarget =
     pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
 
-  // Drag the ×2 seal from the doubled castaway onto another one to move the
-  // play (#407) — the direct-manipulation twin of the Advantage → Roster ×2 →
-  // tap path, which stays. The commit is the same weekly.replace call.
-  const [drag, setDrag] = useState<{ x: number; y: number; overId: string | null } | null>(null)
-  const dragging = drag != null
-  // A drop is valid on any active, still-in castaway that isn't the current
-  // target. contestantMap/activeRoster live above; the ref keeps the pointerup
-  // handler reading fresh values without re-subscribing on every move.
-  function canDropOn(id: string): boolean {
-    return (
-      id !== rosterDouble?.target_contestant_id &&
-      activeRoster.some((p) => p.contestant_id === id) &&
-      contestantMap.get(id)?.eliminated_in_episode == null
-    )
-  }
-  const dragCtx = useRef({ canDropOn, replace: weekly.replace })
-  dragCtx.current = { canDropOn, replace: weekly.replace }
-
-  function startSealDrag(e: React.PointerEvent) {
-    if (weekly.locked || weekly.busy) return
-    e.preventDefault()
-    e.stopPropagation()
-    setDrag({ x: e.clientX, y: e.clientY, overId: null })
-  }
-
-  useEffect(() => {
-    if (!dragging) return
-    const targetAt = (x: number, y: number): string | null => {
-      const id = document
-        .elementFromPoint(x, y)
-        ?.closest('[data-drop-id]')
-        ?.getAttribute('data-drop-id')
-      return id && dragCtx.current.canDropOn(id) ? id : null
-    }
-    const move = (e: PointerEvent) =>
-      setDrag((d) => d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY) })
-    const end = (e: PointerEvent) => {
-      const overId = targetAt(e.clientX, e.clientY)
-      if (!overId) {
-        setDrag(null)
-        return
+  // Drag the ×2 seal onto another castaway to move the play (#407), or up to the
+  // Ballot tab to make it a ballot double (#487) — the direct-manipulation twin
+  // of the Advantage tap paths, which stay. Both commit through weekly.replace.
+  const { drag, dragging, start: startSealDrag } = useSealDrag({
+    disabled: weekly.locked || weekly.busy,
+    canDropOn: (id) => {
+      if (id === 'beat:ballot') return true
+      if (id.startsWith('beat:')) return false
+      // Any active, still-in castaway that isn't the current target.
+      return (
+        id !== rosterDouble?.target_contestant_id &&
+        activeRoster.some((p) => p.contestant_id === id) &&
+        contestantMap.get(id)?.eliminated_in_episode == null
+      )
+    },
+    onDrop: (id) => {
+      const action = resolveDrop('roster', id)
+      if (action.kind === 'reassign_roster') {
+        // Land the in-row seal in the same render that drops the lifted copy;
+        // the quiet held treatment is enough feedback while the request catches
+        // up, rather than flashing old → none → new.
+        setPendingDoubleTarget(action.target)
+        void weekly
+          .replace('double_roster_points', action.target)
+          .finally(() => setPendingDoubleTarget(null))
+      } else if (action.kind === 'to_ballot') {
+        // Switch to the Ballot beat first so the corner-seal lands in view.
+        onBeatChange?.('ballot')
+        void weekly.replace('double_vote_points')
       }
-      // Move the in-row seal in the same render that removes the lifted copy.
-      // The quiet held treatment is enough feedback here; the old delayed glow
-      // made the async handoff feel like a second, separate interaction.
-      setPendingDoubleTarget(overId)
-      setDrag(null)
-      void dragCtx.current
-        .replace('double_roster_points', overId)
-        .finally(() => setPendingDoubleTarget(null))
-    }
-    const cancel = () => setDrag(null)
-    window.addEventListener('pointermove', move, { passive: false })
-    window.addEventListener('pointerup', end)
-    window.addEventListener('pointercancel', cancel)
-    return () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', end)
-      window.removeEventListener('pointercancel', cancel)
-    }
-  }, [dragging])
+    },
+  })
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
 
@@ -1955,6 +1953,7 @@ function PicksSection({
   pickResults,
   activeOnly = false,
   onBallotSaved,
+  onDragToRoster,
   bare = false,
 }: {
   season: Season
@@ -1966,6 +1965,8 @@ function PicksSection({
   pickResults: Map<string, PickResult>
   activeOnly?: boolean
   onBallotSaved?: () => void
+  /** Drag the ballot ×2 seal onto the Roster tab to move the play there (#487). */
+  onDragToRoster?: () => void
   bare?: boolean
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
@@ -2050,6 +2051,19 @@ function PicksSection({
   }
 
   const play = useWeeklyPlay(season, episodes, plays, setPlays)
+  // The ballot seal is a drag handle back to roster (#487); its only valid drop
+  // is the Roster tab, where you then pick who to double.
+  const {
+    drag: ballotDrag,
+    dragging: ballotDragging,
+    start: startBallotDrag,
+  } = useSealDrag({
+    disabled: play.locked || play.busy,
+    canDropOn: (id) => id === 'beat:roster',
+    onDrop: (id) => {
+      if (resolveDrop('ballot', id).kind === 'to_roster_picking') onDragToRoster?.()
+    },
+  })
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
   // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
@@ -2164,6 +2178,24 @@ function PicksSection({
 
   const content = (
     <>
+      {/* The lifted ballot seal, following the finger (#487) — portaled above
+          the record's clipping and the fixed nav, like the roster one. */}
+      {ballotDrag &&
+        createPortal(
+          <div
+            aria-hidden
+            className="pointer-events-none fixed z-50"
+            style={{
+              left: ballotDrag.x,
+              top: ballotDrag.y,
+              transform: 'translate(-50%, -50%) scale(1.12)',
+              filter: 'drop-shadow(0 4px 8px rgb(0 0 0 / 35%))',
+            }}
+          >
+            <DoubleBadge size={28} />
+          </div>,
+          document.body,
+        )}
       {!currentEp && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
@@ -2229,7 +2261,12 @@ function PicksSection({
 
           return (
             <div className={activeOnly ? 'relative' : 'relative mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
-              {ballotDoubled && <BallotStamp />}
+              {ballotDoubled && (
+                <BallotStamp
+                  onPointerDown={onDragToRoster ? startBallotDrag : undefined}
+                  lifted={ballotDragging}
+                />
+              )}
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
               {confirmed ? (
                 <div className="mb-5">

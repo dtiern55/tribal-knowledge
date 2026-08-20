@@ -377,13 +377,11 @@ describe('MySeasonPage state shell', () => {
       await screen.findByRole('img', { name: /Double Roster Points/ }),
     ).toBeInTheDocument()
     // The Advantage beat echoes where the play is resting; the Roster beat wears
-    // its own seal (an <img>-role SVG, so it's found by accessible name).
+    // a lightweight ×2 chip — the idol itself lives on the target row now (#487).
     expect(await screen.findByRole('tab', { name: /^Advantage/ })).toHaveTextContent('Kenzie')
-    expect(
-      within(screen.getByRole('tab', { name: /^Roster/ })).getByRole('img', {
-        name: /Double Roster Points/,
-      }),
-    ).toBeInTheDocument()
+    const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
+    expect(rosterTab).toHaveTextContent('×2')
+    expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
 
     const advantage = await openBeat('Advantage')
     // The played double marks its own button rather than replacing the pair,
@@ -448,7 +446,10 @@ describe('MySeasonPage state shell', () => {
     // disappearing during delete, and only then reappearing on Charlie.
     expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
     expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Roster Points/ })).toBeVisible()
-    expect(within(rosterTab).getByRole('img', { name: /Double Roster Points/ })).toBeVisible()
+    // The idol lives on the target now, not the tab (#487); the Roster tab keeps
+    // only the lightweight ×2 chip.
+    expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
+    expect(rosterTab).toHaveTextContent('×2')
     expect(advantageTab).toHaveTextContent('Kenzie')
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
@@ -461,6 +462,94 @@ describe('MySeasonPage state shell', () => {
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
     await waitFor(() => expect(advantageTab).toHaveTextContent('Charlie'))
+  })
+
+  it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {
+    const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' }]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: null })
+    vi.mocked(api.delete).mockResolvedValue(undefined)
+
+    renderWithApp(<MySeasonPage />, { auth })
+    const roster = await openBeat('Roster')
+
+    const seal = await within(roster).findByRole('img', { name: /Double Roster Points/ })
+    const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
+    // jsdom does no layout; point the hit-test at the Ballot tab (a drop target).
+    document.elementFromPoint = () => ballotTab as Element
+
+    fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
+    fireEvent(window, new MouseEvent('pointermove', { clientX: 100, clientY: 20 }))
+    fireEvent(window, new MouseEvent('pointerup', { clientX: 100, clientY: 20 }))
+
+    // The play converts to a targetless ballot double, and we auto-switch to the
+    // Ballot beat so its landing is visible.
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/advantage-plays', {
+        advantage_type: 'double_vote_points',
+        target_contestant_id: null,
+      }),
+    )
+    expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
+    await waitFor(() => expect(ballotTab).toHaveAttribute('aria-selected', 'true'))
+  })
+
+  it('drags the ballot seal onto the Roster tab to pick a castaway to double (#487)', async () => {
+    const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: null }]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+    const ballot = await openBeat('Ballot')
+
+    const seal = await within(ballot).findByTitle(/Drag to the Roster tab/)
+    const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
+    document.elementFromPoint = () => rosterTab as Element
+
+    fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
+    fireEvent(window, new MouseEvent('pointermove', { clientX: 100, clientY: 20 }))
+    fireEvent(window, new MouseEvent('pointerup', { clientX: 100, clientY: 20 }))
+
+    // Same as the Advantage → Roster ×2 flow: the double-pick sheet opens.
+    expect(await screen.findByRole('dialog', { name: 'Choose a castaway to double' })).toBeVisible()
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
