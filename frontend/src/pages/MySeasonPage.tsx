@@ -251,6 +251,21 @@ function useWeeklyPlay(
   async function replace(advantageType: string, targetContestantId?: string) {
     setBusy(true)
     setError(null)
+    // Show the moved play on its new home (the doubled row, the ballot seal, the
+    // beat chip) in the same render, instead of after the delete+post round-trip
+    // — which otherwise reads as a hiccup and then a pop across beats (#487).
+    const optimistic: AdvantagePlay | null = play
+      ? {
+          ...play,
+          id: `pending-${play.id}`,
+          advantage_type: advantageType,
+          target_contestant_id: targetContestantId ?? null,
+          points_earned: null,
+        }
+      : null
+    if (optimistic) {
+      setPlays((prev) => [...prev.filter((p) => p.id !== play!.id), optimistic])
+    }
     try {
       if (play) {
         await api.delete(`/advantage-plays/${play.id}`)
@@ -262,15 +277,15 @@ function useWeeklyPlay(
           target_contestant_id: targetContestantId ?? null,
         },
       )
-      // Replace the shared play in one render. Removing the old entry after
-      // DELETE and adding the new one after POST made the Roster and Advantage
-      // tabs briefly fall back to their unused labels between requests.
       setPlays((prev) => [
-        ...prev.filter((p) => p.id !== play?.id),
+        ...prev.filter((p) => p.id !== play?.id && p.id !== optimistic?.id),
         created,
       ])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Advantage failed')
+      if (optimistic) {
+        setPlays((prev) => [...prev.filter((p) => p.id !== optimistic.id), play!])
+      }
     } finally {
       setBusy(false)
     }
@@ -559,7 +574,12 @@ export function MySeasonPage() {
                 setPlays={d.setPlays}
                 pickResults={pickResults}
                 onBallotSaved={d.bumpBallot}
-                onDragToRoster={() => setPicking('double')}
+                onDragToRoster={() => {
+                  // Open the double-pick sheet (as the Advantage → Roster ×2 tap
+                  // does) and land you on the Roster beat afterwards (#487).
+                  setPicking('double')
+                  setBeat('roster')
+                }}
                 activeOnly
                 bare
               />

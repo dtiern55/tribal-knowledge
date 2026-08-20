@@ -450,7 +450,9 @@ describe('MySeasonPage state shell', () => {
     // only the lightweight ×2 chip.
     expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
     expect(rosterTab).toHaveTextContent('×2')
-    expect(advantageTab).toHaveTextContent('Kenzie')
+    // The move is optimistic across the board (#487): the Advantage tab names the
+    // new target immediately, not only after the delete+post lands.
+    expect(advantageTab).toHaveTextContent('Charlie')
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
@@ -461,7 +463,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
-    await waitFor(() => expect(advantageTab).toHaveTextContent('Charlie'))
+    expect(advantageTab).toHaveTextContent('Charlie')
   })
 
   it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {
