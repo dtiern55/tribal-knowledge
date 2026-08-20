@@ -7,13 +7,15 @@ import { Torch } from './Torch'
  *
  * Held back for `delayMs` so a fast load never flashes the torch — pages
  * return `<PageLoader />` while loading, so if the data lands first the
- * component unmounts before the timer fires and nothing shows. The torch
- * only appears once a load is genuinely slow (e.g. a Fly cold start).
- * Flicker is CSS (.torch-flicker), reduced-motion aware.
+ * component unmounts before the timer fires and nothing shows. The delay is
+ * tuned to sit in the gap between a warm in-app navigation (typically a few
+ * hundred ms — no torch, it would just flash) and a genuine Fly cold start
+ * (multiple seconds — the torch is worth showing). Flicker is CSS
+ * (.torch-flicker), reduced-motion aware.
  */
 export function PageLoader({
   label = 'Loading…',
-  delayMs = 250,
+  delayMs = 700,
 }: {
   label?: string
   delayMs?: number
