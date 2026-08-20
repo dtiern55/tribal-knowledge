@@ -458,7 +458,9 @@ export function MySeasonPage() {
                 picking={picking}
                 onPick={(mode) => {
                   setPicking(mode)
-                  setBeat('roster')
+                  // Swap answers on the Roster beat in-page; double answers in a
+                  // sheet, so it stays put on Advantage (#449).
+                  if (mode === 'swap') setBeat('roster')
                 }}
                 bare
               />
