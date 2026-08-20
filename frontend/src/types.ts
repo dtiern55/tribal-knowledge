@@ -166,8 +166,16 @@ export interface EpisodeResultBallotPick extends EpisodeResultContestant {
   points: number
 }
 
+export interface EpisodeResultBreakdownLine {
+  event_type: string
+  label: string
+  quantity: number
+  points: number
+}
+
 export interface EpisodeResultRosterMember extends EpisodeResultContestant {
   points: number
+  breakdown: EpisodeResultBreakdownLine[]
 }
 
 export interface EpisodeResultWeeklyPlay {
