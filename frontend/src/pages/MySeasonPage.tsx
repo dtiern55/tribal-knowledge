@@ -49,6 +49,28 @@ import type {
   TokenLedgerEntry,
 } from '../types'
 
+// The whole ballot is doubled when Double Ballot Points is played (#303), so the
+// ×2 belongs on the ballot once, not on every vote (#484). A horizontal twin of
+// the advantage-card you play it from.
+function BallotDoubleBanner({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`ballot-x2${compact ? ' ballot-x2--compact' : ''}`}
+      role="img"
+      aria-label="Double Ballot Points active — every vote scores double this episode"
+    >
+      <span className="ballot-x2__mult" aria-hidden="true">×2</span>
+      <span className="ballot-x2__label" aria-hidden="true">Ballot points</span>
+      {!compact && (
+        <>
+          <span className="ballot-x2__rule" aria-hidden="true" />
+          <span className="ballot-x2__status" aria-hidden="true">Active</span>
+        </>
+      )}
+    </div>
+  )
+}
+
 // My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
 // season sections + the one data load, so both pages live in this file.
 function useMySeasonData() {
@@ -1863,6 +1885,11 @@ function PicksSection({
   function episodeRow(ep: Episode, current: boolean) {
     const picks = picksByEpisode.get(ep.id) ?? []
     const scored = ep.status === 'scored'
+    // One banner for the doubled ballot (#484) instead of an idol per pick. The
+    // per-pick earnings chips below still name which vote the double paid on.
+    const ballotDoubled = plays.some(
+      (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
+    )
     const header = (
       <div className="flex items-center gap-2">
         <span className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}>
@@ -1886,7 +1913,7 @@ function PicksSection({
             const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
             const name = contestantMap.get(p.contestant_id)?.name ?? '—'
             // A ballot-wide double covers every pick (#303); pre-#303 plays
-            // named one contestant, so past seasons still render per-pick.
+            // named one contestant, so past seasons still pay out per-pick.
             const doubled = plays.some(
               (pl) =>
                 pl.episode_id === ep.id &&
@@ -1901,19 +1928,13 @@ function PicksSection({
             // Pick chip shows the BASE points; the double's own earnings render
             // as a separate chip beside it (#136).
             const votePoints = result && result.points > 0 ? result.points : undefined
-            const badge = doubled ? (
-              <span className="absolute -right-2 -top-2 z-10 rotate-[10deg]">
-                <DoubleBadge size={22} title="Double Ballot Points this episode" />
-              </span>
-            ) : null
             return (
               <span key={p.id} className="contents">
                 {isCorrect ? (
-                  <CorrectVote name={name} points={votePoints} trailing={badge} />
+                  <CorrectVote name={name} points={votePoints} />
                 ) : (
-                  <span className={`relative inline-flex items-center text-sm px-2 py-1 border rounded-md bg-white border-cream-200 ${scored ? 'text-gray-500' : 'text-gray-700'}`}>
+                  <span className={`inline-flex items-center text-sm px-2 py-1 border rounded-md bg-white border-cream-200 ${scored ? 'text-gray-500' : 'text-gray-700'}`}>
                     {name}
-                    {badge}
                   </span>
                 )}
                 {doubled && isCorrect && votePoints != null && (
@@ -1935,6 +1956,11 @@ function PicksSection({
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Ballot locked {formatCentral(ep.picks_lock_at)}
         </p>
+        {ballotDoubled && (
+          <div className="mb-3">
+            <BallotDoubleBanner compact />
+          </div>
+        )}
         {body}
       </div>
     ) : (
@@ -1942,6 +1968,11 @@ function PicksSection({
       // section, so a second per-episode toggle is just extra clicking.
       <div key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
         {header}
+        {ballotDoubled && (
+          <div className="mt-2">
+            <BallotDoubleBanner compact />
+          </div>
+        )}
         <div className="mt-2">{body}</div>
       </div>
     )
@@ -2015,6 +2046,13 @@ function PicksSection({
           return (
             <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
+              {ballotDoubled && (
+                <div className="mb-4">
+                  {/* Compact on the Advantage beat — the ×2 tiles sit right
+                      above there; full-height on the standalone My Votes tab. */}
+                  <BallotDoubleBanner compact={activeOnly} />
+                </div>
+              )}
               {confirmed ? (
                 <div className="mb-5">
                   {/* Submitted is the state people look for, so it gets a mark
@@ -2041,19 +2079,12 @@ function PicksSection({
                         sc.eliminated_in_episode < ep.episode_number
                       return (
                         <span key={p.id} className="inline-flex items-center gap-1.5">
-                          <span className="relative inline-flex">
-                            <VoteSlip
-                              name={sc?.name ?? '—'}
-                              stale={stale}
-                              tribeColor={sc?.tribe_color}
-                              rotation={[-0.7, 0.5, -0.2][index % 3]}
-                            />
-                            {ballotDoubled && (
-                              <span className="absolute -right-2.5 -top-2.5 z-10 rotate-[10deg]">
-                                <DoubleBadge size={27} title="Double Ballot Points this episode" />
-                              </span>
-                            )}
-                          </span>
+                          <VoteSlip
+                            name={sc?.name ?? '—'}
+                            stale={stale}
+                            tribeColor={sc?.tribe_color}
+                            rotation={[-0.7, 0.5, -0.2][index % 3]}
+                          />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
                       )
@@ -2089,7 +2120,6 @@ function PicksSection({
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
-                            const isDoubled = ballotDoubled && isSelected
                             const maxed = !isSelected && epPending.size >= maxPicks
                             return (
                               <button
@@ -2111,15 +2141,10 @@ function PicksSection({
                                 <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{c.name}</span>
                                 {isSelected && (
-                                  <span className={`absolute right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white ${isDoubled ? 'bottom-1.5' : 'top-1.5'}`} aria-hidden="true">
+                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M5 13l4 4L19 7" />
                                     </svg>
-                                  </span>
-                                )}
-                                {isDoubled && (
-                                  <span className="absolute -right-1.5 -top-2.5 z-10 rotate-[10deg]">
-                                    <DoubleBadge size={28} title="Double Ballot Points this episode" />
                                   </span>
                                 )}
                               </button>
