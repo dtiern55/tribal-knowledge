@@ -29,33 +29,55 @@ export function resolveDrop(source: DropSource, dropId: string): DropAction {
   return { kind: 'none' }
 }
 
+export type DragState = { x: number; y: number; overId: string | null; releasing?: boolean }
+
+// Android and a few others honour navigator.vibrate; iOS Safari ignores it, so
+// haptics are a bonus, not the feedback. Guarded so it no-ops everywhere else.
+function vibrate(pattern: number | number[]) {
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    navigator.vibrate(pattern)
+  }
+}
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 /**
  * Pointer-drag a seal onto any `[data-drop-id]` the caller accepts. Layout-free
  * hit-testing via `elementFromPoint`; the hovered target gets a `data-drag-over`
  * attribute for CSS feedback. The lifted ghost is drawn by the caller from
  * `drag`. `opts` is read through a ref so the window handlers always see fresh
  * values without re-subscribing mid-drag.
+ *
+ * Tactile feedback (#487): a grab tick, a light tick when crossing into a valid
+ * target, a firmer one on commit, and — on a miss — the ghost springs back to
+ * the grab point instead of blinking out.
  */
 export function useSealDrag(opts: {
   disabled?: boolean
   canDropOn: (id: string) => boolean
   onDrop: (id: string) => void
 }) {
-  const [drag, setDrag] = useState<{ x: number; y: number; overId: string | null } | null>(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
   const dragging = drag != null
   const ref = useRef(opts)
   ref.current = opts
+  const origin = useRef({ x: 0, y: 0 })
 
   function start(e: ReactPointerEvent) {
     if (ref.current.disabled) return
     e.preventDefault()
     e.stopPropagation()
+    origin.current = { x: e.clientX, y: e.clientY }
+    vibrate(12)
     setDrag({ x: e.clientX, y: e.clientY, overId: null })
   }
 
   useEffect(() => {
     if (!dragging) return
     let hot: Element | null = null
+    let overNow: string | null = null
     const setHot = (el: Element | null) => {
       if (hot === el) return
       hot?.removeAttribute('data-drag-over')
@@ -69,13 +91,28 @@ export function useSealDrag(opts: {
       setHot(ok ? el : null)
       return ok ? id : null
     }
-    const move = (e: PointerEvent) =>
-      setDrag((d) => d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY) })
+    const move = (e: PointerEvent) => {
+      const overId = targetAt(e.clientX, e.clientY)
+      if (overId && overId !== overNow) vibrate(6)
+      overNow = overId
+      setDrag((d) => d && { x: e.clientX, y: e.clientY, overId })
+    }
     const end = (e: PointerEvent) => {
       const overId = targetAt(e.clientX, e.clientY)
       setHot(null)
-      setDrag(null)
-      if (overId) ref.current.onDrop(overId)
+      if (overId) {
+        setDrag(null)
+        vibrate([9, 24, 12])
+        ref.current.onDrop(overId)
+        return
+      }
+      if (prefersReducedMotion()) {
+        setDrag(null)
+        return
+      }
+      // Snap the ghost back to where it was grabbed, then clear it.
+      setDrag((d) => d && { ...d, x: origin.current.x, y: origin.current.y, releasing: true })
+      window.setTimeout(() => setDrag(null), 200)
     }
     const cancel = () => {
       setHot(null)

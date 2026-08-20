@@ -58,12 +58,15 @@ function BallotStamp({
   size = 54,
   onPointerDown,
   lifted = false,
+  stamp = false,
 }: {
   size?: number
   /** When given, the seal is the drag handle for moving the play to the roster
    *  (#487); otherwise it's a passive stamp. */
   onPointerDown?: (e: React.PointerEvent) => void
   lifted?: boolean
+  /** Play a one-shot stamp as the ballot double lands here (#487). */
+  stamp?: boolean
 }) {
   const draggable = onPointerDown != null
   return (
@@ -79,8 +82,29 @@ function BallotStamp({
       }`}
       style={draggable ? { opacity: lifted ? 0.3 : 1 } : undefined}
     >
-      <DoubleBadge size={size} title="Double Ballot Points this episode" />
+      <span className={stamp ? 'seal-stamp' : ''}>
+        <DoubleBadge size={size} title="Double Ballot Points this episode" />
+      </span>
     </span>
+  )
+}
+
+/** The idol lifted off the page, following the finger during a drag (#487).
+ *  Peels up on grab and springs back to the grab point on a missed drop; both
+ *  are gated on prefers-reduced-motion in CSS. */
+function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
+  if (!drag) return null
+  return createPortal(
+    <div
+      aria-hidden
+      className={`seal-ghost pointer-events-none fixed z-50 ${drag.releasing ? 'seal-ghost--releasing' : ''}`}
+      style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, -50%)' }}
+    >
+      <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 6px 10px rgb(0 0 0 / 40%))' }}>
+        <DoubleBadge size={30} />
+      </span>
+    </div>,
+    document.body,
   )
 }
 
@@ -1460,6 +1484,20 @@ function RosterSection({
   const displayedDoubleTarget =
     pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
 
+  // Stamp the seal on the row it just landed on (#487). Fires on any change of
+  // target — drag reassign, cross-beat move, a pick — but not on first paint.
+  const [stampId, setStampId] = useState<string | null>(null)
+  const prevDoubleTarget = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const prev = prevDoubleTarget.current
+    prevDoubleTarget.current = displayedDoubleTarget
+    if (prev !== undefined && displayedDoubleTarget && displayedDoubleTarget !== prev) {
+      setStampId(displayedDoubleTarget)
+      const timer = setTimeout(() => setStampId(null), 420)
+      return () => clearTimeout(timer)
+    }
+  }, [displayedDoubleTarget])
+
   // Drag the ×2 seal onto another castaway to move the play (#407), or up to the
   // Ballot tab to make it a ballot double (#487) — the direct-manipulation twin
   // of the Advantage tap paths, which stay. Both commit through weekly.replace.
@@ -1596,24 +1634,7 @@ function RosterSection({
 
   return (
     <>
-    {/* The lifted seal, following the finger (#407). Portaled to the body so it
-        rides above the record's clipping and the fixed nav. */}
-    {drag &&
-      createPortal(
-        <div
-          aria-hidden
-          className="pointer-events-none fixed z-50"
-          style={{
-            left: drag.x,
-            top: drag.y,
-            transform: 'translate(-50%, -50%) scale(1.12)',
-            filter: 'drop-shadow(0 4px 8px rgb(0 0 0 / 35%))',
-          }}
-        >
-          <DoubleBadge size={28} />
-        </div>,
-        document.body,
-      )}
+    <SealGhost drag={drag} />
     <RecordSection
       title="Roster"
       bare={bare}
@@ -1774,6 +1795,7 @@ function RosterSection({
                 }
                 dropId={pick.contestant_id}
                 dropActive={drag?.overId === pick.contestant_id}
+                stamp={stampId === pick.contestant_id}
               >
                 <RosterBreakdown
                   perf={perfs.get(pick.contestant_id)}
@@ -2084,6 +2106,20 @@ function PicksSection({
       if (resolveDrop('ballot', id).kind === 'to_roster_picking') onDragToRoster?.()
     },
   })
+  // Stamp the ballot seal as the double lands on it (#487) — on the flip to
+  // doubled, not on first paint.
+  const ballotIsDoubled = play.play?.advantage_type === 'double_vote_points'
+  const [ballotStamped, setBallotStamped] = useState(false)
+  const prevBallotDoubled = useRef<boolean | undefined>(undefined)
+  useEffect(() => {
+    const prev = prevBallotDoubled.current
+    prevBallotDoubled.current = ballotIsDoubled
+    if (prev === false && ballotIsDoubled) {
+      setBallotStamped(true)
+      const timer = setTimeout(() => setBallotStamped(false), 420)
+      return () => clearTimeout(timer)
+    }
+  }, [ballotIsDoubled])
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
   // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
@@ -2198,24 +2234,7 @@ function PicksSection({
 
   const content = (
     <>
-      {/* The lifted ballot seal, following the finger (#487) — portaled above
-          the record's clipping and the fixed nav, like the roster one. */}
-      {ballotDrag &&
-        createPortal(
-          <div
-            aria-hidden
-            className="pointer-events-none fixed z-50"
-            style={{
-              left: ballotDrag.x,
-              top: ballotDrag.y,
-              transform: 'translate(-50%, -50%) scale(1.12)',
-              filter: 'drop-shadow(0 4px 8px rgb(0 0 0 / 35%))',
-            }}
-          >
-            <DoubleBadge size={28} />
-          </div>,
-          document.body,
-        )}
+      <SealGhost drag={ballotDrag} />
       {!currentEp && closedEpisodes.length === 0 && (
         <p className="text-gray-500 text-sm">No episodes yet.</p>
       )}
@@ -2285,6 +2304,7 @@ function PicksSection({
                 <BallotStamp
                   onPointerDown={onDragToRoster ? startBallotDrag : undefined}
                   lifted={ballotDragging}
+                  stamp={ballotStamped}
                 />
               )}
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
