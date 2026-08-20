@@ -3,44 +3,29 @@ import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
 
-interface EpisodeResultRevealProps {
-  result: EpisodeResult
-  mode: 'automatic' | 'replay'
-  onContinue?: () => Promise<void>
-  onClose?: () => void
+/** Compact signed score used all over the card — no "pts" noise (#477). */
+function signed(value: number) {
+  return `${value > 0 ? '+' : ''}${value}`
 }
 
-function points(value: number) {
-  return `${value > 0 ? '+' : ''}${value} pts`
+const NUMBER_WORDS = ['zero', 'one', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight']
+
+/** The headline is the night's story: name the one boot, count the torches
+ *  beyond that (#477). */
+function snuffedHeadline(eliminated: EpisodeResult['eliminated']) {
+  if (eliminated.length === 0) return 'No one was voted out'
+  if (eliminated.length === 1) return `${eliminated[0].name}'s torch was snuffed`
+  const count = NUMBER_WORDS[eliminated.length] ?? String(eliminated.length)
+  return `${count} torches snuffed`
 }
 
-function ballotLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
+/** Finale ballots predict different things (winner, fire, first boot); a plain
+ *  weekly elimination vote needs no label — the points already say it. */
+function ballotTypeLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
   if (kind === 'early_boot') return 'First boot'
   if (kind === 'fire_loss') return 'Fire-making loser'
   if (kind === 'winner') return 'Sole Survivor'
-  return 'Elimination vote'
-}
-
-function incorrectBallotCopy(kind: EpisodeResult['ballot'][number]['prediction_type']) {
-  if (kind === 'early_boot') return 'Not the first boot'
-  if (kind === 'fire_loss') return 'Did not lose fire-making'
-  if (kind === 'winner') return 'Did not win'
-  return 'Not eliminated'
-}
-
-function rankCopy(result: EpisodeResult) {
-  if (result.current_rank == null) return null
-  if (result.prior_rank == null || result.rank_delta == null) {
-    return `Now ranked #${result.current_rank}`
-  }
-  if (result.rank_delta > 0) {
-    return `Up ${result.rank_delta} ${result.rank_delta === 1 ? 'spot' : 'spots'} to #${result.current_rank}`
-  }
-  if (result.rank_delta < 0) {
-    const amount = Math.abs(result.rank_delta)
-    return `Down ${amount} ${amount === 1 ? 'spot' : 'spots'} to #${result.current_rank}`
-  }
-  return `Held at #${result.current_rank}`
+  return null
 }
 
 export function EpisodeResultReveal({
@@ -85,8 +70,9 @@ export function EpisodeResultReveal({
   }
 
   const rosterLane = result.roster_points + result.roster_adjustment_points
-  const rank = rankCopy(result)
   const eliminatedIds = new Set(result.eliminated.map((e) => e.contestant_id))
+  const insights = result.insights ?? []
+  const delta = result.rank_delta
 
   return (
     <div
@@ -95,14 +81,13 @@ export function EpisodeResultReveal({
       aria-modal="true"
       aria-labelledby="episode-result-title"
     >
-      <article
-        className="reveal-enter mx-auto w-full max-w-5xl overflow-hidden rounded-2xl bg-cream-50 shadow-2xl"
-      >
-        <header className="relative overflow-hidden bg-gradient-to-br from-forest-900 via-forest-800 to-jade-800 px-5 py-6 text-white sm:px-8 sm:py-8">
-          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-terracotta-500/20 blur-2xl" />
+      <article className="reveal-enter mx-auto w-full max-w-2xl overflow-hidden rounded-2xl bg-[#122318] text-cream-100 shadow-2xl ring-1 ring-white/10">
+        {/* ── Header: the torchlit night, kept from the old recap ── */}
+        <header className="relative overflow-hidden bg-gradient-to-br from-forest-900 via-forest-800 to-jade-800 px-5 py-6 text-white sm:px-8 sm:py-7">
+          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-terracotta-500/25 blur-2xl" />
           <div className="relative">
             <div className="flex min-w-0 items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-terracotta-200">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-200">
                 Episode {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
               </p>
               {mode === 'replay' && (
@@ -123,11 +108,7 @@ export function EpisodeResultReveal({
               tabIndex={-1}
               className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              {result.eliminated.length === 0
-                ? 'No one was eliminated'
-                : result.eliminated.length === 1
-                  ? `${result.eliminated[0].name} was eliminated`
-                  : `${result.eliminated.length} castaways were eliminated`}
+              {snuffedHeadline(result.eliminated)}
             </h2>
 
             {result.eliminated.length > 1 && (
@@ -135,16 +116,18 @@ export function EpisodeResultReveal({
                 {result.eliminated.map((castaway) => (
                   <li
                     key={castaway.contestant_id}
-                    className="flex min-w-0 items-center gap-2 rounded-full bg-black/20 py-1 pl-1 pr-3 text-sm"
+                    className="flex min-w-0 items-center gap-2 rounded-full bg-black/25 py-1 pl-1 pr-3 text-sm ring-1 ring-white/10"
                   >
-                    <ContestantAvatar
-                      name={castaway.name}
-                      imageUrl={castaway.image_url}
-                      tribeColor={null}
-                      tribeName={null}
-                      size="sm"
-                    />
-                    <span className="truncate">{castaway.name}</span>
+                    <span className="grayscale opacity-80">
+                      <ContestantAvatar
+                        name={castaway.name}
+                        imageUrl={castaway.image_url}
+                        tribeColor={null}
+                        tribeName={null}
+                        size="sm"
+                      />
+                    </span>
+                    <span className="truncate line-through decoration-white/40">{castaway.name}</span>
                   </li>
                 ))}
               </ul>
@@ -152,182 +135,239 @@ export function EpisodeResultReveal({
 
             <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/55">
-                  Episode total
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
+                  Your episode
                 </p>
-                <p className="font-display text-5xl tracking-wide text-terracotta-200">
-                  {result.total_points > 0 ? '+' : ''}{result.total_points}
+                <p className="font-display text-5xl leading-none tracking-wide text-terracotta-200 tabular-nums">
+                  {signed(result.total_points)}
                 </p>
               </div>
-              {rank && <p className="min-w-0 text-right text-sm font-semibold text-white">{rank}</p>}
+              {result.current_rank != null && (
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-jade-200/35 bg-jade-600/25 px-3 py-1.5 font-display text-sm font-semibold text-jade-100">
+                  {delta != null && delta !== 0 && (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {delta > 0 ? <path d="M12 19V5M5 12l7-7 7 7" /> : <path d="M12 5v14M5 12l7 7 7-7" />}
+                    </svg>
+                  )}
+                  {delta != null && delta !== 0
+                    ? `${delta > 0 ? 'Up' : 'Down'} ${Math.abs(delta)} · `
+                    : ''}
+                  <span className="text-white">#{result.current_rank}</span>
+                </span>
+              )}
             </div>
           </div>
         </header>
 
-        <div className="px-4 py-5 sm:px-8 sm:py-7">
-          <div
-            className={
-              result.insights && result.insights.length > 0
-                ? 'lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)] lg:items-start lg:gap-7'
-                : ''
-            }
-          >
-          <div
-            className={
-              result.insights && result.insights.length > 0
-                ? 'space-y-5'
-                : 'space-y-5 lg:grid lg:grid-cols-3 lg:items-start lg:gap-4 lg:space-y-0'
-            }
-          >
-          <ResultLane title="Roster" total={rosterLane}>
-            {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
-              <p className="text-sm text-gray-500">No active roster members scored this episode.</p>
-            ) : (
-              <ul className="divide-y divide-cream-100">
-                {result.roster.map((member) => (
-                  <ResultRow
-                    key={member.contestant_id}
-                    name={member.name}
-                    imageUrl={member.image_url}
-                    value={member.points}
-                    eliminated={eliminatedIds.has(member.contestant_id)}
-                    breakdown={member.breakdown}
-                  />
-                ))}
-                {result.roster_adjustment_points !== 0 && (
-                  <li className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="text-gray-600">Historical roster adjustment</span>
-                    <span className="shrink-0 font-semibold text-gray-800">
-                      {points(result.roster_adjustment_points)}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            )}
-          </ResultLane>
-
-          <ResultLane title="Ballot" total={result.ballot_points}>
-            {result.ballot.length === 0 ? (
-              <p className="text-sm text-gray-500">No ballot was submitted, so there are no ballot points.</p>
-            ) : (
-              <ul className="divide-y divide-cream-100">
-                {result.ballot.map((pick) => (
-                  <li
-                    key={`${pick.prediction_type}:${pick.contestant_id}`}
-                    className="flex min-w-0 items-center gap-2 py-2"
-                  >
-                    <ContestantAvatar
-                      name={pick.name}
-                      imageUrl={pick.image_url}
-                      tribeColor={null}
-                      tribeName={null}
-                      size="sm"
+        {/* ── Body: one dark scorecard ── */}
+        <div className="px-4 py-5 sm:px-7 sm:py-6">
+          <div className="space-y-3">
+            <ResultLane title="Roster" total={rosterLane} accent="roster">
+              {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
+                <LaneEmpty>No active roster members scored this episode.</LaneEmpty>
+              ) : (
+                <>
+                  {result.roster.map((member) => (
+                    <ResultRow
+                      key={member.contestant_id}
+                      name={member.name}
+                      imageUrl={member.image_url}
+                      value={member.points}
+                      eliminated={eliminatedIds.has(member.contestant_id)}
+                      breakdown={member.breakdown}
                     />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-gray-800">{pick.name}</span>
-                      <span className={`block text-xs ${pick.correct ? 'text-jade-700' : 'text-gray-500'}`}>
-                        {ballotLabel(pick.prediction_type)} · {pick.correct ? 'Correct' : incorrectBallotCopy(pick.prediction_type)}
+                  ))}
+                  {result.roster_adjustment_points !== 0 && (
+                    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm">
+                      <span className="text-cream-100/70">Historical roster adjustment</span>
+                      <span className="shrink-0 font-display font-semibold text-cream-100 tabular-nums">
+                        {signed(result.roster_adjustment_points)}
                       </span>
-                    </span>
-                    <span className={`shrink-0 text-sm font-semibold ${pick.correct ? 'text-jade-700' : 'text-gray-500'}`}>
-                      {points(pick.points)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ResultLane>
+                    </div>
+                  )}
+                </>
+              )}
+            </ResultLane>
 
-          <ResultLane title="Advantage" total={result.weekly_play_bonus}>
-            {result.weekly_plays.length === 0 ? (
-              <p className="text-sm text-gray-500">No weekly play was used. Your base score is unchanged.</p>
-            ) : (
-              <ul className="space-y-2">
-                {result.weekly_plays.map((play) => (
-                  <li key={play.advantage_play_id} className="text-sm text-gray-700">
-                    <span className="font-medium text-gray-900">
-                      {ADV_LABELS[play.advantage_type] ?? play.advantage_type.replace(/_/g, ' ')}
-                    </span>
-                    {play.target_name && <span> · {play.target_name}</span>}
-                    {play.advantage_type === 'roster_swap' ? (
-                      <span className="block text-xs text-gray-500">Used for this episode's roster swap.</span>
-                    ) : (
-                      <span className="block text-xs text-gray-500">
-                        {points(play.bonus_points)} from your double.
+            <ResultLane title="Ballot" total={result.ballot_points} accent="ballot">
+              {result.ballot.length === 0 ? (
+                <LaneEmpty>No ballot was submitted, so there are no ballot points.</LaneEmpty>
+              ) : (
+                result.ballot.map((pick) => {
+                  const label = ballotTypeLabel(pick.prediction_type)
+                  return (
+                    <div
+                      key={`${pick.prediction_type}:${pick.contestant_id}`}
+                      className={`flex min-w-0 items-center gap-3 px-3.5 py-2.5 ${
+                        pick.correct ? 'bg-jade-600/12' : ''
+                      }`}
+                    >
+                      <ContestantAvatar
+                        name={pick.name}
+                        imageUrl={pick.image_url}
+                        tribeColor={null}
+                        tribeName={null}
+                        size="sm"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
+                        {label && <span className="block text-xs text-cream-100/45">{label}</span>}
                       </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ResultLane>
+                      <span
+                        className={`shrink-0 font-display font-semibold tabular-nums ${
+                          pick.correct ? 'text-jade-200' : 'text-cream-100/45'
+                        }`}
+                      >
+                        {signed(pick.points)}
+                      </span>
+                    </div>
+                  )
+                })
+              )}
+            </ResultLane>
+
+            <ResultLane title="Advantage" total={result.weekly_play_bonus} accent="advantage">
+              {result.weekly_plays.length === 0 ? (
+                <LaneEmpty>No weekly play was used.</LaneEmpty>
+              ) : (
+                result.weekly_plays.map((play) => (
+                  <div key={play.advantage_play_id} className="flex min-w-0 items-center gap-3 px-3.5 py-2.5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-cream-100">
+                        {ADV_LABELS[play.advantage_type] ?? play.advantage_type.replace(/_/g, ' ')}
+                      </span>
+                      {play.target_name && (
+                        <span className="block truncate text-xs text-cream-100/45">{play.target_name}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 font-display font-semibold text-jade-200 tabular-nums">
+                      {play.advantage_type === 'roster_swap' ? '—' : signed(play.bonus_points)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </ResultLane>
           </div>
 
-          {result.insights && result.insights.length > 0 && (
-            <section aria-labelledby="episode-insights-title" className="mt-5 border-t border-cream-200 pt-5 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
-              <h3 id="episode-insights-title" className="text-xs font-semibold uppercase tracking-wide text-forest-700">
+          {/* ── Points buildup: Roster + Ballot + Advantage = total ── */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-white/10 bg-[#0d1c14] px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2 font-display font-semibold text-cream-100/75">
+              <BuildTerm label="Roster" value={rosterLane} />
+              <span className="text-white/25">+</span>
+              <BuildTerm label="Ballot" value={result.ballot_points} />
+              <span className="text-white/25">+</span>
+              <BuildTerm label="Adv" value={result.weekly_play_bonus} />
+            </div>
+            <div className="ml-auto flex items-baseline gap-2">
+              <span className="font-display text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cream-100/55">
+                Episode
+              </span>
+              <span className="font-display text-2xl font-bold leading-none text-terracotta-200 tabular-nums">
+                {signed(result.total_points)}
+              </span>
+            </div>
+          </div>
+
+          {insights.length > 0 && (
+            <section aria-labelledby="episode-insights-title" className="mt-4">
+              <h3
+                id="episode-insights-title"
+                className="mb-2 font-display text-xs font-bold uppercase tracking-[0.18em] text-cream-100/55"
+              >
                 Episode insight
               </h3>
-              <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                {result.insights.map((insight) => (
-                  <li key={insight.id} className="rounded-xl bg-forest-50 p-3">
-                    <p className="text-xs text-forest-700">{insight.label}</p>
-                    <p className="mt-0.5 text-lg font-semibold text-forest-900">{insight.value}</p>
-                    {insight.detail && <p className="mt-1 text-xs text-gray-600">{insight.detail}</p>}
+              <ul className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2">
+                {insights.map((insight) => (
+                  <li key={insight.id} className="rounded-xl border border-white/10 bg-[#18301f] px-3.5 py-3">
+                    <p className="text-[0.7rem] uppercase tracking-wide text-cream-100/45">{insight.label}</p>
+                    <p className="my-0.5 font-display text-lg font-bold leading-tight text-cream-100">
+                      {insight.value}
+                    </p>
+                    {insight.detail && <p className="text-xs text-cream-100/70">{insight.detail}</p>}
                   </li>
                 ))}
               </ul>
             </section>
           )}
-          </div>
 
-          <div className="mt-5 border-t border-cream-200 pt-5">
-            <div className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900">
-              <span>Roster + Ballot + Advantage</span>
-              <span className="shrink-0">{points(result.total_points)}</span>
-            </div>
-            {error && <p role="alert" className="mt-3 text-sm text-terracotta-700">{error}</p>}
-            {mode === 'automatic' ? (
-              <button
-                type="button"
-                onClick={() => void continueReveal()}
-                disabled={submitting}
-                className="mt-5 w-full rounded-xl bg-jade-600 px-4 py-3 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50"
-              >
-                {submitting ? 'Continuing…' : 'Continue'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onClose}
-                className="mt-5 w-full rounded-xl border border-forest-300 bg-white px-4 py-3 text-sm font-semibold text-forest-800 hover:bg-forest-50"
-              >
-                Back to My Season
-              </button>
-            )}
-          </div>
+          {error && <p role="alert" className="mt-4 text-sm text-terracotta-200">{error}</p>}
+          {mode === 'automatic' ? (
+            <button
+              type="button"
+              onClick={() => void continueReveal()}
+              disabled={submitting}
+              className="mt-5 w-full rounded-xl bg-jade-600 px-4 py-3 font-display text-sm font-semibold uppercase tracking-[0.08em] text-white hover:bg-jade-700 disabled:opacity-50"
+            >
+              {submitting ? 'Continuing…' : 'Continue'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-5 w-full rounded-xl border border-white/20 px-4 py-3 font-display text-sm font-semibold uppercase tracking-[0.08em] text-cream-100 hover:bg-white/5"
+            >
+              Back to My Season
+            </button>
+          )}
         </div>
       </article>
     </div>
   )
 }
 
+function BuildTerm({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="leading-none">
+      <span className="text-cream-100 tabular-nums">{signed(value)}</span>
+      <span className="ml-1 font-sans text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-cream-100/45">
+        {label}
+      </span>
+    </span>
+  )
+}
+
+function LaneEmpty({ children }: { children: React.ReactNode }) {
+  return <p className="px-3.5 py-2.5 text-sm text-cream-100/45">{children}</p>
+}
+
+const LANE_EDGE = {
+  roster: 'border-l-jade-600',
+  ballot: 'border-l-terracotta-500',
+  advantage: 'border-l-gold-500',
+} as const
+
 function ResultLane({
   title,
   total,
+  accent,
   children,
 }: {
   title: string
   total: number
+  accent: keyof typeof LANE_EDGE
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-cream-200 bg-white p-4">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</h3>
-        <span className="shrink-0 text-sm font-semibold text-gray-900">{points(total)}</span>
+    <section className={`overflow-hidden rounded-xl border border-white/10 border-l-[3px] bg-[#18301f] ${LANE_EDGE[accent]}`}>
+      <div className="flex items-baseline gap-3 border-b border-white/10 px-3.5 py-2.5">
+        <h3 className="font-display text-sm font-bold uppercase tracking-[0.16em] text-cream-100/70">{title}</h3>
+        <span
+          className={`ml-auto shrink-0 font-display text-lg font-bold tabular-nums ${
+            total > 0 ? 'text-jade-200' : total < 0 ? 'text-terracotta-200' : 'text-cream-100/45'
+          }`}
+        >
+          {signed(total)}
+        </span>
       </div>
-      {children}
+      <div className="divide-y divide-white/[0.07]">{children}</div>
     </section>
   )
 }
@@ -349,38 +389,33 @@ function ResultRow({
   const expandable = breakdown.length > 0
 
   return (
-    <li className="py-2">
+    <div>
       <button
         type="button"
         onClick={() => expandable && setOpen((current) => !current)}
         aria-expanded={expandable ? open : undefined}
         disabled={!expandable}
-        className="flex w-full min-w-0 items-center gap-2 text-left disabled:cursor-default"
+        className="flex w-full min-w-0 items-center gap-3 px-3.5 py-2.5 text-left disabled:cursor-default"
       >
-        {/* Voted out is shown the way Cast/Standings show it (#457): grey the
-            avatar and cross the name off, no torch. */}
-        <span className={eliminated ? 'grayscale opacity-70' : undefined}>
-          <ContestantAvatar
-            name={name}
-            imageUrl={imageUrl}
-            tribeColor={null}
-            tribeName={null}
-            size="sm"
-          />
+        {/* Voted out reads the way Cast/Standings show it (#457): grey avatar,
+            name crossed off. The point sources stay behind the chevron so a big
+            scorer never blows the row up (#477). */}
+        <span className={eliminated ? 'grayscale opacity-60' : undefined}>
+          <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
         </span>
         <span
           className={`min-w-0 flex-1 truncate text-sm font-medium ${
-            eliminated ? 'text-gray-500 line-through decoration-stone-300' : 'text-gray-800'
+            eliminated ? 'text-cream-100/45 line-through decoration-cream-100/30' : 'text-cream-100'
           }`}
         >
           {name}
         </span>
         {eliminated && <span className="sr-only">voted out this episode</span>}
-        <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
+        <span className="shrink-0 font-display font-semibold text-cream-100 tabular-nums">{signed(value)}</span>
         {expandable && (
           <svg
             viewBox="0 0 24 24"
-            className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 shrink-0 text-cream-100/40 transition-transform ${open ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             strokeWidth={2}
@@ -390,7 +425,7 @@ function ResultRow({
         )}
       </button>
       {expandable && open && (
-        <ul className="mt-1 space-y-0.5 pl-9 text-xs text-gray-500">
+        <ul className="space-y-0.5 pb-2.5 pl-[3.75rem] pr-3.5 text-xs text-cream-100/55">
           {breakdown.map((line, i) => (
             <li key={i} className="flex justify-between gap-2">
               <span>
@@ -398,20 +433,23 @@ function ResultRow({
                 {line.quantity > 1 && ` ×${line.quantity}`}
               </span>
               <span
-                className={
-                  line.points > 0
-                    ? 'text-jade-700'
-                    : line.points < 0
-                      ? 'text-terracotta-500'
-                      : 'text-gray-500'
-                }
+                className={`tabular-nums ${
+                  line.points > 0 ? 'text-jade-200' : line.points < 0 ? 'text-terracotta-200' : 'text-cream-100/45'
+                }`}
               >
-                {points(line.points)}
+                {signed(line.points)}
               </span>
             </li>
           ))}
         </ul>
       )}
-    </li>
+    </div>
   )
+}
+
+interface EpisodeResultRevealProps {
+  result: EpisodeResult
+  mode: 'automatic' | 'replay'
+  onContinue?: () => Promise<void>
+  onClose?: () => void
 }
