@@ -107,7 +107,10 @@ export function ContestantPage() {
   const href = (member?: CastMember) => member && `/contestants/${member.id}${detailSuffix}`
   useSwipeNav(href(prevC), href(nextC))
 
-  if (loading) return <PageLoader />
+  // Only the first load gets the full torch loader. Swiping to a sibling keeps
+  // the current castaway on screen (softly dimmed) until the next arrives, so
+  // stepping through entries doesn't strobe a loader between each one (#451).
+  if (loading && !perf) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load this castaway">{error}</Notice>
   if (!perf) return <Notice title="Contestant not found"><Link className="text-forest-700 underline" to={backHref}>{fromRoster ? 'Return to My Season' : 'Return to the cast'}</Link></Notice>
 
@@ -126,7 +129,7 @@ export function ContestantPage() {
   const allEpsOpen = sortedEps.length > 0 && sortedEps.every((e) => openEps.has(e.episode_number))
 
   return (
-    <div>
+    <div aria-busy={loading} className={`transition-opacity duration-150 ${loading ? 'opacity-60' : ''}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link
           to={backHref}
