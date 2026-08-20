@@ -303,7 +303,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(advantage).getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
     // #404: the swap left this economy — Advantage is two options again.
     expect(within(advantage).queryByRole('button', { name: /^Swap/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('Choose a castaway to double this episode')).not.toBeInTheDocument()
+    expect(screen.queryByText('Choose a castaway to double')).not.toBeInTheDocument()
 
     // The swap is started from the Roster beat instead, priced in points.
     const roster = await openBeat('Roster')
@@ -311,14 +311,12 @@ describe('MySeasonPage state shell', () => {
       'free',
     )
 
-    // Picking a double from Advantage switches to the Roster beat to answer it.
+    // Picking a double from Advantage opens the focused sheet to answer it.
     await userEvent.click(await screen.findByRole('tab', { name: /^Advantage/ }))
     await userEvent.click(within(advantage).getByRole('button', { name: 'Roster ×2' }))
-    expect(screen.getByRole('tab', { name: /^Roster/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText('Choose a castaway to double this episode')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
-    // While double-picking, the header offers Cancel rather than Swap.
-    expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
+    const sheet = screen.getByRole('dialog', { name: /Choose a castaway to double/ })
+    expect(within(sheet).getByText('Kenzie')).toBeVisible()
+    expect(within(sheet).getByRole('button', { name: 'Cancel' })).toBeVisible()
   })
 
   it('marks the selected roster card after Double Roster Points is saved', async () => {
