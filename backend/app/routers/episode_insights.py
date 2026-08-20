@@ -155,7 +155,7 @@ def compute_episode_insights(
         cur.execute(
             "select distinct p.id::text as id from profiles p"
             " join roster_picks rp on rp.user_id = p.id"
-            " where not p.is_admin and rp.season_id = %s",
+            " where p.is_player and rp.season_id = %s",
             [str(season["id"])],
         )
         participants = [row["id"] for row in cur.fetchall()]

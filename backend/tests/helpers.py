@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from app import database
 
 
-def insert_user(conn, display_name="Test User", is_admin=False):
+def insert_user(conn, display_name="Test User", is_admin=False, is_player=True):
     user_id = uuid.uuid4()
     with conn.cursor() as cur:
         cur.execute(
@@ -16,9 +16,9 @@ def insert_user(conn, display_name="Test User", is_admin=False):
             [str(user_id), f"{user_id}@test.com"],
         )
         cur.execute(
-            "insert into profiles (id, display_name, is_admin)"
-            " values (%s, %s, %s) returning *",
-            [str(user_id), display_name, is_admin],
+            "insert into profiles (id, display_name, is_admin, is_player)"
+            " values (%s, %s, %s, %s) returning *",
+            [str(user_id), display_name, is_admin, is_player],
         )
         return cur.fetchone()
 

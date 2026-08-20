@@ -113,14 +113,17 @@ def test_standings_trend_reflects_last_episode(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_standings_excludes_admin_accounts(client, db_conn, current_user):
-    """Producer/service accounts stay out of the leaderboard (#50)."""
+def test_standings_excludes_service_accounts(client, db_conn, current_user):
+    """Service accounts (is_player=false) stay out of the leaderboard (#50),
+    but a commissioner who also plays (admin + is_player) is included (#471)."""
     season = insert_season(db_conn)
-    insert_user(db_conn, display_name="Producer", is_admin=True)
+    insert_user(db_conn, display_name="Producer", is_admin=True, is_player=False)
+    commish = insert_user(db_conn, display_name="Commish", is_admin=True)
     r = client.get(f"/seasons/{season['id']}/standings")
     assert r.status_code == 200
     names = [row["display_name"] for row in r.json()]
-    assert names == [current_user["display_name"]]
+    assert "Producer" not in names
+    assert set(names) == {current_user["display_name"], commish["display_name"]}
 
 
 @pytest.mark.integration

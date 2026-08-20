@@ -102,13 +102,18 @@ def test_advantage_lock_episode_gates_create_grant(client, db_conn, current_user
 
 
 @pytest.mark.integration
-def test_create_episode_skips_admin_accounts(client, db_conn, current_user):
-    """Service accounts (Producer) don't receive weekly tokens (#50)."""
+def test_create_episode_skips_service_accounts(client, db_conn, current_user):
+    """Service accounts (is_player=false) don't receive weekly tokens (#50),
+    but a commissioner who also plays (admin + is_player) does (#471)."""
     season = insert_season(db_conn, weekly_token_allocation=7)
-    producer = insert_user(db_conn, display_name="Producer", is_admin=True)
+    producer = insert_user(
+        db_conn, display_name="Producer", is_admin=True, is_player=False
+    )
+    commish = insert_user(db_conn, display_name="Commish", is_admin=True)
     ep = _create_episode(client, season["id"], 1)
     grants = _weekly_grants(db_conn, ep["id"])
     assert str(current_user["id"]) in grants
+    assert str(commish["id"]) in grants
     assert str(producer["id"]) not in grants
 
 
