@@ -251,6 +251,7 @@ html.locked-night .app-bottom-link.text-terracotta-600 {
   color: #efbbaa;
 }
 
+html.locked-night .app-shell .hover\:bg-white:hover,
 html.locked-night .app-shell .hover\:bg-cream-50:hover,
 html.locked-night .app-shell .hover\:bg-cream-100:hover,
 html.locked-night .app-shell .hover\:bg-forest-50:hover,

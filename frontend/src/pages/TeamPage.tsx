@@ -131,7 +131,9 @@ export function TeamPage() {
   const href = (standing?: StandingEntry) => standing && `/seasons/${seasonId}/team/${standing.user_id}`
   useSwipeNav(href(prevP), href(nextP))
 
-  if (loading) return <PageLoader />
+  // Keep the current team on screen while swiping to a sibling (#451) — only the
+  // first load gets the full torch loader, so stepping through doesn't strobe.
+  if (loading && !player) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load this team">{error}</Notice>
   if (!player) return <Notice title="Player not found"><Link className="text-forest-700 underline" to="/standings">Return to standings</Link></Notice>
 
@@ -151,7 +153,7 @@ export function TeamPage() {
   const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
 
   return (
-    <div>
+    <div aria-busy={loading} className={`transition-opacity duration-150 ${loading ? 'opacity-60' : ''}`}>
       <PageHeader
         eyebrow={
           <span className="inline-flex items-center gap-1.5">
