@@ -68,6 +68,7 @@ def test_standings_survivors_include_tribe_treatment_data(
             "image_url": None,
             "tribe_name": "Yanu",
             "tribe_color": "#7651a1",
+            "eliminated_episode": None,
         }
     ]
 
