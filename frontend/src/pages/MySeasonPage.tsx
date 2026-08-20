@@ -25,6 +25,7 @@ import type { Beat, BeatKey } from '../components/SeasonRecord'
 import {
   RecordBeats,
   RecordHead,
+  RecordLine,
   RecordPanel,
   RecordSection,
   SeasonRecord,
@@ -50,24 +51,16 @@ import type {
 } from '../types'
 
 // The whole ballot is doubled when Double Ballot Points is played (#303), so the
-// ×2 belongs on the ballot once, not on every vote (#484). A horizontal twin of
-// the advantage-card you play it from.
-function BallotDoubleBanner({ compact = false }: { compact?: boolean }) {
+// carved ×2 idol is stamped onto the ballot once, like a seal pressed on the
+// paper (#484) — not repeated per vote, not a banner. Corner press: the host
+// container must be `relative`.
+function BallotStamp({ size = 54 }: { size?: number }) {
   return (
-    <div
-      className={`ballot-x2${compact ? ' ballot-x2--compact' : ''}`}
-      role="img"
-      aria-label="Double Ballot Points active — every vote scores double this episode"
+    <span
+      className="pointer-events-none absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]"
     >
-      <span className="ballot-x2__mult" aria-hidden="true">×2</span>
-      <span className="ballot-x2__label" aria-hidden="true">Ballot points</span>
-      {!compact && (
-        <>
-          <span className="ballot-x2__rule" aria-hidden="true" />
-          <span className="ballot-x2__status" aria-hidden="true">Active</span>
-        </>
-      )}
-    </div>
+      <DoubleBadge size={size} title="Double Ballot Points this episode" />
+    </span>
   )
 }
 
@@ -455,11 +448,26 @@ export function MySeasonPage() {
         inert={visibleResult ? true : undefined}
       >
       {state.kind !== 'open' && (
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="font-display text-2xl md:text-3xl tracking-wide text-forest-800">
-            {d.season.name}
-          </h1>
-          <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="font-display text-2xl md:text-3xl tracking-wide text-forest-800">
+              {d.season.name}
+            </h1>
+            <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
+          </div>
+          {/* The Roster beat carries Episode History in the open state (#478);
+              the other states have no beat bar, so it rides here near the top so
+              replays stay reachable between and after episodes. */}
+          {state.kind !== 'watch_only' && (
+            <EpisodeHistorySection
+              season={d.season}
+              userId={d.userId}
+              episodes={d.episodes}
+              onReplay={openReplay}
+              replayLoading={replayLoading}
+              replayError={replayError}
+            />
+          )}
         </div>
       )}
 
@@ -485,6 +493,7 @@ export function MySeasonPage() {
       )}
 
       {state.kind === 'open' && (
+        <div className="space-y-3">
         <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
@@ -554,23 +563,24 @@ export function MySeasonPage() {
             </div>
           </RecordPanel>
         </SeasonRecord>
+        {/* Below the record, not inside it, and only under the Roster beat
+            (#478): a small history affordance that doesn't follow you to the
+            Ballot/Advantage beats. */}
+        {beat === 'roster' && (
+          <EpisodeHistorySection
+            season={d.season}
+            userId={d.userId}
+            episodes={d.episodes}
+            onReplay={openReplay}
+            replayLoading={replayLoading}
+            replayError={replayError}
+          />
+        )}
+        </div>
       )}
 
       {state.kind === 'intermission' && <IntermissionState />}
       {state.kind === 'complete' && <CompleteState />}
-
-      {state.kind !== 'watch_only' && (
-        <EpisodeHistorySection
-          season={d.season}
-          userId={d.userId}
-          plays={d.plays}
-          contestants={d.contestants}
-          episodes={d.episodes}
-          onReplay={openReplay}
-          replayLoading={replayLoading}
-          replayError={replayError}
-        />
-      )}
 
       </div>
       {visibleResult && (
@@ -796,23 +806,24 @@ function LockedState({
 function EpisodeHistorySection({
   season,
   userId,
-  plays,
-  contestants,
   episodes,
   onReplay,
   replayLoading,
   replayError,
+  wrapperClassName = 'flex justify-end',
 }: {
   season: Season
   userId: string
-  plays: AdvantagePlay[]
-  contestants: Contestant[]
   episodes: Episode[]
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
+  /** Placement varies by host (record beat vs page header), so the caller owns
+   *  the trigger's padding/alignment. */
+  wrapperClassName?: string
 }) {
   const [ledger, setLedger] = useState<TokenLedgerEntry[] | null>(null)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -825,12 +836,6 @@ function EpisodeHistorySection({
     }
   }, [season.id, userId])
 
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-  const spent = plays.filter((p) => {
-    const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-    return ep != null && episodeClosed(ep)
-  })
   const scoredEpisodes = episodes
     .filter(
       (episode) =>
@@ -839,85 +844,135 @@ function EpisodeHistorySection({
         episode.episode_number >= season.roster_lock_episode,
     )
     .sort((a, b) => b.episode_number - a.episode_number)
-  if (
-    scoredEpisodes.length === 0 &&
-    spent.length === 0 &&
-    (ledger == null || ledger.length === 0)
-  ) return null
+  if (scoredEpisodes.length === 0 && (ledger == null || ledger.length === 0)) return null
 
   return (
-    <SectionShell
-      title="Episode History"
-      defaultOpen={false}
-      right={<span className="text-xs text-gray-500">{scoredEpisodes.length}</span>}
-    >
-      {scoredEpisodes.length > 0 && (
-        <ul className="space-y-2">
-          {scoredEpisodes.map((episode) => (
-            <li key={episode.id}>
-              <button
-                type="button"
-                onClick={() => onReplay(episode)}
-                disabled={replayLoading != null}
-                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-cream-200 bg-cream-50 p-3 text-left text-sm hover:border-forest-300 hover:bg-forest-50 disabled:opacity-50"
-              >
-                <span className="min-w-0">
-                  <span className="block font-semibold text-gray-900">
-                    {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
-                  </span>
-                  <span className="block text-xs text-gray-500">View your scored result</span>
-                </span>
-                <span className="shrink-0 text-xs font-semibold text-forest-700">
-                  {replayLoading === episode.id ? 'Loading…' : 'Replay'}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
+    <>
+      {/* A small trigger near the top of the Roster beat (#478): the recap
+          replays + retired ledger open in a sheet, not an always-present page
+          section. Weekly plays moved to the Advantage beat. */}
+      <div className={wrapperClassName}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-cream-50 shadow-sm transition-colors hover:bg-forest-700"
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 3v5h5" />
+          <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+        <span>Episode History</span>
+        {scoredEpisodes.length > 0 && (
+          <span className="rounded-full bg-forest-800 px-1.5 py-0.5 font-sans text-[9px] font-bold tracking-[0.08em] text-cream-50">
+            {scoredEpisodes.length}
+          </span>
+        )}
+      </button>
+      </div>
 
-      {spent.length > 0 && (
-        <div className={scoredEpisodes.length > 0 ? 'mt-5 border-t border-cream-200 pt-4' : ''}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Weekly plays
-          </p>
-          <ul className="space-y-2">
-          {[...spent].reverse().map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
-            >
-              <span className="text-gray-700">
-                {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
-                {p.target_contestant_id && (
-                  <span className="text-gray-500">
-                    {' '}
-                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
-                  </span>
-                )}
-                <span className="text-gray-500">
-                  {' '}
-                  · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
-                </span>
-              </span>
-              {p.points_earned != null && (
-                <span
-                  className={`text-xs shrink-0 ${
-                    p.points_earned > 0 ? 'text-jade-700 font-medium' : 'text-gray-500'
-                  }`}
-                >
-                  {p.points_earned > 0 ? '+' : ''}
-                  {p.points_earned} pts
-                </span>
-              )}
-            </li>
-          ))}
-          </ul>
+      {open &&
+        createPortal(
+          <EpisodeHistorySheet
+            scoredEpisodes={scoredEpisodes}
+            ledger={ledger ?? []}
+            onReplay={(episode) => {
+              setOpen(false)
+              onReplay(episode)
+            }}
+            replayLoading={replayLoading}
+            replayError={replayError}
+            onClose={() => setOpen(false)}
+          />,
+          document.body,
+        )}
+    </>
+  )
+}
+
+// The recap replays + retired token ledger, in a bottom sheet (#478) matching
+// the app's other sheets. Replay closes the sheet; the recap reveal opens over
+// the page from MySeasonPage.
+function EpisodeHistorySheet({
+  scoredEpisodes,
+  ledger,
+  onReplay,
+  replayLoading,
+  replayError,
+  onClose,
+}: {
+  scoredEpisodes: Episode[]
+  ledger: TokenLedgerEntry[]
+  onReplay: (episode: Episode) => void
+  replayLoading: string | null
+  replayError: string | null
+  onClose: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    panelRef.current?.focus()
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col justify-end" role="presentation">
+      <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="episode-history-title"
+        className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
+      >
+        <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-cream-200 bg-cream-100 px-4 py-3">
+          <h2
+            id="episode-history-title"
+            className="font-display text-sm font-semibold uppercase tracking-wide text-forest-800"
+          >
+            Episode History
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Close
+          </button>
         </div>
-      )}
 
-      {ledger != null && ledger.length > 0 && (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          {scoredEpisodes.length > 0 && (
+            <ul className="space-y-2">
+              {scoredEpisodes.map((episode) => (
+                <li key={episode.id}>
+                  <button
+                    type="button"
+                    onClick={() => onReplay(episode)}
+                    disabled={replayLoading != null}
+                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-paper-edge bg-cream-100 p-3 text-left transition-colors hover:border-forest-400 hover:bg-forest-50 disabled:opacity-50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
+                        {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
+                      </span>
+                      <span className="block text-xs text-paper-ink-faded">View your scored result</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream-50">
+                      {replayLoading === episode.id ? 'Loading…' : 'Replay'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
+
+      {ledger.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
             Token ledger (retired)
@@ -943,7 +998,9 @@ function EpisodeHistorySection({
           </ul>
         </div>
       )}
-    </SectionShell>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1053,6 +1110,21 @@ function WeeklyPlaySection({
       ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
       : null
 
+  // Your plays live with the Advantage beat now (#478) instead of buried in
+  // Episode History — spent plays from already-closed episodes, newest first.
+  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const spent = plays
+    .filter((p) => {
+      const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
+      return ep != null && episodeClosed(ep)
+    })
+    .sort(
+      (a, b) =>
+        (episodeMap.get(b.episode_id ?? '')?.episode_number ?? 0) -
+        (episodeMap.get(a.episode_id ?? '')?.episode_number ?? 0),
+    )
+
   return (
     <RecordSection title="Advantage" bare={bare}>
       <div className="space-y-3 px-4 py-3">
@@ -1130,7 +1202,101 @@ function WeeklyPlaySection({
 
       {weekly.error && <p className="text-terracotta-600 text-xs">{weekly.error}</p>}
       </div>
+
+      {spent.length > 0 && (
+        <PastPlaysSection spent={spent} contestantMap={contestantMap} episodeMap={episodeMap} />
+      )}
     </RecordSection>
+  )
+}
+
+// A ruled "Past X" sub-section under a record beat (#478) — the shared shell
+// for Past Plays (Advantage) and Past Ballots (Ballot). Collapsed by default,
+// since it's reference, not the week's decision.
+function CollapsibleRecordSection({
+  title,
+  count,
+  children,
+}: {
+  title: string
+  count?: number
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border-t-2 border-paper-edge">
+      <h2>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex w-full items-baseline gap-2 bg-black/[.025] px-4 pt-2.5 pb-1.5 text-left"
+        >
+          <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-paper-ink">
+            {title}
+          </span>
+          {count != null && (
+            <span className="ml-auto text-[11px] font-semibold text-paper-ink-faded">{count}</span>
+          )}
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-4 w-4 text-paper-ink-faded transition-transform ${open ? 'rotate-180' : ''} ${count == null ? 'ml-auto' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      </h2>
+      {open && children}
+    </div>
+  )
+}
+
+// Your season's spent plays, grouped with the Advantage beat (#478).
+function PastPlaysSection({
+  spent,
+  contestantMap,
+  episodeMap,
+}: {
+  spent: AdvantagePlay[]
+  contestantMap: Map<string, Contestant>
+  episodeMap: Map<string, Episode>
+}) {
+  return (
+    <CollapsibleRecordSection title="Past Plays" count={spent.length}>
+      {spent.map((p) => (
+        <RecordLine key={p.id}>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-paper-ink">
+              {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
+              {p.target_contestant_id && (
+                <span className="text-paper-ink-faded">
+                  {' '}
+                  → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                </span>
+              )}
+              <span className="text-paper-ink-faded">
+                {' '}
+                · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
+              </span>
+            </span>
+            {p.points_earned != null && (
+              <span
+                className={`shrink-0 text-xs ${
+                  p.points_earned > 0 ? 'font-medium text-jade-700' : 'text-paper-ink-faded'
+                }`}
+              >
+                {p.points_earned > 0 ? '+' : ''}
+                {p.points_earned} pts
+              </span>
+            )}
+          </div>
+        </RecordLine>
+      ))}
+    </CollapsibleRecordSection>
   )
 }
 
@@ -1885,8 +2051,10 @@ function PicksSection({
   function episodeRow(ep: Episode, current: boolean) {
     const picks = picksByEpisode.get(ep.id) ?? []
     const scored = ep.status === 'scored'
-    // One banner for the doubled ballot (#484) instead of an idol per pick. The
-    // per-pick earnings chips below still name which vote the double paid on.
+    // The doubled ballot wears the ×2 idol once (#484): a corner-seal stamp on
+    // the prominent current ballot, a small inline seal by the episode number on
+    // the compact Past Ballots rows. The per-pick earnings chips still name
+    // which vote the double paid on.
     const ballotDoubled = plays.some(
       (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
     )
@@ -1895,6 +2063,9 @@ function PicksSection({
         <span className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}>
           Episode {ep.episode_number}
         </span>
+        {!current && ballotDoubled && (
+          <DoubleBadge size={22} title="Double Ballot Points this episode" />
+        )}
         {/* Never show the raw DB status — a locked, unscored episode said
             "upcoming", the opposite of true (#272). */}
         <span
@@ -1951,28 +2122,19 @@ function PicksSection({
       )
 
     return current ? (
-      <div key={ep.id} className="mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
+      <div key={ep.id} className="relative mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
+        {ballotDoubled && <BallotStamp size={48} />}
         {header}
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
           Ballot locked {formatCentral(ep.picks_lock_at)}
         </p>
-        {ballotDoubled && (
-          <div className="mb-3">
-            <BallotDoubleBanner compact />
-          </div>
-        )}
         {body}
       </div>
     ) : (
-      // Flat row: the whole Past Episodes list already collapses as one
-      // section, so a second per-episode toggle is just extra clicking.
-      <div key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
+      // Flat record line inside the "Past Ballots" section (#478) — ruled like
+      // the rest of the record, not a grey card. The ×2 seal rides in the header.
+      <div key={ep.id} className="border-b border-paper-line px-4 py-3 last:border-b-0">
         {header}
-        {ballotDoubled && (
-          <div className="mt-2">
-            <BallotDoubleBanner compact />
-          </div>
-        )}
         <div className="mt-2">{body}</div>
       </div>
     )
@@ -2044,15 +2206,9 @@ function PicksSection({
           }
 
           return (
-            <div className={activeOnly ? undefined : 'mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
+            <div className={activeOnly ? 'relative' : 'relative mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
+              {ballotDoubled && <BallotStamp />}
               {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
-              {ballotDoubled && (
-                <div className="mb-4">
-                  {/* Compact on the Advantage beat — the ×2 tiles sit right
-                      above there; full-height on the standalone My Votes tab. */}
-                  <BallotDoubleBanner compact={activeOnly} />
-                </div>
-              )}
               {confirmed ? (
                 <div className="mb-5">
                   {/* Submitted is the state people look for, so it gets a mark
@@ -2241,16 +2397,6 @@ function PicksSection({
         })()}
 
       {currentEp && !isOpen(currentEp) && episodeRow(currentEp, true)}
-
-      {!activeOnly && closedEpisodes.length > 0 && (
-        <SectionShell
-          title="Past Episodes"
-          defaultOpen={false}
-          right={<span className="text-xs text-gray-500">{closedEpisodes.length}</span>}
-        >
-          <div className="space-y-3">{closedEpisodes.map((ep) => episodeRow(ep, false))}</div>
-        </SectionShell>
-      )}
     </>
   )
 
@@ -2267,6 +2413,12 @@ function PicksSection({
           </p>
           {content}
         </div>
+
+        {closedEpisodes.length > 0 && (
+          <CollapsibleRecordSection title="Past Ballots" count={closedEpisodes.length}>
+            {closedEpisodes.map((ep) => episodeRow(ep, false))}
+          </CollapsibleRecordSection>
+        )}
       </RecordSection>
     )
   }
