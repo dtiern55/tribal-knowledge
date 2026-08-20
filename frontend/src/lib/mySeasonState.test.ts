@@ -26,6 +26,7 @@ function episode(
     picks_lock_at: lock,
     status,
     created_at: lock,
+    title: null,
   }
 }
 

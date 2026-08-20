@@ -841,6 +841,7 @@ function EpisodePanel({
 }) {
   // Edit fields
   const [epNum, setEpNum] = useState(String(episode.episode_number))
+  const [title, setTitle] = useState(episode.title ?? '')
   const [airDate, setAirDate] = useState(episode.air_date)
   const [locksAt, setLocksAt] = useState(utcToCentralLocal(episode.picks_lock_at))
   const [maxPicks, setMaxPicks] = useState(String(episode.max_elimination_picks))
@@ -887,6 +888,7 @@ function EpisodePanel({
     void run(setEditSaving, setEditError, async () => {
       const updated = await api.patch<Episode>(`/episodes/${episode.id}`, {
         episode_number: Number(epNum),
+        title: title.trim() === '' ? null : title.trim(),
         air_date: airDate,
         picks_lock_at: centralLocalToUtc(locksAt),
         max_elimination_picks: Number(maxPicks),
@@ -988,6 +990,16 @@ function EpisodePanel({
               type="date"
               value={airDate}
               onChange={(e) => setAirDate(e.target.value)}
+              className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Episode title"
               className="w-full border border-cream-200 rounded px-2 py-1 text-sm"
             />
           </div>
@@ -1430,7 +1442,14 @@ function EpisodesSection({
         <div id={`episode-${ep.id}`} key={ep.id} className={`scroll-mt-24 p-4 bg-white border rounded-xl ${ep.id === focusEpisodeId ? 'border-forest-300 ring-1 ring-forest-100' : 'border-cream-200'}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-              <span className="font-medium text-gray-900">Ep {ep.episode_number}</span>
+              <span className="font-medium text-gray-900">
+                Ep {ep.episode_number}
+                {ep.title && (
+                  <span className="ml-1.5 font-normal text-gray-500 truncate max-w-[16rem] inline-block align-bottom">
+                    · {ep.title}
+                  </span>
+                )}
+              </span>
               {ep.is_finale && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium">
                   finale
