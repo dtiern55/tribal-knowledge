@@ -1342,6 +1342,10 @@ function RosterSection({
   bare?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
+  // Distinct from "loaded but empty": until the fetch lands, an empty roster
+  // must not render the "submission window has closed" fallback, which flashed
+  // on every refresh mid-season before the roster arrived.
+  const [rosterLoaded, setRosterLoaded] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Who is holding the stage light, for the beat after being chosen.
   // Second half of a swap: who you tapped to drop, waiting on who replaces them.
@@ -1368,6 +1372,7 @@ function RosterSection({
         if (active.length) setSelected(new Set(active.map((p) => p.contestant_id)))
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
+      .finally(() => setRosterLoaded(true))
     // rosterVersion: refetch when a sibling section changes the roster (e.g. a
     // Sole Survivor designation) so the SS stamp updates without a reload.
   }, [season.id, userId, rosterVersion])
@@ -1684,7 +1689,7 @@ function RosterSection({
         )}
       {error && <p className="text-terracotta-600 text-sm mb-3">{error}</p>}
 
-      {hasRoster && !(windowOpen && editing) ? (
+      {!rosterLoaded ? null : hasRoster && !(windowOpen && editing) ? (
         <div className="space-y-6">
           {windowOpen && (
             <div className="flex items-center justify-between gap-3 -mt-2">
