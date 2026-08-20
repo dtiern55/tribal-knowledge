@@ -1218,17 +1218,17 @@ function WeeklyPlaySection({
   )
 }
 
-// Your season's spent plays, grouped with the Advantage beat (#478). A ruled
-// record sub-section — collapsed by default, since it's reference, not the
-// week's decision.
-function PastPlaysSection({
-  spent,
-  contestantMap,
-  episodeMap,
+// A ruled "Past X" sub-section under a record beat (#478) — the shared shell
+// for Past Plays (Advantage) and Past Ballots (Ballot). Collapsed by default,
+// since it's reference, not the week's decision.
+function CollapsibleRecordSection({
+  title,
+  count,
+  children,
 }: {
-  spent: AdvantagePlay[]
-  contestantMap: Map<string, Contestant>
-  episodeMap: Map<string, Episode>
+  title: string
+  count?: number
+  children: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -1241,12 +1241,14 @@ function PastPlaysSection({
           className="flex w-full items-baseline gap-2 bg-black/[.025] px-4 pt-2.5 pb-1.5 text-left"
         >
           <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-paper-ink">
-            Past Plays
+            {title}
           </span>
-          <span className="ml-auto text-[11px] font-semibold text-paper-ink-faded">{spent.length}</span>
+          {count != null && (
+            <span className="ml-auto text-[11px] font-semibold text-paper-ink-faded">{count}</span>
+          )}
           <svg
             viewBox="0 0 24 24"
-            className={`h-4 w-4 text-paper-ink-faded transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-paper-ink-faded transition-transform ${open ? 'rotate-180' : ''} ${count == null ? 'ml-auto' : ''}`}
             fill="none"
             stroke="currentColor"
             strokeWidth={2}
@@ -1256,37 +1258,53 @@ function PastPlaysSection({
           </svg>
         </button>
       </h2>
-      {open &&
-        spent.map((p) => (
-          <RecordLine key={p.id}>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-paper-ink">
-                {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
-                {p.target_contestant_id && (
-                  <span className="text-paper-ink-faded">
-                    {' '}
-                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
-                  </span>
-                )}
+      {open && children}
+    </div>
+  )
+}
+
+// Your season's spent plays, grouped with the Advantage beat (#478).
+function PastPlaysSection({
+  spent,
+  contestantMap,
+  episodeMap,
+}: {
+  spent: AdvantagePlay[]
+  contestantMap: Map<string, Contestant>
+  episodeMap: Map<string, Episode>
+}) {
+  return (
+    <CollapsibleRecordSection title="Past Plays" count={spent.length}>
+      {spent.map((p) => (
+        <RecordLine key={p.id}>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-paper-ink">
+              {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
+              {p.target_contestant_id && (
                 <span className="text-paper-ink-faded">
                   {' '}
-                  · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
-                </span>
-              </span>
-              {p.points_earned != null && (
-                <span
-                  className={`shrink-0 text-xs ${
-                    p.points_earned > 0 ? 'font-medium text-jade-700' : 'text-paper-ink-faded'
-                  }`}
-                >
-                  {p.points_earned > 0 ? '+' : ''}
-                  {p.points_earned} pts
+                  → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
                 </span>
               )}
-            </div>
-          </RecordLine>
-        ))}
-    </div>
+              <span className="text-paper-ink-faded">
+                {' '}
+                · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
+              </span>
+            </span>
+            {p.points_earned != null && (
+              <span
+                className={`shrink-0 text-xs ${
+                  p.points_earned > 0 ? 'font-medium text-jade-700' : 'text-paper-ink-faded'
+                }`}
+              >
+                {p.points_earned > 0 ? '+' : ''}
+                {p.points_earned} pts
+              </span>
+            )}
+          </div>
+        </RecordLine>
+      ))}
+    </CollapsibleRecordSection>
   )
 }
 
@@ -2120,9 +2138,9 @@ function PicksSection({
         {body}
       </div>
     ) : (
-      // Flat row: the whole Past Episodes list already collapses as one
-      // section, so a second per-episode toggle is just extra clicking.
-      <div key={ep.id} className="p-4 bg-gray-50 border border-gray-100 rounded-xl">
+      // Flat record line inside the "Past Ballots" section (#478) — ruled like
+      // the rest of the record, not a grey card.
+      <div key={ep.id} className="border-b border-paper-line px-4 py-3 last:border-b-0">
         {header}
         {ballotDoubled && (
           <div className="mt-2">
@@ -2397,16 +2415,6 @@ function PicksSection({
         })()}
 
       {currentEp && !isOpen(currentEp) && episodeRow(currentEp, true)}
-
-      {!activeOnly && closedEpisodes.length > 0 && (
-        <SectionShell
-          title="Past Episodes"
-          defaultOpen={false}
-          right={<span className="text-xs text-gray-500">{closedEpisodes.length}</span>}
-        >
-          <div className="space-y-3">{closedEpisodes.map((ep) => episodeRow(ep, false))}</div>
-        </SectionShell>
-      )}
     </>
   )
 
@@ -2423,6 +2431,12 @@ function PicksSection({
           </p>
           {content}
         </div>
+
+        {closedEpisodes.length > 0 && (
+          <CollapsibleRecordSection title="Past Ballots" count={closedEpisodes.length}>
+            {closedEpisodes.map((ep) => episodeRow(ep, false))}
+          </CollapsibleRecordSection>
+        )}
       </RecordSection>
     )
   }
