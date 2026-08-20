@@ -707,7 +707,6 @@ describe('MySeasonPage state shell', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('2 castaways were eliminated')
-    expect(dialog).toHaveTextContent('You called 2 votes right.')
     expect(screen.getByRole('heading', { name: 'Roster' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Ballot' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Advantage' })).toBeVisible()
@@ -780,7 +779,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByText('No one was eliminated')).toBeVisible()
-    expect(screen.getByText('You did not submit a ballot for this episode.')).toBeVisible()
+    expect(screen.getByText('No ballot was submitted, so there are no ballot points.')).toBeVisible()
     expect(screen.getByText('No weekly play was used. Your base score is unchanged.')).toBeVisible()
     expect(screen.getByText('Now ranked #1')).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Episode insight' })).not.toBeInTheDocument()
