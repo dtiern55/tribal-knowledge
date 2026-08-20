@@ -36,6 +36,7 @@ export function RosterCard({
   sealLifted = false,
   dropId,
   dropActive = false,
+  stamp = false,
   children,
 }: {
   contestantId: string
@@ -74,6 +75,8 @@ export function RosterCard({
   // `dropActive` highlights it as the finger passes over.
   dropId?: string
   dropActive?: boolean
+  // Play a one-shot "stamp" as the seal lands here after a drag commit (#487).
+  stamp?: boolean
   children?: ReactNode
 }) {
   const outEp = contestant?.eliminated_in_episode ?? null
@@ -87,6 +90,11 @@ export function RosterCard({
   // At row scale the idol rests near the points column, not as a tiny suffix on
   // the castaway's name. The tilt keeps it feeling hand-placed while preserving
   // the idol as the drag handle.
+  const sealMark = (
+    <span className={stamp ? 'seal-stamp' : ''}>
+      <DoubleBadge size={36} />
+    </span>
+  )
   const doubleSeal = isDoubled ? (
     onSealPointerDown ? (
       <span
@@ -95,11 +103,11 @@ export function RosterCard({
         className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg] cursor-grab touch-none transition-opacity active:cursor-grabbing"
         style={{ opacity: sealLifted ? 0.3 : 1 }}
       >
-        <DoubleBadge size={36} />
+        {sealMark}
       </span>
     ) : (
       <span className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg]">
-        <DoubleBadge size={36} />
+        {sealMark}
       </span>
     )
   ) : null
@@ -174,10 +182,12 @@ export function RosterCard({
     <li className="border-t border-paper-line first:border-t-0">
       <div
         data-drop-id={dropId}
-        className={`stage-row flex items-center gap-3 ${
+        className={`stage-row flex items-center gap-3 transition-transform ${
           lit ? 'stage-pick' : selected ? 'stage-held' : onSelect ? '' : ''
         } ${
-          dropActive ? 'ring-2 ring-inset ring-forest-500 bg-forest-50/70' : ''
+          dropActive
+            ? 'ring-2 ring-inset ring-forest-500 bg-forest-50/70 -translate-y-px shadow-lg'
+            : ''
         } ${onSelect ? 'p-0' : `px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}`}
         onClick={onSelect ? undefined : onToggle}
       >
