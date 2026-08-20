@@ -629,6 +629,7 @@ export function MySeasonPage() {
                   // the play shows once you've chosen (#487).
                   setBeat('roster')
                 }}
+                onBeatChange={setBeat}
                 bare
               />
             </div>
@@ -1168,6 +1169,7 @@ function WeeklyPlaySection({
   setPlays,
   picking = null,
   onPick,
+  onBeatChange,
   bare = false,
 }: {
   season: Season
@@ -1177,6 +1179,9 @@ function WeeklyPlaySection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   picking?: 'double' | 'swap' | null
   onPick?: (mode: 'double' | 'swap') => void
+  /** Playing Ballot ×2 lands you on the Ballot beat so the seal is visible,
+   *  matching the Roster ×2 → Roster beat flow (#487). */
+  onBeatChange?: (beat: BeatKey) => void
   bare?: boolean
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
@@ -1220,6 +1225,8 @@ function WeeklyPlaySection({
           if (weekly.busy) return
           if (kind === 'ballot') {
             if (ballotPlayed) return
+            // Land on the Ballot beat so the corner-seal is visible.
+            onBeatChange?.('ballot')
             void weekly.replace('double_vote_points')
             return
           }
@@ -1497,7 +1504,7 @@ function RosterSection({
     prevDoubleTarget.current = displayedDoubleTarget
     if (prev !== undefined && displayedDoubleTarget && displayedDoubleTarget !== prev) {
       setStampId(displayedDoubleTarget)
-      const timer = setTimeout(() => setStampId(null), 525)
+      const timer = setTimeout(() => setStampId(null), 790)
       return () => clearTimeout(timer)
     }
   }, [displayedDoubleTarget])
@@ -2124,7 +2131,7 @@ function PicksSection({
     prevBallotDoubled.current = ballotIsDoubled
     if (prev === false && ballotIsDoubled) {
       setBallotStamped(true)
-      const timer = setTimeout(() => setBallotStamped(false), 525)
+      const timer = setTimeout(() => setBallotStamped(false), 790)
       return () => clearTimeout(timer)
     }
   }, [ballotIsDoubled])

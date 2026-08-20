@@ -95,9 +95,9 @@ export function useSealDrag(opts: {
         return
       }
       // Snap the ghost back to where it was grabbed, then clear it. Outlasts the
-      // .seal-ghost--releasing transition (240ms) so it finishes before unmount.
+      // .seal-ghost--releasing transition (360ms) so it finishes before unmount.
       setDrag((d) => d && { ...d, x: origin.current.x, y: origin.current.y, releasing: true })
-      window.setTimeout(() => setDrag(null), 250)
+      window.setTimeout(() => setDrag(null), 375)
     }
     const cancel = () => {
       setHot(null)
