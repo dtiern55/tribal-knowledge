@@ -346,6 +346,51 @@ describe('MySeasonPage state shell', () => {
     expect(within(sheet).getByRole('button', { name: 'Cancel' })).toBeVisible()
   })
 
+  it('shows past weekly plays on the Advantage beat (#478)', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [{ id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null }]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [
+          {
+            id: 'play-1',
+            episode_id: 'episode-2',
+            advantage_type: 'double_vote_points',
+            target_contestant_id: null,
+            points_earned: 30,
+          },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const advantage = await openBeat('Advantage')
+    expect(within(advantage).getByText('Weekly plays')).toBeVisible()
+    expect(within(advantage).getByText('Double Ballot Points')).toBeVisible()
+    expect(within(advantage).getByText('· Episode 2')).toBeVisible()
+    expect(within(advantage).getByText('+30 pts')).toBeVisible()
+
+    // #478: it no longer lives in the Episode History sheet.
+    await userEvent.click(screen.getByRole('button', { name: /Episode History/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'Episode History' })
+    expect(within(sheet).queryByText('Weekly plays')).not.toBeInTheDocument()
+  })
+
   it('marks the selected roster card after Double Roster Points is saved', async () => {
     const open = episode(3, 'upcoming', '2099-08-27T00:00:00Z')
     vi.mocked(getActiveSeason).mockResolvedValue(season)
@@ -728,6 +773,26 @@ describe('MySeasonPage state shell', () => {
       '/seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
     )
+  })
+
+  it('opens the Episode History button into a sheet listing scored episodes to replay', async () => {
+    const user = userEvent.setup()
+    arrange([
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'scored', '2026-08-08T00:00:00Z'),
+    ])
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await screen.findByRole('heading', { name: 'Between episodes' })
+    await user.click(screen.getByRole('button', { name: /Episode History/ }))
+
+    const sheet = await screen.findByRole('dialog', { name: 'Episode History' })
+    expect(
+      within(sheet).getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }),
+    ).toBeVisible()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('replays a scored Episode History result without acknowledging it', async () => {
