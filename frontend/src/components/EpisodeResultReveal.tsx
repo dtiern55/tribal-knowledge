@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
-import { Torch } from './Torch'
 
 interface EpisodeResultRevealProps {
   result: EpisodeResult
@@ -358,20 +357,25 @@ function ResultRow({
         disabled={!expandable}
         className="flex w-full min-w-0 items-center gap-2 text-left disabled:cursor-default"
       >
-        <ContestantAvatar
-          name={name}
-          imageUrl={imageUrl}
-          tribeColor={null}
-          tribeName={null}
-          size="sm"
-        />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{name}</span>
-        {eliminated && (
-          <>
-            <span className="sr-only">voted out this episode</span>
-            <Torch lit={false} className="torch-snuff h-5 w-3.5 shrink-0" />
-          </>
-        )}
+        {/* Voted out is shown the way Cast/Standings show it (#457): grey the
+            avatar and cross the name off, no torch. */}
+        <span className={eliminated ? 'grayscale opacity-70' : undefined}>
+          <ContestantAvatar
+            name={name}
+            imageUrl={imageUrl}
+            tribeColor={null}
+            tribeName={null}
+            size="sm"
+          />
+        </span>
+        <span
+          className={`min-w-0 flex-1 truncate text-sm font-medium ${
+            eliminated ? 'text-gray-500 line-through decoration-stone-300' : 'text-gray-800'
+          }`}
+        >
+          {name}
+        </span>
+        {eliminated && <span className="sr-only">voted out this episode</span>}
         <span className="shrink-0 text-sm font-semibold text-gray-800">{points(value)}</span>
         {expandable && (
           <svg
