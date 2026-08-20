@@ -1801,17 +1801,15 @@ function RosterSection({
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
                     >
                       <span className="flex items-center gap-2">
-                        {/* A swap icon, not a snuffed torch (#457): swapped off
-                            your roster ≠ eliminated from the game. The torch is
-                            kept for the recap's real elimination moment. */}
-                        <span className="shrink-0 text-gray-400" title="Swapped out" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M7 4 3 8l4 4" />
-                            <path d="M3 8h14" />
-                            <path d="m17 20 4-4-4-4" />
-                            <path d="M21 16H7" />
-                          </svg>
-                        </span>
+                        {/* No snuffed torch here (#457) — it's kept for the
+                            recap's real elimination moment. A swapped-off member
+                            may still be playing, so mark the ones actually voted
+                            out with a plain text tag instead of a glyph. */}
+                        {c?.eliminated_in_episode != null && (
+                          <span className="shrink-0 rounded bg-terracotta-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-terracotta-700">
+                            Voted out
+                          </span>
+                        )}
                         {c?.name ?? '—'}
                       </span>
                       <span className="text-xs flex items-center gap-2">
