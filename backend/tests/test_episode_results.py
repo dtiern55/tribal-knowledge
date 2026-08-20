@@ -73,9 +73,11 @@ def test_latest_reveal_reconciles_multiple_correct_picks_and_double_vote(
 
 
 @pytest.mark.integration
-def test_roster_breakdown_lists_events_and_folds_in_double_bonus(
-    client, db_conn, current_user
-):
+def test_roster_breakdown_lists_base_events_only(client, db_conn, current_user):
+    """The breakdown itemizes base scoring events (#473); a played Double
+    Roster Points bonus stays in the Weekly-play lane exactly as before —
+    it must not appear on the roster row or its breakdown.
+    """
     season = insert_season(db_conn, status="active", roster_lock_episode=1)
     episode = insert_episode(db_conn, season["id"], status="scored")
     rostered = insert_contestant(db_conn, season["id"], "Rostered")
@@ -94,9 +96,7 @@ def test_roster_breakdown_lists_events_and_folds_in_double_bonus(
     result = client.get(f"/seasons/{season['id']}/reveal").json()
     member = result["roster"][0]
     assert member["contestant_id"] == str(rostered["id"])
-    # The doubled total lives on the roster row, with its own breakdown line
-    # (#473) — not as an unexplained residual in the Weekly play lane.
-    assert member["points"] == 30
+    assert member["points"] == 15
     assert member["breakdown"] == [
         {
             "event_type": "win_individual_immunity",
@@ -104,24 +104,19 @@ def test_roster_breakdown_lists_events_and_folds_in_double_bonus(
             "quantity": 1,
             "points": 15,
         },
-        {
-            "event_type": "double_roster_points_bonus",
-            "label": "Double Roster Points bonus",
-            "quantity": 1,
-            "points": 15,
-        },
     ]
-    assert result["roster_points"] == 30
+    assert sum(line["points"] for line in member["breakdown"]) == member["points"]
+    assert result["roster_points"] == 15
     assert result["weekly_plays"] == [
         {
             "advantage_play_id": str(play["id"]),
             "advantage_type": "double_roster_points",
             "target_contestant_id": str(rostered["id"]),
             "target_name": "Rostered",
-            "bonus_points": 0,
+            "bonus_points": 15,
         }
     ]
-    assert result["weekly_play_bonus"] == 0
+    assert result["weekly_play_bonus"] == 15
     assert (
         result["roster_points"]
         + result["roster_adjustment_points"]

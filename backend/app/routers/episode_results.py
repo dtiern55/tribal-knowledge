@@ -329,33 +329,6 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
 
     roster, roster_adjustment = _roster_lane(conn, season["id"], user_id, episode)
     ballot = _ballot_lane(conn, season["id"], user_id, episode)
-
-    by_play = scoring.advantage_bonus_by_play(conn, season["id"], user_id)
-    for play in plays:
-        play["bonus_points"] = by_play.get(play["advantage_play_id"], 0)
-
-    # Fold a Double Roster Points bonus into its target's own row (#473): the
-    # Roster lane should show the doubled total actually earned from that
-    # contestant, with its own breakdown line, instead of leaving the bonus
-    # as an unexplained residual in the Weekly play lane.
-    roster_by_id = {row["contestant_id"]: row for row in roster}
-    for play in plays:
-        if play["advantage_type"] != "double_roster_points" or not play["bonus_points"]:
-            continue
-        member = roster_by_id.get(play["target_contestant_id"])
-        if member is None:
-            continue
-        member["points"] += play["bonus_points"]
-        member["breakdown"].append(
-            {
-                "event_type": "double_roster_points_bonus",
-                "label": "Double Roster Points bonus",
-                "quantity": 1,
-                "points": play["bonus_points"],
-            }
-        )
-        play["bonus_points"] = 0
-
     roster_points = sum(row["points"] for row in roster)
     ballot_points = sum(row["points"] for row in ballot)
     total_points = scoring.episode_points(
@@ -363,6 +336,9 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
     ).get(str(user_id), 0)
     weekly_bonus = total_points - roster_points - roster_adjustment - ballot_points
 
+    by_play = scoring.advantage_bonus_by_play(conn, season["id"], user_id)
+    for play in plays:
+        play["bonus_points"] = by_play.get(play["advantage_play_id"], 0)
     if plays:
         residual = weekly_bonus - sum(p["bonus_points"] for p in plays)
         plays[0]["bonus_points"] += residual
