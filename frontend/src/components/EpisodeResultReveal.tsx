@@ -85,7 +85,6 @@ export function EpisodeResultReveal({
     }
   }
 
-  const correct = result.ballot.filter((pick) => pick.correct).length
   const rosterLane = result.roster_points + result.roster_adjustment_points
   const rank = rankCopy(result)
   const eliminatedIds = new Set(result.eliminated.map((e) => e.contestant_id))
@@ -151,14 +150,6 @@ export function EpisodeResultReveal({
                 ))}
               </ul>
             )}
-
-            <p className={`mt-3 text-sm ${correct > 0 ? 'font-semibold text-jade-200' : 'text-white/75'}`}>
-              {result.ballot.length === 0
-                ? 'You did not submit a ballot for this episode.'
-                : correct === 0
-                  ? `No correct calls from your ${result.ballot.length} ${result.ballot.length === 1 ? 'vote' : 'votes'} this episode.`
-                  : `You called ${correct} ${correct === 1 ? 'vote' : 'votes'} right${correct === result.ballot.length && result.ballot.length > 1 ? ' — perfect ballot!' : ''}.`}
-            </p>
 
             <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">
               <div>
