@@ -26,6 +26,7 @@ describe('TeamPage', () => {
       trend_delta: 0,
       last_episode_points: 12,
       active_survivors: [],
+      recently_eliminated_survivors: [],
     }
     const contestant = {
       id: 'cast-1',
