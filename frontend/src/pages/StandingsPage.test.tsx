@@ -53,9 +53,10 @@ describe('StandingsPage', () => {
           trend_delta: 0,
           last_episode_points: 0,
           active_survivors: [
-            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', tribe_color: '#7651a1' },
-            { contestant_id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', tribe_color: '#4ca56a' },
+            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', tribe_color: '#7651a1', eliminated_episode: null },
+            { contestant_id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', tribe_color: '#4ca56a', eliminated_episode: null },
           ],
+          recently_eliminated_survivors: [],
         }]
       }
       throw new Error(`Unexpected path: ${path}`)
@@ -70,5 +71,39 @@ describe('StandingsPage', () => {
     // #437: the roster/ballot/finale breakdown moved to the detail page.
     expect(screen.queryByText(/Roster 12/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Ballot 15/)).not.toBeInTheDocument()
+  })
+
+  it('keeps a just-eliminated survivor visible, greyed out, at the end of the row (#457)', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [{
+          user_id: 'user-1',
+          display_name: 'Danny',
+          roster_points: 12,
+          elimination_points: 15,
+          finale_points: 0,
+          total_points: 27,
+          trend: null,
+          trend_delta: 0,
+          last_episode_points: 0,
+          active_survivors: [
+            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', tribe_color: '#7651a1', eliminated_episode: null },
+          ],
+          recently_eliminated_survivors: [
+            { contestant_id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', tribe_color: '#4ca56a', eliminated_episode: 4 },
+          ],
+        }]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+
+    const eliminated = await screen.findByTitle('Eliminated ep 4')
+    expect(eliminated).toBeVisible()
+    expect(eliminated).toHaveClass('grayscale', 'opacity-70')
   })
 })
