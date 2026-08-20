@@ -75,6 +75,63 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             ],
         )
         roster = cur.fetchall()
+
+        # Per-event breakdown (#473): one row per scoring event, mirroring the
+        # aggregate above so the reveal can show how each member's total was
+        # earned. Summed per contestant this equals raw_points above; any gap
+        # is the finale Sole Survivor bonus, which isn't a scoring_events row,
+        # so it's folded in as its own line below rather than recomputed.
+        cur.execute(
+            """
+            select rp.contestant_id::text as contestant_id, se.event_type, et.label,
+                   (case when et.is_per_unit then se.quantity else 1 end) as quantity,
+                   (case
+                      when s.merge_episode is not null
+                       and ep.episode_number >= s.merge_episode
+                       and et.postmerge_point_value is not null
+                      then et.postmerge_point_value else et.point_value
+                    end)
+                   * (case when et.is_per_unit then se.quantity else 1 end)
+                     as points
+            from roster_picks rp
+            join seasons s on s.id = rp.season_id
+            join episodes ep on ep.id = %s
+            join scoring_events se
+              on se.episode_id = ep.id and se.contestant_id = rp.contestant_id
+            join season_scoring_event_types et
+              on et.season_id = s.id and et.event_type = se.event_type
+            where rp.season_id = %s and rp.user_id = %s
+              and rp.active_from_episode <= ep.episode_number
+              and (rp.active_until_episode is null
+                   or rp.active_until_episode >= ep.episode_number)
+            order by et.label
+            """,
+            [str(episode["id"]), str(season_id), str(user_id)],
+        )
+        events_by_contestant: dict[str, list[dict]] = {}
+        for row in cur.fetchall():
+            events_by_contestant.setdefault(row["contestant_id"], []).append(
+                {
+                    "event_type": row["event_type"],
+                    "label": row["label"],
+                    "quantity": row["quantity"],
+                    "points": row["points"],
+                }
+            )
+        for member in roster:
+            events = events_by_contestant.get(member["contestant_id"], [])
+            gap = member["points"] - sum(e["points"] for e in events)
+            if gap:
+                events = events + [
+                    {
+                        "event_type": "sole_survivor_bonus",
+                        "label": "Sole Survivor bonus",
+                        "quantity": 1,
+                        "points": gap,
+                    }
+                ]
+            member["breakdown"] = events
+
         cur.execute(
             "select coalesce(sum(swap_penalty_points), 0)::int as points"
             " from roster_picks where season_id = %s and user_id = %s"
@@ -272,6 +329,33 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
 
     roster, roster_adjustment = _roster_lane(conn, season["id"], user_id, episode)
     ballot = _ballot_lane(conn, season["id"], user_id, episode)
+
+    by_play = scoring.advantage_bonus_by_play(conn, season["id"], user_id)
+    for play in plays:
+        play["bonus_points"] = by_play.get(play["advantage_play_id"], 0)
+
+    # Fold a Double Roster Points bonus into its target's own row (#473): the
+    # Roster lane should show the doubled total actually earned from that
+    # contestant, with its own breakdown line, instead of leaving the bonus
+    # as an unexplained residual in the Weekly play lane.
+    roster_by_id = {row["contestant_id"]: row for row in roster}
+    for play in plays:
+        if play["advantage_type"] != "double_roster_points" or not play["bonus_points"]:
+            continue
+        member = roster_by_id.get(play["target_contestant_id"])
+        if member is None:
+            continue
+        member["points"] += play["bonus_points"]
+        member["breakdown"].append(
+            {
+                "event_type": "double_roster_points_bonus",
+                "label": "Double Roster Points bonus",
+                "quantity": 1,
+                "points": play["bonus_points"],
+            }
+        )
+        play["bonus_points"] = 0
+
     roster_points = sum(row["points"] for row in roster)
     ballot_points = sum(row["points"] for row in ballot)
     total_points = scoring.episode_points(
@@ -279,9 +363,6 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
     ).get(str(user_id), 0)
     weekly_bonus = total_points - roster_points - roster_adjustment - ballot_points
 
-    by_play = scoring.advantage_bonus_by_play(conn, season["id"], user_id)
-    for play in plays:
-        play["bonus_points"] = by_play.get(play["advantage_play_id"], 0)
     if plays:
         residual = weekly_bonus - sum(p["bonus_points"] for p in plays)
         plays[0]["bonus_points"] += residual

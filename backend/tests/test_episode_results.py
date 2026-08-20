@@ -73,6 +73,65 @@ def test_latest_reveal_reconciles_multiple_correct_picks_and_double_vote(
 
 
 @pytest.mark.integration
+def test_roster_breakdown_lists_events_and_folds_in_double_bonus(
+    client, db_conn, current_user
+):
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    episode = insert_episode(db_conn, season["id"], status="scored")
+    rostered = insert_contestant(db_conn, season["id"], "Rostered")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], rostered["id"])
+    insert_scoring_event(
+        db_conn, episode["id"], rostered["id"], "win_individual_immunity"
+    )
+    play = insert_advantage_play(
+        db_conn,
+        current_user["id"],
+        episode["id"],
+        "double_roster_points",
+        target_contestant_id=rostered["id"],
+    )
+
+    result = client.get(f"/seasons/{season['id']}/reveal").json()
+    member = result["roster"][0]
+    assert member["contestant_id"] == str(rostered["id"])
+    # The doubled total lives on the roster row, with its own breakdown line
+    # (#473) — not as an unexplained residual in the Weekly play lane.
+    assert member["points"] == 30
+    assert member["breakdown"] == [
+        {
+            "event_type": "win_individual_immunity",
+            "label": "Win individual immunity",
+            "quantity": 1,
+            "points": 15,
+        },
+        {
+            "event_type": "double_roster_points_bonus",
+            "label": "Double Roster Points bonus",
+            "quantity": 1,
+            "points": 15,
+        },
+    ]
+    assert result["roster_points"] == 30
+    assert result["weekly_plays"] == [
+        {
+            "advantage_play_id": str(play["id"]),
+            "advantage_type": "double_roster_points",
+            "target_contestant_id": str(rostered["id"]),
+            "target_name": "Rostered",
+            "bonus_points": 0,
+        }
+    ]
+    assert result["weekly_play_bonus"] == 0
+    assert (
+        result["roster_points"]
+        + result["roster_adjustment_points"]
+        + result["ballot_points"]
+        + result["weekly_play_bonus"]
+        == result["total_points"]
+    )
+
+
+@pytest.mark.integration
 def test_acknowledgement_is_idempotent_and_replay_does_not_change_it(
     client, db_conn, current_user
 ):
