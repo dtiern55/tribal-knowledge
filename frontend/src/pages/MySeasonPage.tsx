@@ -274,25 +274,25 @@ function useWeeklyPlay(
     }
   }
 
-  /** Swap the week's play for another one. */
+  /** Play the week's advantage, or swap the current one for another. */
   async function replace(advantageType: string, targetContestantId?: string) {
+    if (!ep) return
     setBusy(true)
     setError(null)
-    // Show the moved play on its new home (the doubled row, the ballot seal, the
-    // beat chip) in the same render, instead of after the delete+post round-trip
-    // — which otherwise reads as a hiccup and then a pop across beats (#487).
-    const optimistic: AdvantagePlay | null = play
-      ? {
-          ...play,
-          id: `pending-${play.id}`,
-          advantage_type: advantageType,
-          target_contestant_id: targetContestantId ?? null,
-          points_earned: null,
-        }
-      : null
-    if (optimistic) {
-      setPlays((prev) => [...prev.filter((p) => p.id !== play!.id), optimistic])
+    // Show the play on its home (the doubled row, the ballot seal, the strip
+    // status) in the same render — whether a first play or a move — instead of
+    // after the delete+post round-trip, which read as a hiccup then a pop
+    // across beats (#487/#399).
+    const base = play ?? { user_id: '', season_id: season.id, token_cost: 0, created_at: '' }
+    const optimistic: AdvantagePlay = {
+      ...base,
+      id: `pending-${play?.id ?? ep.id}`,
+      episode_id: ep.id,
+      advantage_type: advantageType,
+      target_contestant_id: targetContestantId ?? null,
+      points_earned: null,
     }
+    setPlays((prev) => [...prev.filter((p) => p.id !== play?.id), optimistic])
     try {
       if (play) {
         await api.delete(`/advantage-plays/${play.id}`)
@@ -305,14 +305,16 @@ function useWeeklyPlay(
         },
       )
       setPlays((prev) => [
-        ...prev.filter((p) => p.id !== play?.id && p.id !== optimistic?.id),
+        ...prev.filter((p) => p.id !== play?.id && p.id !== optimistic.id),
         created,
       ])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Advantage failed')
-      if (optimistic) {
-        setPlays((prev) => [...prev.filter((p) => p.id !== optimistic.id), play!])
-      }
+      // Roll the optimistic entry back to the prior play, or remove it.
+      setPlays((prev) => {
+        const without = prev.filter((p) => p.id !== optimistic.id)
+        return play ? [...without, play] : without
+      })
     } finally {
       setBusy(false)
     }
@@ -330,8 +332,10 @@ export function MySeasonPage() {
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
   const [beat, setBeat] = useState<BeatKey>(() => {
+    // #advantage used to be its own beat; the play now lives in the persistent
+    // strip above the beats (#399), so that link lands on the roster.
     const hash = window.location.hash.replace('#', '')
-    return hash === 'votes' ? 'ballot' : hash === 'advantage' ? 'advantage' : 'roster'
+    return hash === 'votes' ? 'ballot' : 'roster'
   })
   // Lags `picking` on the way out only. The record has to keep its overflow
   // open until the halo has finished fading, or the glow is guillotined at the
@@ -421,6 +425,14 @@ export function MySeasonPage() {
   if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
 
   const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
+  // Active roster castaways — the valid Roster ×2 targets when the strip idol is
+  // dragged onto a row (#399), mirroring RosterSection's own drop rule.
+  const eliminatedByContestant = new Map(d.contestants.map((c) => [c.id, c.eliminated_in_episode]))
+  const doubleTargets = new Set(
+    d.roster
+      .filter((r) => r.active_until_episode === null && eliminatedByContestant.get(r.contestant_id) == null)
+      .map((r) => r.contestant_id),
+  )
   const pickResults = new Map(
     d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
   )
@@ -489,16 +501,6 @@ export function MySeasonPage() {
         doubled: ballotDouble,
         note: saved > 0 ? `${saved} of ${maxPicks}` : 'None',
       },
-      {
-        key: 'advantage',
-        label: 'Advantage',
-        done: ballotDouble || rosterDouble,
-        note: rosterDouble
-          ? (d.contestants.find((c) => c.id === play?.target_contestant_id)?.name ?? 'Roster ×2')
-          : ballotDouble
-            ? 'Ballot ×2'
-            : 'Unused',
-      },
     ]
   }
 
@@ -563,6 +565,19 @@ export function MySeasonPage() {
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
+          <AdvantageStrip
+            season={d.season}
+            episodes={d.episodes}
+            contestants={d.contestants}
+            plays={d.plays}
+            setPlays={d.setPlays}
+            doubleTargets={doubleTargets}
+            onBeatChange={setBeat}
+            onOpenRosterDouble={() => {
+              setPicking('double')
+              setBeat('roster')
+            }}
+          />
           <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
 
           <RecordPanel
@@ -612,32 +627,14 @@ export function MySeasonPage() {
               />
             </div>
           </RecordPanel>
-
-          <RecordPanel beat="advantage" active={beat === 'advantage'}>
-            <div id="advantage">
-              <WeeklyPlaySection
-                season={d.season}
-                episodes={d.episodes}
-                contestants={d.contestants}
-                plays={d.plays}
-                setPlays={d.setPlays}
-                picking={picking}
-                onPick={(mode) => {
-                  setPicking(mode)
-                  // Both answer on the Roster beat: swap in-page, double behind
-                  // its sheet — so picking either lands you on the roster, where
-                  // the play shows once you've chosen (#487).
-                  setBeat('roster')
-                }}
-                onBeatChange={setBeat}
-                bare
-              />
-            </div>
-          </RecordPanel>
         </SeasonRecord>
         {/* Below the record, not inside it, and only under the Roster beat
             (#478): a small history affordance that doesn't follow you to the
-            Ballot/Advantage beats. */}
+            Ballot beat. Past Plays rides alongside it now that the Advantage
+            beat is gone (#399). */}
+        {beat === 'roster' && (
+          <PastPlays plays={d.plays} contestants={d.contestants} episodes={d.episodes} />
+        )}
         {beat === 'roster' && (
           <EpisodeHistorySection
             season={d.season}
@@ -1161,42 +1158,210 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
-function WeeklyPlaySection({
+// The persistent Advantage strip (#399): the week's play lives here, above the
+// beats, always visible — the Advantage tab's discoverability and its ✓ without
+// being a tab you might not open. The idle idol is a drag/tap source until it's
+// played; then it rests on its target and the strip collapses to a status.
+function AdvantageStrip({
   season,
   episodes,
   contestants,
   plays,
   setPlays,
-  picking = null,
-  onPick,
+  doubleTargets,
   onBeatChange,
-  bare = false,
+  onOpenRosterDouble,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
-  picking?: 'double' | 'swap' | null
-  onPick?: (mode: 'double' | 'swap') => void
-  /** Playing Ballot ×2 lands you on the Ballot beat so the seal is visible,
-   *  matching the Roster ×2 → Roster beat flow (#487). */
-  onBeatChange?: (beat: BeatKey) => void
-  bare?: boolean
+  // Active roster castaways this episode — the valid Roster ×2 drop targets.
+  doubleTargets: Set<string>
+  onBeatChange: (beat: BeatKey) => void
+  // Open the double-pick sheet on the Roster beat (the Advantage → Roster flow).
+  onOpenRosterDouble: () => void
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const play = weekly.play
+
+  // The idle idol is a drag source only until it's played: drag it onto a
+  // castaway (Roster ×2), the Ballot tab (Ballot ×2), or the Roster tab (open
+  // the pick sheet). Once played it rests on its target, draggable from there.
+  const { drag, dragging, start } = useSealDrag({
+    disabled: weekly.locked || weekly.busy || play != null,
+    canDropOn: (id) => id === 'beat:ballot' || id === 'beat:roster' || doubleTargets.has(id),
+    onDrop: (id) => {
+      const action = resolveDrop('unplayed', id)
+      if (action.kind === 'to_ballot') {
+        onBeatChange('ballot')
+        void weekly.replace('double_vote_points')
+      } else if (action.kind === 'to_roster_picking') {
+        onOpenRosterDouble()
+      } else if (action.kind === 'reassign_roster') {
+        onBeatChange('roster')
+        void weekly.replace('double_roster_points', action.target)
+      }
+    },
+  })
 
   const episode = weekly.openEpisode
-  if (!episode || episode.is_finale || weekly.locked) return null
+  if (!episode || episode.is_finale) return null
 
-  const play = weekly.play
-  const rosterTargetName =
-    play?.advantage_type === 'double_roster_points' && play.target_contestant_id
+  const rosterDouble = play?.advantage_type === 'double_roster_points'
+  const targetName =
+    rosterDouble && play?.target_contestant_id
       ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
       : null
 
-  // Your plays live with the Advantage beat now (#478) instead of buried in
-  // Episode History — spent plays from already-closed episodes, newest first.
+  // ── Played: a compact status with the check the old tab gave, plus undo.
+  if (play) {
+    return (
+      <div className="flex items-center gap-3 border-b border-paper-line border-l-4 border-l-jade-600 bg-jade-50/60 px-3 py-2.5">
+        <span className="shrink-0 rotate-[9deg]" aria-hidden="true">
+          <DoubleBadge size={30} title="Your advantage" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-[0.66rem] font-bold uppercase tracking-wide text-jade-700">
+            Your advantage · played
+          </p>
+          <p className="font-display text-base font-bold leading-tight text-paper-ink">
+            {rosterDouble ? 'Roster ×2' : 'Ballot ×2'}
+            {targetName && <span> · {targetName}</span>}
+          </p>
+          {weekly.error && <p className="text-xs text-terracotta-600">{weekly.error}</p>}
+        </div>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 16 16"
+          className="h-5 w-5 shrink-0 text-jade-600"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m3 8.5 3 3 7-8" />
+        </svg>
+        {!weekly.locked && (
+          <button
+            type="button"
+            onClick={() => void weekly.takeBack(play)}
+            disabled={weekly.busy}
+            className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+          >
+            Undo
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // ── Unplayed: the prompt, the drag idol, and the tap menu.
+  const locked = weekly.locked
+  return (
+    <>
+      <SealGhost drag={drag} />
+      <div
+        className={`relative flex items-center gap-3 border-b border-paper-line border-l-4 px-3 py-2.5 ${
+          locked
+            ? 'border-l-stone-400 bg-stone-50'
+            : 'border-l-terracotta-600 bg-gradient-to-r from-gold-100/70 to-terracotta-50/40'
+        }`}
+      >
+        <span
+          onPointerDown={locked ? undefined : start}
+          title={locked ? 'Your advantage' : 'Drag onto a castaway or the Ballot tab'}
+          className={`shrink-0 ${locked ? '' : 'advantage-nudge cursor-grab touch-none active:cursor-grabbing'}`}
+          style={{ opacity: dragging ? 0.3 : 1 }}
+        >
+          <DoubleBadge size={40} title="Your advantage" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p
+            className={`font-display text-[0.66rem] font-bold uppercase tracking-wide ${
+              locked ? 'text-stone-500' : 'text-terracotta-700'
+            }`}
+          >
+            Your advantage · {locked ? 'not played' : 'unplayed'}
+          </p>
+          <p className="font-display text-base font-bold leading-tight text-paper-ink">
+            {locked ? 'Not played this episode' : `Play your Episode ${episode.episode_number} double`}
+          </p>
+          {!locked && <p className="text-xs text-paper-ink-faded">Drag onto a castaway or your ballot</p>}
+          {weekly.error && <p className="text-xs text-terracotta-600">{weekly.error}</p>}
+        </div>
+        {!locked && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              disabled={weekly.busy}
+              className="rounded-full border border-paper-edge bg-white/70 px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wide text-forest-700 disabled:opacity-40"
+            >
+              Choose ▾
+            </button>
+            {menuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onClick={() => setMenuOpen(false)}
+                  className="fixed inset-0 z-10 cursor-default"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onOpenRosterDouble()
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
+                  >
+                    Double a castaway
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onBeatChange('ballot')
+                      void weekly.replace('double_vote_points')
+                    }}
+                    className="block w-full border-t border-paper-line px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
+                  >
+                    Double your ballot
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// Spent advantages from closed episodes (#478), relocated below the record now
+// that the Advantage beat is gone (#399). Hidden until there's history.
+function PastPlays({
+  plays,
+  contestants,
+  episodes,
+}: {
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
+  episodes: Episode[]
+}) {
   const episodeMap = new Map(episodes.map((e) => [e.id, e]))
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const spent = plays
@@ -1209,92 +1374,8 @@ function WeeklyPlaySection({
         (episodeMap.get(b.episode_id ?? '')?.episode_number ?? 0) -
         (episodeMap.get(a.episode_id ?? '')?.episode_number ?? 0),
     )
-
-  return (
-    <RecordSection title="Advantage" bare={bare}>
-      <div className="space-y-3 px-4 py-3">
-      <p className="text-xs text-paper-ink-faded">
-        Choose an advantage for Episode {episode.episode_number}; unused plays do not carry over.
-      </p>
-
-      {(() => {
-        const rosterPlayed = play?.advantage_type === 'double_roster_points'
-        const ballotPlayed = play?.advantage_type === 'double_vote_points'
-
-        function pick(kind: 'roster' | 'ballot') {
-          if (weekly.busy) return
-          if (kind === 'ballot') {
-            if (ballotPlayed) return
-            // Land on the Ballot beat so the corner-seal is visible.
-            onBeatChange?.('ballot')
-            void weekly.replace('double_vote_points')
-            return
-          }
-          // Switching to the Roster beat is what replaces the old scroll.
-          onPick?.('double')
-        }
-
-        const base = 'advantage-card relative min-h-36 transition-all disabled:opacity-60'
-        const chosen = 'advantage-card--active'
-        const idle = 'advantage-card--inactive hover:border-forest-400 hover:bg-cream-50/60'
-        // Lightly dimmed, not disabled — the unchosen one is how you switch.
-        const dimmed = 'advantage-card--inactive opacity-55 hover:opacity-80'
-
-        return (
-          <div className="space-y-2">
-            <div className="grid gap-2 grid-cols-2">
-              <button
-                type="button"
-                onClick={() => pick('roster')}
-                aria-pressed={rosterPlayed || picking === 'double'}
-                aria-label="Roster ×2"
-                className={`${base} ${rosterPlayed ? chosen : ballotPlayed ? dimmed : idle}`}
-              >
-                <span className="multiplier" aria-hidden="true">×2</span>
-                <span className="label">Roster points</span>
-                <span className="advantage-card__rule" aria-hidden="true" />
-                <span className="advantage-card__status">{rosterPlayed ? 'Active' : 'Choose'}</span>
-                {rosterTargetName && (
-                  <span className="advantage-card__target">{rosterTargetName}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => pick('ballot')}
-                aria-pressed={ballotPlayed}
-                aria-label="Ballot ×2"
-                className={`${base} ${ballotPlayed ? chosen : rosterPlayed ? dimmed : idle}`}
-              >
-                <span className="multiplier" aria-hidden="true">×2</span>
-                <span className="label">Ballot points</span>
-                <span className="advantage-card__rule" aria-hidden="true" />
-                <span className="advantage-card__status">{ballotPlayed ? 'Active' : 'Choose'}</span>
-              </button>
-            </div>
-
-            {play && (
-              <button
-                type="button"
-                onClick={() => void weekly.takeBack(play)}
-                disabled={weekly.busy}
-                className="text-xs font-semibold text-terracotta-600 underline underline-offset-2 hover:text-terracotta-800"
-              >
-                Remove play
-              </button>
-            )}
-
-          </div>
-        )
-      })()}
-
-      {weekly.error && <p className="text-terracotta-600 text-xs">{weekly.error}</p>}
-      </div>
-
-      {spent.length > 0 && (
-        <PastPlaysSection spent={spent} contestantMap={contestantMap} episodeMap={episodeMap} />
-      )}
-    </RecordSection>
-  )
+  if (spent.length === 0) return null
+  return <PastPlaysSection spent={spent} contestantMap={contestantMap} episodeMap={episodeMap} />
 }
 
 // A ruled "Past X" sub-section under a record beat (#478) — the shared shell

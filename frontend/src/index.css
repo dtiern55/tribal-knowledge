@@ -552,6 +552,16 @@ html.locked-night .tribal-border {
   [data-drop-id^="beat:"][data-drag-over] {
     transform: scale(1.06);
   }
+
+  /* The unplayed advantage idol gives a slow, occasional nudge so a player who
+     hasn't spent their play notices it (#399). */
+  @keyframes advantage-nudge {
+    0%, 88%, 100% { transform: translateY(0); }
+    93% { transform: translateY(-3px); }
+  }
+  .advantage-nudge {
+    animation: advantage-nudge 3.2s ease-in-out infinite;
+  }
 }
 
 /* Submitted votes read as handwritten Tribal Council slips rather than

@@ -205,20 +205,21 @@ describe('MySeasonPage state shell', () => {
     expect(within(roster).queryByRole('link', { name: /Kenzie/ })).not.toBeInTheDocument()
   })
 
-  it('renders the Open state as Roster, Ballot, and Advantage', async () => {
+  it('renders the Open state as Roster and Ballot beats under the Advantage strip', async () => {
     arrange([
       episode(1, 'scored', '2026-08-20T00:00:00Z'),
       episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    // One record, three beats, one visible at a time — Roster first.
+    // Two beats now (#399) — the advantage lives in the persistent strip above.
     const tabs = await screen.findAllByRole('tab')
-    expect(tabs).toHaveLength(3)
+    expect(tabs).toHaveLength(2)
     expect(tabs[0]).toHaveTextContent(/^Roster/)
     expect(tabs[1]).toHaveTextContent(/^Ballot/)
-    expect(tabs[2]).toHaveTextContent(/^Advantage/)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    // The advantage strip is always on screen, prompting the unplayed play.
+    expect(screen.getByText(/Play your Episode 2 double/)).toBeVisible()
     expect(screen.getByRole('tabpanel', { name: /^Roster/ })).toBeVisible()
     // The other two stay mounted (so an unsaved ballot survives) but hidden.
     expect(screen.queryByRole('tabpanel', { name: /^Ballot/ })).not.toBeInTheDocument()
@@ -321,26 +322,22 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const advantage = await openBeat('Advantage')
-    // Two equal choices, named and nothing else — the roster double's target
-    // picker only appears once that play is chosen.
-    const rosterDouble = within(advantage).getByRole('button', { name: 'Roster ×2' })
-    expect(rosterDouble).toBeVisible()
-    expect(rosterDouble).toHaveClass('advantage-card--inactive')
-    expect(within(advantage).getByRole('button', { name: 'Ballot ×2' })).toBeVisible()
-    // #404: the swap left this economy — Advantage is two options again.
-    expect(within(advantage).queryByRole('button', { name: /^Swap/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('Choose a castaway to double')).not.toBeInTheDocument()
-
-    // The swap is started from the Roster beat instead, priced in points.
+    // The advantage lives in the persistent strip now (#399); the swap is still
+    // started from the Roster beat, priced in points.
     const roster = await openBeat('Roster')
     expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent(
       'free',
     )
 
-    // Picking a double from Advantage opens the focused sheet to answer it.
-    await userEvent.click(await screen.findByRole('tab', { name: /^Advantage/ }))
-    await userEvent.click(within(advantage).getByRole('button', { name: 'Roster ×2' }))
+    // The two doubles are behind the strip's Choose menu — nothing else.
+    await userEvent.click(screen.getByRole('button', { name: /Choose/ }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: 'Double a castaway' })).toBeVisible()
+    expect(within(menu).getByRole('menuitem', { name: 'Double your ballot' })).toBeVisible()
+    expect(within(menu).queryByRole('menuitem', { name: /Swap/ })).not.toBeInTheDocument()
+
+    // Choosing "Double a castaway" opens the focused sheet to answer it.
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Double a castaway' }))
     const sheet = screen.getByRole('dialog', { name: /Choose a castaway to double/ })
     expect(within(sheet).getByText('Kenzie')).toBeVisible()
     expect(within(sheet).getByRole('button', { name: 'Cancel' })).toBeVisible()
@@ -376,23 +373,18 @@ describe('MySeasonPage state shell', () => {
     expect(
       await screen.findByRole('img', { name: /Double Roster Points/ }),
     ).toBeInTheDocument()
-    // The Advantage beat echoes where the play is resting; the Roster beat wears
-    // a lightweight ×2 chip — the idol itself lives on the target row now (#487).
-    expect(await screen.findByRole('tab', { name: /^Advantage/ })).toHaveTextContent('Kenzie')
+    // The Roster beat wears a lightweight ×2 chip — the idol lives on the target
+    // row now (#487).
     const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
     expect(rosterTab).toHaveTextContent('×2')
     expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
 
-    const advantage = await openBeat('Advantage')
-    // The played double marks its own button rather than replacing the pair,
-    // and the other one stays reachable so it can be switched to.
-    expect(within(advantage).getByRole('button', { name: /Roster ×2/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(within(advantage).getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
-    expect(within(advantage).getByRole('button', { name: 'Roster ×2' })).toHaveClass('advantage-card--active')
-    expect(within(advantage).getByText('Active')).toBeVisible()
-    // The active roster card names the doubled castaway under its status (#449).
-    expect(within(advantage).getByText('Kenzie')).toBeVisible()
-    expect(within(advantage).getByRole('button', { name: 'Remove play' })).toBeVisible()
+    // The strip collapses to a played status — Roster ×2 on Kenzie — with undo
+    // (#399), the check the old Advantage tab used to give.
+    const status = screen.getByText('Your advantage · played').closest('div')!
+    expect(status).toHaveTextContent('Roster ×2')
+    expect(status).toHaveTextContent('Kenzie')
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
   })
 
   it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
@@ -432,7 +424,7 @@ describe('MySeasonPage state shell', () => {
     const seal = await within(roster).findByRole('img', { name: /Double Roster Points/ })
     const kenzieRow = within(roster).getByText('Kenzie').closest('[data-drop-id]')!
     const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
-    const advantageTab = screen.getByRole('tab', { name: /^Advantage/ })
+    const strip = screen.getByText('Your advantage · played').closest('div')!
     // The other row is the drop target; jsdom does no layout, so stub the one
     // primitive the drop hit-test relies on to point at Charlie's row.
     const charlieRow = within(roster).getByText('Charlie').closest('[data-drop-id]')!
@@ -450,9 +442,9 @@ describe('MySeasonPage state shell', () => {
     // only the lightweight ×2 chip.
     expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
     expect(rosterTab).toHaveTextContent('×2')
-    // The move is optimistic across the board (#487): the Advantage tab names the
-    // new target immediately, not only after the delete+post lands.
-    expect(advantageTab).toHaveTextContent('Charlie')
+    // The move is optimistic across the board (#487/#399): the strip status names
+    // the new target immediately, not only after the delete+post lands.
+    expect(strip).toHaveTextContent('Charlie')
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
@@ -463,7 +455,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
-    expect(advantageTab).toHaveTextContent('Charlie')
+    expect(strip).toHaveTextContent('Charlie')
   })
 
   it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {

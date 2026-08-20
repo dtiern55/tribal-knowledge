@@ -109,7 +109,7 @@ export function RecordLine({
   )
 }
 
-export type BeatKey = 'roster' | 'ballot' | 'advantage'
+export type BeatKey = 'roster' | 'ballot'
 
 export type Beat = {
   key: BeatKey
