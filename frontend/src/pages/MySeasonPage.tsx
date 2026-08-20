@@ -541,8 +541,6 @@ export function MySeasonPage() {
         <EpisodeHistorySection
           season={d.season}
           userId={d.userId}
-          plays={d.plays}
-          contestants={d.contestants}
           episodes={d.episodes}
           onReplay={openReplay}
           replayLoading={replayLoading}
@@ -765,7 +763,7 @@ function LockedState({
 
 
 /**
- * Everything you've already played, tucked out of the way (#307).
+ * A compact door into the season's replay list, tucked out of the way (#478).
  *
  * The token ledger only renders for seasons that actually had one — tokens
  * are retired, but Cagayan/S49/S50 keep a real history and stay readable
@@ -774,8 +772,6 @@ function LockedState({
 function EpisodeHistorySection({
   season,
   userId,
-  plays,
-  contestants,
   episodes,
   onReplay,
   replayLoading,
@@ -783,13 +779,12 @@ function EpisodeHistorySection({
 }: {
   season: Season
   userId: string
-  plays: AdvantagePlay[]
-  contestants: Contestant[]
   episodes: Episode[]
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
 }) {
+  const [open, setOpen] = useState(false)
   const [ledger, setLedger] = useState<TokenLedgerEntry[] | null>(null)
 
   useEffect(() => {
@@ -803,12 +798,6 @@ function EpisodeHistorySection({
     }
   }, [season.id, userId])
 
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-  const spent = plays.filter((p) => {
-    const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-    return ep != null && episodeClosed(ep)
-  })
   const scoredEpisodes = episodes
     .filter(
       (episode) =>
@@ -817,111 +806,151 @@ function EpisodeHistorySection({
         episode.episode_number >= season.roster_lock_episode,
     )
     .sort((a, b) => b.episode_number - a.episode_number)
-  if (
-    scoredEpisodes.length === 0 &&
-    spent.length === 0 &&
-    (ledger == null || ledger.length === 0)
-  ) return null
+  if (scoredEpisodes.length === 0 && (ledger == null || ledger.length === 0)) return null
 
   return (
-    <SectionShell
-      title="Episode History"
-      defaultOpen={false}
-      right={<span className="text-xs text-gray-500">{scoredEpisodes.length}</span>}
-    >
-      {scoredEpisodes.length > 0 && (
-        <ul className="space-y-2">
-          {scoredEpisodes.map((episode) => (
-            <li key={episode.id}>
-              <button
-                type="button"
-                onClick={() => onReplay(episode)}
-                disabled={replayLoading != null}
-                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-cream-200 bg-cream-50 p-3 text-left text-sm hover:border-forest-300 hover:bg-forest-50 disabled:opacity-50"
-              >
-                <span className="min-w-0">
-                  <span className="block font-semibold text-gray-900">
-                    {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
-                  </span>
-                  <span className="block text-xs text-gray-500">View your scored result</span>
-                </span>
-                <span className="shrink-0 text-xs font-semibold text-forest-700">
-                  {replayLoading === episode.id ? 'Loading…' : 'Replay'}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl border border-cream-200 bg-white px-4 py-3 text-left text-sm font-semibold text-forest-800 shadow-sm hover:border-forest-300 hover:bg-forest-50"
+      >
+        Episode History
+        <span className="text-xs font-normal text-gray-500">{scoredEpisodes.length}</span>
+      </button>
+      {open &&
+        createPortal(
+          <EpisodeHistorySheet
+            scoredEpisodes={scoredEpisodes}
+            ledger={ledger}
+            onReplay={(episode) => {
+              onReplay(episode)
+              setOpen(false)
+            }}
+            replayLoading={replayLoading}
+            replayError={replayError}
+            onClose={() => setOpen(false)}
+          />,
+          document.body,
+        )}
+    </>
+  )
+}
 
-      {spent.length > 0 && (
-        <div className={scoredEpisodes.length > 0 ? 'mt-5 border-t border-cream-200 pt-4' : ''}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Weekly plays
-          </p>
-          <ul className="space-y-2">
-          {[...spent].reverse().map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
-            >
-              <span className="text-gray-700">
-                {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
-                {p.target_contestant_id && (
-                  <span className="text-gray-500">
-                    {' '}
-                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
-                  </span>
-                )}
-                <span className="text-gray-500">
-                  {' '}
-                  · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
-                </span>
-              </span>
-              {p.points_earned != null && (
-                <span
-                  className={`text-xs shrink-0 ${
-                    p.points_earned > 0 ? 'text-jade-700 font-medium' : 'text-gray-500'
-                  }`}
-                >
-                  {p.points_earned > 0 ? '+' : ''}
-                  {p.points_earned} pts
-                </span>
-              )}
-            </li>
-          ))}
-          </ul>
-        </div>
-      )}
+/** The bottom sheet Episode History opens into. Matches DoublePickSheet's pattern. */
+function EpisodeHistorySheet({
+  scoredEpisodes,
+  ledger,
+  onReplay,
+  replayLoading,
+  replayError,
+  onClose,
+}: {
+  scoredEpisodes: Episode[]
+  ledger: TokenLedgerEntry[] | null
+  onReplay: (episode: Episode) => void
+  replayLoading: string | null
+  replayError: string | null
+  onClose: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
 
-      {ledger != null && ledger.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-            Token ledger (retired)
-          </p>
-          <ul className="space-y-1.5">
-            {ledger.map((h, i) => (
-              <li
-                key={`${h.created_at}:${i}`}
-                className="flex items-center justify-between text-sm text-gray-600"
-              >
-                <span>
-                  {h.description ?? h.transaction_type.replace(/_/g, ' ')}
-                  {h.episode_number != null && (
-                    <span className="text-gray-400"> · Episode {h.episode_number}</span>
-                  )}
-                </span>
-                <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
-                  {h.amount > 0 ? '+' : ''}
-                  {h.amount}
-                </span>
-              </li>
-            ))}
-          </ul>
+  useEffect(() => {
+    panelRef.current?.focus()
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col justify-end" role="presentation">
+      <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="episode-history-title"
+        className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
+      >
+        <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-cream-200 bg-white px-4 py-3">
+          <h2
+            id="episode-history-title"
+            className="font-display text-sm font-semibold uppercase tracking-wide text-forest-800"
+          >
+            Episode History
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Close
+          </button>
         </div>
-      )}
-    </SectionShell>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[env(safe-area-inset-bottom)]">
+          {replayError && (
+            <p role="alert" className="mb-3 text-sm text-terracotta-700">
+              {replayError}
+            </p>
+          )}
+          {scoredEpisodes.length > 0 && (
+            <ul className="space-y-2">
+              {scoredEpisodes.map((episode) => (
+                <li key={episode.id}>
+                  <button
+                    type="button"
+                    onClick={() => onReplay(episode)}
+                    disabled={replayLoading != null}
+                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-cream-200 bg-white p-3 text-left text-sm hover:border-forest-300 hover:bg-forest-50 disabled:opacity-50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-gray-900">
+                        {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
+                      </span>
+                      <span className="block text-xs text-gray-500">View your scored result</span>
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-forest-700">
+                      {replayLoading === episode.id ? 'Loading…' : 'Replay'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {ledger != null && ledger.length > 0 && (
+            <div className={scoredEpisodes.length > 0 ? 'mt-5 border-t border-cream-200 pt-4' : ''}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                Token ledger (retired)
+              </p>
+              <ul className="space-y-1.5">
+                {ledger.map((h, i) => (
+                  <li
+                    key={`${h.created_at}:${i}`}
+                    className="flex items-center justify-between text-sm text-gray-600"
+                  >
+                    <span>
+                      {h.description ?? h.transaction_type.replace(/_/g, ' ')}
+                      {h.episode_number != null && (
+                        <span className="text-gray-400"> · Episode {h.episode_number}</span>
+                      )}
+                    </span>
+                    <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
+                      {h.amount > 0 ? '+' : ''}
+                      {h.amount}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1031,6 +1060,15 @@ function WeeklyPlaySection({
       ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
       : null
 
+  // Past plays for this season (#478 — moved here from Episode History, since
+  // this is the beat you'd check what you already spent).
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
+  const spent = plays.filter((p) => {
+    const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
+    return ep != null && episodeClosed(ep)
+  })
+
   return (
     <RecordSection title="Advantage" bare={bare}>
       <div className="space-y-3 px-4 py-3">
@@ -1107,6 +1145,46 @@ function WeeklyPlaySection({
       })()}
 
       {weekly.error && <p className="text-terracotta-600 text-xs">{weekly.error}</p>}
+
+      {spent.length > 0 && (
+        <div className="border-t border-cream-200 pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Weekly plays
+          </p>
+          <ul className="space-y-2">
+          {[...spent].reverse().map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm"
+            >
+              <span className="text-gray-700">
+                {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
+                {p.target_contestant_id && (
+                  <span className="text-gray-500">
+                    {' '}
+                    → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                  </span>
+                )}
+                <span className="text-gray-500">
+                  {' '}
+                  · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
+                </span>
+              </span>
+              {p.points_earned != null && (
+                <span
+                  className={`text-xs shrink-0 ${
+                    p.points_earned > 0 ? 'text-jade-700 font-medium' : 'text-gray-500'
+                  }`}
+                >
+                  {p.points_earned > 0 ? '+' : ''}
+                  {p.points_earned} pts
+                </span>
+              )}
+            </li>
+          ))}
+          </ul>
+        </div>
+      )}
       </div>
     </RecordSection>
   )
