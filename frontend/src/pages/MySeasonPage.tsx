@@ -21,7 +21,6 @@ import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
-import { Torch } from '../components/Torch'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import {
   RecordBeats,
@@ -1801,11 +1800,19 @@ function RosterSection({
                       key={pick.id}
                       className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
                     >
-                      <span className="flex items-center gap-2">
-                        <span className="shrink-0 grayscale opacity-70" title="Swapped out">
-                          <Torch lit={false} />
+                      {/* Grey + crossed off, matching Cast/Standings/recap
+                          (#457) — no torch. */}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 grayscale opacity-70">
+                          <ContestantAvatar
+                            name={c?.name ?? '—'}
+                            imageUrl={c?.image_url ?? null}
+                            tribeColor={c?.tribe_color ?? null}
+                            tribeName={c?.tribe_name ?? null}
+                            size="sm"
+                          />
                         </span>
-                        {c?.name ?? '—'}
+                        <span className="line-through decoration-stone-300">{c?.name ?? '—'}</span>
                       </span>
                       <span className="text-xs flex items-center gap-2">
                         <Points value={rosterPoints.get(pick.contestant_id)} />
