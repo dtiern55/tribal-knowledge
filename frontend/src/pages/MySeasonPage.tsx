@@ -624,9 +624,10 @@ export function MySeasonPage() {
                 picking={picking}
                 onPick={(mode) => {
                   setPicking(mode)
-                  // Swap answers on the Roster beat in-page; double answers in a
-                  // sheet, so it stays put on Advantage (#449).
-                  if (mode === 'swap') setBeat('roster')
+                  // Both answer on the Roster beat: swap in-page, double behind
+                  // its sheet — so picking either lands you on the roster, where
+                  // the play shows once you've chosen (#487).
+                  setBeat('roster')
                 }}
                 bare
               />
@@ -1496,7 +1497,7 @@ function RosterSection({
     prevDoubleTarget.current = displayedDoubleTarget
     if (prev !== undefined && displayedDoubleTarget && displayedDoubleTarget !== prev) {
       setStampId(displayedDoubleTarget)
-      const timer = setTimeout(() => setStampId(null), 420)
+      const timer = setTimeout(() => setStampId(null), 525)
       return () => clearTimeout(timer)
     }
   }, [displayedDoubleTarget])
@@ -2123,7 +2124,7 @@ function PicksSection({
     prevBallotDoubled.current = ballotIsDoubled
     if (prev === false && ballotIsDoubled) {
       setBallotStamped(true)
-      const timer = setTimeout(() => setBallotStamped(false), 420)
+      const timer = setTimeout(() => setBallotStamped(false), 525)
       return () => clearTimeout(timer)
     }
   }, [ballotIsDoubled])
