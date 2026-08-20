@@ -85,6 +85,29 @@
         "Alec Merlino"
       ],
       "note": "Merge teased, so the read is weak. Nobody votes Christian, Mike or John. No fresh boot read, so episode 3's names carry forward — the room's sense of who is exposed rarely resets week to week. Double targets are held very lightly: the names with some standing, not a confident call."
+    },
+    "5": {
+      "likely_boots": [
+        "Natalie Cole",
+        "Lyrsa Torres",
+        "Kara Kay",
+        "Davie Rickenbacker",
+        "Alison Raybould"
+      ],
+      "double_targets": [
+        "Alison Raybould",
+        "Christian Hubicki",
+        "Dan Rengering",
+        "Gabby Pascuzzi",
+        "John Hennigan",
+        "Alec Merlino",
+        "Carl Boudreaux",
+        "Davie Rickenbacker",
+        "Elizabeth Olson",
+        "Kara Kay"
+      ],
+      "confidence": "low",
+      "note": "Natalie Cole the clear #1 (70%+ expect the vote); Lyrsa/Kara/Davie/Alison the next tier. Doubles steer away from Jabeni (purple). A decent share of bots should diverge."
     }
   }
 }
