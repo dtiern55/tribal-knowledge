@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
+import { Torch } from './Torch'
 
 interface EpisodeResultRevealProps {
   result: EpisodeResult
@@ -121,13 +122,16 @@ export function EpisodeResultReveal({
               id="episode-result-title"
               ref={headingRef}
               tabIndex={-1}
-              className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
+              className="mt-5 flex items-center gap-2 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              {result.eliminated.length === 0
-                ? 'No one was eliminated'
-                : result.eliminated.length === 1
-                  ? `${result.eliminated[0].name} was eliminated`
-                  : `${result.eliminated.length} castaways were eliminated`}
+              <span>
+                {result.eliminated.length === 0
+                  ? 'No one was eliminated'
+                  : result.eliminated.length === 1
+                    ? `${result.eliminated[0].name} was eliminated`
+                    : `${result.eliminated.length} castaways were eliminated`}
+              </span>
+              {result.eliminated.length === 1 && <Torch lit={false} className="torch-snuff h-9 w-7 shrink-0" />}
             </h2>
 
             {result.eliminated.length > 1 && (
@@ -145,6 +149,7 @@ export function EpisodeResultReveal({
                       size="sm"
                     />
                     <span className="truncate">{castaway.name}</span>
+                    <Torch lit={false} className="torch-snuff h-6 w-4 shrink-0" />
                   </li>
                 ))}
               </ul>
