@@ -70,6 +70,8 @@ export interface StandingSurvivor {
   image_url: string | null
   tribe_name: string | null
   tribe_color: string | null
+  // Only set on recently_eliminated_survivors entries.
+  eliminated_episode: number | null
 }
 
 export interface StandingEntry {
@@ -84,6 +86,9 @@ export interface StandingEntry {
   last_episode_points: number
   // Rostered castaways still in the game; empty until rosters lock.
   active_survivors: StandingSurvivor[]
+  // Rostered castaways eliminated in the latest scored episode; kept
+  // visible (greyed out) for one episode instead of vanishing (#457).
+  recently_eliminated_survivors: StandingSurvivor[]
 }
 
 export interface RosterPick {

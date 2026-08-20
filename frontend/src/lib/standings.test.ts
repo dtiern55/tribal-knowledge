@@ -14,6 +14,7 @@ function standing(total: number, trend: StandingEntry['trend'] = null): Standing
     trend_delta: 2,
     last_episode_points: 0,
     active_survivors: [],
+    recently_eliminated_survivors: [],
   }
 }
 
