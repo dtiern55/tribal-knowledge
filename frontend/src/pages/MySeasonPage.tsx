@@ -6,6 +6,7 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar } from '../components/ContestantAvatar'
+import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
 import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
@@ -263,7 +264,9 @@ export function MySeasonPage() {
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
   useEffect(() => {
-    if (picking) {
+    // Only swap uses the in-page stage lighting now; double picks in a focused
+    // sheet (#449), so it needs no scrim/halo behind it.
+    if (picking === 'swap') {
       setStageOpen(true)
       return
     }
@@ -386,10 +389,10 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || picking) && (
+      {state.kind === 'open' && (stageOpen || picking === 'swap') && (
         <div
           className="stage-scrim"
-          data-on={picking != null}
+          data-on={picking === 'swap'}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
@@ -407,7 +410,7 @@ export function MySeasonPage() {
           <RecordPanel
             beat="roster"
             active={beat === 'roster'}
-            className={`stage-stage ${picking ? 'stage-lit' : ''}`}
+            className={`stage-stage ${picking === 'swap' ? 'stage-lit' : ''}`}
           >
             <div id="roster">
               <RosterSection
@@ -450,12 +453,15 @@ export function MySeasonPage() {
               <WeeklyPlaySection
                 season={d.season}
                 episodes={d.episodes}
+                contestants={d.contestants}
                 plays={d.plays}
                 setPlays={d.setPlays}
                 picking={picking}
                 onPick={(mode) => {
                   setPicking(mode)
-                  setBeat('roster')
+                  // Swap answers on the Roster beat in-page; double answers in a
+                  // sheet, so it stays put on Advantage (#449).
+                  if (mode === 'swap') setBeat('roster')
                 }}
                 bare
               />
@@ -934,6 +940,7 @@ function Points({ value }: { value: number | undefined }) {
 function WeeklyPlaySection({
   season,
   episodes,
+  contestants,
   plays,
   setPlays,
   picking = null,
@@ -942,6 +949,7 @@ function WeeklyPlaySection({
 }: {
   season: Season
   episodes: Episode[]
+  contestants: Contestant[]
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   picking?: 'double' | 'swap' | null
@@ -954,6 +962,10 @@ function WeeklyPlaySection({
   if (!episode || episode.is_finale || weekly.locked) return null
 
   const play = weekly.play
+  const rosterTargetName =
+    play?.advantage_type === 'double_roster_points' && play.target_contestant_id
+      ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
+      : null
 
   return (
     <RecordSection title="Advantage" bare={bare}>
@@ -997,6 +1009,9 @@ function WeeklyPlaySection({
                 <span className="label">Roster points</span>
                 <span className="advantage-card__rule" aria-hidden="true" />
                 <span className="advantage-card__status">{rosterPlayed ? 'Active' : 'Choose'}</span>
+                {rosterTargetName && (
+                  <span className="advantage-card__target">{rosterTargetName}</span>
+                )}
               </button>
               <button
                 type="button"
@@ -1068,7 +1083,6 @@ function RosterSection({
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Who is holding the stage light, for the beat after being chosen.
-  const [lit, setLit] = useState<string | null>(null)
   // Second half of a swap: who you tapped to drop, waiting on who replaces them.
   const [dropping, setDropping] = useState<string | null>(null)
   const [swapping, setSwapping] = useState(false)
@@ -1320,7 +1334,7 @@ function RosterSection({
       title="Roster"
       bare={bare}
       right={
-        picking ? (
+        picking === 'swap' ? (
           <button
             type="button"
             onClick={() => {
@@ -1370,15 +1384,43 @@ function RosterSection({
         ) : undefined
       }
     >
-      {picking && (
+      {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
-          {picking === 'double'
-            ? 'Choose a castaway to double this episode'
-            : dropping
-              ? `Choose who replaces ${contestantMap.get(dropping)?.name ?? 'them'}`
-              : 'Choose a castaway to drop'}
+          {dropping
+            ? `Choose who replaces ${contestantMap.get(dropping)?.name ?? 'them'}`
+            : 'Choose a castaway to drop'}
         </p>
       )}
+      {picking === 'double' &&
+        createPortal(
+          <DoublePickSheet
+            candidates={[...activeRoster]
+              .sort(
+                (a, b) =>
+                  Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
+                  Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null),
+              )
+              .map((pick) => {
+                const c = contestantMap.get(pick.contestant_id)
+                return {
+                  contestantId: pick.contestant_id,
+                  name: c?.name ?? '—',
+                  imageUrl: c?.image_url ?? null,
+                  tribeName: c?.tribe_name ?? null,
+                  tribeColor: c?.tribe_color ?? null,
+                  points: rosterPoints.get(pick.contestant_id),
+                  eliminated: c?.eliminated_in_episode != null,
+                }
+              })}
+            onPick={(id) =>
+              void weekly.replace('double_roster_points', id).then(() => onPickingDone?.())
+            }
+            onCancel={() => onPickingDone?.()}
+            busy={weekly.busy}
+            error={weekly.error}
+          />,
+          document.body,
+        )}
       {error && <p className="text-terracotta-600 text-sm mb-3">{error}</p>}
 
       {hasRoster && !(windowOpen && editing) ? (
@@ -1425,33 +1467,15 @@ function RosterSection({
                 right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                 bioLink={false}
                 onSelect={
-                  picking === 'double'
-                    ? () => {
-                        const id = pick.contestant_id
-                        // Same as the drag (#407): let the seal land, then light
-                        // it — the glow chases the stamp, it doesn't beat it.
-                        void weekly.replace('double_roster_points', id).then(() => {
-                          setLit(id)
-                          const hold = window.matchMedia('(prefers-reduced-motion: reduce)')
-                            .matches
-                            ? 0
-                            : 1300
-                          window.setTimeout(() => {
-                            setLit(null)
-                            onPickingDone?.()
-                          }, hold)
-                        })
-                      }
-                    : picking === 'swap' && !swapping
-                      ? () => setDropping(pick.contestant_id)
-                      : undefined
+                  picking === 'swap' && !swapping
+                    ? () => setDropping(pick.contestant_id)
+                    : undefined
                 }
                 selected={
                   picking === 'swap'
                     ? dropping === pick.contestant_id
                     : displayedDoubleTarget === pick.contestant_id
                 }
-                lit={lit === pick.contestant_id}
                 expanded={expandedId === pick.contestant_id}
                 onToggle={() => toggleExpand(pick.contestant_id)}
                 // #407: the doubled row's seal is a drag handle (only when not
