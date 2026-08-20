@@ -44,7 +44,7 @@ export function DoublePickSheet({
   return (
     <div className="fixed inset-0 z-40 flex flex-col justify-end" role="presentation">
       <div
-        className="absolute inset-0 bg-forest-900/60"
+        className="sheet-scrim absolute inset-0 bg-forest-900/60"
         onClick={onCancel}
         aria-hidden="true"
       />
@@ -54,7 +54,7 @@ export function DoublePickSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="double-pick-title"
-        className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
+        className="sheet-panel relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
       >
         <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-terracotta-200 bg-terracotta-50 px-4 py-3">
           <h2

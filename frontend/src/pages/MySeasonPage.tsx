@@ -94,14 +94,17 @@ function BallotStamp({
  *  are gated on prefers-reduced-motion in CSS. */
 function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
   if (!drag) return null
+  // Float the idol above the finger, not under it: on a phone the thumb covers
+  // the drop point, so a seal sitting there is invisible. Lifted clear of the
+  // thumb and enlarged past the resting seal, it reads as picked up (#487).
   return createPortal(
     <div
       aria-hidden
       className={`seal-ghost pointer-events-none fixed z-50 ${drag.releasing ? 'seal-ghost--releasing' : ''}`}
-      style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, -50%)' }}
+      style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, calc(-50% - 34px))' }}
     >
-      <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 6px 10px rgb(0 0 0 / 40%))' }}>
-        <DoubleBadge size={30} />
+      <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
+        <DoubleBadge size={44} />
       </span>
     </div>,
     document.body,
