@@ -45,6 +45,7 @@ describe('Layout', () => {
   afterEach(() => {
     document.documentElement.classList.remove('locked-night')
     localStorage.removeItem('tribal-knowledge-shell-theme')
+    localStorage.removeItem('tk-theme-override')
     document.querySelector('meta[name="theme-color"]')?.remove()
   })
 
@@ -110,5 +111,20 @@ describe('Layout', () => {
 
     expect(document.documentElement).toHaveClass('locked-night')
     expect(localStorage.getItem('tribal-knowledge-shell-theme')).toBe('locked')
+  })
+
+  it('lets an admin force night theme via the drawer, overriding the unlocked episode state', async () => {
+    // Admin profiles also render SafeAreaDebug, which probes layout via
+    // elementFromPoint; jsdom doesn't implement it (unrelated to this test).
+    document.elementFromPoint = () => null
+    const user = userEvent.setup()
+    renderLayout('/', { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } })
+
+    await waitFor(() => expect(document.documentElement).not.toHaveClass('locked-night'))
+    await user.click(screen.getByRole('button', { name: 'Open menu' }))
+    await user.click(await screen.findByRole('button', { name: 'night' }))
+
+    expect(document.documentElement).toHaveClass('locked-night')
+    expect(localStorage.getItem('tk-theme-override')).toBe('night')
   })
 })

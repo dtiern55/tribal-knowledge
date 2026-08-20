@@ -31,6 +31,11 @@ export function Layout() {
   const [nightMode, setNightMode] = useState(() =>
     document.documentElement.classList.contains('locked-night'),
   )
+  // Admin-only testing affordance (#468): forces the shell theme without a
+  // real locked episode. 'auto' defers to nightMode as derived above.
+  const [themeOverride, setThemeOverride] = useState<'auto' | 'day' | 'night'>(
+    () => (localStorage.getItem('tk-theme-override') as 'auto' | 'day' | 'night') || 'auto',
+  )
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const tabs =
     authed && profile?.is_admin
@@ -68,18 +73,28 @@ export function Layout() {
     }
   }, [authed, authLoading])
 
+  const effectiveNight = themeOverride === 'auto' ? nightMode : themeOverride === 'night'
+
   useEffect(() => {
-    document.documentElement.classList.toggle('locked-night', nightMode)
+    document.documentElement.classList.toggle('locked-night', effectiveNight)
     document
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', nightMode ? '#0e1f19' : '#1e3a2f')
+      ?.setAttribute('content', effectiveNight ? '#0e1f19' : '#1e3a2f')
     try {
-      localStorage.setItem('tribal-knowledge-shell-theme', nightMode ? 'locked' : 'day')
+      localStorage.setItem('tribal-knowledge-shell-theme', effectiveNight ? 'locked' : 'day')
     } catch {
       // Storage can be unavailable in private browsing; the live theme still works.
     }
     return () => document.documentElement.classList.remove('locked-night')
-  }, [nightMode])
+  }, [effectiveNight])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tk-theme-override', themeOverride)
+    } catch {
+      // Storage can be unavailable in private browsing; the override still applies for this session.
+    }
+  }, [themeOverride])
 
   const topLink = ({ isActive }: { isActive: boolean }) =>
     `app-top-link inline-flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors ${
@@ -184,6 +199,8 @@ export function Layout() {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           returnFocusRef={menuButtonRef}
+          themeOverride={themeOverride}
+          onThemeOverrideChange={setThemeOverride}
         />
       )}
     </div>

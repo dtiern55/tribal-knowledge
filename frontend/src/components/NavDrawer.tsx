@@ -26,16 +26,22 @@ const rowCls =
 /** Slide-in navigation drawer (#219): the app-wide home for the season
  * switcher, account links, install, and sign out — reachable from the
  * top-bar menu button on every page. */
+type ThemeOverride = 'auto' | 'day' | 'night'
+
 export function NavDrawer({
   open,
   onClose,
   returnFocusRef,
+  themeOverride,
+  onThemeOverrideChange,
 }: {
   open: boolean
   onClose: () => void
   returnFocusRef?: React.RefObject<HTMLElement | null>
+  themeOverride?: ThemeOverride
+  onThemeOverrideChange?: (value: ThemeOverride) => void
 }) {
-  const { signOut } = useAuth()
+  const { signOut, profile } = useAuth()
   const [seasons, setSeasons] = useState<Season[]>([])
   const [activeId, setActiveId] = useState('')
   const [canPrompt, setCanPrompt] = useState(installAvailable())
@@ -206,6 +212,31 @@ export function NavDrawer({
                 </div>
               ))}
           </nav>
+
+          {profile?.is_admin && onThemeOverrideChange && (
+            <div className="border-t border-cream-200 p-4">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-forest-600">
+                Testing
+              </span>
+              <div className="flex gap-2">
+                {(['auto', 'day', 'night'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={themeOverride === option}
+                    onClick={() => onThemeOverrideChange(option)}
+                    className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold capitalize transition-colors ${
+                      themeOverride === option
+                        ? 'border-terracotta-600 bg-terracotta-600 text-cream-50'
+                        : 'border-forest-200 bg-white text-forest-700 hover:bg-cream-100'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-cream-200">
