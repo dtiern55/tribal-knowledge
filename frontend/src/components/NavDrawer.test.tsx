@@ -49,4 +49,37 @@ describe('NavDrawer', () => {
     expect(screen.queryByRole('link', { name: 'Rules' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Dismiss menu' })).not.toBeInTheDocument()
   })
+
+  it('only shows the admin testing theme toggle to admins', async () => {
+    const admin = renderWithApp(
+      <NavDrawer open onClose={() => undefined} themeOverride="auto" onThemeOverrideChange={() => undefined} />,
+      { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } } },
+    )
+    expect(await screen.findByText('Testing')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'night' })).toBeVisible()
+    admin.unmount()
+
+    renderWithApp(
+      <NavDrawer open onClose={() => undefined} themeOverride="auto" onThemeOverrideChange={() => undefined} />,
+      { auth: { profile: { id: 'user-1', display_name: 'Player', is_admin: false } } },
+    )
+    expect(screen.queryByText('Testing')).not.toBeInTheDocument()
+  })
+
+  it('calls onThemeOverrideChange when an option is picked', async () => {
+    const user = userEvent.setup()
+    const onThemeOverrideChange = vi.fn()
+    renderWithApp(
+      <NavDrawer
+        open
+        onClose={() => undefined}
+        themeOverride="auto"
+        onThemeOverrideChange={onThemeOverrideChange}
+      />,
+      { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } } },
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'night' }))
+    expect(onThemeOverrideChange).toHaveBeenCalledWith('night')
+  })
 })
