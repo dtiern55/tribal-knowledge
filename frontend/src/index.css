@@ -474,17 +474,33 @@ html.locked-night .tribal-border {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Grab peel: the idol lifts off the page as you pick it up. */
+  /* Grab peel: the idol fades up and off the page as you pick it up. */
   @keyframes seal-lift {
-    from {
-      transform: scale(0.92);
+    0% {
+      transform: translateY(6px) scale(0.8);
+      opacity: 0.3;
     }
-    to {
-      transform: scale(1.14);
+    100% {
+      transform: translateY(-3px) scale(1.2);
+      opacity: 1;
     }
   }
   .seal-ghost-inner {
-    animation: seal-lift 130ms cubic-bezier(0.2, 0.8, 0.3, 1.4) both;
+    animation: seal-lift 200ms cubic-bezier(0.2, 0.8, 0.3, 1.35) both;
+  }
+
+  /* The arriving beat fades in rather than hard-cutting, so an auto-switch
+     (drag to another beat) lands softly instead of teleporting. */
+  @keyframes beat-panel-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .beat-panel[data-active='true'] {
+    animation: beat-panel-in 170ms ease both;
   }
 
   /* Commit stamp: the idol punches onto its new home as it lands. */

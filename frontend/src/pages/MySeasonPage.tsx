@@ -1717,9 +1717,13 @@ function RosterSection({
                   eliminated: c?.eliminated_in_episode != null,
                 }
               })}
-            onPick={(id) =>
-              void weekly.replace('double_roster_points', id).then(() => onPickingDone?.())
-            }
+            onPick={(id) => {
+              // Close the sheet now — the seal lands optimistically, so waiting
+              // for the delete+post round-trip left the castaway list lingering
+              // a beat after the pick already showed (#487).
+              onPickingDone?.()
+              void weekly.replace('double_roster_points', id)
+            }}
             onCancel={() => onPickingDone?.()}
             busy={weekly.busy}
             error={weekly.error}

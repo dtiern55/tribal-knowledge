@@ -232,7 +232,8 @@ export function RecordPanel({
       role="tabpanel"
       aria-labelledby={`beat-${beat}`}
       hidden={!active}
-      className={className}
+      data-active={active}
+      className={`beat-panel ${className}`}
     >
       {children}
     </div>
