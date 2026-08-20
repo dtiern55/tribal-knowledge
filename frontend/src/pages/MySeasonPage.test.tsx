@@ -2,11 +2,29 @@ import type { Session } from '@supabase/supabase-js'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useNavigate, useSearchParams } from 'react-router'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode, EpisodeResult, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { MySeasonPage } from './MySeasonPage'
+
+// Exposes the router's `recap` search param so tests can assert on it (#479),
+// and a way to simulate the OS/browser Back gesture, which MemoryRouter has
+// no imperative handle for otherwise.
+function LocationProbe() {
+  const [params] = useSearchParams()
+  return <div data-testid="location-probe" data-recap={params.get('recap') ?? ''} />
+}
+
+function BackButton() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      simulate back
+    </button>
+  )
+}
 
 vi.mock('../lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
@@ -785,5 +803,77 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Continue' }))
     expect(await screen.findByRole('heading', { name: 'Season complete' })).toBeVisible()
+  })
+
+  // #479: the recap is a durable, navigable state — a URL search param, not
+  // just an in-page overlay — so it survives Back and refresh correctly.
+  describe('recap as a URL search param (#479)', () => {
+    it('puts recap=<episode id> in the URL when opening a replay', async () => {
+      const user = userEvent.setup()
+      arrange(
+        [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z')],
+        undefined,
+        result(),
+      )
+      renderWithApp(
+        <>
+          <MySeasonPage />
+          <LocationProbe />
+        </>,
+        { auth },
+      )
+
+      await screen.findByRole('heading', { name: 'Between episodes' })
+      expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', '')
+
+      await user.click(screen.getByRole('button', { name: /Episode History/ }))
+      await user.click(
+        screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }),
+      )
+
+      await screen.findByRole('dialog')
+      expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', 'episode-2')
+    })
+
+    it('closes the recap and returns to My Season when the recap param is cleared (Back)', async () => {
+      const user = userEvent.setup()
+      arrange(
+        [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z')],
+        undefined,
+        result(),
+      )
+      renderWithApp(
+        <>
+          <MySeasonPage />
+          <BackButton />
+        </>,
+        { auth },
+      )
+
+      await screen.findByRole('heading', { name: 'Between episodes' })
+      await user.click(screen.getByRole('button', { name: /Episode History/ }))
+      await user.click(
+        screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }),
+      )
+      await screen.findByRole('dialog')
+
+      await user.click(screen.getByRole('button', { name: 'simulate back' }))
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Between episodes' })).toBeVisible()
+    })
+
+    it('fetches and shows the recap on initial render when ?recap=<id> is already in the URL', async () => {
+      arrange(
+        [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z')],
+        undefined,
+        result(),
+      )
+      renderWithApp(<MySeasonPage />, { auth, route: '/?recap=episode-2' })
+
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toHaveTextContent('Episode 2 replay')
+      expect(api.get).toHaveBeenCalledWith('/seasons/season-1/episode-results/episode-2')
+    })
   })
 })
