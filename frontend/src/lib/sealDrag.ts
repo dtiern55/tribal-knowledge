@@ -31,6 +31,11 @@ export function resolveDrop(source: DropSource, dropId: string): DropAction {
 
 export type DragState = { x: number; y: number; overId: string | null; releasing?: boolean }
 
+// The ghost floats this far above the finger (so the thumb doesn't cover it),
+// and the drop hit-tests at the same offset — so you aim the idol, not the
+// finger, at the target. Shared with the ghost's own transform (#487).
+export const SEAL_LIFT_Y = 34
+
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -81,9 +86,12 @@ export function useSealDrag(opts: {
       return ok ? id : null
     }
     const move = (e: PointerEvent) =>
-      setDrag((d) => d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY) })
+      setDrag(
+        (d) =>
+          d && { x: e.clientX, y: e.clientY, overId: targetAt(e.clientX, e.clientY - SEAL_LIFT_Y) },
+      )
     const end = (e: PointerEvent) => {
-      const overId = targetAt(e.clientX, e.clientY)
+      const overId = targetAt(e.clientX, e.clientY - SEAL_LIFT_Y)
       setHot(null)
       if (overId) {
         setDrag(null)

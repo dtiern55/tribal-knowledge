@@ -5,7 +5,7 @@ import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
-import { resolveDrop, useSealDrag } from '../lib/sealDrag'
+import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
@@ -101,7 +101,7 @@ function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean
     <div
       aria-hidden
       className={`seal-ghost pointer-events-none fixed z-50 ${drag.releasing ? 'seal-ghost--releasing' : ''}`}
-      style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, calc(-50% - 34px))' }}
+      style={{ left: drag.x, top: drag.y, transform: `translate(-50%, calc(-50% - ${SEAL_LIFT_Y}px))` }}
     >
       <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
         <DoubleBadge size={44} />
