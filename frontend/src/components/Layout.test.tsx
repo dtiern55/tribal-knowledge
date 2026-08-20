@@ -114,9 +114,6 @@ describe('Layout', () => {
   })
 
   it('lets an admin force night theme via the drawer, overriding the unlocked episode state', async () => {
-    // Admin profiles also render SafeAreaDebug, which probes layout via
-    // elementFromPoint; jsdom doesn't implement it (unrelated to this test).
-    document.elementFromPoint = () => null
     const user = userEvent.setup()
     renderLayout('/', { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } })
 
