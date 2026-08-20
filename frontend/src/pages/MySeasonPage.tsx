@@ -453,6 +453,7 @@ export function MySeasonPage() {
               <WeeklyPlaySection
                 season={d.season}
                 episodes={d.episodes}
+                contestants={d.contestants}
                 plays={d.plays}
                 setPlays={d.setPlays}
                 picking={picking}
@@ -939,6 +940,7 @@ function Points({ value }: { value: number | undefined }) {
 function WeeklyPlaySection({
   season,
   episodes,
+  contestants,
   plays,
   setPlays,
   picking = null,
@@ -947,6 +949,7 @@ function WeeklyPlaySection({
 }: {
   season: Season
   episodes: Episode[]
+  contestants: Contestant[]
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   picking?: 'double' | 'swap' | null
@@ -959,6 +962,10 @@ function WeeklyPlaySection({
   if (!episode || episode.is_finale || weekly.locked) return null
 
   const play = weekly.play
+  const rosterTargetName =
+    play?.advantage_type === 'double_roster_points' && play.target_contestant_id
+      ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
+      : null
 
   return (
     <RecordSection title="Advantage" bare={bare}>
@@ -1002,6 +1009,9 @@ function WeeklyPlaySection({
                 <span className="label">Roster points</span>
                 <span className="advantage-card__rule" aria-hidden="true" />
                 <span className="advantage-card__status">{rosterPlayed ? 'Active' : 'Choose'}</span>
+                {rosterTargetName && (
+                  <span className="advantage-card__target">{rosterTargetName}</span>
+                )}
               </button>
               <button
                 type="button"

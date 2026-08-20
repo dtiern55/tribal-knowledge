@@ -365,6 +365,8 @@ describe('MySeasonPage state shell', () => {
     expect(within(advantage).getByRole('button', { name: /Ballot ×2/ })).toHaveAttribute('aria-pressed', 'false')
     expect(within(advantage).getByRole('button', { name: 'Roster ×2' })).toHaveClass('advantage-card--active')
     expect(within(advantage).getByText('Active')).toBeVisible()
+    // The active roster card names the doubled castaway under its status (#449).
+    expect(within(advantage).getByText('Kenzie')).toBeVisible()
     expect(within(advantage).getByRole('button', { name: 'Remove play' })).toBeVisible()
   })
 

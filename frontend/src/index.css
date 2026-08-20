@@ -525,6 +525,22 @@ html.locked-night .tribal-border {
 
 .advantage-card--active .advantage-card__status { color: #f2e9db; }
 
+/* The doubled castaway, shown under ACTIVE on the roster card — gold and
+   title-case so it reads as a name, distinct from the cream uppercase status
+   above it (#449). */
+.advantage-card__target {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 3px;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6b657;
+}
+
 html.locked-night .contestant-avatar {
   border-color: color-mix(in srgb, var(--tribe-color, transparent) 35%, transparent);
 }
