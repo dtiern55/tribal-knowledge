@@ -1277,8 +1277,10 @@ function AdvantagePrompt({
             Play your ×2
           </h2>
           <p className="mt-1 text-sm leading-snug text-paper-ink/80">
-            Drag the idol onto a castaway to double their points this episode, or onto your ballot
-            to double every correct vote. One play per episode — it doesn’t carry over.
+            Drag the idol onto a castaway or your ballot to double points — one play per episode.
+          </p>
+          <p className="mt-1.5">
+            <RuleLink anchor="weekly-play">How the advantage works</RuleLink>
           </p>
         </div>
         <div className="relative shrink-0">
