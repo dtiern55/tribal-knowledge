@@ -64,11 +64,11 @@ describe('RulesPage rule modes', () => {
     vi.mocked(getActiveSeason).mockResolvedValue(season)
   })
 
-  it('describes weekly plays without exposing retired token rules for current seasons', async () => {
+  it('describes the weekly advantage without exposing retired token rules for current seasons', async () => {
     vi.mocked(api.get).mockResolvedValue(response(false))
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Weekly play' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Weekly advantage' })).toBeVisible()
     expect(screen.getByText(/Double all points earned from your ballot/)).toBeVisible()
     expect(screen.getByText(/does not add a vote/)).toBeVisible()
     expect(screen.getByText(/adds 50% of that castaway's finale roster points/)).toBeVisible()
