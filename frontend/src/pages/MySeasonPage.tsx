@@ -1030,9 +1030,8 @@ function LeagueHub({
                     {entry.display_name}
                     {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
                   </span>
-                  {entry.advantage_type && (
-                    <DoubleBadge size={20} title={ADV_LABELS[entry.advantage_type] ?? 'Advantage'} />
-                  )}
+                  {/* No idol here: everyone plays an advantage, so a "they
+                      played one" mark is redundant. The ×2 inside marks WHERE. */}
                   <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 transition-transform group-open:rotate-180 ${sub}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -1068,6 +1067,21 @@ function LeagueHub({
   )
 }
 
+/** A compact ×2 mark for where an advantage was played — legible where the
+ *  carved idol turns to mush at small sizes (#490). */
+function Times2({ title }: { title: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={title}
+      title={title}
+      className="inline-flex shrink-0 items-center rounded bg-gold-400 px-1 text-[10px] font-bold leading-tight tabular-nums text-forest-950"
+    >
+      ×2
+    </span>
+  )
+}
+
 function HubCastawayRow({
   label,
   survivors,
@@ -1080,16 +1094,16 @@ function HubCastawayRow({
   survivors: StandingSurvivor[]
   sub: string
   empty: string
-  /** Whole-row double (a doubled ballot): idol next to the label. */
+  /** Whole-row double (a doubled ballot): ×2 next to the label. */
   doubled?: boolean
-  /** Single-target double (roster points): idol on this castaway's chip. */
+  /** Single-target double (roster points): ×2 on this castaway's chip. */
   doubledContestantId?: string | null
 }) {
   return (
     <div>
       <div className="flex items-center gap-1.5">
         <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {doubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
+        {doubled && <Times2 title="Double Ballot Points this episode" />}
       </div>
       {survivors.length > 0 ? (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
@@ -1104,7 +1118,7 @@ function HubCastawayRow({
               />
               <span className="max-w-[7rem] truncate">{s.name}</span>
               {s.contestant_id === doubledContestantId && (
-                <DoubleBadge size={18} title="Double Roster Points this episode" />
+                <Times2 title="Double Roster Points this episode" />
               )}
             </li>
           ))}
