@@ -329,8 +329,8 @@ describe('MySeasonPage state shell', () => {
       'free',
     )
 
-    // The two doubles are behind the strip's Choose menu — nothing else.
-    await userEvent.click(screen.getByRole('button', { name: /Choose/ }))
+    // The two doubles are behind the loud idol's tap menu — nothing else.
+    await userEvent.click(screen.getByRole('button', { name: /Play your advantage/ }))
     const menu = screen.getByRole('menu')
     expect(within(menu).getByRole('menuitem', { name: 'Double a castaway' })).toBeVisible()
     expect(within(menu).getByRole('menuitem', { name: 'Double your ballot' })).toBeVisible()

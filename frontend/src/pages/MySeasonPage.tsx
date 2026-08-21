@@ -1205,6 +1205,8 @@ function AdvantageStrip({
         void weekly.replace('double_roster_points', action.target)
       }
     },
+    // A tap on the idol (no drag) is the non-drag path — reveal the two plays.
+    onTap: () => setMenuOpen(true),
   })
 
   const episode = weekly.openEpisode
@@ -1216,18 +1218,24 @@ function AdvantageStrip({
       ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
       : null
 
-  // ── Played: a compact status with the check the old tab gave, plus undo.
+  function playBallot() {
+    setMenuOpen(false)
+    onBeatChange('ballot')
+    void weekly.replace('double_vote_points')
+  }
+
+  // ── Played: a set-apart status card with the check the old tab gave, + undo.
   if (play) {
     return (
-      <div className="flex items-center gap-3 border-b border-paper-line border-l-4 border-l-jade-600 bg-jade-50/60 px-3 py-2.5">
+      <div className="m-3 flex items-center gap-3 rounded-xl border-2 border-jade-200 bg-jade-50/70 px-3.5 py-3 shadow-sm">
         <span className="shrink-0 rotate-[9deg]" aria-hidden="true">
-          <DoubleBadge size={30} title="Your advantage" />
+          <DoubleBadge size={34} title="Your advantage" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display text-[0.66rem] font-bold uppercase tracking-wide text-jade-700">
             Your advantage · played
           </p>
-          <p className="font-display text-base font-bold leading-tight text-paper-ink">
+          <p className="font-display text-lg font-bold leading-tight text-paper-ink">
             {rosterDouble ? 'Roster ×2' : 'Ballot ×2'}
             {targetName && <span> · {targetName}</span>}
           </p>
@@ -1236,7 +1244,7 @@ function AdvantageStrip({
         <svg
           aria-hidden="true"
           viewBox="0 0 16 16"
-          className="h-5 w-5 shrink-0 text-jade-600"
+          className="h-6 w-6 shrink-0 text-jade-600"
           fill="none"
           stroke="currentColor"
           strokeWidth={2.5}
@@ -1259,26 +1267,19 @@ function AdvantageStrip({
     )
   }
 
-  // ── Unplayed: the prompt, the drag idol, and the tap menu.
+  // ── Unplayed: prompt on the left, the loud idol on the right. It's the drag
+  // handle and — tapped or keyboard-activated — the two-play menu (#399).
   const locked = weekly.locked
   return (
     <>
       <SealGhost drag={drag} />
       <div
-        className={`relative flex items-center gap-3 border-b border-paper-line border-l-4 px-3 py-2.5 ${
+        className={`m-3 flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 shadow-sm ${
           locked
-            ? 'border-l-stone-400 bg-stone-50'
-            : 'border-l-terracotta-600 bg-gradient-to-r from-gold-100/70 to-terracotta-50/40'
+            ? 'border-stone-200 bg-stone-50'
+            : 'border-terracotta-300 bg-gradient-to-r from-terracotta-50 to-gold-50'
         }`}
       >
-        <span
-          onPointerDown={locked ? undefined : start}
-          title={locked ? 'Your advantage' : 'Drag onto a castaway or the Ballot tab'}
-          className={`shrink-0 ${locked ? '' : 'advantage-nudge cursor-grab touch-none active:cursor-grabbing'}`}
-          style={{ opacity: dragging ? 0.3 : 1 }}
-        >
-          <DoubleBadge size={40} title="Your advantage" />
-        </span>
         <div className="min-w-0 flex-1">
           <p
             className={`font-display text-[0.66rem] font-bold uppercase tracking-wide ${
@@ -1287,23 +1288,37 @@ function AdvantageStrip({
           >
             Your advantage · {locked ? 'not played' : 'unplayed'}
           </p>
-          <p className="font-display text-base font-bold leading-tight text-paper-ink">
+          <p className="font-display text-lg font-bold leading-tight text-paper-ink">
             {locked ? 'Not played this episode' : `Play your Episode ${episode.episode_number} double`}
           </p>
-          {!locked && <p className="text-xs text-paper-ink-faded">Drag onto a castaway or your ballot</p>}
+          {!locked && (
+            <p className="text-xs text-paper-ink-faded">
+              Drag the idol onto a castaway or your ballot
+            </p>
+          )}
           {weekly.error && <p className="text-xs text-terracotta-600">{weekly.error}</p>}
         </div>
         {!locked && (
-          <div className="relative shrink-0">
+          <div
+            className="relative shrink-0"
+            onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
+          >
             <button
               type="button"
-              onClick={() => setMenuOpen((o) => !o)}
+              onPointerDown={start}
+              onClick={(e) => {
+                // Keyboard activation only (detail 0); pointer taps come through
+                // the drag's onTap, so the menu doesn't double-toggle.
+                if (e.detail === 0) setMenuOpen((o) => !o)
+              }}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
+              aria-label="Play your advantage — drag onto a castaway or your ballot, or activate to choose"
               disabled={weekly.busy}
-              className="rounded-full border border-paper-edge bg-white/70 px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wide text-forest-700 disabled:opacity-40"
+              style={{ opacity: dragging ? 0.3 : 1 }}
+              className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta-500 active:cursor-grabbing disabled:opacity-40"
             >
-              Choose ▾
+              <DoubleBadge size={54} title="Your advantage — play it" />
             </button>
             {menuOpen && (
               <>
@@ -1316,7 +1331,7 @@ function AdvantageStrip({
                 />
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white shadow-lg"
+                  className="absolute right-0 top-full z-20 mt-1.5 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white shadow-lg"
                 >
                   <button
                     type="button"
@@ -1334,8 +1349,7 @@ function AdvantageStrip({
                     role="menuitem"
                     onClick={() => {
                       setMenuOpen(false)
-                      onBeatChange('ballot')
-                      void weekly.replace('double_vote_points')
+                      playBallot()
                     }}
                     className="block w-full border-t border-paper-line px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
                   >
