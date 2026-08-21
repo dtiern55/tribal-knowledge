@@ -127,6 +127,22 @@ class StandingEntry(BaseModel):
     recently_eliminated_survivors: list[StandingSurvivor] = []
 
 
+class HubEntry(BaseModel):
+    """One player's locked choices for the airing episode (#490).
+
+    Only exposed once the episode locks, when everyone's picks are already
+    public — the Hub is a view over data, not a new privacy surface.
+    """
+
+    user_id: UUID
+    display_name: str
+    roster: list[StandingSurvivor] = []
+    ballot: list[StandingSurvivor] = []
+    # The advantage played this episode, if any.
+    advantage_type: Optional[str] = None
+    advantage_target: Optional[StandingSurvivor] = None
+
+
 class ContestantPoints(BaseModel):
     contestant_id: UUID
     points: int

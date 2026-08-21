@@ -42,11 +42,13 @@ import type {
   Episode,
   EpisodeResult,
   FinalePrediction,
+  HubEntry,
   PickResult,
   RosterPick,
   ScoringBreakdown,
   Season,
   StandingEntry,
+  StandingSurvivor,
   TokenLedgerEntry,
 } from '../types'
 
@@ -868,8 +870,200 @@ function LockedState({
             Results appear here after Episode {episode.episode_number} is scored.
           </p>
         </div>
+
+        {/* The league's locked table — everyone's choices open at once when the
+            episode locks (#490), so this is the watch-along Hub, not a leak. */}
+        <div className="tribal-border tribal-border--dim" aria-hidden="true" />
+        <LeagueHub episodeId={episode.id} userId={userId} broadcast={broadcast} />
       </div>
     </section>
+  )
+}
+
+/**
+ * The locked-state league Hub (#490): every player's frozen choices for the
+ * airing episode, plus at-a-glance stats. Only reachable once the episode
+ * locks, when the whole league's picks are already public.
+ */
+function LeagueHub({
+  episodeId,
+  userId,
+  broadcast,
+}: {
+  episodeId: string
+  userId: string
+  broadcast: boolean
+}) {
+  const [entries, setEntries] = useState<HubEntry[] | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    api
+      .get<HubEntry[]>(`/episodes/${episodeId}/hub`)
+      .then((rows) => live && setEntries(rows))
+      .catch(() => live && setFailed(true))
+    return () => {
+      live = false
+    }
+  }, [episodeId])
+
+  const heading = (
+    <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+      The League
+    </h3>
+  )
+
+  // Non-blocking: the Hub is a nice-to-have on top of your own locked card, so
+  // a load failure or empty field just hides it rather than erroring the page.
+  if (failed || (entries && entries.length === 0)) return null
+  if (entries == null) {
+    return (
+      <div>
+        {heading}
+        <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>
+      </div>
+    )
+  }
+
+  // Consensus boot: most-voted castaways across every ballot.
+  const voteCount = new Map<string, { survivor: StandingSurvivor; n: number }>()
+  for (const entry of entries) {
+    for (const vote of entry.ballot) {
+      const seen = voteCount.get(vote.contestant_id)
+      if (seen) seen.n += 1
+      else voteCount.set(vote.contestant_id, { survivor: vote, n: 1 })
+    }
+  }
+  const topBoots = [...voteCount.values()].sort((a, b) => b.n - a.n).slice(0, 3)
+  const advantages = entries.filter((e) => e.advantage_type)
+
+  const sub = broadcast ? 'text-white/60' : 'text-gray-500'
+  const chip = broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'
+
+  return (
+    <div>
+      {heading}
+
+      {/* Quick episode stats. */}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className={`rounded-xl border p-3 ${chip}`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Consensus boot</p>
+          {topBoots.length > 0 ? (
+            <ul className="mt-2 space-y-1.5">
+              {topBoots.map(({ survivor, n }) => (
+                <li key={survivor.contestant_id} className="flex items-center gap-2 text-sm">
+                  <ContestantAvatar
+                    name={survivor.name}
+                    imageUrl={survivor.image_url}
+                    tribeColor={survivor.tribe_color}
+                    tribeName={survivor.tribe_name}
+                    size="sm"
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
+                  <span className={`shrink-0 text-xs font-semibold tabular-nums ${sub}`}>
+                    {n} {n === 1 ? 'vote' : 'votes'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={`mt-2 text-sm ${sub}`}>No votes are in.</p>
+          )}
+        </div>
+
+        <div className={`rounded-xl border p-3 ${chip}`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages played</p>
+          {advantages.length > 0 ? (
+            <ul className="mt-2 space-y-1.5">
+              {advantages.map((e) => (
+                <li key={e.user_id} className="flex items-center gap-2 text-sm">
+                  <DoubleBadge size={22} title={ADV_LABELS[e.advantage_type ?? ''] ?? 'Advantage'} />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium">{e.display_name}</span>
+                    <span className={sub}>
+                      {' · '}
+                      {ADV_LABELS[e.advantage_type ?? ''] ?? e.advantage_type}
+                      {e.advantage_target ? ` on ${e.advantage_target.name}` : ''}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={`mt-2 text-sm ${sub}`}>None played this episode.</p>
+          )}
+        </div>
+      </div>
+
+      {/* The full field — one collapsible row per player. */}
+      <ul className="mt-4 space-y-2">
+        {entries.map((entry) => {
+          const isMe = entry.user_id === userId
+          return (
+            <li key={entry.user_id}>
+              <details className={`group rounded-xl border ${chip}`}>
+                <summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-sm">
+                  <span className="min-w-0 flex-1 truncate font-semibold">
+                    {entry.display_name}
+                    {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
+                  </span>
+                  {entry.advantage_type && (
+                    <DoubleBadge size={20} title={ADV_LABELS[entry.advantage_type] ?? 'Advantage'} />
+                  )}
+                  <span className={`shrink-0 text-xs ${sub}`}>
+                    {entry.ballot.length} {entry.ballot.length === 1 ? 'vote' : 'votes'}
+                  </span>
+                  <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 transition-transform group-open:rotate-180 ${sub}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </summary>
+                <div className="grid gap-3 px-3 pb-3">
+                  <HubCastawayRow label="Ballot" survivors={entry.ballot} sub={sub} empty="No ballot submitted." />
+                  <HubCastawayRow label="Roster" survivors={entry.roster} sub={sub} empty="No active roster." />
+                </div>
+              </details>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function HubCastawayRow({
+  label,
+  survivors,
+  sub,
+  empty,
+}: {
+  label: string
+  survivors: StandingSurvivor[]
+  sub: string
+  empty: string
+}) {
+  return (
+    <div>
+      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+      {survivors.length > 0 ? (
+        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+          {survivors.map((s) => (
+            <li key={s.contestant_id} className="flex items-center gap-1.5 text-xs">
+              <ContestantAvatar
+                name={s.name}
+                imageUrl={s.image_url}
+                tribeColor={s.tribe_color}
+                tribeName={s.tribe_name}
+                size="sm"
+              />
+              <span className="max-w-[7rem] truncate">{s.name}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={`mt-1 text-xs ${sub}`}>{empty}</p>
+      )}
+    </div>
   )
 }
 

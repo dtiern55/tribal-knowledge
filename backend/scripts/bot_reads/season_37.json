@@ -1,113 +1,147 @@
 {
-  "_note": "Danny's pre-episode reads for Survivor: David vs. Goliath. Written after watching each episode, before the next one airs. Never contains results.",
-  "draft": [
+ "_note": "Danny's pre-episode reads for Survivor: David vs. Goliath. Written after watching each episode, before the next one airs. Never contains results.",
+ "draft": [
+  "Christian Hubicki",
+  "Mike White",
+  "Gabby Pascuzzi",
+  "Dan Rengering",
+  "Angelina Keeley"
+ ],
+ "avoid": [
+  "Natalie Cole"
+ ],
+ "episodes": {
+  "2": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Carl Boudreaux",
+    "Bi Nguyen",
+    "Davie Rickenbacker",
+    "Nick Wilson",
+    "Elizabeth Olson"
+   ],
+   "double_targets": [
+    "Mike White",
+    "Dan Rengering",
+    "Angelina Keeley",
+    "John Hennigan",
+    "Alec Merlino",
+    "Alison Raybould",
+    "Kara Kay",
+    "Jeremy Crawford",
+    "Natalia Azoqa",
+    "Natalie Cole"
+   ],
+   "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength.",
+   "confidence": "medium"
+  },
+  "3": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Carl Boudreaux",
+    "Bi Nguyen",
+    "Lyrsa Torres",
+    "Nick Wilson"
+   ],
+   "safe": [
+    "Mike White",
+    "Christian Hubicki"
+   ],
+   "confidence": "low",
+   "double_targets": [
+    "Alec Merlino",
+    "Alison Raybould",
+    "Angelina Keeley",
+    "Dan Rengering",
+    "Jeremy Crawford",
+    "John Hennigan",
+    "Kara Kay",
+    "Mike White",
+    "Natalia Azoqa",
+    "Natalie Cole"
+   ],
+   "note": "No strong read. Nobody votes Mike or Christian; outside those it's pretty split. Doubles still favour Goliath."
+  },
+  "4": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Carl Boudreaux",
+    "Bi Nguyen",
+    "Lyrsa Torres",
+    "Nick Wilson"
+   ],
+   "safe": [
     "Christian Hubicki",
     "Mike White",
-    "Gabby Pascuzzi",
+    "John Hennigan"
+   ],
+   "confidence": "low",
+   "double_targets": [
+    "John Hennigan",
+    "Mike White",
+    "Christian Hubicki",
     "Dan Rengering",
-    "Angelina Keeley"
-  ],
-  "avoid": [
-    "Natalie Cole"
-  ],
-  "episodes": {
-    "2": {
-      "likely_boots": [
-        "Natalie Cole",
-        "Carl Boudreaux",
-        "Bi Nguyen",
-        "Davie Rickenbacker",
-        "Nick Wilson",
-        "Elizabeth Olson"
-      ],
-      "double_targets": [
-        "Mike White",
-        "Dan Rengering",
-        "Angelina Keeley",
-        "John Hennigan",
-        "Alec Merlino",
-        "Alison Raybould",
-        "Kara Kay",
-        "Jeremy Crawford",
-        "Natalia Azoqa",
-        "Natalie Cole"
-      ],
-      "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength.",
-      "confidence": "medium"
-    },
-    "3": {
-      "likely_boots": [
-        "Natalie Cole",
-        "Carl Boudreaux",
-        "Bi Nguyen",
-        "Lyrsa Torres",
-        "Nick Wilson"
-      ],
-      "safe": [
-        "Mike White",
-        "Christian Hubicki"
-      ],
-      "confidence": "low",
-      "double_targets": [
-        "Alec Merlino",
-        "Alison Raybould",
-        "Angelina Keeley",
-        "Dan Rengering",
-        "Jeremy Crawford",
-        "John Hennigan",
-        "Kara Kay",
-        "Mike White",
-        "Natalia Azoqa",
-        "Natalie Cole"
-      ],
-      "note": "No strong read. Nobody votes Mike or Christian; outside those it's pretty split. Doubles still favour Goliath."
-    },
-    "4": {
-      "likely_boots": [
-        "Natalie Cole",
-        "Carl Boudreaux",
-        "Bi Nguyen",
-        "Lyrsa Torres",
-        "Nick Wilson"
-      ],
-      "safe": [
-        "Christian Hubicki",
-        "Mike White",
-        "John Hennigan"
-      ],
-      "confidence": "low",
-      "double_targets": [
-        "John Hennigan",
-        "Mike White",
-        "Christian Hubicki",
-        "Dan Rengering",
-        "Davie Rickenbacker",
-        "Alec Merlino"
-      ],
-      "note": "Merge teased, so the read is weak. Nobody votes Christian, Mike or John. No fresh boot read, so episode 3's names carry forward — the room's sense of who is exposed rarely resets week to week. Double targets are held very lightly: the names with some standing, not a confident call."
-    },
-    "5": {
-      "likely_boots": [
-        "Natalie Cole",
-        "Lyrsa Torres",
-        "Kara Kay",
-        "Davie Rickenbacker",
-        "Alison Raybould"
-      ],
-      "double_targets": [
-        "Alison Raybould",
-        "Christian Hubicki",
-        "Dan Rengering",
-        "Gabby Pascuzzi",
-        "John Hennigan",
-        "Alec Merlino",
-        "Carl Boudreaux",
-        "Davie Rickenbacker",
-        "Elizabeth Olson",
-        "Kara Kay"
-      ],
-      "confidence": "low",
-      "note": "Natalie Cole the clear #1 (70%+ expect the vote); Lyrsa/Kara/Davie/Alison the next tier. Doubles steer away from Jabeni (purple). A decent share of bots should diverge."
-    }
+    "Davie Rickenbacker",
+    "Alec Merlino"
+   ],
+   "note": "Merge teased, so the read is weak. Nobody votes Christian, Mike or John. No fresh boot read, so episode 3's names carry forward — the room's sense of who is exposed rarely resets week to week. Double targets are held very lightly: the names with some standing, not a confident call."
+  },
+  "5": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Lyrsa Torres",
+    "Kara Kay",
+    "Davie Rickenbacker",
+    "Alison Raybould"
+   ],
+   "double_targets": [
+    "Alison Raybould",
+    "Christian Hubicki",
+    "Dan Rengering",
+    "Gabby Pascuzzi",
+    "John Hennigan",
+    "Alec Merlino",
+    "Carl Boudreaux",
+    "Davie Rickenbacker",
+    "Elizabeth Olson",
+    "Kara Kay"
+   ],
+   "confidence": "low",
+   "note": "Natalie Cole the clear #1 (70%+ expect the vote); Lyrsa/Kara/Davie/Alison the next tier. Doubles steer away from Jabeni (purple). A decent share of bots should diverge."
+  },
+  "6": {
+   "likely_boots": [
+    [
+     "Lyrsa Torres",
+     14
+    ],
+    [
+     "Kara Kay",
+     12
+    ],
+    [
+     "Angelina Keeley",
+     6
+    ],
+    [
+     "Gabby Pascuzzi",
+     5
+    ],
+    [
+     "Alison Raybould",
+     5
+    ]
+   ],
+   "double_targets": [
+    "Alison Raybould",
+    "Christian Hubicki",
+    "Dan Rengering",
+    "Gabby Pascuzzi",
+    "John Hennigan",
+    "Mike White"
+   ],
+   "confidence": "medium",
+   "note": "Boot read (in order): Lyrsa, Kara, Angelina, Gabby, Alison. Doubles favour the Tiva tribe (Alison/Christian/Dan/Gabby/John) plus Mike White. Neither list is universal — a good share of bots should diverge onto castaways not named here."
   }
+ }
 }
