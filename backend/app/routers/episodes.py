@@ -5,10 +5,28 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
-from app.locking import advantages_locked
-from app.schemas import Episode, EpisodeCreateRequest, EpisodeUpdateRequest
+from app.locking import advantages_locked, episode_locked
+from app.schemas import (
+    Episode,
+    EpisodeCreateRequest,
+    EpisodeUpdateRequest,
+    HubEntry,
+)
 
 router = APIRouter(tags=["episodes"])
+
+# Most-recent tribe for a contestant, for the avatar chip. Same lateral join
+# the standings glance uses (#83).
+_TRIBE_LATERAL = """
+    left join lateral (
+      select t.name, t.color
+      from contestant_tribes ct
+      join tribes t on t.id = ct.tribe_id
+      where ct.contestant_id = c.id
+      order by ct.from_episode desc
+      limit 1
+    ) tribe on true
+"""
 
 # Used when a season has no schedule and the caller omits the value — the
 # pre-#269 hand-set default.
@@ -222,3 +240,115 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                 [str(episode_id)],
             )
             return cur.fetchone()
+
+
+@router.get("/episodes/{episode_id}/hub", response_model=list[HubEntry])
+def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
+    """The locked-state league Hub (#490): every player's frozen choices for
+    the airing episode — roster, this-episode ballot, and any played advantage.
+
+    Only served once the episode locks. Before then each player's picks are
+    403 to everyone else; after lock they're all public, so the Hub is just an
+    aggregate view over data the per-player endpoints already expose. Stats
+    (top boots, advantage tally) are derived on the client from this table.
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "select season_id, picks_lock_at, status from episodes where id = %s",
+                [str(episode_id)],
+            )
+            episode = cur.fetchone()
+            if not episode:
+                raise HTTPException(status_code=404, detail="Episode not found")
+            if not episode_locked(episode):
+                raise HTTPException(
+                    status_code=403,
+                    detail="The Hub opens when the episode locks",
+                )
+            season_id = str(episode["season_id"])
+
+            # Active rosters for the whole league (still-in-inventory picks).
+            cur.execute(
+                f"""
+                select rp.user_id::text as user_id, c.id::text as contestant_id,
+                       c.name, c.image_url,
+                       tribe.name as tribe_name, tribe.color as tribe_color
+                from roster_picks rp
+                join contestants c on c.id = rp.contestant_id
+                {_TRIBE_LATERAL}
+                where rp.season_id = %s and rp.active_until_episode is null
+                order by c.name
+                """,
+                [season_id],
+            )
+            rosters: dict[str, list[dict]] = {}
+            for row in cur.fetchall():
+                rosters.setdefault(row.pop("user_id"), []).append(row)
+
+            # This episode's ballots.
+            cur.execute(
+                f"""
+                select ep.user_id::text as user_id, c.id::text as contestant_id,
+                       c.name, c.image_url,
+                       tribe.name as tribe_name, tribe.color as tribe_color
+                from elimination_picks ep
+                join contestants c on c.id = ep.contestant_id
+                {_TRIBE_LATERAL}
+                where ep.episode_id = %s
+                order by ep.created_at
+                """,
+                [str(episode_id)],
+            )
+            ballots: dict[str, list[dict]] = {}
+            for row in cur.fetchall():
+                ballots.setdefault(row.pop("user_id"), []).append(row)
+
+            # Advantages played this episode, with target (if the type has one).
+            cur.execute(
+                f"""
+                select ap.user_id::text as user_id, ap.advantage_type,
+                       c.id::text as contestant_id, c.name, c.image_url,
+                       tribe.name as tribe_name, tribe.color as tribe_color
+                from advantage_plays ap
+                left join contestants c on c.id = ap.target_contestant_id
+                {_TRIBE_LATERAL}
+                where ap.episode_id = %s
+                """,
+                [str(episode_id)],
+            )
+            advantages: dict[str, dict] = {}
+            for row in cur.fetchall():
+                uid = row.pop("user_id")
+                adv_type = row.pop("advantage_type")
+                advantages[uid] = {
+                    "advantage_type": adv_type,
+                    # Doubles target a castaway; a vote double has none.
+                    "advantage_target": row if row["contestant_id"] else None,
+                }
+
+            # One row per participating player — anyone with a roster, a ballot,
+            # or a play this episode. Drops service accounts and no-shows.
+            cur.execute(
+                "select id::text as id, display_name from profiles where is_player"
+            )
+            entries = []
+            for player in cur.fetchall():
+                uid = player["id"]
+                roster = rosters.get(uid, [])
+                ballot = ballots.get(uid, [])
+                adv = advantages.get(uid)
+                if not roster and not ballot and adv is None:
+                    continue
+                entries.append(
+                    {
+                        "user_id": uid,
+                        "display_name": player["display_name"],
+                        "roster": roster,
+                        "ballot": ballot,
+                        "advantage_type": adv["advantage_type"] if adv else None,
+                        "advantage_target": adv["advantage_target"] if adv else None,
+                    }
+                )
+            entries.sort(key=lambda e: e["display_name"].lower())
+            return entries

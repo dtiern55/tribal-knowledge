@@ -75,6 +75,17 @@ export interface StandingSurvivor {
   eliminated_episode: number | null
 }
 
+// One player's locked choices for the airing episode — the locked-state Hub
+// (#490). Served only once the episode locks (see GET /episodes/{id}/hub).
+export interface HubEntry {
+  user_id: string
+  display_name: string
+  roster: StandingSurvivor[]
+  ballot: StandingSurvivor[]
+  advantage_type: string | null
+  advantage_target: StandingSurvivor | null
+}
+
 export interface StandingEntry {
   user_id: string
   display_name: string
