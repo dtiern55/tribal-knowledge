@@ -748,12 +748,13 @@ function LockedState({
   const broadcast = isBroadcastWindow(episode)
 
   return (
+    <>
     <section
       aria-labelledby="locked-state-title"
       data-variant={broadcast ? 'broadcast' : 'delayed'}
       className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
         broadcast
-          ? 'border-forest-800 bg-[radial-gradient(circle_at_top_right,rgba(196,84,50,0.18),transparent_35%),linear-gradient(to_bottom,#132e25,#0e1f19)] text-cream-100 shadow-xl'
+          ? 'border-white/15 bg-[radial-gradient(circle_at_top_right,rgba(196,84,50,0.18),transparent_35%),linear-gradient(to_bottom,#132e25,#0e1f19)] text-cream-100 shadow-xl ring-1 ring-black/40'
           : 'border-cream-200 bg-white text-gray-900 shadow-sm'
       }`}
     >
@@ -870,13 +871,20 @@ function LockedState({
             Results appear here after Episode {episode.episode_number} is scored.
           </p>
         </div>
-
-        {/* The league's locked table — everyone's choices open at once when the
-            episode locks (#490), so this is the watch-along Hub, not a leak. */}
-        <div className="tribal-border tribal-border--dim" aria-hidden="true" />
-        <LeagueHub episodeId={episode.id} userId={userId} broadcast={broadcast} />
       </div>
     </section>
+
+      {/* The league's locked table lives in its own card, one clear step
+          removed from your personal roster/ballot above (#490). Everyone's
+          choices open at once when the episode locks, so this is the
+          watch-along Hub, not a leak. */}
+      <LeagueHub
+        episodeId={episode.id}
+        episodeNumber={episode.episode_number}
+        userId={userId}
+        broadcast={broadcast}
+      />
+    </>
   )
 }
 
@@ -887,10 +895,12 @@ function LockedState({
  */
 function LeagueHub({
   episodeId,
+  episodeNumber,
   userId,
   broadcast,
 }: {
   episodeId: string
+  episodeNumber: number
   userId: string
   broadcast: boolean
 }) {
@@ -908,21 +918,34 @@ function LeagueHub({
     }
   }, [episodeId])
 
-  const heading = (
-    <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-      The League
-    </h3>
+  // Its own card, deliberately lighter than the personal one above so the two
+  // read as separate panels — your locked decisions vs. the league's. On the
+  // dark broadcast page a light hairline + elevation is what makes the card's
+  // edges legible; dark-on-dark borders disappear.
+  const card = broadcast
+    ? 'border-white/15 bg-white/[0.045] text-cream-100 shadow-xl ring-1 ring-black/40'
+    : 'border-cream-200 bg-cream-50 text-gray-900 shadow-sm'
+  const shell = (children: React.ReactNode) => (
+    <section
+      aria-labelledby="league-hub-title"
+      className={`mt-5 overflow-hidden rounded-2xl border p-5 sm:p-6 ${card}`}
+    >
+      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
+        Episode {episodeNumber} · the field
+      </p>
+      <h2 id="league-hub-title" className="mt-1 font-display text-2xl tracking-wide">
+        The League
+      </h2>
+      {children}
+    </section>
   )
 
   // Non-blocking: the Hub is a nice-to-have on top of your own locked card, so
   // a load failure or empty field just hides it rather than erroring the page.
   if (failed || (entries && entries.length === 0)) return null
   if (entries == null) {
-    return (
-      <div>
-        {heading}
-        <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>
-      </div>
+    return shell(
+      <p className={`mt-3 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>,
     )
   }
 
@@ -935,16 +958,29 @@ function LeagueHub({
       else voteCount.set(vote.contestant_id, { survivor: vote, n: 1 })
     }
   }
-  const topBoots = [...voteCount.values()].sort((a, b) => b.n - a.n).slice(0, 3)
-  const advantages = entries.filter((e) => e.advantage_type)
+  const topBoots = [...voteCount.values()].sort((a, b) => b.n - a.n).slice(0, 5)
+
+  // Advantage aggregates. Doubles are the only playable advantage now (#307),
+  // so we track just the two: how many doubled their ballot, and which
+  // castaway drew the most Double Roster Points.
+  const doubleBallots = entries.filter((e) => e.advantage_type === 'double_vote_points').length
+  const rosterDoubleCount = new Map<string, { survivor: StandingSurvivor; n: number }>()
+  for (const e of entries) {
+    if (e.advantage_type === 'double_roster_points' && e.advantage_target) {
+      const seen = rosterDoubleCount.get(e.advantage_target.contestant_id)
+      if (seen) seen.n += 1
+      else rosterDoubleCount.set(e.advantage_target.contestant_id, { survivor: e.advantage_target, n: 1 })
+    }
+  }
+  const topRosterDoubles = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n).slice(0, 4)
 
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
-  const chip = broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'
+  // Tiles sit a step lighter than the card so their edges read: white on the
+  // cream card (delayed), a brighter frost on the faint panel (broadcast).
+  const chip = broadcast ? 'border-white/15 bg-white/[0.07]' : 'border-cream-200 bg-white'
 
-  return (
-    <div>
-      {heading}
-
+  return shell(
+    <>
       {/* Quick episode stats. */}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className={`rounded-xl border p-3 ${chip}`}>
@@ -973,26 +1009,35 @@ function LeagueHub({
         </div>
 
         <div className={`rounded-xl border p-3 ${chip}`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages played</p>
-          {advantages.length > 0 ? (
-            <ul className="mt-2 space-y-1.5">
-              {advantages.map((e) => (
-                <li key={e.user_id} className="flex items-center gap-2 text-sm">
-                  <DoubleBadge size={22} title={ADV_LABELS[e.advantage_type ?? ''] ?? 'Advantage'} />
-                  <span className="min-w-0 flex-1 truncate">
-                    <span className="font-medium">{e.display_name}</span>
-                    <span className={sub}>
-                      {' · '}
-                      {ADV_LABELS[e.advantage_type ?? ''] ?? e.advantage_type}
-                      {e.advantage_target ? ` on ${e.advantage_target.name}` : ''}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={`mt-2 text-sm ${sub}`}>None played this episode.</p>
-          )}
+          <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
+          <dl className="mt-2 space-y-3">
+            <div className="flex items-center gap-2">
+              <DoubleBadge size={22} title="Double Ballot Points" />
+              <dt className="min-w-0 flex-1 truncate text-sm">Double Ballot</dt>
+              <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
+            </div>
+            {topRosterDoubles.length > 0 ? (
+              topRosterDoubles.map(({ survivor, n }) => (
+                <div key={survivor.contestant_id} className="flex items-center gap-2">
+                  <DoubleBadge size={22} title="Double Roster Points" />
+                  <ContestantAvatar
+                    name={survivor.name}
+                    imageUrl={survivor.image_url}
+                    tribeColor={survivor.tribe_color}
+                    tribeName={survivor.tribe_name}
+                    size="sm"
+                  />
+                  <dt className="min-w-0 flex-1 truncate text-sm font-medium">{survivor.name}</dt>
+                  <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{n}</dd>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-2">
+                <DoubleBadge size={22} title="Double Roster Points" />
+                <dt className={`flex-1 text-sm ${sub}`}>No roster doubles</dt>
+              </div>
+            )}
+          </dl>
         </div>
       </div>
 
@@ -1008,26 +1053,55 @@ function LeagueHub({
                     {entry.display_name}
                     {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
                   </span>
-                  {entry.advantage_type && (
-                    <DoubleBadge size={20} title={ADV_LABELS[entry.advantage_type] ?? 'Advantage'} />
-                  )}
-                  <span className={`shrink-0 text-xs ${sub}`}>
-                    {entry.ballot.length} {entry.ballot.length === 1 ? 'vote' : 'votes'}
-                  </span>
+                  {/* No idol here: everyone plays an advantage, so a "they
+                      played one" mark is redundant. The ×2 inside marks WHERE. */}
                   <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 transition-transform group-open:rotate-180 ${sub}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </summary>
                 <div className="grid gap-3 px-3 pb-3">
-                  <HubCastawayRow label="Ballot" survivors={entry.ballot} sub={sub} empty="No ballot submitted." />
-                  <HubCastawayRow label="Roster" survivors={entry.roster} sub={sub} empty="No active roster." />
+                  {/* The play lands where it applies: a ballot double on the
+                      whole ballot, a roster double on its target castaway. */}
+                  <HubCastawayRow
+                    label="Ballot"
+                    survivors={entry.ballot}
+                    sub={sub}
+                    empty="No ballot submitted."
+                    doubled={entry.advantage_type === 'double_vote_points'}
+                  />
+                  <HubCastawayRow
+                    label="Roster"
+                    survivors={entry.roster}
+                    sub={sub}
+                    empty="No active roster."
+                    doubledContestantId={
+                      entry.advantage_type === 'double_roster_points'
+                        ? (entry.advantage_target?.contestant_id ?? null)
+                        : null
+                    }
+                  />
                 </div>
               </details>
             </li>
           )
         })}
       </ul>
-    </div>
+    </>,
+  )
+}
+
+/** A compact ×2 mark for where an advantage was played — legible where the
+ *  carved idol turns to mush at small sizes (#490). */
+function Times2({ title }: { title: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={title}
+      title={title}
+      className="inline-flex shrink-0 items-center rounded bg-gold-400 px-1 text-[10px] font-bold leading-tight tabular-nums text-forest-950"
+    >
+      ×2
+    </span>
   )
 }
 
@@ -1036,15 +1110,24 @@ function HubCastawayRow({
   survivors,
   sub,
   empty,
+  doubled = false,
+  doubledContestantId = null,
 }: {
   label: string
   survivors: StandingSurvivor[]
   sub: string
   empty: string
+  /** Whole-row double (a doubled ballot): ×2 next to the label. */
+  doubled?: boolean
+  /** Single-target double (roster points): ×2 on this castaway's chip. */
+  doubledContestantId?: string | null
 }) {
   return (
     <div>
-      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+      <div className="flex items-center gap-1.5">
+        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+        {doubled && <Times2 title="Double Ballot Points this episode" />}
+      </div>
       {survivors.length > 0 ? (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
           {survivors.map((s) => (
@@ -1057,6 +1140,9 @@ function HubCastawayRow({
                 size="sm"
               />
               <span className="max-w-[7rem] truncate">{s.name}</span>
+              {s.contestant_id === doubledContestantId && (
+                <Times2 title="Double Roster Points this episode" />
+              )}
             </li>
           ))}
         </ul>
