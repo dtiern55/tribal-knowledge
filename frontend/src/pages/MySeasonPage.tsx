@@ -748,6 +748,7 @@ function LockedState({
   const broadcast = isBroadcastWindow(episode)
 
   return (
+    <>
     <section
       aria-labelledby="locked-state-title"
       data-variant={broadcast ? 'broadcast' : 'delayed'}
@@ -870,13 +871,20 @@ function LockedState({
             Results appear here after Episode {episode.episode_number} is scored.
           </p>
         </div>
-
-        {/* The league's locked table — everyone's choices open at once when the
-            episode locks (#490), so this is the watch-along Hub, not a leak. */}
-        <div className="tribal-border tribal-border--dim" aria-hidden="true" />
-        <LeagueHub episodeId={episode.id} userId={userId} broadcast={broadcast} />
       </div>
     </section>
+
+      {/* The league's locked table lives in its own card, one clear step
+          removed from your personal roster/ballot above (#490). Everyone's
+          choices open at once when the episode locks, so this is the
+          watch-along Hub, not a leak. */}
+      <LeagueHub
+        episodeId={episode.id}
+        episodeNumber={episode.episode_number}
+        userId={userId}
+        broadcast={broadcast}
+      />
+    </>
   )
 }
 
@@ -887,10 +895,12 @@ function LockedState({
  */
 function LeagueHub({
   episodeId,
+  episodeNumber,
   userId,
   broadcast,
 }: {
   episodeId: string
+  episodeNumber: number
   userId: string
   broadcast: boolean
 }) {
@@ -908,21 +918,32 @@ function LeagueHub({
     }
   }, [episodeId])
 
-  const heading = (
-    <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-      The League
-    </h3>
+  // Its own card, deliberately lighter than the personal one above so the two
+  // read as separate panels — your locked decisions vs. the league's.
+  const card = broadcast
+    ? 'border-forest-800/70 bg-forest-950/40 text-cream-100'
+    : 'border-cream-200 bg-cream-50 text-gray-900'
+  const shell = (children: React.ReactNode) => (
+    <section
+      aria-labelledby="league-hub-title"
+      className={`mt-4 overflow-hidden rounded-2xl border p-5 shadow-sm sm:p-6 ${card}`}
+    >
+      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
+        Episode {episodeNumber} · the field
+      </p>
+      <h2 id="league-hub-title" className="mt-1 font-display text-2xl tracking-wide">
+        The League
+      </h2>
+      {children}
+    </section>
   )
 
   // Non-blocking: the Hub is a nice-to-have on top of your own locked card, so
   // a load failure or empty field just hides it rather than erroring the page.
   if (failed || (entries && entries.length === 0)) return null
   if (entries == null) {
-    return (
-      <div>
-        {heading}
-        <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>
-      </div>
+    return shell(
+      <p className={`mt-3 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>,
     )
   }
 
@@ -952,12 +973,12 @@ function LeagueHub({
   const topRosterDoubles = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n).slice(0, 4)
 
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
-  const chip = broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'
+  // White tiles pop against the card's cream tint (the personal card does the
+  // reverse — cream tiles on white — so the two panels stay distinct).
+  const chip = broadcast ? 'border-white/15 bg-black/20' : 'border-cream-200 bg-white'
 
-  return (
-    <div>
-      {heading}
-
+  return shell(
+    <>
       {/* Quick episode stats. */}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className={`rounded-xl border p-3 ${chip}`}>
@@ -1063,7 +1084,7 @@ function LeagueHub({
           )
         })}
       </ul>
-    </div>
+    </>,
   )
 }
 
