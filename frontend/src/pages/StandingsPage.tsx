@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { ContestantAvatar } from '../components/ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -182,7 +182,7 @@ export function StandingsPage() {
                           {entry.recently_eliminated_survivors.map((survivor) => (
                             <span
                               key={survivor.contestant_id}
-                              className="rounded-full grayscale opacity-70"
+                              className={`rounded-full ${ELIMINATED_DIM}`}
                               title={`Eliminated ep ${survivor.eliminated_episode}`}
                             >
                               <ContestantAvatar

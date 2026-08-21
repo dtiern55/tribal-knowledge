@@ -6,7 +6,7 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
-import { ContestantAvatar } from '../components/ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
@@ -2230,7 +2230,7 @@ function RosterSection({
                       {/* Grey + crossed off, matching Cast/Standings/recap
                           (#457) — no torch. */}
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="shrink-0 grayscale opacity-70">
+                        <span className={`shrink-0 ${ELIMINATED_DIM}`}>
                           <ContestantAvatar
                             name={c?.name ?? '—'}
                             imageUrl={c?.image_url ?? null}

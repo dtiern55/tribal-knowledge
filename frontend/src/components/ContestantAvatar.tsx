@@ -1,5 +1,13 @@
 import type { CSSProperties } from 'react'
 
+/**
+ * The one eliminated-castaway treatment (#369): a voted-out contestant's
+ * photo/portrait is desaturated and dimmed. Wrap an avatar or portrait in a
+ * span carrying this class instead of hand-picking an opacity per surface —
+ * it drifted to 0.6/0.7/0.8 across pages before this was shared.
+ */
+export const ELIMINATED_DIM = 'grayscale opacity-70'
+
 function initials(name: string): string {
   return name
     .split(/\s+/)

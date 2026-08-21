@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ContestantPortrait } from '../components/ContestantPortrait'
+import { ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
 import { PageLoader } from '../components/PageLoader'
@@ -142,8 +143,15 @@ export function ContestantPage() {
       </div>
 
       <header className="grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border border-paper-edge record-paper shadow-sm sm:mx-0">
-          <ContestantPortrait name={perf.name} imageUrl={perf.image_url} className={eliminated ? 'grayscale opacity-80' : ''} />
+        {/* The mount frame carries the tribe color, the portrait's counterpart
+            to the tribe-color ring on avatars elsewhere (#369/#212). Eliminated
+            castaways fall back to the neutral paper edge — a vivid frame around
+            a greyed-out photo reads wrong. */}
+        <div
+          className="mx-auto w-full max-w-60 overflow-hidden rounded-2xl border-2 border-paper-edge record-paper shadow-sm sm:mx-0"
+          style={{ borderColor: !eliminated && perf.tribe_color ? perf.tribe_color : undefined }}
+        >
+          <ContestantPortrait name={perf.name} imageUrl={perf.image_url} className={eliminated ? ELIMINATED_DIM : ''} />
         </div>
         <div className="min-w-0">
           {showStatus && (

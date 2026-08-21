@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { ContestantAvatar } from '../components/ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -54,7 +54,7 @@ export function CastPage() {
                   }`}
                 >
                   <span className="flex min-w-0 items-center gap-3">
-                    <span className={eliminated ? 'grayscale opacity-70' : undefined}>
+                    <span className={eliminated ? ELIMINATED_DIM : undefined}>
                       <ContestantAvatar
                         name={member.name}
                         imageUrl={member.image_url}
@@ -63,17 +63,11 @@ export function CastPage() {
                       />
                     </span>
                     <span className="min-w-0">
-                      <span className="flex min-w-0 items-center gap-2">
-                        {member.tribe_color && (
-                          <span
-                            className="tribe-marker"
-                            style={{ backgroundColor: member.tribe_color }}
-                            aria-hidden="true"
-                          />
-                        )}
-                        <span className={`truncate font-display text-lg font-semibold ${eliminated ? 'line-through decoration-stone-300' : ''}`}>
-                          {member.name}
-                        </span>
+                      {/* No tribe dot here: the avatar's tribe-color ring already
+                          carries the color, and the tribe name is printed below.
+                          The dot is reserved for labeling a tribe by name (#369). */}
+                      <span className={`block truncate font-display text-lg font-semibold ${eliminated ? 'line-through decoration-stone-300' : ''}`}>
+                        {member.name}
                       </span>
                       <span className="block text-[11px] uppercase tracking-wide text-stone-400">
                         {member.tribe_name ?? 'No tribe'}
