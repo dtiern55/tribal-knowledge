@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
-import { ContestantAvatar, ELIMINATED_DIM } from './ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
 
 /**
@@ -129,7 +129,7 @@ export function RosterCard({
         <span className="flex items-center gap-2">
           <span
             className={`min-w-0 truncate font-display text-base tracking-wide uppercase ${
-              outEp != null ? 'text-paper-ink-faded line-through decoration-1' : 'text-paper-ink'
+              outEp != null ? `text-paper-ink-faded ${ELIMINATED_STRIKE}` : 'text-paper-ink'
             }`}
           >
             {contestant?.name ?? '—'}

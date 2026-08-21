@@ -6,7 +6,7 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
-import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
@@ -2239,7 +2239,7 @@ function RosterSection({
                             size="sm"
                           />
                         </span>
-                        <span className="line-through decoration-stone-300">{c?.name ?? '—'}</span>
+                        <span className={ELIMINATED_STRIKE}>{c?.name ?? '—'}</span>
                       </span>
                       <span className="text-xs flex items-center gap-2">
                         <Points value={rosterPoints.get(pick.contestant_id)} />
@@ -2293,7 +2293,7 @@ function RosterSection({
                   ].join(' ')}
                 >
                   <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                  <span className={isOut ? 'line-through' : ''}>{c.name}</span>
+                  <span className={isOut ? ELIMINATED_STRIKE : ''}>{c.name}</span>
                   {isOut && (
                     <span className="ml-auto text-[11px] uppercase tracking-wide text-terracotta-500">
                       out

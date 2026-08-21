@@ -8,6 +8,15 @@ import type { CSSProperties } from 'react'
  */
 export const ELIMINATED_DIM = 'grayscale opacity-70'
 
+/**
+ * The companion strike for a voted-out castaway's NAME (#369). Struck in the
+ * current text color at low opacity so it stays subtle on any surface — the
+ * decoration color had drifted per-page (stone / white / cream / paper) to
+ * chase each background. Pair with the surface's own text color, not a fixed
+ * one. (Avatars use {@link ELIMINATED_DIM}; this is for the name text.)
+ */
+export const ELIMINATED_STRIKE = 'line-through decoration-current/40'
+
 function initials(name: string): string {
   return name
     .split(/\s+/)
