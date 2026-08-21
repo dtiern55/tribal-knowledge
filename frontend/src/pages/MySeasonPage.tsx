@@ -949,7 +949,7 @@ function LeagueHub({
       else rosterDoubleCount.set(e.advantage_target.contestant_id, { survivor: e.advantage_target, n: 1 })
     }
   }
-  const topRosterDouble = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n)[0]
+  const topRosterDoubles = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n).slice(0, 4)
 
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
   const chip = broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'
@@ -993,24 +993,27 @@ function LeagueHub({
               <dt className="min-w-0 flex-1 truncate text-sm">Double Ballot</dt>
               <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
             </div>
-            <div className="flex items-center gap-2">
-              <DoubleBadge size={22} title="Double Roster Points" />
-              {topRosterDouble ? (
-                <>
+            {topRosterDoubles.length > 0 ? (
+              topRosterDoubles.map(({ survivor, n }) => (
+                <div key={survivor.contestant_id} className="flex items-center gap-2">
+                  <DoubleBadge size={22} title="Double Roster Points" />
                   <ContestantAvatar
-                    name={topRosterDouble.survivor.name}
-                    imageUrl={topRosterDouble.survivor.image_url}
-                    tribeColor={topRosterDouble.survivor.tribe_color}
-                    tribeName={topRosterDouble.survivor.tribe_name}
+                    name={survivor.name}
+                    imageUrl={survivor.image_url}
+                    tribeColor={survivor.tribe_color}
+                    tribeName={survivor.tribe_name}
                     size="sm"
                   />
-                  <dt className="min-w-0 flex-1 truncate text-sm font-medium">{topRosterDouble.survivor.name}</dt>
-                  <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{topRosterDouble.n}</dd>
-                </>
-              ) : (
+                  <dt className="min-w-0 flex-1 truncate text-sm font-medium">{survivor.name}</dt>
+                  <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{n}</dd>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-2">
+                <DoubleBadge size={22} title="Double Roster Points" />
                 <dt className={`flex-1 text-sm ${sub}`}>No roster doubles</dt>
-              )}
-            </div>
+              </div>
+            )}
           </dl>
         </div>
       </div>
