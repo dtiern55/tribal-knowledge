@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
-import { ContestantAvatar, ELIMINATED_DIM } from './ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 
 /** Compact signed score used all over the card — no "pts" noise (#477). */
 function signed(value: number) {
@@ -127,7 +127,7 @@ export function EpisodeResultReveal({
                         size="sm"
                       />
                     </span>
-                    <span className="truncate line-through decoration-white/40">{castaway.name}</span>
+                    <span className={`truncate ${ELIMINATED_STRIKE}`}>{castaway.name}</span>
                   </li>
                 ))}
               </ul>
@@ -405,7 +405,7 @@ function ResultRow({
         </span>
         <span
           className={`min-w-0 flex-1 truncate text-sm font-medium ${
-            eliminated ? 'text-cream-100/45 line-through decoration-cream-100/30' : 'text-cream-100'
+            eliminated ? `text-cream-100/45 ${ELIMINATED_STRIKE}` : 'text-cream-100'
           }`}
         >
           {name}

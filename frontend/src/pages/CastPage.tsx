@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -66,7 +66,7 @@ export function CastPage() {
                       {/* No tribe dot here: the avatar's tribe-color ring already
                           carries the color, and the tribe name is printed below.
                           The dot is reserved for labeling a tribe by name (#369). */}
-                      <span className={`block truncate font-display text-lg font-semibold ${eliminated ? 'line-through decoration-stone-300' : ''}`}>
+                      <span className={`block truncate font-display text-lg font-semibold ${eliminated ? ELIMINATED_STRIKE : ''}`}>
                         {member.name}
                       </span>
                       <span className="block text-[11px] uppercase tracking-wide text-stone-400">
