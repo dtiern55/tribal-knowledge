@@ -35,6 +35,19 @@ The read file (scripts/bot_reads/season_<n>.json) is the commissioner's input:
       "finale": { "winner": [...], "early_boot": [...], "fire_loss": [...] }
     }
 
+likely_boots is either a plain name list (rank order — bots cluster on the
+front) or a weighted list of [name, weight] pairs when you want to pin the
+vote split directly:
+
+    "likely_boots": [["Lyrsa Torres", 14], ["Kara Kay", 12],
+                     ["Angelina Keeley", 6], ["Gabby Pascuzzi", 5],
+                     ["Alison Raybould", 5]]
+
+Weights apportion the non-contrarian pick slots (Hamilton method), so the
+tally tracks the split instead of collapsing onto the top name — a plain rank
+sort is convex and can't hold a steep-top/flat-tail shape. Weight every boot
+or none within an episode. Contrarians stay off-consensus regardless.
+
 Names are matched loosely (case and punctuation insensitive) against the
 season's contestants; anything unrecognised is reported rather than ignored.
 
@@ -121,6 +134,20 @@ def biased_order(items: list, spread: float, *seed) -> list:
         u = max(rng(*seed, it), 1e-9)
         keyed.append((i / max(spread, 0.01) - math.log(u), it))
     return [it for _, it in sorted(keyed, key=lambda kv: kv[0])]
+
+
+def largest_remainder(weights: list[float], total: int) -> list[int]:
+    """Apportion `total` integer slots across weights (Hamilton method)."""
+    s = sum(weights)
+    if s <= 0 or total <= 0:
+        return [0] * len(weights)
+    raw = [w / s * total for w in weights]
+    out = [int(x) for x in raw]
+    for i in sorted(range(len(weights)), key=lambda i: raw[i] - out[i], reverse=True)[
+        : total - sum(out)
+    ]:
+        out[i] += 1
+    return out
 
 
 def db():
@@ -458,7 +485,18 @@ def week(cur, episode_n: int):
             " bots only act on the episode that accepts picks"
         )
 
-    boots = resolve(cur, sid, ep_read.get("likely_boots", []), "likely_boots")
+    # likely_boots is either a plain name list (rank order) or a weighted list
+    # of [name, weight] pairs. Weights give the commissioner direct control of
+    # the vote split — a rank-penalty sort alone is convex and can't hold a
+    # steep-top/flat-tail shape (e.g. 14/12/6/5/5). All-or-nothing per episode.
+    raw_boots = ep_read.get("likely_boots", [])
+    paired = [isinstance(e, (list, tuple)) for e in raw_boots]
+    if any(paired) and not all(paired):
+        sys.exit("likely_boots: weight every boot as [name, weight], or none")
+    weighted = bool(raw_boots) and all(paired)
+    boot_names = [e[0] if w else e for e, w in zip(raw_boots, paired)]
+    boot_weights = [float(e[1]) if w else None for e, w in zip(raw_boots, paired)]
+    boots = resolve(cur, sid, boot_names, "likely_boots")
     targets = set(
         resolve(cur, sid, ep_read.get("double_targets", []), "double_targets")
     )
@@ -471,7 +509,11 @@ def week(cur, episode_n: int):
     # nobody wants them.
     shunned = set(resolve(cur, sid, read.get("avoid", []), "avoid"))
     alive = alive_ids(cur, sid)
-    boots = [c for c in boots if c in alive and c not in safe]
+    live_pairs = [
+        (c, w) for c, w in zip(boots, boot_weights) if c in alive and c not in safe
+    ]
+    boots = [c for c, _ in live_pairs]
+    boot_weights = [w for _, w in live_pairs]
     others = [c for c in alive if c not in boots and c not in safe]
     # How sure the room is about the boot — stated, not inferred. Deriving it
     # from len(likely_boots) conflated "how many people could go" with "how
@@ -504,7 +546,22 @@ def week(cur, episode_n: int):
     # roster_swap counts PAID swaps now, not advantage plays (#404).
     tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
 
-    for bot in load_bots(cur):
+    bot_rows = load_bots(cur)
+    # Weighted mode: cap each boot's non-contrarian picks to its apportioned
+    # share, so the read's vote split holds instead of collapsing onto the top
+    # name. Contrarians stay off-consensus and uncapped. dbl_used spreads the
+    # double-roster plays across targets rather than piling on the most-rostered.
+    caps = None
+    if weighted:
+        nonc = sum(
+            1
+            for b in bot_rows
+            if (by_name.get(b["display_name"]) or {}).get("style") != "contrarian"
+        )
+        caps = dict(zip(boots, largest_remainder(boot_weights, max_picks * nonc)))
+    dbl_used: dict[str, int] = {}
+
+    for bot in bot_rows:
         a = by_name.get(bot["display_name"])
         if not a:
             continue
@@ -553,11 +610,27 @@ def week(cur, episode_n: int):
                 # names only if there's room left
                 order = biased_order(others, a["spread"], uid, episode_n, "pick")
                 order += biased_order(boots, a["spread"], uid, episode_n, "pick2")
+                chosen = order[:max_picks]
+            elif caps is not None:
+                # weighted: draw only from boots with capacity left, so the
+                # commissioner's split holds; overflow to the field if the caps
+                # empty before this bot is served.
+                avail = [c for c in boots if caps.get(c, 0) > 0]
+                chosen = biased_order(avail, a["spread"], uid, episode_n, "pick")[
+                    :max_picks
+                ]
+                if len(chosen) < max_picks:
+                    chosen += biased_order(others, a["spread"], uid, episode_n, "fill")[
+                        : max_picks - len(chosen)
+                    ]
+                for c in chosen:
+                    if c in caps:
+                        caps[c] -= 1
             else:
-                order = biased_order(
+                chosen = biased_order(
                     boots + others, a["spread"], uid, episode_n, "pick"
-                )
-            for cid in order[:max_picks]:
+                )[:max_picks]
+            for cid in chosen:
                 cur.execute(
                     "insert into elimination_picks (user_id, episode_id, contestant_id)"
                     " values (%s,%s,%s)",
@@ -607,7 +680,17 @@ def week(cur, episode_n: int):
                 if not pool:
                     choice, target = "double_vote_points", None
                 else:
-                    target = biased_order(pool, a["spread"], uid, episode_n, "dbl")[0]
+                    # Spread doubles across targets: back the one this bot holds
+                    # that the league has doubled least so far. Plain biased_order
+                    # piled every bot onto the most-rostered name (#draft star).
+                    target = min(
+                        pool,
+                        key=lambda c: (
+                            dbl_used.get(c, 0),
+                            rng(uid, episode_n, "dbl", c),
+                        ),
+                    )
+                    dbl_used[target] = dbl_used.get(target, 0) + 1
             cur.execute(
                 """insert into advantage_plays
                 (user_id, season_id, episode_id, advantage_type,
