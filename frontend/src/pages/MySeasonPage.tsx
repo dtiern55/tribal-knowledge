@@ -754,7 +754,7 @@ function LockedState({
       data-variant={broadcast ? 'broadcast' : 'delayed'}
       className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
         broadcast
-          ? 'border-forest-800 bg-[radial-gradient(circle_at_top_right,rgba(196,84,50,0.18),transparent_35%),linear-gradient(to_bottom,#132e25,#0e1f19)] text-cream-100 shadow-xl'
+          ? 'border-white/15 bg-[radial-gradient(circle_at_top_right,rgba(196,84,50,0.18),transparent_35%),linear-gradient(to_bottom,#132e25,#0e1f19)] text-cream-100 shadow-xl ring-1 ring-black/40'
           : 'border-cream-200 bg-white text-gray-900 shadow-sm'
       }`}
     >
@@ -919,14 +919,16 @@ function LeagueHub({
   }, [episodeId])
 
   // Its own card, deliberately lighter than the personal one above so the two
-  // read as separate panels — your locked decisions vs. the league's.
+  // read as separate panels — your locked decisions vs. the league's. On the
+  // dark broadcast page a light hairline + elevation is what makes the card's
+  // edges legible; dark-on-dark borders disappear.
   const card = broadcast
-    ? 'border-forest-800/70 bg-forest-950/40 text-cream-100'
-    : 'border-cream-200 bg-cream-50 text-gray-900'
+    ? 'border-white/15 bg-white/[0.045] text-cream-100 shadow-xl ring-1 ring-black/40'
+    : 'border-cream-200 bg-cream-50 text-gray-900 shadow-sm'
   const shell = (children: React.ReactNode) => (
     <section
       aria-labelledby="league-hub-title"
-      className={`mt-4 overflow-hidden rounded-2xl border p-5 shadow-sm sm:p-6 ${card}`}
+      className={`mt-5 overflow-hidden rounded-2xl border p-5 sm:p-6 ${card}`}
     >
       <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
         Episode {episodeNumber} · the field
@@ -973,9 +975,9 @@ function LeagueHub({
   const topRosterDoubles = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n).slice(0, 4)
 
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
-  // White tiles pop against the card's cream tint (the personal card does the
-  // reverse — cream tiles on white — so the two panels stay distinct).
-  const chip = broadcast ? 'border-white/15 bg-black/20' : 'border-cream-200 bg-white'
+  // Tiles sit a step lighter than the card so their edges read: white on the
+  // cream card (delayed), a brighter frost on the faint panel (broadcast).
+  const chip = broadcast ? 'border-white/15 bg-white/[0.07]' : 'border-cream-200 bg-white'
 
   return shell(
     <>
