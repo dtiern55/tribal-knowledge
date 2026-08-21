@@ -15,7 +15,7 @@ const base =
 
 /** The stamped "Locked" chip — LockBadge's terminal state, used on its own
  * where the lock is a rule rather than a deadline (advantages, swaps). */
-export function LockedBadge() {
+function LockedBadge() {
   return (
     <span className={`${base} bg-gray-800 text-cream-100`}>
       <LockGlyph /> Locked
