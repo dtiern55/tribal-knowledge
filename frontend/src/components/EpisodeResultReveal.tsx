@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
-import { ContestantAvatar } from './ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM } from './ContestantAvatar'
 
 /** Compact signed score used all over the card — no "pts" noise (#477). */
 function signed(value: number) {
@@ -400,7 +400,7 @@ function ResultRow({
         {/* Voted out reads the way Cast/Standings show it (#457): grey avatar,
             name crossed off. The point sources stay behind the chevron so a big
             scorer never blows the row up (#477). */}
-        <span className={eliminated ? 'grayscale opacity-60' : undefined}>
+        <span className={eliminated ? ELIMINATED_DIM : undefined}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
         </span>
         <span

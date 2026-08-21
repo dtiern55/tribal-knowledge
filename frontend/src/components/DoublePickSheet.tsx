@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { ContestantAvatar } from './ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM } from './ContestantAvatar'
 
 export interface DoublePickCandidate {
   contestantId: string
@@ -87,7 +87,7 @@ export function DoublePickSheet({
                 onClick={() => onPick(c.contestantId)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-forest-50 focus-visible:bg-forest-50 disabled:opacity-50"
               >
-                <span className={`shrink-0 ${c.eliminated ? 'opacity-60 grayscale' : ''}`}>
+                <span className={`shrink-0 ${c.eliminated ? ELIMINATED_DIM : ''}`}>
                   <ContestantAvatar
                     name={c.name}
                     imageUrl={c.imageUrl}

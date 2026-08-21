@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
-import { ContestantAvatar } from './ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_DIM } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
 
 /**
@@ -115,7 +115,7 @@ export function RosterCard({
   const inner = (
     <>
       <span
-        className={`shrink-0 ${outEp != null ? 'opacity-60 grayscale' : ''}`}
+        className={`shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`}
         title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
       >
         <ContestantAvatar
