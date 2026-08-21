@@ -935,8 +935,21 @@ function LeagueHub({
       else voteCount.set(vote.contestant_id, { survivor: vote, n: 1 })
     }
   }
-  const topBoots = [...voteCount.values()].sort((a, b) => b.n - a.n).slice(0, 3)
-  const advantages = entries.filter((e) => e.advantage_type)
+  const topBoots = [...voteCount.values()].sort((a, b) => b.n - a.n).slice(0, 5)
+
+  // Advantage aggregates. Doubles are the only playable advantage now (#307),
+  // so we track just the two: how many doubled their ballot, and which
+  // castaway drew the most Double Roster Points.
+  const doubleBallots = entries.filter((e) => e.advantage_type === 'double_vote_points').length
+  const rosterDoubleCount = new Map<string, { survivor: StandingSurvivor; n: number }>()
+  for (const e of entries) {
+    if (e.advantage_type === 'double_roster_points' && e.advantage_target) {
+      const seen = rosterDoubleCount.get(e.advantage_target.contestant_id)
+      if (seen) seen.n += 1
+      else rosterDoubleCount.set(e.advantage_target.contestant_id, { survivor: e.advantage_target, n: 1 })
+    }
+  }
+  const topRosterDouble = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n)[0]
 
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
   const chip = broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'
@@ -973,26 +986,32 @@ function LeagueHub({
         </div>
 
         <div className={`rounded-xl border p-3 ${chip}`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages played</p>
-          {advantages.length > 0 ? (
-            <ul className="mt-2 space-y-1.5">
-              {advantages.map((e) => (
-                <li key={e.user_id} className="flex items-center gap-2 text-sm">
-                  <DoubleBadge size={22} title={ADV_LABELS[e.advantage_type ?? ''] ?? 'Advantage'} />
-                  <span className="min-w-0 flex-1 truncate">
-                    <span className="font-medium">{e.display_name}</span>
-                    <span className={sub}>
-                      {' · '}
-                      {ADV_LABELS[e.advantage_type ?? ''] ?? e.advantage_type}
-                      {e.advantage_target ? ` on ${e.advantage_target.name}` : ''}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={`mt-2 text-sm ${sub}`}>None played this episode.</p>
-          )}
+          <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
+          <dl className="mt-2 space-y-3">
+            <div className="flex items-center gap-2">
+              <DoubleBadge size={22} title="Double Ballot Points" />
+              <dt className="min-w-0 flex-1 truncate text-sm">Double Ballot</dt>
+              <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <DoubleBadge size={22} title="Double Roster Points" />
+              {topRosterDouble ? (
+                <>
+                  <ContestantAvatar
+                    name={topRosterDouble.survivor.name}
+                    imageUrl={topRosterDouble.survivor.image_url}
+                    tribeColor={topRosterDouble.survivor.tribe_color}
+                    tribeName={topRosterDouble.survivor.tribe_name}
+                    size="sm"
+                  />
+                  <dt className="min-w-0 flex-1 truncate text-sm font-medium">{topRosterDouble.survivor.name}</dt>
+                  <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{topRosterDouble.n}</dd>
+                </>
+              ) : (
+                <dt className={`flex-1 text-sm ${sub}`}>No roster doubles</dt>
+              )}
+            </div>
+          </dl>
         </div>
       </div>
 
@@ -1011,16 +1030,31 @@ function LeagueHub({
                   {entry.advantage_type && (
                     <DoubleBadge size={20} title={ADV_LABELS[entry.advantage_type] ?? 'Advantage'} />
                   )}
-                  <span className={`shrink-0 text-xs ${sub}`}>
-                    {entry.ballot.length} {entry.ballot.length === 1 ? 'vote' : 'votes'}
-                  </span>
                   <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 transition-transform group-open:rotate-180 ${sub}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </summary>
                 <div className="grid gap-3 px-3 pb-3">
-                  <HubCastawayRow label="Ballot" survivors={entry.ballot} sub={sub} empty="No ballot submitted." />
-                  <HubCastawayRow label="Roster" survivors={entry.roster} sub={sub} empty="No active roster." />
+                  {/* The play lands where it applies: a ballot double on the
+                      whole ballot, a roster double on its target castaway. */}
+                  <HubCastawayRow
+                    label="Ballot"
+                    survivors={entry.ballot}
+                    sub={sub}
+                    empty="No ballot submitted."
+                    doubled={entry.advantage_type === 'double_vote_points'}
+                  />
+                  <HubCastawayRow
+                    label="Roster"
+                    survivors={entry.roster}
+                    sub={sub}
+                    empty="No active roster."
+                    doubledContestantId={
+                      entry.advantage_type === 'double_roster_points'
+                        ? (entry.advantage_target?.contestant_id ?? null)
+                        : null
+                    }
+                  />
                 </div>
               </details>
             </li>
@@ -1036,15 +1070,24 @@ function HubCastawayRow({
   survivors,
   sub,
   empty,
+  doubled = false,
+  doubledContestantId = null,
 }: {
   label: string
   survivors: StandingSurvivor[]
   sub: string
   empty: string
+  /** Whole-row double (a doubled ballot): idol next to the label. */
+  doubled?: boolean
+  /** Single-target double (roster points): idol on this castaway's chip. */
+  doubledContestantId?: string | null
 }) {
   return (
     <div>
-      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+      <div className="flex items-center gap-1.5">
+        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+        {doubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
+      </div>
       {survivors.length > 0 ? (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
           {survivors.map((s) => (
@@ -1057,6 +1100,9 @@ function HubCastawayRow({
                 size="sm"
               />
               <span className="max-w-[7rem] truncate">{s.name}</span>
+              {s.contestant_id === doubledContestantId && (
+                <DoubleBadge size={18} title="Double Roster Points this episode" />
+              )}
             </li>
           ))}
         </ul>
