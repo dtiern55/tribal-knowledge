@@ -379,12 +379,11 @@ describe('MySeasonPage state shell', () => {
     expect(rosterTab).toHaveTextContent('×2')
     expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
 
-    // The advantage collapses to a small idol in the beat bar (#399); its label
-    // names the played double and its tap menu carries the undo.
-    const badge = screen.getByRole('button', { name: /Advantage played.*Roster.*Kenzie/ })
-    expect(badge).toBeVisible()
-    await userEvent.click(badge)
-    expect(screen.getByRole('menuitem', { name: 'Undo' })).toBeVisible()
+    // The prompt collapses to a slim confirmation naming the played double,
+    // with undo, once it's played (#399).
+    const confirmation = screen.getByRole('button', { name: 'Undo' }).closest('div')!
+    expect(confirmation).toHaveTextContent('Advantage played')
+    expect(confirmation).toHaveTextContent('Roster ×2 on Kenzie')
   })
 
   it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
@@ -443,7 +442,7 @@ describe('MySeasonPage state shell', () => {
     expect(rosterTab).toHaveTextContent('×2')
     // The move is optimistic across the board (#487/#399): the bar idol's label
     // names the new target immediately, not only after the delete+post lands.
-    expect(screen.getByRole('button', { name: /Advantage played.*Charlie/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Undo' }).closest('div')).toHaveTextContent('Charlie')
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
@@ -454,7 +453,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
-    expect(screen.getByRole('button', { name: /Advantage played.*Charlie/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Undo' }).closest('div')).toHaveTextContent('Charlie')
   })
 
   it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {
