@@ -8,7 +8,7 @@ import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } fro
 const CONTENTS = [
   ['roster', 'Roster'],
   ['ballot', 'Weekly ballot'],
-  ['weekly-play', 'Weekly play'],
+  ['weekly-play', 'Weekly advantage'],
   ['swaps-locks', 'Swaps and locks'],
   ['scoring', 'Scoring'],
   ['finale', 'Finale'],
@@ -151,7 +151,7 @@ export function RulesPage() {
           <li className="flex gap-3">
             <span className="font-semibold text-forest-700">3.</span>
             <div>
-              <h3 className="font-semibold text-gray-900">{usesTokens ? 'Use an advantage' : 'Choose a weekly play'}</h3>
+              <h3 className="font-semibold text-gray-900">{usesTokens ? 'Use an advantage' : 'Choose a weekly advantage'}</h3>
               <p className="mt-1 text-sm leading-6 text-gray-600">
                 {usesTokens ? 'Spend tokens on an available advantage.' : 'Use one optional advantage on your roster or your ballot.'}
               </p>
@@ -188,7 +188,7 @@ export function RulesPage() {
           {ballotScores.length > 0 && <PredictionList rows={ballotScores} />}
         </RuleSection>
 
-        <RuleSection id="weekly-play" title={usesTokens ? 'Advantages and tokens' : 'Weekly play'}>
+        <RuleSection id="weekly-play" title={usesTokens ? 'Advantages and tokens' : 'Weekly advantage'}>
           {usesTokens ? (
             <div className="space-y-5">
               <p className="text-sm leading-6 text-gray-700">This season uses tokens. Advantage costs and token scoring are listed below.</p>
@@ -199,7 +199,7 @@ export function RulesPage() {
             </div>
           ) : (
             <div className="space-y-4 text-sm leading-6 text-gray-700">
-              <p>You have one optional weekly play for each eligible episode. It does not carry over.</p>
+              <p>You have one optional weekly advantage for each eligible episode. It does not carry over.</p>
               <dl className="divide-y divide-cream-200 border-y border-cream-200">
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Roster Points</dt><dd className="mt-1">Double one active roster member's points for the episode.</dd></div>
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Ballot Points</dt><dd className="mt-1">Double all points earned from your ballot. This does not add a vote.</dd></div>
@@ -221,8 +221,8 @@ export function RulesPage() {
             )}
             <li>A swap takes effect in the open episode and cannot be taken back. The incoming castaway must still be in the game and cannot have been on your roster before.</li>
             <li>Swaps close at {configuredEpisode(swapLock)}. The finale never allows swaps.</li>
-            {!usesTokens && <li>Weekly plays close at {configuredEpisode(season.advantage_lock_episode)}. The finale never allows a weekly play.</li>}
-            <li>At the episode lock, the ballot and weekly play become final. The next episode stays closed until scoring is complete.</li>
+            {!usesTokens && <li>Weekly advantages close at {configuredEpisode(season.advantage_lock_episode)}. The finale never allows a weekly advantage.</li>}
+            <li>At the episode lock, the ballot and weekly advantage become final. The next episode stays closed until scoring is complete.</li>
           </RuleList>
         </RuleSection>
 

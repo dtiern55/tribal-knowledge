@@ -27,4 +27,10 @@ describe('resolveDrop', () => {
     expect(resolveDrop('ballot', 'beat:ballot')).toEqual({ kind: 'none' })
     expect(resolveDrop('ballot', 'cast-9')).toEqual({ kind: 'none' })
   })
+
+  it('spends the unplayed strip idol onto a castaway, the ballot, or the pick sheet', () => {
+    expect(resolveDrop('unplayed', 'cast-3')).toEqual({ kind: 'reassign_roster', target: 'cast-3' })
+    expect(resolveDrop('unplayed', 'beat:ballot')).toEqual({ kind: 'to_ballot' })
+    expect(resolveDrop('unplayed', 'beat:roster')).toEqual({ kind: 'to_roster_picking' })
+  })
 })
