@@ -138,10 +138,14 @@ export function RecordBeats({
   value,
   onChange,
   beats,
+  trailing,
 }: {
   value: BeatKey
   onChange: (key: BeatKey) => void
   beats: Beat[]
+  /** Pinned to the right of the tabs — the weekly advantage idol lives here
+   *  (#399) so it rides the bar's chrome instead of a section of its own. */
+  trailing?: ReactNode
 }) {
   function onKeyDown(e: React.KeyboardEvent) {
     const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
@@ -154,12 +158,12 @@ export function RecordBeats({
   }
 
   return (
-    <div className="border-b border-paper-line">
+    <div className="flex items-stretch border-b border-paper-line">
       <div
         role="tablist"
         aria-label="Season record"
         onKeyDown={onKeyDown}
-        className="flex items-stretch"
+        className="flex flex-1 items-stretch"
       >
         {beats.map((b) => {
           const active = b.key === value
@@ -209,6 +213,7 @@ export function RecordBeats({
           )
         })}
       </div>
+      {trailing}
     </div>
   )
 }

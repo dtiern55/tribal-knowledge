@@ -565,20 +565,26 @@ export function MySeasonPage() {
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
-          <AdvantageStrip
-            season={d.season}
-            episodes={d.episodes}
-            contestants={d.contestants}
-            plays={d.plays}
-            setPlays={d.setPlays}
-            doubleTargets={doubleTargets}
-            onBeatChange={setBeat}
-            onOpenRosterDouble={() => {
-              setPicking('double')
-              setBeat('roster')
-            }}
+          <RecordBeats
+            value={beat}
+            onChange={setBeat}
+            beats={beatsFor(state.episode)}
+            trailing={
+              <AdvantageBarIdol
+                season={d.season}
+                episodes={d.episodes}
+                contestants={d.contestants}
+                plays={d.plays}
+                setPlays={d.setPlays}
+                doubleTargets={doubleTargets}
+                onBeatChange={setBeat}
+                onOpenRosterDouble={() => {
+                  setPicking('double')
+                  setBeat('roster')
+                }}
+              />
+            }
           />
-          <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
 
           <RecordPanel
             beat="roster"
@@ -1158,11 +1164,10 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
-// The persistent Advantage strip (#399): the week's play lives here, above the
-// beats, always visible — the Advantage tab's discoverability and its ✓ without
-// being a tab you might not open. The idle idol is a drag/tap source until it's
-// played; then it rests on its target and the strip collapses to a status.
-function AdvantageStrip({
+// The weekly advantage idol, pinned to the right of the beat bar (#399) so it
+// rides the bar's chrome instead of a section of its own. Unplayed it's a gold,
+// nudging drag/tap source; played it rests small and taps to a status + undo.
+function AdvantageBarIdol({
   season,
   episodes,
   contestants,
@@ -1187,9 +1192,6 @@ function AdvantageStrip({
   const [menuOpen, setMenuOpen] = useState(false)
   const play = weekly.play
 
-  // The idle idol is a drag source only until it's played: drag it onto a
-  // castaway (Roster ×2), the Ballot tab (Ballot ×2), or the Roster tab (open
-  // the pick sheet). Once played it rests on its target, draggable from there.
   const { drag, dragging, start } = useSealDrag({
     disabled: weekly.locked || weekly.busy || play != null,
     canDropOn: (id) => id === 'beat:ballot' || id === 'beat:roster' || doubleTargets.has(id),
@@ -1205,163 +1207,126 @@ function AdvantageStrip({
         void weekly.replace('double_roster_points', action.target)
       }
     },
-    // A tap on the idol (no drag) is the non-drag path — reveal the two plays.
+    // A tap on the idol (no drag) is the non-drag path — reveal its menu.
     onTap: () => setMenuOpen(true),
   })
 
   const episode = weekly.openEpisode
   if (!episode || episode.is_finale) return null
 
+  const locked = weekly.locked
   const rosterDouble = play?.advantage_type === 'double_roster_points'
   const targetName =
     rosterDouble && play?.target_contestant_id
       ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
       : null
+  const close = () => setMenuOpen(false)
 
-  function playBallot() {
-    setMenuOpen(false)
-    onBeatChange('ballot')
-    void weekly.replace('double_vote_points')
-  }
-
-  // ── Played: a set-apart status card with the check the old tab gave, + undo.
-  if (play) {
-    return (
-      <div className="m-3 flex items-center gap-3 rounded-xl border-2 border-jade-200 bg-jade-50/70 px-3.5 py-3 shadow-sm">
-        <span className="shrink-0 rotate-[9deg]" aria-hidden="true">
-          <DoubleBadge size={34} title="Your advantage" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-[0.66rem] font-bold uppercase tracking-wide text-jade-700">
-            Your advantage · played
-          </p>
-          <p className="font-display text-lg font-bold leading-tight text-paper-ink">
-            {rosterDouble ? 'Roster ×2' : 'Ballot ×2'}
-            {targetName && <span> · {targetName}</span>}
-          </p>
-          {weekly.error && <p className="text-xs text-terracotta-600">{weekly.error}</p>}
-        </div>
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 16 16"
-          className="h-6 w-6 shrink-0 text-jade-600"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+  return (
+    <div className="relative flex items-center px-1.5" onKeyDown={(e) => e.key === 'Escape' && close()}>
+      <SealGhost drag={drag} />
+      {play ? (
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          disabled={weekly.busy}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={`Advantage played — ${rosterDouble ? 'Roster' : 'Ballot'} double${targetName ? ` on ${targetName}` : ''}`}
+          className="inline-flex rotate-[9deg] rounded-full outline-none focus-visible:ring-2 focus-visible:ring-jade-500 disabled:opacity-40"
         >
-          <path d="m3 8.5 3 3 7-8" />
-        </svg>
-        {!weekly.locked && (
+          <DoubleBadge size={26} title="Advantage played" />
+        </button>
+      ) : locked ? (
+        <span className="inline-flex opacity-40 grayscale" role="img" aria-label="Advantage not played">
+          <DoubleBadge size={26} title="Advantage not played" />
+        </span>
+      ) : (
+        <button
+          type="button"
+          onPointerDown={start}
+          onClick={(e) => {
+            // Keyboard activation only (detail 0); pointer taps come through the
+            // drag's onTap so the menu doesn't double-toggle.
+            if (e.detail === 0) setMenuOpen((o) => !o)
+          }}
+          disabled={weekly.busy}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label="Play your advantage — drag onto a castaway or your ballot, or activate to choose"
+          style={{ opacity: dragging ? 0.3 : 1 }}
+          className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta-500 active:cursor-grabbing disabled:opacity-40"
+        >
+          <DoubleBadge size={30} title="Your advantage — play it" />
+        </button>
+      )}
+      {menuOpen && (
+        <>
           <button
             type="button"
-            onClick={() => void weekly.takeBack(play)}
-            disabled={weekly.busy}
-            className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
-          >
-            Undo
-          </button>
-        )}
-      </div>
-    )
-  }
-
-  // ── Unplayed: prompt on the left, the loud idol on the right. It's the drag
-  // handle and — tapped or keyboard-activated — the two-play menu (#399).
-  const locked = weekly.locked
-  return (
-    <>
-      <SealGhost drag={drag} />
-      <div
-        className={`m-3 flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 shadow-sm ${
-          locked
-            ? 'border-stone-200 bg-stone-50'
-            : 'border-terracotta-300 bg-gradient-to-r from-terracotta-50 to-gold-50'
-        }`}
-      >
-        <div className="min-w-0 flex-1">
-          <p
-            className={`font-display text-[0.66rem] font-bold uppercase tracking-wide ${
-              locked ? 'text-stone-500' : 'text-terracotta-700'
-            }`}
-          >
-            Your advantage · {locked ? 'not played' : 'unplayed'}
-          </p>
-          <p className="font-display text-lg font-bold leading-tight text-paper-ink">
-            {locked ? 'Not played this episode' : `Play your Episode ${episode.episode_number} double`}
-          </p>
-          {!locked && (
-            <p className="text-xs text-paper-ink-faded">
-              Drag the idol onto a castaway or your ballot
-            </p>
-          )}
-          {weekly.error && <p className="text-xs text-terracotta-600">{weekly.error}</p>}
-        </div>
-        {!locked && (
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={close}
+            className="fixed inset-0 z-10 cursor-default"
+          />
           <div
-            className="relative shrink-0"
-            onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
+            role="menu"
+            className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white shadow-lg"
           >
-            <button
-              type="button"
-              onPointerDown={start}
-              onClick={(e) => {
-                // Keyboard activation only (detail 0); pointer taps come through
-                // the drag's onTap, so the menu doesn't double-toggle.
-                if (e.detail === 0) setMenuOpen((o) => !o)
-              }}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="Play your advantage — drag onto a castaway or your ballot, or activate to choose"
-              disabled={weekly.busy}
-              style={{ opacity: dragging ? 0.3 : 1 }}
-              className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta-500 active:cursor-grabbing disabled:opacity-40"
-            >
-              <DoubleBadge size={54} title="Your advantage — play it" />
-            </button>
-            {menuOpen && (
+            {play ? (
+              <>
+                <p className="border-b border-paper-line px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-jade-700">
+                  {rosterDouble ? 'Roster ×2' : 'Ballot ×2'}
+                  {targetName && ` · ${targetName}`}
+                </p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close()
+                    void weekly.takeBack(play)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
+                >
+                  Undo
+                </button>
+              </>
+            ) : (
               <>
                 <button
                   type="button"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  onClick={() => setMenuOpen(false)}
-                  className="fixed inset-0 z-10 cursor-default"
-                />
-                <div
-                  role="menu"
-                  className="absolute right-0 top-full z-20 mt-1.5 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white shadow-lg"
+                  role="menuitem"
+                  onClick={() => {
+                    close()
+                    onOpenRosterDouble()
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false)
-                      onOpenRosterDouble()
-                    }}
-                    className="block w-full px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
-                  >
-                    Double a castaway
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false)
-                      playBallot()
-                    }}
-                    className="block w-full border-t border-paper-line px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
-                  >
-                    Double your ballot
-                  </button>
-                </div>
+                  Double a castaway
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close()
+                    onBeatChange('ballot')
+                    void weekly.replace('double_vote_points')
+                  }}
+                  className="block w-full border-t border-paper-line px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
+                >
+                  Double your ballot
+                </button>
               </>
             )}
           </div>
-        )}
-      </div>
-    </>
+        </>
+      )}
+      {weekly.error && (
+        <span className="sr-only" role="alert">
+          {weekly.error}
+        </span>
+      )}
+    </div>
   )
 }
 
