@@ -53,22 +53,6 @@ export function BuffPairIcon() {
   )
 }
 
-// Hidden-immunity idol — the Advantages tab (#56). A carved tiki face reads
-// "advantage" far better than a raffle ticket, and echoes the app icon.
-// Hidden-immunity-idol glyph (#221): a skull in a carved disc, echoing the
-// Tocantins maze idol. Fits the Advantages tab — advantages are idols.
-export function IdolIcon() {
-  return (
-    <Svg>
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="9.4" cy="10.8" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="14.6" cy="10.8" r="1.4" fill="currentColor" stroke="none" />
-      <path d="M12 13l1.5 2.7h-3z" fill="currentColor" stroke="none" />
-      <path d="M12 3v1.8M12 19.2v1.8M3 12h1.8M19.2 12h1.8" />
-    </Svg>
-  )
-}
-
 export function BookIcon() {
   return (
     <Svg>
