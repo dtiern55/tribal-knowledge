@@ -559,24 +559,24 @@ export function MySeasonPage() {
 
       {state.kind === 'open' && (
         <div className="space-y-3">
-        <AdvantagePrompt
-          season={d.season}
-          episodes={d.episodes}
-          contestants={d.contestants}
-          plays={d.plays}
-          setPlays={d.setPlays}
-          doubleTargets={doubleTargets}
-          onBeatChange={setBeat}
-          onOpenRosterDouble={() => {
-            setPicking('double')
-            setBeat('roster')
-          }}
-        />
         <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
             meta={`Episode ${state.episode.episode_number}`}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
+          />
+          <AdvantagePrompt
+            season={d.season}
+            episodes={d.episodes}
+            contestants={d.contestants}
+            plays={d.plays}
+            setPlays={d.setPlays}
+            doubleTargets={doubleTargets}
+            onBeatChange={setBeat}
+            onOpenRosterDouble={() => {
+              setPicking('double')
+              setBeat('roster')
+            }}
           />
           <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
 
@@ -1158,10 +1158,11 @@ function Points({ value }: { value: number | undefined }) {
   )
 }
 
-// The weekly advantage (#399): a standalone prompt that sits ABOVE and apart
-// from the season record — its own card, so it doesn't muddy the beats — and
-// vanishes to a slim confirmation once played. Unplayed it explains itself and
-// carries the loud drag/tap idol; played it just says what you did, with undo.
+// The weekly advantage (#399): an inset card between the masthead and the beat
+// tabs — set apart on the record so it stands out without being a band that
+// muddies the beats — and vanishes to a slim confirmation once played. Unplayed
+// it explains itself and carries the loud drag/tap idol; played it just says
+// what you did, with undo.
 function AdvantagePrompt({
   season,
   episodes,
@@ -1219,7 +1220,7 @@ function AdvantagePrompt({
   // ── Played: the prompt is gone; a slim confirmation with undo takes its place.
   if (play) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-jade-200 bg-jade-50 px-4 py-2.5 shadow-sm">
+      <div className="m-3 flex items-center gap-3 rounded-xl border border-jade-200 bg-jade-50 px-4 py-2.5 shadow-sm">
         <span className="shrink-0 rotate-[9deg]" aria-hidden="true">
           <DoubleBadge size={26} title="Advantage played" />
         </span>
@@ -1249,7 +1250,7 @@ function AdvantagePrompt({
   // ── Unplayed: a bold, self-explaining prompt with the loud idol.
   if (locked) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 shadow-sm">
+      <div className="m-3 flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 shadow-sm">
         <span className="shrink-0 opacity-40 grayscale" aria-hidden="true">
           <DoubleBadge size={26} title="Advantage not played" />
         </span>
@@ -1263,7 +1264,7 @@ function AdvantagePrompt({
 
   return (
     <div
-      className="relative rounded-xl border-2 border-terracotta-300 bg-gradient-to-br from-gold-50 to-terracotta-50 p-4 shadow-sm"
+      className="relative m-3 rounded-xl border-2 border-terracotta-300 bg-gradient-to-br from-gold-50 to-terracotta-50 p-4 shadow-sm"
       onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
     >
       <SealGhost drag={drag} />
