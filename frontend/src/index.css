@@ -187,6 +187,13 @@ html.locked-night .app-shell .bg-gray-50 {
   background-color: #132e25;
 }
 
+/* The sticky Admin workflow bar is translucent (bg-cream-100/95), a distinct
+   class from bg-cream-100 above, so it isn't caught by that rule and stayed
+   bright under lock (#519). Match the raised surface, keeping the frosting. */
+html.locked-night .app-shell .bg-cream-100\/95 {
+  background-color: rgb(19 46 37 / 95%);
+}
+
 html.locked-night .app-shell .bg-forest-50,
 html.locked-night .app-shell .bg-forest-100,
 html.locked-night .app-shell .bg-jade-50 {
