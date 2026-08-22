@@ -96,6 +96,9 @@ def test_scoring_event_uses_postmerge_value(db_conn):
 def test_roster_points_respects_active_range(db_conn):
     season = insert_season(db_conn, merge_episode=7)
     ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    # The swap happened at episode 4 (active_until 3); its penalty books only
+    # once that episode locks, so give it a scored episode 4.
+    insert_episode(db_conn, season["id"], episode_number=4, status="scored")
     ep5 = insert_episode(db_conn, season["id"], episode_number=5)
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
@@ -114,6 +117,39 @@ def test_roster_points_respects_active_range(db_conn):
 
     # ep2 counts (+15), ep5 is outside the active range, plus -20 swap penalty
     assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): -5}
+
+
+@pytest.mark.integration
+def test_swap_penalty_books_only_when_its_episode_locks(db_conn):
+    # A swap into a still-open episode is undoable, so its penalty stays off the
+    # total until that episode locks (#164 follow-up).
+    season = insert_season(db_conn, merge_episode=7)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    open_ep3 = insert_episode(db_conn, season["id"], episode_number=3)  # unlocked
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    # active for eps 1-2, swapped out at ep3 with a -10 penalty
+    insert_roster_pick(
+        db_conn,
+        user["id"],
+        season["id"],
+        c["id"],
+        active_from_episode=1,
+        active_until_episode=2,
+        swap_penalty_points=-10,
+    )
+    insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")  # 15
+
+    # ep3 still open -> the -10 is not booked yet
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+
+    # lock ep3 -> the penalty books
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set status = 'scored' where id = %s",
+            [str(open_ep3["id"])],
+        )
+    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 5}
 
 
 @pytest.mark.integration
@@ -461,7 +497,8 @@ def test_finale_points_all_wrong_scores_nothing(db_conn):
 @pytest.mark.integration
 def test_roster_points_by_contestant_splits_and_sums(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    # Scored so B's swap-out penalty (swap happened at episode 2) books.
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     user = insert_user(db_conn)
     a = insert_contestant(db_conn, season["id"], "A")
     b = insert_contestant(db_conn, season["id"], "B")

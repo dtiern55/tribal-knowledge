@@ -24,6 +24,8 @@ seasons keep scoring exactly as they did — completed seasons are time capsules
 
 from uuid import UUID
 
+from app.locking import EPISODE_LOCKED_SQL
+
 
 def roster_points(conn, season_id: UUID) -> dict[str, int]:
     """Points each user earns from contestants on their roster.
@@ -82,12 +84,23 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
         for row in cur.fetchall():
             points[row["user_id"]] = row["points"]
 
+        # A swap's penalty books only once its episode locks — until then the
+        # swap is undoable (#403), so counting the cost early would both mis-state
+        # the total and leak the swap to other players via standings (#164
+        # follow-up). The swap happened at active_until_episode + 1.
         cur.execute(
-            """
-            select user_id::text as user_id, sum(swap_penalty_points) as penalty
-            from roster_picks
-            where season_id = %s
-            group by user_id
+            f"""
+            select rp.user_id::text as user_id,
+                   sum(
+                     case when {EPISODE_LOCKED_SQL}
+                          then rp.swap_penalty_points else 0 end
+                   ) as penalty
+            from roster_picks rp
+            left join episodes pe
+              on pe.season_id = rp.season_id
+             and pe.episode_number = rp.active_until_episode + 1
+            where rp.season_id = %s
+            group by rp.user_id
             """,
             [str(season_id)],
         )
@@ -253,13 +266,21 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
         for row in cur.fetchall():
             points[row["contestant_id"]] = row["points"]
 
+        # Same book-at-lock rule as roster_points(): a pending swap's penalty
+        # stays off the breakdown until its episode locks (#164 follow-up).
         cur.execute(
-            """
-            select contestant_id::text as contestant_id,
-                   sum(swap_penalty_points) as penalty
-            from roster_picks
-            where season_id = %s and user_id = %s
-            group by contestant_id
+            f"""
+            select rp.contestant_id::text as contestant_id,
+                   sum(
+                     case when {EPISODE_LOCKED_SQL}
+                          then rp.swap_penalty_points else 0 end
+                   ) as penalty
+            from roster_picks rp
+            left join episodes pe
+              on pe.season_id = rp.season_id
+             and pe.episode_number = rp.active_until_episode + 1
+            where rp.season_id = %s and rp.user_id = %s
+            group by rp.contestant_id
             """,
             [str(season_id), str(user_id)],
         )

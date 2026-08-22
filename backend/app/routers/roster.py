@@ -5,7 +5,7 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, next_open_episode
+from app.locking import EPISODE_LOCKED_SQL, latest_locked_episode, next_open_episode
 from app.schemas import (
     RosterPick,
     RosterSubmitRequest,
@@ -65,9 +65,25 @@ def get_roster(
             )
             rows = cur.fetchall()
 
-            # Another player's designation is strategy until it locks (#164):
-            # the roster may already be visible, the flag is not.
             if str(user_id) != str(current_user):
+                # A swap into the still-open episode is undoable strategy, so
+                # bound another player's roster to the latest LOCKED episode:
+                # a pending swap-in (active_from in an unlocked episode) stays
+                # hidden until that episode locks, and the pick it replaces
+                # stays shown until then (#164 follow-up).
+                locked_through = latest_locked_episode(cur, season_id)
+                rows = [
+                    r
+                    for r in rows
+                    if locked_through is not None
+                    and r["active_from_episode"] <= locked_through
+                    and (
+                        r["active_until_episode"] is None
+                        or r["active_until_episode"] >= locked_through
+                    )
+                ]
+                # Another player's designation is strategy until it locks (#164):
+                # the roster may already be visible, the flag is not.
                 ss_lock = _effective_ss_lock(cur, season)
                 if ss_lock is None or not _episode_locked(cur, season_id, ss_lock):
                     for r in rows:
