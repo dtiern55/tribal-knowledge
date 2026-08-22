@@ -1832,7 +1832,7 @@ function LoaderPreviewSection() {
         <ActionBtn variant="secondary" onClick={() => setTheme('locked')}>Preview (locked)</ActionBtn>
       </div>
       {theme && (
-        <div className="fixed inset-0 z-50 overflow-auto bg-cream-50">
+        <div className="fixed inset-0 z-50 flex flex-col overflow-auto [&>div]:flex-1">
           <button onClick={() => setTheme(null)} className="fixed top-4 right-4 z-10 rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800">
             Close
           </button>
