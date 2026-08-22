@@ -40,7 +40,8 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
                                   then x.raw_points * 0.5 else 0 end)::int
                      as points
             from (
-              select c.id::text as contestant_id, c.name, c.image_url,
+              select c.id::text as contestant_id,
+                     coalesce(c.nickname, c.name) as name, c.image_url,
                      rp.is_sole_survivor,
                      coalesce(sum(case when se.id is null then 0 else
                        (case
@@ -154,7 +155,8 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             cfg = cur.fetchone()
             cur.execute(
                 """
-                select c.id::text as contestant_id, c.name, c.image_url,
+                select c.id::text as contestant_id,
+                       coalesce(c.nickname, c.name) as name, c.image_url,
                        (el.contestant_id is not null) as correct
                 from elimination_picks pick
                 join contestants c on c.id = pick.contestant_id
@@ -201,7 +203,8 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
         )
         values = {row["key"]: row["point_value"] for row in cur.fetchall()}
         cur.execute(
-            "select id::text as contestant_id, name, image_url, placement"
+            "select id::text as contestant_id,"
+            " coalesce(nickname, name) as name, image_url, placement"
             " from contestants where season_id = %s",
             [str(season_id)],
         )
@@ -303,7 +306,8 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
     with conn.cursor() as cur:
         cur.execute(
             """
-            select c.id::text as contestant_id, c.name, c.image_url,
+            select c.id::text as contestant_id,
+                   coalesce(c.nickname, c.name) as name, c.image_url,
                    el.elimination_type
             from eliminations el
             join contestants c on c.id = el.contestant_id
@@ -317,7 +321,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
             """
             select ap.id::text as advantage_play_id, ap.advantage_type,
                    ap.target_contestant_id::text as target_contestant_id,
-                   c.name as target_name
+                   coalesce(c.nickname, c.name) as target_name
             from advantage_plays ap
             left join contestants c on c.id = ap.target_contestant_id
             where ap.user_id = %s and ap.season_id = %s and ap.episode_id = %s

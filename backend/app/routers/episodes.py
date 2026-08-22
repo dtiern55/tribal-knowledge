@@ -272,7 +272,7 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 f"""
                 select rp.user_id::text as user_id, c.id::text as contestant_id,
-                       c.name, c.image_url,
+                       coalesce(c.nickname, c.name) as name, c.image_url,
                        tribe.name as tribe_name, tribe.color as tribe_color
                 from roster_picks rp
                 join contestants c on c.id = rp.contestant_id
@@ -290,7 +290,7 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 f"""
                 select ep.user_id::text as user_id, c.id::text as contestant_id,
-                       c.name, c.image_url,
+                       coalesce(c.nickname, c.name) as name, c.image_url,
                        tribe.name as tribe_name, tribe.color as tribe_color
                 from elimination_picks ep
                 join contestants c on c.id = ep.contestant_id
@@ -308,7 +308,8 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 f"""
                 select ap.user_id::text as user_id, ap.advantage_type,
-                       c.id::text as contestant_id, c.name, c.image_url,
+                       c.id::text as contestant_id,
+                       coalesce(c.nickname, c.name) as name, c.image_url,
                        tribe.name as tribe_name, tribe.color as tribe_color
                 from advantage_plays ap
                 left join contestants c on c.id = ap.target_contestant_id

@@ -38,6 +38,8 @@ class Contestant(BaseModel):
     id: UUID
     season_id: UUID
     name: str
+    # Short display name (#nickname); null means fall back to `name`.
+    nickname: Optional[str] = None
     placement: Optional[int]
     image_url: Optional[str] = None
     # Only populated by the season contestants list; None elsewhere
@@ -360,6 +362,7 @@ class ContestantsCreateRequest(BaseModel):
 
 class ContestantUpdateRequest(BaseModel):
     name: Optional[str] = None
+    nickname: Optional[str] = None
     placement: Optional[int] = Field(default=None, gt=0)
     image_url: Optional[str] = None
     age: Optional[int] = Field(default=None, gt=0)
