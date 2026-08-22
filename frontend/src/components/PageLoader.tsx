@@ -15,7 +15,7 @@ import { SlidePuzzleLoader } from './SlidePuzzleLoader'
  */
 export function PageLoader({
   label = 'Loading',
-  delayMs = 700,
+  delayMs = 300,
 }: {
   label?: string
   delayMs?: number
@@ -29,5 +29,9 @@ export function PageLoader({
   if (!show) return null
   // The locked-night class is the app's global open/locked signal (Layout).
   const theme = document.documentElement.classList.contains('locked-night') ? 'locked' : 'unlocked'
-  return <SlidePuzzleLoader theme={theme} label={label} />
+  return (
+    <div className="tk-loader-fade">
+      <SlidePuzzleLoader theme={theme} label={label} />
+    </div>
+  )
 }
