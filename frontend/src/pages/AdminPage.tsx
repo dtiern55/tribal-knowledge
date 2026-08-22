@@ -26,12 +26,60 @@ const ELIMINATION_TYPES = [
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-function SectionHeader({ id, title, description }: { id: string; title: string; description?: string }) {
+// Collapsible top-level section (#519). Keeps the anchor id the workflow nav
+// jumps to and the description, and remembers open/closed per section so a
+// commissioner can fold away setup mid-season and land back on Episodes.
+function Section({
+  id,
+  title,
+  description,
+  defaultOpen = true,
+  children,
+}: {
+  id: string
+  title: string
+  description?: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const storageKey = `mytribe.admin-section.${id}`
+  const [open, setOpen] = useState(() => {
+    const saved = localStorage.getItem(storageKey)
+    return saved == null ? defaultOpen : saved === '1'
+  })
+  function toggle() {
+    setOpen((o) => {
+      localStorage.setItem(storageKey, o ? '0' : '1')
+      return !o
+    })
+  }
   return (
-    <div id={id} className="scroll-mt-24 mb-4 mt-10 border-l-4 border-terracotta-500 pl-3 first:mt-0">
-      <h2 className="font-display text-xl tracking-wide text-forest-900">{title}</h2>
-      {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
-    </div>
+    <section id={id} className="scroll-mt-24 mt-10 first:mt-0">
+      {/* button inside h2 so sections sit under the page h1 and don't skip a level */}
+      <h2>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          className="flex w-full items-start gap-2 border-l-4 border-terracotta-500 pl-3 text-left"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-xl tracking-wide text-forest-900">{title}</span>
+            {description && <span className="mt-1 block text-sm text-gray-500">{description}</span>}
+          </span>
+          <svg
+            viewBox="0 0 24 24"
+            className={`mt-1 h-5 w-5 shrink-0 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      </h2>
+      {open && <div className="mt-4">{children}</div>}
+    </section>
   )
 }
 
@@ -1777,48 +1825,50 @@ export function AdminPage() {
         )}
       </section>
 
-      <nav aria-label="Commissioner workflow" className="mt-5 overflow-x-auto pb-1">
+      <nav aria-label="Commissioner workflow" className="sticky top-0 z-20 -mx-4 mt-5 overflow-x-auto border-b border-cream-200 bg-cream-100/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <ol className="flex min-w-max gap-2">
           {workflow.map((step) => <li key={step.id}><a href={`#${step.id}`} className="block rounded-full border border-cream-200 bg-white px-3 py-2 text-sm text-forest-700 hover:border-forest-300">{step.label}</a></li>)}
         </ol>
       </nav>
 
-      <SectionHeader id="episodes" title="Episode operations" description="The active episode comes first: verify the schedule, enter results, review, then publish scoring." />
-      <EpisodesSection
-        season={season}
-        episodes={episodes}
-        contestants={contestants}
-        eventTypes={eventTypes}
-        focusEpisodeId={context.stage === 'review' ? context.episode?.id : undefined}
-        onUpdated={setEpisodes}
-      />
+      <Section id="episodes" title="Episode operations" description="The active episode comes first: verify the schedule, enter results, review, then publish scoring.">
+        <EpisodesSection
+          season={season}
+          episodes={episodes}
+          contestants={contestants}
+          eventTypes={eventTypes}
+          focusEpisodeId={context.stage === 'review' ? context.episode?.id : undefined}
+          onUpdated={setEpisodes}
+        />
+      </Section>
 
-      <SectionHeader id="season-setup" title="Season setup" description="Configuration that controls locks, merge timing, and ballot capacity." />
-      <SeasonSection season={season} onUpdated={setSeason} />
+      <Section id="season-setup" title="Season setup" description="Configuration that controls locks, merge timing, and ballot capacity.">
+        <SeasonSection season={season} onUpdated={setSeason} />
+      </Section>
 
-      <SectionHeader id="cast-setup" title={`Cast setup (${contestants.length})`} description="Add contestants and maintain names, placements, and photos." />
-      <ContestantsSection
-        seasonId={season.id}
-        contestants={contestants}
-        onUpdated={setContestants}
-      />
+      <Section id="cast-setup" title={`Cast setup (${contestants.length})`} description="Add contestants and maintain names, placements, and photos.">
+        <ContestantsSection
+          seasonId={season.id}
+          contestants={contestants}
+          onUpdated={setContestants}
+        />
+      </Section>
 
       {season.token_economy_enabled && (
-        <>
-          <SectionHeader id="historical-tokens" title="Historical tokens" description="Legacy configuration for this season snapshot only." />
+        <Section id="historical-tokens" title="Historical tokens" description="Legacy configuration for this season snapshot only.">
           <TokensSection season={season} />
-        </>
+        </Section>
       )}
 
       {leagueSettings && (
-        <>
-          <SectionHeader id="league-settings" title="League access" description="Control the join code shared with new league members." />
+        <Section id="league-settings" title="League access" description="Control the join code shared with new league members.">
           <LeagueSettingsSection settings={leagueSettings} onUpdated={setLeagueSettings} />
-        </>
+        </Section>
       )}
 
-      <SectionHeader id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see." />
-      <LoaderPreviewSection />
+      <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
+        <LoaderPreviewSection />
+      </Section>
     </div>
   )
 }

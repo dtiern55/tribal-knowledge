@@ -220,6 +220,32 @@ html.locked-night .app-shell .text-gray-400 {
   color: rgb(242 233 219 / 35%);
 }
 
+/* The Admin console themes under lock now (#519). These status-banner and stray
+   grey utilities live mostly on that page and aren't in the rules above, so
+   cover them here to keep the console from going dark-on-dark. */
+html.locked-night .app-shell .bg-gray-100,
+html.locked-night .app-shell .bg-gray-200 {
+  background-color: #183a2e;
+}
+html.locked-night .app-shell .border-gray-300,
+html.locked-night .app-shell .border-forest-300,
+html.locked-night .app-shell .border-jade-200 {
+  border-color: rgb(242 233 219 / 12%);
+}
+/* The "needs review" banner keeps a warm cast on dark instead of light gold. */
+html.locked-night .app-shell .bg-gold-50 {
+  background-color: #2c2716;
+}
+html.locked-night .app-shell .border-gold-100,
+html.locked-night .app-shell .border-gold-300 {
+  border-color: rgb(214 178 92 / 32%);
+}
+html.locked-night .app-shell .text-gold-700,
+html.locked-night .app-shell .text-gold-800,
+html.locked-night .app-shell .text-gold-900 {
+  color: rgb(233 210 150 / 90%);
+}
+
 /* The "record paper" surface (Team, Contestant, and the season record) and its
    ink/edge tokens aren't cream utilities, so the rules above miss them and the
    page stays daylight under lock (#451). Repaint the whole paper palette to
