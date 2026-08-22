@@ -47,6 +47,9 @@ describe('Layout', () => {
     localStorage.removeItem('tribal-knowledge-shell-theme')
     localStorage.removeItem('tk-theme-override')
     document.querySelector('meta[name="theme-color"]')?.remove()
+    // Restore the module defaults so a per-test override can't leak forward.
+    vi.mocked(getActiveSeason).mockResolvedValue(null)
+    vi.mocked(api.get).mockResolvedValue([])
   })
 
   it('provides skip navigation, a named main region, and matching primary destinations', () => {
@@ -84,8 +87,11 @@ describe('Layout', () => {
     const themeColor = document.createElement('meta')
     themeColor.name = 'theme-color'
     document.head.append(themeColor)
-    vi.mocked(getActiveSeason).mockResolvedValueOnce(season)
-    vi.mocked(api.get).mockResolvedValueOnce([
+    // Stays locked across the mount fetch and the navigation re-fetch — the
+    // shell re-derives its theme on every navigation now (persistent mock,
+    // reset in afterEach).
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockResolvedValue([
       {
         id: 'episode-3',
         season_id: season.id,
