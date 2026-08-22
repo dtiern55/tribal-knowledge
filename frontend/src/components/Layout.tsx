@@ -77,13 +77,11 @@ export function Layout() {
     }
   }, [authed, authLoading, pathname])
 
-  // The Admin console is a tool, not part of the themed game view — the
-  // torchlit repaint left half of it dark-on-dark and unreadable (#451). Keep
-  // Admin in daylight; you still preview night by toggling it and viewing the
-  // game pages.
-  const onAdmin = pathname.startsWith('/admin')
-  const effectiveNight =
-    !onAdmin && (themeOverride === 'auto' ? nightMode : themeOverride === 'night')
+  // The Admin console follows the app's locked/unlocked state like every other
+  // page (#519): the night overrides now cover its surfaces, so the commissioner
+  // sees the same firelight the league does while scoring a locked episode. The
+  // override still forces day/night here for testing.
+  const effectiveNight = themeOverride === 'auto' ? nightMode : themeOverride === 'night'
 
   useEffect(() => {
     document.documentElement.classList.toggle('locked-night', effectiveNight)

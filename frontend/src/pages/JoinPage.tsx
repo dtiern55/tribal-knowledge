@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router'
 import { api } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
+import { AuthScene } from '../components/AuthScene'
 import { PageLoader } from '../components/PageLoader'
 
 export function JoinPage() {
@@ -35,10 +36,9 @@ export function JoinPage() {
   }
 
   return (
-    <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:mt-10 sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-terracotta-700">Private league</p>
-      <h1 className="mt-1 font-display text-3xl tracking-wide text-forest-800">Join your league</h1>
-      <p className="mt-2 text-sm leading-6 text-gray-600">
+    <AuthScene eyebrow="One last step">
+      <h2 className="font-display text-2xl tracking-wide text-forest-800">Join your league</h2>
+      <p className="mt-1 text-sm leading-6 text-gray-600">
         Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name other players will see, then enter your join code.
       </p>
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'join-error' : undefined}>
@@ -79,6 +79,6 @@ export function JoinPage() {
           {submitting ? 'Joining league…' : 'Join league'}
         </button>
       </form>
-    </div>
+    </AuthScene>
   )
 }

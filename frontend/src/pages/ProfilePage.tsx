@@ -10,6 +10,8 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
+import { Notice } from '../components/Notice'
+import { PageHeader } from '../components/PageHeader'
 
 const inputCls =
   'min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm'
@@ -60,8 +62,8 @@ function DisplayNameSection() {
           className={inputCls}
         />
       </div>
-      {error && <p role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
-      {saved && <p role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">League profile saved.</p>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {saved && <Notice tone="success">League profile saved.</Notice>}
       <button
         type="submit"
         disabled={saving || unchanged || !displayName.trim()}
@@ -153,8 +155,8 @@ function EmailSection() {
           className={inputCls}
         />
       </div>
-      {error && <p role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
-      {info && <p role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">{info}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {info && <Notice tone="success">{info}</Notice>}
       <button
         type="submit"
         disabled={
@@ -259,8 +261,8 @@ function PasswordSection() {
           className={inputCls}
         />
       </div>
-      {error && <p role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
-      {info && <p role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">{info}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {info && <Notice tone="success">{info}</Notice>}
       <button
         type="submit"
         disabled={saving || !current || !password || !confirm}
@@ -341,11 +343,11 @@ export function ProfilePage() {
   const { session, profile } = useAuth()
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-terracotta-700">Identity and security</p>
-        <h1 className="mt-1 font-display text-3xl tracking-wide text-forest-800">Profile</h1>
-        <p className="mt-1 text-sm text-gray-600">Keep your league name distinct from the account you use to sign in.</p>
-      </header>
+      <PageHeader
+        eyebrow="Identity and security"
+        title="Profile"
+        description="Keep your league name distinct from the account you use to sign in."
+      />
 
       <div className="grid gap-6 md:grid-cols-2 md:items-start">
         <section aria-labelledby="league-profile-title" className="rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:p-6">

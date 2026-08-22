@@ -187,6 +187,13 @@ html.locked-night .app-shell .bg-gray-50 {
   background-color: #132e25;
 }
 
+/* The sticky Admin workflow bar is translucent (bg-cream-100/95), a distinct
+   class from bg-cream-100 above, so it isn't caught by that rule and stayed
+   bright under lock (#519). Match the raised surface, keeping the frosting. */
+html.locked-night .app-shell .bg-cream-100\/95 {
+  background-color: rgb(19 46 37 / 95%);
+}
+
 html.locked-night .app-shell .bg-forest-50,
 html.locked-night .app-shell .bg-forest-100,
 html.locked-night .app-shell .bg-jade-50 {
@@ -218,6 +225,32 @@ html.locked-night .app-shell .text-forest-700 {
 html.locked-night .app-shell .text-gray-500,
 html.locked-night .app-shell .text-gray-400 {
   color: rgb(242 233 219 / 35%);
+}
+
+/* The Admin console themes under lock now (#519). These status-banner and stray
+   grey utilities live mostly on that page and aren't in the rules above, so
+   cover them here to keep the console from going dark-on-dark. */
+html.locked-night .app-shell .bg-gray-100,
+html.locked-night .app-shell .bg-gray-200 {
+  background-color: #183a2e;
+}
+html.locked-night .app-shell .border-gray-300,
+html.locked-night .app-shell .border-forest-300,
+html.locked-night .app-shell .border-jade-200 {
+  border-color: rgb(242 233 219 / 12%);
+}
+/* The "needs review" banner keeps a warm cast on dark instead of light gold. */
+html.locked-night .app-shell .bg-gold-50 {
+  background-color: #2c2716;
+}
+html.locked-night .app-shell .border-gold-100,
+html.locked-night .app-shell .border-gold-300 {
+  border-color: rgb(214 178 92 / 32%);
+}
+html.locked-night .app-shell .text-gold-700,
+html.locked-night .app-shell .text-gold-800,
+html.locked-night .app-shell .text-gold-900 {
+  color: rgb(233 210 150 / 90%);
 }
 
 /* The "record paper" surface (Team, Contestant, and the season record) and its

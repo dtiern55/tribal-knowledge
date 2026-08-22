@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
+import { AuthScene } from '../components/AuthScene'
 import { PageLoader } from '../components/PageLoader'
 
 export function LoginPage() {
@@ -10,7 +11,10 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
+  // Set once we've emailed the user; swaps the form for the dedicated "check
+  // your email" moment (#508). `kind` picks the copy: account confirmation
+  // after sign-up vs. a password reset link.
+  const [sent, setSent] = useState<{ kind: 'confirm' | 'reset'; email: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Don't flash the form while the session is still being restored (#1)
@@ -21,7 +25,6 @@ export function LoginPage() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    setInfo(null)
 
     // On success we deliberately don't navigate: AuthContext publishes the
     // session once the profile is loaded (#116), and the declarative
@@ -44,31 +47,71 @@ export function LoginPage() {
     }
     if (!data.session) {
       // Email confirmation required before a session exists.
-      setInfo('Check your email to confirm your account. Then come back and sign in.')
-      setMode('signin')
+      setSent({ kind: 'confirm', email })
       setSubmitting(false)
     }
     // else: local dev / confirmation disabled — already signed in, the
     // redirect above handles it.
   }
 
-  return (
-    <div className="mx-auto mt-4 grid max-w-3xl overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-sm md:mt-10 md:grid-cols-[0.8fr_1.2fr]">
-      <section className="bg-gradient-to-br from-forest-900 to-jade-800 p-6 text-white sm:p-8" aria-labelledby="welcome-title">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-terracotta-200">Private Survivor league</p>
-        <h1 id="welcome-title" className="mt-2 font-display text-3xl tracking-wide">Welcome to Tribal Knowledge</h1>
-      </section>
+  async function handleForgot() {
+    setError(null)
+    if (!email) {
+      setError('Enter your email above, then tap “Forgot password?”.')
+      return
+    }
+    setSubmitting(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset`,
+    })
+    setSubmitting(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    setSent({ kind: 'reset', email })
+  }
 
-      <section className="p-5 sm:p-8" aria-labelledby="auth-form-title">
-        <h2 id="auth-form-title" className="font-display text-2xl tracking-wide text-forest-800">
-          {mode === 'signin' ? 'Sign in' : 'Create your account'}
-        </h2>
-        {mode === 'signup' && (
-          <p className="mt-1 text-sm text-gray-500">You’ll need your league’s join code after signing up.</p>
-        )}
-      <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'auth-error' : info ? 'auth-info' : undefined}>
+  if (sent) {
+    return (
+      <AuthScene>
+        <div className="text-center">
+          <h2 className="font-display text-2xl tracking-wide text-forest-800">Check your email</h2>
+          <p role="status" className="mt-3 text-sm leading-6 text-gray-600">
+            We sent {sent.kind === 'reset' ? 'a password reset link' : 'a confirmation link'} to{' '}
+            <span className="font-semibold text-forest-700">{sent.email}</span>.{' '}
+            {sent.kind === 'reset'
+              ? 'Tap it to choose a new password.'
+              : 'Tap it, then come back and sign in.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSent(null)
+              setMode('signin')
+              setPassword('')
+              setError(null)
+            }}
+            className="mt-6 min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </AuthScene>
+    )
+  }
+
+  return (
+    <AuthScene>
+      <h2 className="font-display text-2xl tracking-wide text-forest-800">
+        {mode === 'signin' ? 'Sign in' : 'Create your account'}
+      </h2>
+      {mode === 'signup' && (
+        <p className="mt-1 text-sm text-gray-500">You’ll need your league’s join code after signing up.</p>
+      )}
+      <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'auth-error' : undefined}>
         <div>
-          <label htmlFor="auth-email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="auth-email" className="mb-1 block text-sm font-medium text-gray-700">
             Email
           </label>
           <input
@@ -84,9 +127,21 @@ export function LoginPage() {
           />
         </div>
         <div>
-          <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">
-            Password
-          </label>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label htmlFor="auth-password" className="text-sm font-medium text-gray-700">
+              Password
+            </label>
+            {mode === 'signin' && (
+              <button
+                type="button"
+                onClick={() => void handleForgot()}
+                disabled={submitting}
+                className="cursor-pointer text-xs font-medium text-forest-700 hover:text-forest-900 disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
           <input
             id="auth-password"
             type="password"
@@ -99,7 +154,6 @@ export function LoginPage() {
           />
         </div>
         {error && <p id="auth-error" role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
-        {info && <p id="auth-info" role="status" className="rounded-lg bg-jade-50 px-3 py-2 text-sm text-jade-700">{info}</p>}
         <button
           type="submit"
           disabled={submitting}
@@ -119,13 +173,11 @@ export function LoginPage() {
         onClick={() => {
           setMode(mode === 'signin' ? 'signup' : 'signin')
           setError(null)
-          setInfo(null)
         }}
-        className="mt-5 min-h-11 cursor-pointer text-sm font-medium text-forest-700 hover:text-forest-900"
+        className="mt-5 min-h-11 w-full cursor-pointer text-sm font-medium text-forest-700 hover:text-forest-900"
       >
         {mode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}
       </button>
-      </section>
-    </div>
+    </AuthScene>
   )
 }
