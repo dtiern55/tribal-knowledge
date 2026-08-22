@@ -131,17 +131,62 @@ change keep the old values.
     standings by scoring) — the commissioner enters nothing for them.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
-## 8. Close the episode out
+## 8. Set the reveal insights (Results screen)
+
+The results reveal shows up to three **curated** insight cards plus one
+**automatic** lead — `episode_insights` table, config via
+`PUT {API}/episodes/{episode_id}/insights` (admin). This step is where you and
+Danny decide them. All values come from the events applied in step 5, so run it
+after verify; the cards render once the episode is scored (step 9).
+
+- **Automatic lead — nothing to do.** `_auto_league_call` always leads with
+  "League call: {boot} — {pct}%" (share of ballots that caught the boot),
+  *unless* a curated `pick_popularity` card takes that slot.
+- **Recurring baseline — keep every episode.** Configure `performance_vs_median`
+  (each viewer's own episode score vs the league median; personalised, evergreen).
+  That plus the auto League Call is the standard set Danny wants every week.
+- **The actual job of this step: find the manual note.** Scan the episode for a
+  *story* worth a `manual_note` — a usage swing, a gamble that backfired, a
+  cooled boot-read — **or decide none is worth adding.** A bare computed number
+  is not an insight: the built-in types are single-episode and flat
+  (`weekly_play_usage` renders "Double Ballot Points usage: 9 of 21", which
+  doesn't say it *tripled* or that four of the nine whiffed). Trends and
+  whiff-rates only land as a written `manual_note`. So compute the candidates
+  (usage per play across recent episodes, boot-catch rate trend, how many who
+  doubled their ballot actually caught the boot, roster ownership of the boot),
+  judge what's genuinely notable, and write it — or don't.
+
+**The menu** (`insight_type`, up to 3, deduped on target; `display_order` sets
+order):
+- `pick_popularity` — needs an eliminated `contestant_id`; owns the League Call
+  slot. Redundant in single-boot weeks (same % as the auto lead). Not for finales.
+- `multiple_correct_ballots` — ballots that called ≥2 boots. Sits out single-boot
+  weeks (max any ballot can hit is one).
+- `performance_vs_median` — the recurring baseline above. No target.
+- `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
+  `double_vote_points` / `roster_swap`). Flat on its own — pair a swing with a note.
+- `manual_note` — free text `label` + `value` (+ optional `detail`), no target.
+
+```
+PUT {API}/episodes/{episode_id}/insights
+[ { "insight_type": "performance_vs_median" },
+  { "insight_type": "manual_note", "label": "...", "value": "...", "detail": "..." } ]
+```
+
+Then re-open the reveal (`?recap={episode_id}` on My Season, or GET
+`/seasons/{season_id}/episode-results/{episode_id}`) to eyeball it.
+
+## 9. Close the episode out
 
 `POST {API}/episodes/{episode_id}/score` — flips status `upcoming` → `scored`
 (#49). Easy to forget, and skipping it is silent: points still show, but
 standings `trend` / `last_episode_points` keep reporting the *previous* scored
 episode (they read `max(episode_number) where status = 'scored'`), and unused
-extra-vote plays never get auto-unplayed (#157). Do this **before** step 9 —
+extra-vote plays never get auto-unplayed (#157). Do this **before** step 10 —
 verify standings again after, since the trend arrows only become correct here.
 409 "already scored" means it's done; picks must be locked first.
 
-## 9. Bot week (practice seasons only)
+## 10. Bot week (practice seasons only)
 
 If the season is bot-driven, take the commissioner's read for episode N+1 —
 `likely_boots`, `confidence`, `double_targets` — append it to
