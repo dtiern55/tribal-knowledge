@@ -583,8 +583,11 @@ def week(cur, episode_n: int):
             ordinal = swaps_committed(cur, uid, sid) + 1
             penalty = swap_penalty(season, ordinal)
             add_pool = [c for c in alive if c not in held]
-            # Loyalists won't pay points for a swap; everyone takes a free one.
-            out = dead[0] if dead and (penalty == 0 or a["style"] != "roster") else None
+            # Always drop a corpse (Danny 2026-08-21): a dead castaway scores
+            # zero going forward, so swapping in a live one pays for itself even
+            # at the point penalty. Every bot uses its swap when there's dead
+            # weight to clear — no persona opts out.
+            out = dead[0] if dead else None
             if out and add_pool:
                 # Order by how few people already own them, or every bot picks
                 # whoever sorts first and the whole league swaps in one name.
