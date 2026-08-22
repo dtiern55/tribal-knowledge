@@ -5,6 +5,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
 import { commissionerContext, commissionerEpisodeLabel } from '../lib/adminWorkflow'
+import { displayName } from '../lib/cast'
 import { ContestantAvatar } from '../components/ContestantAvatar'
 import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
@@ -373,6 +374,7 @@ function ContestantsSection({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [editNickname, setEditNickname] = useState('')
   const [editPlacement, setEditPlacement] = useState('')
   const [editImageUrl, setEditImageUrl] = useState('')
   const [saving, setSaving] = useState(false)
@@ -384,6 +386,7 @@ function ContestantsSection({
   function startEdit(c: Contestant) {
     setEditingId(c.id)
     setEditName(c.name)
+    setEditNickname(c.nickname ?? '')
     setEditPlacement(c.placement != null ? String(c.placement) : '')
     setEditImageUrl(c.image_url ?? '')
     setEditError(null)
@@ -393,6 +396,7 @@ function ContestantsSection({
     void run(setSaving, setEditError, async () => {
       const updated = await api.patch<Contestant>(`/contestants/${id}`, {
         name: editName,
+        nickname: editNickname.trim(),
         placement: editPlacement ? Number(editPlacement) : null,
         image_url: editImageUrl.trim() || null,
       })
@@ -444,6 +448,14 @@ function ContestantsSection({
               </ActionBtn>
             </div>
             <div className="flex items-center gap-2">
+              <input
+                value={editNickname}
+                onChange={(e) => setEditNickname(e.target.value)}
+                className="flex-1 border border-cream-200 rounded px-2 py-1 text-sm"
+                placeholder="Nickname (shown everywhere instead of Name — leave blank to clear)"
+              />
+            </div>
+            <div className="flex items-center gap-2">
               <ContestantAvatar name={editName} imageUrl={editImageUrl.trim() || null} />
               <input
                 value={editImageUrl}
@@ -460,8 +472,8 @@ function ContestantsSection({
             className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg"
           >
             <span className="flex items-center gap-2 text-sm text-gray-900">
-              <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" />
-              {c.name}
+              <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} size="sm" />
+              {displayName(c)}
               {c.placement != null && (
                 <span className="text-xs text-gray-500">#{c.placement}</span>
               )}
