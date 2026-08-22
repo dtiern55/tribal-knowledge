@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
+import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
@@ -778,6 +779,7 @@ function LockedState({
           {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {roster.map((pick) => {
               const contestant = contestantMap.get(pick.contestant_id)
+              const name = contestant ? displayName(contestant) : '—'
               return (
                 <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'}`}>
                   {/* My Roster behaves the same locked as unlocked (#451): it
@@ -785,13 +787,13 @@ function LockedState({
                       page. */}
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <ContestantAvatar
-                      name={contestant?.name ?? '—'}
+                      name={name}
                       imageUrl={contestant?.image_url ?? null}
                       tribeColor={contestant?.tribe_color ?? null}
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    <span className="truncate font-medium">{contestant?.name ?? '—'}</span>
+                    <span className="truncate font-medium">{name}</span>
                   </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
@@ -840,6 +842,7 @@ function LockedState({
             <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
               {picks.map((pick) => {
                 const contestant = contestantMap.get(pick.contestant_id)
+                const name = contestant ? displayName(contestant) : '—'
                 return (
                   <li
                     key={pick.id}
@@ -848,13 +851,13 @@ function LockedState({
                     }`}
                   >
                     <ContestantAvatar
-                      name={contestant?.name ?? '—'}
+                      name={name}
                       imageUrl={contestant?.image_url ?? null}
                       tribeColor={contestant?.tribe_color ?? null}
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    {contestant?.name ?? '—'}
+                    {name}
                   </li>
                 )
               })}
@@ -1493,10 +1496,11 @@ function AdvantagePrompt({
 
   const locked = weekly.locked
   const rosterDouble = play?.advantage_type === 'double_roster_points'
-  const targetName =
+  const targetContestant =
     rosterDouble && play?.target_contestant_id
-      ? (contestants.find((c) => c.id === play.target_contestant_id)?.name ?? null)
-      : null
+      ? contestants.find((c) => c.id === play.target_contestant_id)
+      : undefined
+  const targetName = targetContestant ? displayName(targetContestant) : null
 
   // ── Played: the prompt is gone; a slim confirmation with undo takes its place.
   if (play) {
@@ -1720,7 +1724,10 @@ function PastPlaysSection({
               {p.target_contestant_id && (
                 <span className="text-paper-ink-faded">
                   {' '}
-                  → {contestantMap.get(p.target_contestant_id)?.name ?? '—'}
+                  → {(() => {
+                    const target = contestantMap.get(p.target_contestant_id)
+                    return target ? displayName(target) : '—'
+                  })()}
                 </span>
               )}
               <span className="text-paper-ink-faded">
@@ -2061,7 +2068,10 @@ function RosterSection({
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {dropping
-            ? `Choose who replaces ${contestantMap.get(dropping)?.name ?? 'them'}`
+            ? `Choose who replaces ${(() => {
+                const droppingC = contestantMap.get(dropping)
+                return droppingC ? displayName(droppingC) : 'them'
+              })()}`
             : 'Choose a castaway to drop'}
         </p>
       )}
@@ -2078,7 +2088,7 @@ function RosterSection({
                 const c = contestantMap.get(pick.contestant_id)
                 return {
                   contestantId: pick.contestant_id,
-                  name: c?.name ?? '—',
+                  name: c ? displayName(c) : '—',
                   imageUrl: c?.image_url ?? null,
                   tribeName: c?.tribe_name ?? null,
                   tribeColor: c?.tribe_color ?? null,
@@ -2205,13 +2215,13 @@ function RosterSection({
                     className="flex items-center gap-2 p-3 rounded-lg border border-cream-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-forest-500 disabled:opacity-40"
                   >
                     <ContestantAvatar
-                      name={c.name}
+                      name={displayName(c)}
                       imageUrl={c.image_url}
                       size="sm"
                       tribeColor={c.tribe_color}
                       tribeName={c.tribe_name}
                     />
-                    <span>{c.name}</span>
+                    <span>{displayName(c)}</span>
                   </button>
                 ))}
               </div>
@@ -2223,6 +2233,7 @@ function RosterSection({
               <ul className="space-y-2">
                 {swappedRoster.map((pick) => {
                   const c = contestantMap.get(pick.contestant_id)
+                  const name = c ? displayName(c) : '—'
                   return (
                     <li
                       key={pick.id}
@@ -2233,14 +2244,14 @@ function RosterSection({
                       <span className="flex min-w-0 items-center gap-2">
                         <span className={`shrink-0 ${ELIMINATED_DIM}`}>
                           <ContestantAvatar
-                            name={c?.name ?? '—'}
+                            name={name}
                             imageUrl={c?.image_url ?? null}
                             tribeColor={c?.tribe_color ?? null}
                             tribeName={c?.tribe_name ?? null}
                             size="sm"
                           />
                         </span>
-                        <span className={ELIMINATED_STRIKE}>{c?.name ?? '—'}</span>
+                        <span className={ELIMINATED_STRIKE}>{name}</span>
                       </span>
                       <span className="text-xs flex items-center gap-2">
                         <Points value={rosterPoints.get(pick.contestant_id)} />
@@ -2293,8 +2304,8 @@ function RosterSection({
                           : 'border-cream-200 bg-white text-gray-700 hover:border-gray-300',
                   ].join(' ')}
                 >
-                  <ContestantAvatar name={c.name} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                  <span className={isOut ? ELIMINATED_STRIKE : ''}>{c.name}</span>
+                  <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} size="sm" tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                  <span className={isOut ? ELIMINATED_STRIKE : ''}>{displayName(c)}</span>
                   {isOut && (
                     <span className="ml-auto text-[11px] uppercase tracking-wide text-terracotta-500">
                       out
@@ -2547,7 +2558,8 @@ function PicksSection({
         <div className="flex flex-wrap gap-2">
           {picks.map((p) => {
             const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
-            const name = contestantMap.get(p.contestant_id)?.name ?? '—'
+            const pickC = contestantMap.get(p.contestant_id)
+            const name = pickC ? displayName(pickC) : '—'
             // A ballot-wide double covers every pick (#303); pre-#303 plays
             // named one contestant, so past seasons still pay out per-pick.
             const doubled = plays.some(
@@ -2710,7 +2722,7 @@ function PicksSection({
                       return (
                         <span key={p.id} className="inline-flex items-center gap-1.5">
                           <VoteSlip
-                            name={sc?.name ?? '—'}
+                            name={sc ? displayName(sc) : '—'}
                             stale={stale}
                             tribeColor={sc?.tribe_color}
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
@@ -2758,7 +2770,7 @@ function PicksSection({
                                 onClick={() => togglePick(ep.id, c.id, maxPicks)}
                                 disabled={maxed}
                                 aria-pressed={isSelected}
-                                aria-label={isSelected ? `Remove vote for ${c.name}` : `Vote for ${c.name}`}
+                                aria-label={isSelected ? `Remove vote for ${displayName(c)}` : `Vote for ${displayName(c)}`}
                                 className={[
                                   'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
                                   isSelected
@@ -2768,8 +2780,8 @@ function PicksSection({
                                       : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
                                 ].join(' ')}
                               >
-                                <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                                <span className="min-w-0 leading-tight">{c.name}</span>
+                                <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                                <span className="min-w-0 leading-tight">{displayName(c)}</span>
                                 {isSelected && (
                                   <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
@@ -2811,8 +2823,10 @@ function PicksSection({
                       {play.play.advantage_type === 'roster_swap'
                         ? 'Your play went on a roster swap this episode.'
                         : `Your play is on ${
-                            contestantMap.get(play.play.target_contestant_id ?? '')?.name ??
-                            'your roster'
+                            (() => {
+                              const targetC = contestantMap.get(play.play!.target_contestant_id ?? '')
+                              return targetC ? displayName(targetC) : 'your roster'
+                            })()
                           } this week — take it back on My Roster to use it here.`}
                     </p>
                   ) : (
@@ -3008,7 +3022,10 @@ function FinaleBallot({
     }
   }
 
-  const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
+  const nameOf = (id: string) => {
+    const c = contestants.find((c) => c.id === id)
+    return c ? displayName(c) : '—'
+  }
 
   return (
     <div className="mb-6 p-4 bg-white border border-cream-200 rounded-xl">
@@ -3081,7 +3098,7 @@ function FinaleBallot({
                   <option value="">No prediction</option>
                   {alive.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {displayName(c)}
                     </option>
                   ))}
                 </select>
@@ -3150,7 +3167,10 @@ function SoleSurvivorLine({
       .catch(() => setRoster([]))
   }, [season.id, userId, rosterVersion])
 
-  const nameOf = (id: string) => contestants.find((c) => c.id === id)?.name ?? '—'
+  const nameOf = (id: string) => {
+    const c = contestants.find((c) => c.id === id)
+    return c ? displayName(c) : '—'
+  }
   // Eliminated castaways can linger on an active roster (never swapped out) —
   // they're not valid designees (#180)
   const active = roster.filter(

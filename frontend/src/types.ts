@@ -44,6 +44,7 @@ export interface Contestant {
   id: string
   season_id: string
   name: string
+  nickname?: string | null
   placement: number | null
   image_url: string | null
   eliminated_in_episode: number | null

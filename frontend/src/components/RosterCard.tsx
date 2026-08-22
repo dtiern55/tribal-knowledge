@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
+import { displayName } from '../lib/cast'
 
 /**
  * One line in the roster manifest (#380 follow-on).
@@ -79,6 +80,7 @@ export function RosterCard({
   stamp?: boolean
   children?: ReactNode
 }) {
+  const name = contestant ? displayName(contestant) : '—'
   const outEp = contestant?.eliminated_in_episode ?? null
   const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
   // The note under the name is tribe (with its colour dot) for anyone still in;
@@ -119,7 +121,7 @@ export function RosterCard({
         title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
       >
         <ContestantAvatar
-          name={contestant?.name ?? '—'}
+          name={name}
           imageUrl={contestant?.image_url ?? null}
           tribeColor={contestant?.tribe_color ?? null}
           tribeName={contestant?.tribe_name ?? null}
@@ -132,7 +134,7 @@ export function RosterCard({
               outEp != null ? `text-paper-ink-faded ${ELIMINATED_STRIKE}` : 'text-paper-ink'
             }`}
           >
-            {contestant?.name ?? '—'}
+            {name}
           </span>
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
