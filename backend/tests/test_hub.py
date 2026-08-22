@@ -10,6 +10,7 @@ from tests.helpers import (
     insert_elimination_pick,
     insert_episode,
     insert_roster_pick,
+    insert_scoring_event,
     insert_season,
     insert_user,
 )
@@ -73,3 +74,23 @@ def test_hub_reveals_the_field_at_lock(client, db_conn, current_user):
     insert_user(db_conn, display_name="NoShow")
     rows = client.get(f"/episodes/{ep['id']}/hub").json()
     assert "NoShow" not in {r["display_name"] for r in rows}
+
+
+@pytest.mark.integration
+def test_hub_orders_by_standings_not_alphabetical(client, db_conn, current_user):
+    """The lock screen lists players in standings order, top score first (#490)."""
+    season = insert_season(db_conn)
+    ep = _episode(db_conn, season["id"], locked=True)
+    boot = insert_contestant(db_conn, season["id"], name="Boot")
+
+    # Aaron sorts first alphabetically but scores nothing; Zed sorts last
+    # alphabetically but rosters the immunity winner, so leads the standings.
+    aaron = insert_user(db_conn, display_name="Aaron")
+    zed = insert_user(db_conn, display_name="Zed")
+    insert_elimination_pick(db_conn, aaron["id"], ep["id"], boot["id"])
+    insert_elimination_pick(db_conn, zed["id"], ep["id"], boot["id"])
+    insert_roster_pick(db_conn, zed["id"], season["id"], boot["id"])
+    insert_scoring_event(db_conn, ep["id"], boot["id"], "win_individual_immunity")
+
+    names = [r["display_name"] for r in client.get(f"/episodes/{ep['id']}/hub").json()]
+    assert names.index("Zed") < names.index("Aaron")
