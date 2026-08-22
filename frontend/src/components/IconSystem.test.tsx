@@ -2,7 +2,6 @@ import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { BuffPairIcon, PalmIcon, RankedTorchesIcon } from './icons'
 import { DoubleBadge } from './DoubleBadge'
-import { Torch } from './Torch'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
@@ -40,22 +39,6 @@ describe('approved icon system', () => {
     rerender(<VoteMark className="h-10 w-10" />)
     ballot = container.querySelector('svg')
     expect(ballot).toHaveClass('h-10', 'w-10')
-  })
-
-  it('distinguishes lit and snuffed states on the same carved torch', () => {
-    const { container, rerender } = render(<Torch lit />)
-    let torch = container.querySelector('svg')
-
-    expect(torch).toHaveAttribute('data-state', 'lit')
-    expect(torch).toHaveAttribute('aria-hidden', 'true')
-    expect(torch?.querySelectorAll('[data-part="flame"]')).toHaveLength(1)
-    expect(torch?.querySelectorAll('[data-part="smoke"]')).toHaveLength(0)
-
-    rerender(<Torch lit={false} />)
-    torch = container.querySelector('svg')
-    expect(torch).toHaveAttribute('data-state', 'snuffed')
-    expect(torch?.querySelectorAll('[data-part="flame"]')).toHaveLength(0)
-    expect(torch?.querySelectorAll('[data-part="smoke"]')).toHaveLength(2)
   })
 
   it('keeps primary navigation symbols decorative beside their text labels', () => {

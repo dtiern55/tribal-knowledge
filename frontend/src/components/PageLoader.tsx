@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Torch } from './Torch'
+import { SlidePuzzleLoader } from './SlidePuzzleLoader'
 
 /**
- * Full-page loading state (#56): a flickering lit torch instead of plain
- * "Loading…" grey text.
+ * Full-page loading state (#56/#439): a Survivor sliding-puzzle of the
+ * fire-ring logo, themed to the app's open/locked state.
  *
- * Held back for `delayMs` so a fast load never flashes the torch — pages
+ * Held back for `delayMs` so a fast load never flashes the loader — pages
  * return `<PageLoader />` while loading, so if the data lands first the
  * component unmounts before the timer fires and nothing shows. The delay is
  * tuned to sit in the gap between a warm in-app navigation (typically a few
- * hundred ms — no torch, it would just flash) and a genuine Fly cold start
- * (multiple seconds — the torch is worth showing). Flicker is CSS
- * (.torch-flicker), reduced-motion aware.
+ * hundred ms — no loader, it would just flash) and a genuine Fly cold start
+ * (multiple seconds — the loader is worth showing). Motion is timer-driven
+ * and reduced-motion aware.
  */
 export function PageLoader({
-  label = 'Loading…',
+  label = 'Loading',
   delayMs = 700,
 }: {
   label?: string
@@ -27,10 +27,7 @@ export function PageLoader({
   }, [delayMs])
 
   if (!show) return null
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-500">
-      <Torch lit className="torch-flicker w-10 h-14" />
-      <p className="text-sm">{label}</p>
-    </div>
-  )
+  // The locked-night class is the app's global open/locked signal (Layout).
+  const theme = document.documentElement.classList.contains('locked-night') ? 'locked' : 'unlocked'
+  return <SlidePuzzleLoader theme={theme} label={label} />
 }
