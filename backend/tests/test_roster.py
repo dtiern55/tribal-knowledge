@@ -579,6 +579,63 @@ def test_other_users_roster_visible_after_lock(client, db_conn):
 
 
 @pytest.mark.integration
+def test_other_players_pending_swap_hidden_until_episode_locks(
+    client, db_conn, current_user
+):
+    """A swap into the still-open episode is undoable strategy — another player
+    sees the roster as it stood at the latest LOCKED episode, not the pending
+    swap-in, until that episode locks (#164 follow-up)."""
+    from tests.helpers import insert_roster_pick, insert_user
+
+    season, contestants = _make_season_with_roster(db_conn, roster_size=3)
+    # roster lock (ep2) has passed -> rosters public; ep3 is the open episode.
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    open_ep = insert_episode(db_conn, season["id"], episode_number=3)  # unlocked
+    other = insert_user(db_conn, display_name="Other")
+    kept, dropped = contestants[0], contestants[1]
+    swap_in = insert_contestant(db_conn, season["id"], "SwapIn")
+    insert_roster_pick(db_conn, other["id"], season["id"], kept["id"])
+    insert_roster_pick(
+        db_conn,
+        other["id"],
+        season["id"],
+        dropped["id"],
+        active_from_episode=1,
+        active_until_episode=2,
+    )
+    insert_roster_pick(
+        db_conn, other["id"], season["id"], swap_in["id"], active_from_episode=3
+    )
+
+    def seen():
+        r = client.get(f"/seasons/{season['id']}/roster/{other['id']}")
+        assert r.status_code == 200
+        return {row["contestant_id"] for row in r.json()}
+
+    # ep3 open: pending swap-in hidden, the pick it replaces still shows.
+    while_open = seen()
+    assert str(swap_in["id"]) not in while_open
+    assert str(dropped["id"]) in while_open
+    assert str(kept["id"]) in while_open
+
+    # ep3 locks: swap-in appears, the dropped pick drops off.
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set picks_lock_at = now() - interval '1 hour'"
+            " where id = %s",
+            [str(open_ep["id"])],
+        )
+    after_lock = seen()
+    assert str(swap_in["id"]) in after_lock
+    assert str(dropped["id"]) not in after_lock
+
+
+@pytest.mark.integration
 def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
     """#113: swapping holds the advisory lock that serializes over-cap swaps."""
     season, contestants = _make_season_with_roster(

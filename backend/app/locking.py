@@ -36,6 +36,25 @@ def episode_locked(episode: dict) -> bool:
     )
 
 
+def latest_locked_episode(cur, season_id) -> int | None:
+    """Highest episode_number whose picks have locked (or been scored).
+
+    The boundary for showing another player's roster: a swap into a still-open
+    episode is undoable strategy, so their roster is only revealed as it stood
+    at this episode — pending swaps stay hidden until their episode locks (#164
+    follow-up).
+    """
+    cur.execute(
+        f"""
+        select max(episode_number) as n from episodes
+        where season_id = %s and {EPISODE_LOCKED_SQL}
+        """,
+        [str(season_id)],
+    )
+    row = cur.fetchone()
+    return row["n"] if row else None
+
+
 def next_open_episode(cur, season_id: str) -> dict | None:
     """The one episode currently open for picks (decision #38, week-by-week).
 
