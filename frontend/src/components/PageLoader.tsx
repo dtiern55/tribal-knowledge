@@ -15,7 +15,7 @@ import { SlidePuzzleLoader } from './SlidePuzzleLoader'
  */
 export function PageLoader({
   label = 'Loading',
-  delayMs = 300,
+  delayMs = 50,
 }: {
   label?: string
   delayMs?: number
