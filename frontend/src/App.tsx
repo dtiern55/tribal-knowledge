@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage'
 import { MySeasonPage } from './pages/MySeasonPage'
 import { RulesPage } from './pages/RulesPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { StandingsPage } from './pages/StandingsPage'
 import { TeamPage } from './pages/TeamPage'
 
@@ -22,6 +23,7 @@ export default function App() {
               shell, header or nav behind them. */}
           <Route path="login" element={<LoginPage />} />
           <Route path="join" element={<JoinPage />} />
+          <Route path="reset" element={<ResetPasswordPage />} />
           <Route element={<Layout />}>
             <Route index element={<ProtectedRoute><MySeasonPage /></ProtectedRoute>} />
             {/* Roster, votes and the weekly play live on one page now (#307).

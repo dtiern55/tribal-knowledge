@@ -11,9 +11,10 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  // The address we just sent a confirmation link to. Non-null swaps the form
-  // for the dedicated "check your email" moment (#508).
-  const [sentTo, setSentTo] = useState<string | null>(null)
+  // Set once we've emailed the user; swaps the form for the dedicated "check
+  // your email" moment (#508). `kind` picks the copy: account confirmation
+  // after sign-up vs. a password reset link.
+  const [sent, setSent] = useState<{ kind: 'confirm' | 'reset'; email: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Don't flash the form while the session is still being restored (#1)
@@ -46,27 +47,47 @@ export function LoginPage() {
     }
     if (!data.session) {
       // Email confirmation required before a session exists.
-      setSentTo(email)
+      setSent({ kind: 'confirm', email })
       setSubmitting(false)
     }
     // else: local dev / confirmation disabled — already signed in, the
     // redirect above handles it.
   }
 
-  if (sentTo) {
+  async function handleForgot() {
+    setError(null)
+    if (!email) {
+      setError('Enter your email above, then tap “Forgot password?”.')
+      return
+    }
+    setSubmitting(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset`,
+    })
+    setSubmitting(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    setSent({ kind: 'reset', email })
+  }
+
+  if (sent) {
     return (
       <AuthScene>
         <div className="text-center">
           <h2 className="font-display text-2xl tracking-wide text-forest-800">Check your email</h2>
           <p role="status" className="mt-3 text-sm leading-6 text-gray-600">
-            We sent a confirmation link to{' '}
-            <span className="font-semibold text-forest-700">{sentTo}</span>. Tap it, then come back
-            and sign in.
+            We sent {sent.kind === 'reset' ? 'a password reset link' : 'a confirmation link'} to{' '}
+            <span className="font-semibold text-forest-700">{sent.email}</span>.{' '}
+            {sent.kind === 'reset'
+              ? 'Tap it to choose a new password.'
+              : 'Tap it, then come back and sign in.'}
           </p>
           <button
             type="button"
             onClick={() => {
-              setSentTo(null)
+              setSent(null)
               setMode('signin')
               setPassword('')
               setError(null)
@@ -106,9 +127,21 @@ export function LoginPage() {
           />
         </div>
         <div>
-          <label htmlFor="auth-password" className="mb-1 block text-sm font-medium text-gray-700">
-            Password
-          </label>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label htmlFor="auth-password" className="text-sm font-medium text-gray-700">
+              Password
+            </label>
+            {mode === 'signin' && (
+              <button
+                type="button"
+                onClick={() => void handleForgot()}
+                disabled={submitting}
+                className="cursor-pointer text-xs font-medium text-forest-700 hover:text-forest-900 disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
           <input
             id="auth-password"
             type="password"

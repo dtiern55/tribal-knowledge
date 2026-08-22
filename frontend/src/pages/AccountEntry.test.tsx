@@ -9,6 +9,7 @@ import { renderWithApp } from '../test/render'
 import { JoinPage } from './JoinPage'
 import { LoginPage } from './LoginPage'
 import { ProfilePage } from './ProfilePage'
+import { ResetPasswordPage } from './ResetPasswordPage'
 
 vi.mock('../lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }))
 vi.mock('../lib/supabase', () => ({
@@ -16,6 +17,7 @@ vi.mock('../lib/supabase', () => ({
     auth: {
       signInWithPassword: vi.fn(),
       signUp: vi.fn(),
+      resetPasswordForEmail: vi.fn(),
       updateUser: vi.fn(),
       signOut: vi.fn(),
     },
@@ -77,6 +79,51 @@ describe('account entry flows', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/sent a confirmation link to new@example.com/)
     await user.click(screen.getByRole('button', { name: 'Back to sign in' }))
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  })
+
+  it('emails a password reset link from the sign-in form', async () => {
+    const user = userEvent.setup()
+    vi.mocked(supabase.auth.resetPasswordForEmail).mockResolvedValue({ data: {}, error: null } as never)
+    renderWithApp(<LoginPage />, { auth: { session: null, profile: null } })
+
+    await user.type(screen.getByRole('textbox', { name: 'Email' }), 'danny@example.com')
+    await user.click(screen.getByRole('button', { name: 'Forgot password?' }))
+
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      'danny@example.com',
+      { redirectTo: expect.stringContaining('/reset') },
+    )
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent(/password reset link to danny@example.com/)
+  })
+
+  it('will not send a reset without an email', async () => {
+    const user = userEvent.setup()
+    renderWithApp(<LoginPage />, { auth: { session: null, profile: null } })
+
+    await user.click(screen.getByRole('button', { name: 'Forgot password?' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Enter your email/)
+    expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled()
+  })
+
+  it('sets a new password from the reset link and continues to My Season', async () => {
+    const user = userEvent.setup()
+    vi.mocked(supabase.auth.updateUser).mockResolvedValue({ data: { user: {} as never }, error: null })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/reset" element={<ResetPasswordPage />} />
+        <Route path="/" element={<p>My Season destination</p>} />
+      </Routes>,
+      { route: '/reset', auth: { session: memberSession, profile: { id: 'user-1', display_name: 'Danny', is_admin: false } } },
+    )
+
+    await user.type(screen.getByLabelText('New password'), 'brand-new-pass')
+    await user.click(screen.getByRole('button', { name: 'Save new password' }))
+
+    expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: 'brand-new-pass' })
+    expect(await screen.findByText('My Season destination')).toBeVisible()
   })
 
   it('joins with trimmed league identity data and continues to My Season', async () => {
