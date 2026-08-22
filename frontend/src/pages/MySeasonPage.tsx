@@ -10,6 +10,7 @@ import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../componen
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
+import { Notice } from '../components/Notice'
 import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
@@ -2608,7 +2609,9 @@ function PicksSection({
     <>
       <SealGhost drag={ballotDrag} />
       {!currentEp && closedEpisodes.length === 0 && (
-        <p className="text-gray-500 text-sm">No episodes yet.</p>
+        <Notice title="The season hasn’t started yet">
+          Once the commissioner schedules the first episode, your roster and the weekly play show up here.
+        </Notice>
       )}
 
       {/* Final week: the weekly vote becomes the 3-part finale ballot (#86);
