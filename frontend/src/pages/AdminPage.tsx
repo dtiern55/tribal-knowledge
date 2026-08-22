@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PageLoader } from '../components/PageLoader'
+import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
@@ -1814,6 +1815,29 @@ export function AdminPage() {
           <SectionHeader id="league-settings" title="League access" description="Control the join code shared with new league members." />
           <LeagueSettingsSection settings={leagueSettings} onUpdated={setLeagueSettings} />
         </>
+      )}
+
+      <SectionHeader id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see." />
+      <LoaderPreviewSection />
+    </div>
+  )
+}
+
+function LoaderPreviewSection() {
+  const [theme, setTheme] = useState<'unlocked' | 'locked' | null>(null)
+  return (
+    <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3 max-w-sm">
+      <div className="flex flex-wrap gap-2">
+        <ActionBtn onClick={() => setTheme('unlocked')}>Preview (unlocked)</ActionBtn>
+        <ActionBtn variant="secondary" onClick={() => setTheme('locked')}>Preview (locked)</ActionBtn>
+      </div>
+      {theme && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-cream-50">
+          <button onClick={() => setTheme(null)} className="fixed top-4 right-4 z-10 rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800">
+            Close
+          </button>
+          <SlidePuzzleLoader theme={theme} />
+        </div>
       )}
     </div>
   )
