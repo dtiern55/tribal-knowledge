@@ -709,3 +709,10 @@ html.locked-night .contestant-avatar {
 @media (prefers-reduced-motion: reduce) {
   .tk-dot { animation: none; opacity: 0.8; }
 }
+/* Fade the whole loader up so a load that finishes just past the delay
+   (e.g. ~720ms) unmounts mid-fade instead of hard-flashing at full opacity. */
+@keyframes tk-loader-fade { from { opacity: 0; } to { opacity: 1; } }
+.tk-loader-fade { animation: tk-loader-fade 320ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .tk-loader-fade { animation: none; }
+}
