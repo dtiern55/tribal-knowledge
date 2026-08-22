@@ -114,7 +114,7 @@ export function Layout() {
     }`
 
   return (
-    <div className="app-shell min-h-screen bg-cream-100 text-ink">
+    <div className="app-shell bg-cream-100 text-ink">
       <a
         href="#main-content"
         className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-lg bg-forest-900 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0"

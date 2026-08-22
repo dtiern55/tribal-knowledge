@@ -88,7 +88,11 @@
 
 html {
   color-scheme: light;
-  min-height: 100%;
+  /* Dynamic viewport, not 100%/100vh: on iOS Safari those resolve to the
+     large (toolbar-retracted) viewport, leaving the document taller than the
+     visible area so the page scrolls into empty filler past the fixed bottom
+     bar. dvh tracks the visible viewport and matches the rest of the shell. */
+  min-height: 100dvh;
   background: var(--color-cream-100);
   scroll-padding-top: 5rem;
 }
