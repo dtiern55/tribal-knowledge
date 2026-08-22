@@ -72,7 +72,10 @@ describe('account entry flows', () => {
     await user.type(screen.getByLabelText('Password'), 'password123')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/Check your email to confirm/)
+    // A dedicated "check your email" moment (#508), not an inline pill.
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent(/sent a confirmation link to new@example.com/)
+    await user.click(screen.getByRole('button', { name: 'Back to sign in' }))
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   })
 

@@ -18,10 +18,12 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Auth screens own the full viewport (camp-at-night, #508) — no app
+              shell, header or nav behind them. */}
+          <Route path="login" element={<LoginPage />} />
+          <Route path="join" element={<JoinPage />} />
           <Route element={<Layout />}>
             <Route index element={<ProtectedRoute><MySeasonPage /></ProtectedRoute>} />
-            <Route path="login" element={<LoginPage />} />
-            <Route path="join" element={<JoinPage />} />
             {/* Roster, votes and the weekly play live on one page now (#307).
                 Old links keep working. */}
             <Route path="my-votes" element={<Navigate to="/" replace />} />
