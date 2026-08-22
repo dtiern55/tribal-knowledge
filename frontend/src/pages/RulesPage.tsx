@@ -270,6 +270,7 @@ export function RulesPage() {
 
         <RuleSection id="rulings" title="Scoring rulings">
           <RuleList>
+            <li><b>Merge:</b> Values shown as "after merge" take effect from the first individual Tribal Council — the vote that sends the first player to the jury. Until that vote, before-merge values apply.</li>
             <li><b>Correct vote:</b> The castaway voted for the person who was eliminated.</li>
             <li><b>Blindside:</b> The castaway voted correctly and the eliminated player had an active idol.</li>
             <li><b>Quit or removal:</b> A quit, medical removal, or disqualification counts as an elimination.</li>

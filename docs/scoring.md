@@ -54,7 +54,10 @@ during that episode. `roster_picks.active_from_episode` and
 `active_until_episode` preserve swaps without moving previously earned points.
 The event's season-snapshot value is selected at scoring time; a configured
 post-merge value applies when `episode_number >= seasons.merge_episode`, and
-per-unit events multiply by `quantity`.
+per-unit events multiply by `quantity`. `merge_episode` is set by the
+commissioner when scoring the episode of the first individual Tribal Council —
+the vote that sends the first player to the jury; until then everything is
+pre-merge (decision #10).
 
 Double Roster Points adds one extra copy of the targeted roster member's event
 points for that episode. At the finale, the active Sole Survivor designee adds
