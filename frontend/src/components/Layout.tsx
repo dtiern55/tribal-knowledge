@@ -36,6 +36,11 @@ export function Layout() {
     () => (localStorage.getItem('tk-theme-override') as 'auto' | 'day' | 'night') || 'auto',
   )
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  // Re-derive the shell theme on every navigation, not just on the 30s poll.
+  // Pages fetch their own lock state fresh on mount, so without this the shell
+  // could lag behind the page you just landed on after a lock flips — leaving
+  // the chrome one theme and the content the other until a refresh.
+  const { pathname } = useLocation()
   const tabs =
     authed && profile?.is_admin
       ? [...PRIMARY, { to: '/admin', label: 'Admin', Icon: GearIcon, end: false }]
@@ -70,13 +75,13 @@ export function Layout() {
       live = false
       window.clearInterval(timer)
     }
-  }, [authed, authLoading])
+  }, [authed, authLoading, pathname])
 
   // The Admin console is a tool, not part of the themed game view — the
   // torchlit repaint left half of it dark-on-dark and unreadable (#451). Keep
   // Admin in daylight; you still preview night by toggling it and viewing the
   // game pages.
-  const onAdmin = useLocation().pathname.startsWith('/admin')
+  const onAdmin = pathname.startsWith('/admin')
   const effectiveNight =
     !onAdmin && (themeOverride === 'auto' ? nightMode : themeOverride === 'night')
 
