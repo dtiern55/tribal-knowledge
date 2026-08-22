@@ -8,6 +8,7 @@ import { JoinPage } from './pages/JoinPage'
 import { ContestantPage } from './pages/ContestantPage'
 import { LoginPage } from './pages/LoginPage'
 import { MySeasonPage } from './pages/MySeasonPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { RulesPage } from './pages/RulesPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -58,6 +59,7 @@ export default function App() {
               path="admin"
               element={<ProtectedRoute><AdminPage /></ProtectedRoute>}
             />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
