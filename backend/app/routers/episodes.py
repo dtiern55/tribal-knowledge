@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app import database
+from app import database, scoring
 from app.auth import get_current_admin, get_current_user
 from app.locking import advantages_locked, episode_locked
 from app.schemas import (
@@ -350,5 +350,20 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
                         "advantage_target": adv["advantage_target"] if adv else None,
                     }
                 )
-            entries.sort(key=lambda e: e["display_name"].lower())
+            # Standings order, not alphabetical (#490 follow-up): the lock
+            # screen reads like the leaderboard. Same live sum + tiebreak the
+            # standings endpoint uses (total desc, then display name).
+            roster_pts = scoring.roster_points(conn, season_id)
+            elim_pts = scoring.elimination_points(conn, season_id)
+            finale_pts = scoring.finale_points(conn, season_id)
+            for e in entries:
+                uid = e["user_id"]
+                e["_total"] = (
+                    roster_pts.get(uid, 0)
+                    + elim_pts.get(uid, 0)
+                    + finale_pts.get(uid, 0)
+                )
+            entries.sort(key=lambda e: (-e["_total"], e["display_name"].lower()))
+            for e in entries:
+                del e["_total"]
             return entries
