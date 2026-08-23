@@ -3206,9 +3206,9 @@ function SoleSurvivorLine({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-gold-200 bg-gold-50/60 p-3">
+    <div className="mt-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 p-3.5 shadow-sm">
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gold-700">
+        <span className="font-display text-sm font-semibold uppercase tracking-wide text-gold-800">
           Sole Survivor
         </span>
         {lockEpisode && (
@@ -3234,7 +3234,7 @@ function SoleSurvivorLine({
       ) : (
         <>
           <p className="text-xs text-gray-600 mb-2">
-            Doubles this castaway&apos;s finale roster points · must be on your roster
+            Doubles this castaway&apos;s finale roster points.
           </p>
           <div className="flex gap-2 flex-wrap items-center">
             <select
