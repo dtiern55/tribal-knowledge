@@ -507,9 +507,7 @@ def designate_sole_survivor(
 
 
 @router.delete("/seasons/{season_id}/sole-survivor", status_code=204)
-def clear_sole_survivor(
-    season_id: UUID, user_id: UUID = Depends(get_current_user)
-):
+def clear_sole_survivor(season_id: UUID, user_id: UUID = Depends(get_current_user)):
     """Clear your Sole Survivor designation (the Undo, #164). Only while the
     designation window is open, same as designating."""
     with database.get_db() as conn:
