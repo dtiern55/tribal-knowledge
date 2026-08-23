@@ -13,9 +13,13 @@ import { SlidePuzzleLoader } from './SlidePuzzleLoader'
  * (multiple seconds — the loader is worth showing). Motion is timer-driven
  * and reduced-motion aware.
  */
+// Held back this long so a fast load never flashes the loader; the admin
+// preview reuses it so it behaves exactly like the real thing.
+export const LOADER_DELAY_MS = 700
+
 export function PageLoader({
   label = 'Loading',
-  delayMs = 500,
+  delayMs = LOADER_DELAY_MS,
 }: {
   label?: string
   delayMs?: number
