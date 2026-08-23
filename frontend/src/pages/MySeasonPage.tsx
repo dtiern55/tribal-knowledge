@@ -3206,7 +3206,7 @@ function SoleSurvivorLine({
   }
 
   return (
-    <div className="mt-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 p-3.5 shadow-sm">
+    <div className="mx-3 mt-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 p-3.5 shadow-sm">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="font-display text-sm font-semibold uppercase tracking-wide text-gold-800">
           Sole Survivor
