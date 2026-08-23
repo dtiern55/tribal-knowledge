@@ -1,26 +1,24 @@
-import featherIdol from '../assets/sole-survivor-medallion-feathers-brush.png'
+import idolRing from '../assets/sole-survivor-medallion-style-painted.png'
 
 /**
- * The feather-idol ring worn by a designated Sole Survivor (#164 medallion).
+ * The woven idol ring worn by a designated Sole Survivor (#164 medallion).
  *
  * Drop this inside a `position: relative`, square parent that holds the round
- * portrait — it sits on top as an overlay. Everything is expressed in % of that
- * parent (width 168%, offset −3% / +19%), so the ring stays locked to the
- * portrait at any size or pixel density with no per-device math. Decorative:
- * the "Sole Survivor" meaning is carried by an adjacent label, so this is
- * aria-hidden.
+ * portrait — it sits on top as an overlay. The ring is symmetric, so it's
+ * centered and sized in % of the parent (width 140%), which keeps it locked to
+ * the portrait at any size or pixel density with no per-device math.
+ * Decorative: the "Sole Survivor" meaning is carried by an adjacent label, so
+ * this is aria-hidden.
  */
 export function SoleSurvivorFrame() {
   return (
     <img
-      src={featherIdol}
+      src={idolRing}
       alt=""
       aria-hidden
-      className="pointer-events-none absolute"
+      className="pointer-events-none absolute left-1/2 top-1/2"
       style={{
-        left: 'calc(50% - 3%)',
-        top: 'calc(50% + 19%)',
-        width: '168%',
+        width: '140%',
         maxWidth: 'none',
         height: 'auto',
         transform: 'translate(-50%, -50%)',
