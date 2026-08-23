@@ -480,22 +480,6 @@ html.locked-night .braid-rule { opacity: 0.55; }
   transform: rotate(-0.7deg);
 }
 
-/* Paint masks inherit currentColor, preserving the existing active/inactive
-   nav states while replacing the mechanically perfect SVG strokes. */
-.brush-nav-icon {
-  display: block;
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: none;
-  background-color: currentColor;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  mask-size: contain;
-}
-
 /* Live score text sits on a small painted swatch instead of a conventional
    rounded UI card. The transparent fringe leaves the irregular edge visible. */
 .header-points {
