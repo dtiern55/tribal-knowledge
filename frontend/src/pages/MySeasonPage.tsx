@@ -20,6 +20,7 @@ import {
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
+import { SoleSurvivorFrame } from '../components/SoleSurvivorFrame'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
@@ -3184,6 +3185,11 @@ function SoleSurvivorLine({
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   const windowOpen = ssDesignationOpen(season, episodes)
 
+  // The pick to feature: while open, the live dropdown choice; once locked, the
+  // saved designee. Its portrait becomes the medallion hero.
+  const heroId = windowOpen ? choice : designee?.contestant_id
+  const hero = contestants.find((c) => c.id === heroId)
+
   async function designate() {
     if (!choice) return
     setSaving(true)
@@ -3219,17 +3225,35 @@ function SoleSurvivorLine({
         )}
         <span className="ml-auto"><RuleLink anchor="finale">Rules</RuleLink></span>
       </div>
+      {hero && (
+        <div className="flex flex-col items-center pt-1 pb-2">
+          <span className="relative inline-flex h-24 w-24" style={{ marginBottom: '3rem' }}>
+            {hero.image_url ? (
+              <img
+                src={hero.image_url}
+                alt={displayName(hero)}
+                className="h-24 w-24 rounded-full object-cover object-top"
+              />
+            ) : (
+              <span
+                className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-stone-200 text-2xl font-medium text-stone-600"
+                aria-hidden
+              >
+                {displayName(hero).slice(0, 1)}
+              </span>
+            )}
+            <SoleSurvivorFrame />
+          </span>
+          <span className="font-display text-base uppercase tracking-wide text-gold-900">
+            {displayName(hero)}
+          </span>
+        </div>
+      )}
       {!windowOpen ? (
-        <p className="text-sm text-gray-600">
-          {designee ? (
-            <>
-              Your pick:{' '}
-              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>{' '}
-              — finale roster points doubled.
-            </>
-          ) : (
-            'No Sole Survivor designated — the window has closed.'
-          )}
+        <p className="text-center text-sm text-gray-600">
+          {designee
+            ? 'Finale roster points doubled.'
+            : 'No Sole Survivor designated — the window has closed.'}
         </p>
       ) : (
         <>

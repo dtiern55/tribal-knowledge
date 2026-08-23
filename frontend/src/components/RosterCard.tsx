@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
+import { SoleSurvivorFrame } from './SoleSurvivorFrame'
 import { displayName } from '../lib/cast'
 
 /**
@@ -117,7 +118,7 @@ export function RosterCard({
   const inner = (
     <>
       <span
-        className={`shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`}
+        className={`relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`}
         title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
       >
         <ContestantAvatar
@@ -126,6 +127,7 @@ export function RosterCard({
           tribeColor={contestant?.tribe_color ?? null}
           tribeName={contestant?.tribe_name ?? null}
         />
+        {isSoleSurvivor && outEp == null && <SoleSurvivorFrame />}
       </span>
       <span className="min-w-0 text-left">
         <span className="flex items-center gap-2">
