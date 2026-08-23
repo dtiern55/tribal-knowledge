@@ -1,7 +1,23 @@
-// Inline nav icons (#106): emoji rendered inconsistently across phones.
-// Monochrome stroke/currentColor so the active tab color just works.
-// Primary navigation uses custom Survivor-specific drawings; utility controls
-// retain familiar conventional symbols. No icon dependency.
+import castBrush from '../assets/nav-cast-brush.png'
+import mySeasonBrush from '../assets/nav-my-season-brush.png'
+import standingsBrush from '../assets/nav-standings-brush.png'
+
+// Primary navigation uses painted alpha masks so each glyph inherits the tab's
+// currentColor. Utility controls remain crisp inline SVGs where conventional
+// symbol recognition matters more than the app's brush language.
+
+function BrushNavIcon({ source, name }: { source: string; name: string }) {
+  const mask = `url("${source}")`
+
+  return (
+    <span
+      aria-hidden="true"
+      className="brush-nav-icon"
+      data-nav-icon={name}
+      style={{ WebkitMaskImage: mask, maskImage: mask }}
+    />
+  )
+}
 
 function Svg({ children }: { children: React.ReactNode }) {
   return (
@@ -21,36 +37,15 @@ function Svg({ children }: { children: React.ReactNode }) {
 }
 
 export function PalmIcon() {
-  return (
-    <Svg>
-      <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
-      <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
-      <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" />
-      <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
-    </Svg>
-  )
+  return <BrushNavIcon source={mySeasonBrush} name="my-season" />
 }
 
 export function RankedTorchesIcon() {
-  return (
-    <Svg>
-      <path d="M5 22V13M12 22V6M19 22V10" />
-      <path d="M3.5 13h3L6 16H4zM10.5 6h3L13 9h-2zM17.5 10h3l-.5 3h-2z" />
-      <path d="M5 11c-1.8-1.8.8-2.8 0-4.6 1.8 1 2.5 2.7.8 4.6M12 4c-1.8-1.8.8-2.8 0-4.5 1.8 1 2.5 2.7.8 4.5M19 8c-1.8-1.8.8-2.8 0-4.6 1.8 1 2.5 2.7.8 4.6" />
-    </Svg>
-  )
+  return <BrushNavIcon source={standingsBrush} name="standings" />
 }
 
 export function BuffPairIcon() {
-  return (
-    <Svg>
-      <path d="M5.5 6.8c.2-2.5 1.7-4.1 4-4.1 2.5 0 4.1 1.7 4 4.3-.1 2.4-1.6 4.1-4 4.2-2.3.1-4.2-1.7-4-4.4Z" />
-      <path d="M5.8 6.2c2.2-.7 4.8-.7 7.4 0M6.6 4.8l-2-.7" />
-      <path d="M2.5 21c0-4.2 2.7-6.8 6.8-6.8 4.4 0 7 2.4 7.2 6.8" />
-      <path d="M15.2 3.6c2.6-.5 4.7 1.2 4.8 3.8.1 2.1-1.2 3.7-3.3 4.3" />
-      <path d="M16 5.5c1.3-.4 2.6-.4 3.8.1M18 14.7c2.4.8 3.6 2.8 3.5 6.3" />
-    </Svg>
-  )
+  return <BrushNavIcon source={castBrush} name="cast" />
 }
 
 export function BookIcon() {

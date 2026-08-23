@@ -44,8 +44,12 @@ describe('approved icon system', () => {
       </>,
     )
 
-    const icons = container.querySelectorAll('svg')
+    const icons = container.querySelectorAll('[data-nav-icon]')
     expect(icons).toHaveLength(3)
-    for (const icon of icons) expect(icon).toHaveAttribute('aria-hidden', 'true')
+    for (const icon of icons) {
+      expect(icon).toHaveAttribute('aria-hidden', 'true')
+      expect(icon).toHaveClass('brush-nav-icon')
+      expect((icon as HTMLElement).style.maskImage).toContain('url(')
+    }
   })
 })
