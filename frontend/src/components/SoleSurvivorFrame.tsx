@@ -1,4 +1,4 @@
-import idolNecklace from '../assets/sole-survivor-medallion-teeth-skull-shorter.png'
+import idolNecklace from '../assets/sole-survivor-medallion-teeth-skull-flat.png'
 
 /**
  * The tusk-idol necklace worn by a designated Sole Survivor (#164 medallion).

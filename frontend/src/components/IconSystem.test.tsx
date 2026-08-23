@@ -5,25 +5,19 @@ import { DoubleBadge } from './DoubleBadge'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
-  it('steps the carved Double Roster Points idol down at small sizes', () => {
-    const { container, rerender } = render(<DoubleBadge />)
-    let idol = container.querySelector('[data-mark="double-idol"]')
+  it('renders the Double Roster Points idol as a sized, labelled image', () => {
+    const { container, getByRole, rerender } = render(<DoubleBadge />)
 
-    expect(idol).toHaveAttribute('viewBox', '0 0 48 48')
-    expect(idol).toHaveAttribute('data-detail', 'scene')
-    expect(idol).toHaveTextContent('×2')
-    expect(idol?.querySelector('[data-part="idol-scene"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="skull"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="multiplier-seal"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="compact-mark"]')).not.toBeInTheDocument()
+    const badge = getByRole('img')
+    expect(badge).toHaveAttribute('aria-label', 'Double Roster Points this episode')
+    expect(badge).toHaveStyle({ width: '22px', height: '22px' })
+    // The artwork itself is decorative — the label lives on the wrapper.
+    expect(container.querySelector('img')).toHaveAttribute('aria-hidden', 'true')
 
-    rerender(<DoubleBadge size={15} />)
-    idol = container.querySelector('[data-mark="double-idol"]')
-    expect(idol).toHaveAttribute('data-detail', 'compact')
-    expect(idol?.querySelector('[data-part="compact-mark"]')).toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="idol-scene"]')).not.toBeInTheDocument()
-    expect(idol?.querySelector('[data-part="skull"]')).not.toBeInTheDocument()
-    expect(idol).toHaveTextContent('×2')
+    rerender(<DoubleBadge size={60} title="Play your advantage" />)
+    const big = getByRole('img')
+    expect(big).toHaveAttribute('aria-label', 'Play your advantage')
+    expect(big).toHaveStyle({ width: '60px', height: '60px' })
   })
 
   it('marks a cast ballot with a clean, decorative slip-and-check icon', () => {
