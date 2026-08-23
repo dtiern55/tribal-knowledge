@@ -3277,6 +3277,33 @@ function SoleSurvivorLine({
     }
   }
 
+  // Played: collapse to a slim confirmation with just an Undo, mirroring the
+  // Advantage played row (no header, lock, or rules — only the state and its
+  // undo). Reassign by dragging the ring on the roster, or Undo to choose again.
+  if (windowOpen && designee) {
+    return (
+      <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
+        <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
+        <p className="min-w-0 flex-1 text-sm text-paper-ink">
+          <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+            Sole Survivor
+          </span>
+          {' — '}
+          <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
+        </p>
+        {error && <span className="sr-only" role="alert">{error}</span>}
+        <button
+          type="button"
+          onClick={clearDesignation}
+          disabled={saving}
+          className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+        >
+          Undo
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-3 mt-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 p-3.5 shadow-sm">
       <div className="flex items-center gap-2 mb-1.5">
@@ -3289,7 +3316,6 @@ function SoleSurvivorLine({
             scored={lockEpisode.status === 'scored'}
           />
         )}
-        <span className="ml-auto"><RuleLink anchor="finale">Rules</RuleLink></span>
       </div>
       {!windowOpen ? (
         <p className="text-sm text-gray-600">
@@ -3303,35 +3329,13 @@ function SoleSurvivorLine({
             'No Sole Survivor designated — the window has closed.'
           )}
         </p>
-      ) : designee ? (
-        // Played: the selector collapses to a slim confirmation with Undo,
-        // mirroring the Advantage played row. Reassign by dragging the ring on
-        // the roster, or Undo to choose again.
-        <>
-          <div className="flex items-center gap-2">
-            <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
-            <p className="min-w-0 flex-1 text-sm text-paper-ink">
-              <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
-                Designated
-              </span>
-              {' — '}
-              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
-            </p>
-            <button
-              type="button"
-              onClick={clearDesignation}
-              disabled={saving}
-              className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
-            >
-              Undo
-            </button>
-          </div>
-          {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
-        </>
       ) : (
         <>
-          <p className="text-xs text-gray-600 mb-2">
+          <p className="text-xs text-gray-600">
             Doubles this castaway&apos;s finale roster points.
+          </p>
+          <p className="mt-1.5 mb-2">
+            <RuleLink anchor="finale">How Sole Survivor works</RuleLink>
           </p>
           <div className="flex gap-2 flex-wrap items-center">
             <select
