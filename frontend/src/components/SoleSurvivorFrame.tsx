@@ -1,4 +1,4 @@
-import idolRing from '../assets/sole-survivor-medallion-style-painted.png'
+import idolRing from '../assets/sole-survivor-medallion-style-painted-no-pendant.png'
 
 /**
  * The woven idol ring worn by a designated Sole Survivor (#164 medallion).

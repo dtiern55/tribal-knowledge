@@ -36,6 +36,8 @@ export function RosterCard({
   onToggle,
   onSealPointerDown,
   sealLifted = false,
+  onSsPointerDown,
+  ssLifted = false,
   dropId,
   dropActive = false,
   stamp = false,
@@ -73,6 +75,10 @@ export function RosterCard({
   // becomes draggable; `sealLifted` dims it while it's in the air.
   onSealPointerDown?: (e: React.PointerEvent) => void
   sealLifted?: boolean
+  // #164 medallion: the Sole Survivor ring is a drag handle to move the
+  // designation onto another castaway; `ssLifted` dims it while it's in the air.
+  onSsPointerDown?: (e: React.PointerEvent) => void
+  ssLifted?: boolean
   // The row is a drop target for that drag: `dropId` is what it reassigns to,
   // `dropActive` highlights it as the finger passes over.
   dropId?: string
@@ -83,6 +89,7 @@ export function RosterCard({
 }) {
   const name = contestant ? displayName(contestant) : '—'
   const outEp = contestant?.eliminated_in_episode ?? null
+  const ssDraggable = isSoleSurvivor && outEp == null && onSsPointerDown != null
   const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
   // The note under the name is tribe (with its colour dot) for anyone still in;
   // a boot shows when it happened instead. A swap-in is provenance, not a
@@ -118,8 +125,18 @@ export function RosterCard({
   const inner = (
     <>
       <span
-        className={`relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`}
-        title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+        className={`relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''} ${
+          ssDraggable ? 'cursor-grab touch-none transition-opacity active:cursor-grabbing' : ''
+        }`}
+        title={
+          ssDraggable
+            ? 'Drag to move your Sole Survivor'
+            : outEp != null
+              ? `Voted out · episode ${outEp}`
+              : 'Still in the game'
+        }
+        onPointerDown={ssDraggable ? onSsPointerDown : undefined}
+        style={ssLifted ? { opacity: 0.3 } : undefined}
       >
         <ContestantAvatar
           name={name}

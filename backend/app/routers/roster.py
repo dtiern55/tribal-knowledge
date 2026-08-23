@@ -504,3 +504,27 @@ def designate_sole_survivor(
                 [str(pick["id"])],
             )
             return cur.fetchone()
+
+
+@router.delete("/seasons/{season_id}/sole-survivor", status_code=204)
+def clear_sole_survivor(
+    season_id: UUID, user_id: UUID = Depends(get_current_user)
+):
+    """Clear your Sole Survivor designation (the Undo, #164). Only while the
+    designation window is open, same as designating."""
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            season = database.require_season(cur, season_id)
+            if season["status"] == "completed":
+                raise HTTPException(status_code=400, detail="Season is complete")
+            ss_lock = _effective_ss_lock(cur, season)
+            if ss_lock is not None and _episode_locked(cur, season_id, ss_lock):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Sole survivor designation window has closed",
+                )
+            cur.execute(
+                "update roster_picks set is_sole_survivor = false"
+                " where user_id = %s and season_id = %s and is_sole_survivor",
+                [str(user_id), str(season_id)],
+            )

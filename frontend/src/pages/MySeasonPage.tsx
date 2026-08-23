@@ -7,6 +7,7 @@ import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
+import idolRing from '../assets/sole-survivor-medallion-style-painted-no-pendant.png'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
@@ -109,6 +110,24 @@ function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean
     >
       <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
         <DoubleBadge size={44} />
+      </span>
+    </div>,
+    document.body,
+  )
+}
+
+/** The Sole Survivor ring lifted off the page during a reassign drag (#164) —
+ *  the medallion twin of {@link SealGhost}. */
+function SsGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
+  if (!drag) return null
+  return createPortal(
+    <div
+      aria-hidden
+      className={`seal-ghost pointer-events-none fixed z-50 ${drag.releasing ? 'seal-ghost--releasing' : ''}`}
+      style={{ left: drag.x, top: drag.y, transform: `translate(-50%, calc(-50% - ${SEAL_LIFT_Y}px))` }}
+    >
+      <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
+        <img src={idolRing} alt="" className="block h-12 w-12" />
       </span>
     </div>,
     document.body,
@@ -1921,6 +1940,37 @@ function RosterSection({
     },
   })
 
+  // Sole Survivor reassign by dragging the ring (#164) — the direct-manipulation
+  // twin of the card's selector, reusing the same roster-row drop targets. Only
+  // while the designation window is open.
+  const currentSsId = roster.find((p) => p.is_sole_survivor)?.contestant_id
+  const {
+    drag: ssDrag,
+    dragging: ssDragging,
+    start: startSsDrag,
+  } = useSealDrag({
+    disabled: !ssOpen,
+    canDropOn: (id) =>
+      !id.startsWith('beat:') &&
+      id !== currentSsId &&
+      activeRoster.some((p) => p.contestant_id === id) &&
+      contestantMap.get(id)?.eliminated_in_episode == null,
+    onDrop: (id) => {
+      void reassignSoleSurvivor(id)
+    },
+  })
+
+  async function reassignSoleSurvivor(id: string) {
+    setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === id })))
+    try {
+      await api.post<RosterPick>(`/seasons/${season.id}/sole-survivor`, { contestant_id: id })
+      onRosterChange()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Designation failed')
+      setRoster(await api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`))
+    }
+  }
+
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
 
   // Whether the current selection differs from the saved roster (#94): drives
@@ -2025,6 +2075,7 @@ function RosterSection({
   return (
     <>
     <SealGhost drag={drag} />
+    <SsGhost drag={ssDrag} />
     <RecordSection
       title="Roster"
       bare={bare}
@@ -2190,8 +2241,17 @@ function RosterSection({
                 sealLifted={
                   dragging && displayedDoubleTarget === pick.contestant_id
                 }
+                // #164: the Sole Survivor ring is a drag handle to reassign the
+                // designation; every row is a drop target for it too.
+                onSsPointerDown={
+                  ssOpen && !picking && pick.is_sole_survivor ? startSsDrag : undefined
+                }
+                ssLifted={ssDragging && pick.is_sole_survivor}
                 dropId={pick.contestant_id}
-                dropActive={drag?.overId === pick.contestant_id}
+                dropActive={
+                  drag?.overId === pick.contestant_id ||
+                  ssDrag?.overId === pick.contestant_id
+                }
                 stamp={stampId === pick.contestant_id}
               >
                 <RosterBreakdown
@@ -3151,7 +3211,6 @@ function SoleSurvivorLine({
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [choice, setChoice] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Refetch when the roster changes (rosterVersion) so a pre-lock swap can't
@@ -3188,7 +3247,6 @@ function SoleSurvivorLine({
     if (!choice) return
     setSaving(true)
     setError(null)
-    setSaved(false)
     try {
       await api.post<RosterPick>(`/seasons/${season.id}/sole-survivor`, {
         contestant_id: choice,
@@ -3197,9 +3255,23 @@ function SoleSurvivorLine({
         rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === choice })),
       )
       onRosterChange() // refresh the roster section so the SS stamp moves (#no-reload)
-      setSaved(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Designation failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function clearDesignation() {
+    setSaving(true)
+    setError(null)
+    try {
+      await api.delete(`/seasons/${season.id}/sole-survivor`)
+      setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: false })))
+      setChoice('')
+      onRosterChange()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Undo failed')
     } finally {
       setSaving(false)
     }
@@ -3231,6 +3303,31 @@ function SoleSurvivorLine({
             'No Sole Survivor designated — the window has closed.'
           )}
         </p>
+      ) : designee ? (
+        // Played: the selector collapses to a slim confirmation with Undo,
+        // mirroring the Advantage played row. Reassign by dragging the ring on
+        // the roster, or Undo to choose again.
+        <>
+          <div className="flex items-center gap-2">
+            <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
+            <p className="min-w-0 flex-1 text-sm text-paper-ink">
+              <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+                Designated
+              </span>
+              {' — '}
+              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
+            </p>
+            <button
+              type="button"
+              onClick={clearDesignation}
+              disabled={saving}
+              className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+            >
+              Undo
+            </button>
+          </div>
+          {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
+        </>
       ) : (
         <>
           <p className="text-xs text-gray-600 mb-2">
@@ -3239,10 +3336,7 @@ function SoleSurvivorLine({
           <div className="flex gap-2 flex-wrap items-center">
             <select
               value={choice}
-              onChange={(e) => {
-                setChoice(e.target.value)
-                setSaved(false)
-              }}
+              onChange={(e) => setChoice(e.target.value)}
               aria-label="Sole Survivor"
               className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
             >
@@ -3262,7 +3356,6 @@ function SoleSurvivorLine({
             </button>
           </div>
           {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
-          {saved && <p className="text-jade-600 text-sm mt-2">Designated.</p>}
         </>
       )}
     </div>
