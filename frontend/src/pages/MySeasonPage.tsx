@@ -582,6 +582,20 @@ export function MySeasonPage() {
               setBeat('roster')
             }}
           />
+          {/* Sole Survivor rides with the Advantage at the top of the record so
+              it reads as a headline decision, not roster fine-print (#164
+              follow-up). Post-merge only: the designation doubles a FINALE
+              contribution, so it's meaningless before the merge is set. */}
+          {d.season.merge_episode != null && (
+            <SoleSurvivorLine
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              rosterVersion={d.rosterVersion}
+              onRosterChange={d.bumpRoster}
+            />
+          )}
           <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
 
           <RecordPanel
@@ -2348,20 +2362,6 @@ function RosterSection({
             : 'Roster submission window has closed.'}
         </p>
       )}
-      {/* Hidden until the merge (#307 follow-up): the designation doubles a
-          castaway's FINALE contribution, so picking one in episode 2 is a
-          throwaway guess that only clutters the weekly page. It appears the
-          week merge_episode is set, and still locks with the advantages. */}
-      {season.merge_episode != null && (
-        <SoleSurvivorLine
-          season={season}
-          contestants={contestants}
-          episodes={episodes}
-          userId={userId}
-          rosterVersion={rosterVersion}
-          onRosterChange={onRosterChange}
-        />
-      )}
     </RecordSection>
     </>
   )
@@ -3206,9 +3206,9 @@ function SoleSurvivorLine({
   }
 
   return (
-    <div className="mt-4 pt-3 border-t border-cream-100">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <div className="mt-3 rounded-xl border border-gold-200 bg-gold-50/60 p-3">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gold-700">
           Sole Survivor
         </span>
         {lockEpisode && (
@@ -3217,17 +3217,15 @@ function SoleSurvivorLine({
             scored={lockEpisode.status === 'scored'}
           />
         )}
+        <span className="ml-auto"><RuleLink anchor="finale">Rules</RuleLink></span>
       </div>
-      <p className="text-xs text-gray-500 mb-2">
-        Your Sole Survivor&apos;s entire finale-episode roster contribution is doubled.
-      </p>
-      <p className="mb-2"><RuleLink anchor="finale">Sole Survivor rules</RuleLink></p>
       {!windowOpen ? (
         <p className="text-sm text-gray-600">
           {designee ? (
             <>
-              Your Sole Survivor:{' '}
-              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
+              Your pick:{' '}
+              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>{' '}
+              — finale roster points doubled.
             </>
           ) : (
             'No Sole Survivor designated — the window has closed.'
@@ -3235,10 +3233,8 @@ function SoleSurvivorLine({
         </p>
       ) : (
         <>
-          <p className="text-xs text-gray-500 mb-3">
-            Locks before episode {lockEp}
-            {lockEpisode && <> ({formatCentral(lockEpisode.picks_lock_at)})</>} · changeable
-            until then · must be on your roster
+          <p className="text-xs text-gray-600 mb-2">
+            Doubles this castaway&apos;s finale roster points · must be on your roster
           </p>
           <div className="flex gap-2 flex-wrap items-center">
             <select
