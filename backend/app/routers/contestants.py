@@ -40,7 +40,8 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
             database.require_season(cur, season_id)
             cur.execute(
                 """
-                select c.id, c.name, c.image_url, c.placement,
+                select c.id, coalesce(c.nickname, c.name) as name,
+                       c.image_url, c.placement,
                        (select min(ep2.episode_number)
                         from eliminations el
                         join episodes ep2 on ep2.id = el.episode_id
@@ -257,6 +258,9 @@ def update_contestant(
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")
+    # Blank nickname clears it — else coalesce(nickname, name) would render "".
+    if fields.get("nickname") == "":
+        fields["nickname"] = None
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

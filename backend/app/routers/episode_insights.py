@@ -152,7 +152,7 @@ def _auto_league_call(conn, episode: dict) -> Optional[dict]:
     """The guaranteed boot-caught insight: what share of ballots called the boot."""
     with conn.cursor() as cur:
         cur.execute(
-            "select c.name from eliminations el"
+            "select coalesce(c.nickname, c.name) as name from eliminations el"
             " join contestants c on c.id = el.contestant_id"
             " where el.episode_id = %s order by el.created_at, c.name",
             [str(episode["id"])],
@@ -194,7 +194,8 @@ def compute_episode_insights(
         return []
     with conn.cursor() as cur:
         cur.execute(
-            "select ei.*, c.name as contestant_name from episode_insights ei"
+            "select ei.*, coalesce(c.nickname, c.name) as contestant_name"
+            " from episode_insights ei"
             " left join contestants c on c.id = ei.contestant_id"
             " where ei.episode_id = %s order by ei.display_order",
             [str(episode["id"])],

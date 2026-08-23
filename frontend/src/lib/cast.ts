@@ -1,5 +1,10 @@
 import type { CastMember } from '../types'
 
+/** Nickname stands in for the legal name wherever contestants come from the
+ * raw `/seasons/{id}/contestants` list (other endpoints already coalesce
+ * this server-side). */
+export const displayName = (c: { name: string; nickname?: string | null }) => c.nickname || c.name
+
 export function castStatus(member: Pick<CastMember, 'placement' | 'eliminated_in_episode'>) {
   if (member.placement != null) return `Placed #${member.placement}`
   if (member.eliminated_in_episode != null) return `Eliminated in episode ${member.eliminated_in_episode}`

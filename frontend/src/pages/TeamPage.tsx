@@ -10,6 +10,7 @@ import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
 import { ADV_LABELS } from '../lib/advantages'
 import { api } from '../lib/api'
+import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
 import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '../lib/rosterBreakdown'
 import { rankStandings } from '../lib/standings'
@@ -203,9 +204,13 @@ export function TeamPage() {
               <div className="mt-6">
                 <SectionShell title="Swap history" defaultOpen={false}>
                   <ul className="space-y-1 text-sm text-gray-600">
-                    {swaps.map(({ out, into }) => (
-                      <li key={out.id}>{contestantMap.get(out.contestant_id)?.name ?? '—'} → {into ? contestantMap.get(into.contestant_id)?.name ?? '—' : '?'} <span className="text-gray-500">(episode {(out.active_until_episode ?? 0) + 1})</span></li>
-                    ))}
+                    {swaps.map(({ out, into }) => {
+                      const outC = contestantMap.get(out.contestant_id)
+                      const intoC = into ? contestantMap.get(into.contestant_id) : undefined
+                      return (
+                        <li key={out.id}>{outC ? displayName(outC) : '—'} → {into ? (intoC ? displayName(intoC) : '—') : '?'} <span className="text-gray-500">(episode {(out.active_until_episode ?? 0) + 1})</span></li>
+                      )
+                    })}
                   </ul>
                 </SectionShell>
               </div>
@@ -232,7 +237,8 @@ export function TeamPage() {
                         {picks.map((pick) => {
                           const correct = eliminatedIds.has(pick.contestant_id)
                           const doubled = doubles.some((play) => play.episode_id === episode.id && (play.target_contestant_id === null || play.target_contestant_id === pick.contestant_id))
-                          const name = contestantMap.get(pick.contestant_id)?.name ?? '—'
+                          const nameC = contestantMap.get(pick.contestant_id)
+                          const name = nameC ? displayName(nameC) : '—'
                           const x2 = doubled ? <span className="font-semibold text-terracotta-700"> ×2</span> : null
                           if (correct) return <CorrectVote key={pick.id} name={name} trailing={x2} />
                           return (
