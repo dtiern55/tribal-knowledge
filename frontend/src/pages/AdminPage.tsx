@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PageLoader } from '../components/PageLoader'
+import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -1893,11 +1893,32 @@ function LoaderPreviewSection() {
         <ActionBtn onClick={() => setTheme('unlocked')}>Preview (unlocked)</ActionBtn>
         <ActionBtn variant="secondary" onClick={() => setTheme('locked')}>Preview (locked)</ActionBtn>
       </div>
-      {theme && (
-        <div className="fixed inset-0 z-50 flex flex-col overflow-auto [&>div]:flex-1">
-          <button onClick={() => setTheme(null)} className="fixed top-4 right-4 z-10 rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800">
-            Close
-          </button>
+      {theme && <LoaderPreviewOverlay theme={theme} onClose={() => setTheme(null)} />}
+    </div>
+  )
+}
+
+// Mirrors PageLoader: the 700ms hold + fade-in, so the preview shows exactly
+// what a real cold-start load looks like.
+function LoaderPreviewOverlay({
+  theme,
+  onClose,
+}: {
+  theme: 'unlocked' | 'locked'
+  onClose: () => void
+}) {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), LOADER_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col overflow-auto">
+      <button onClick={onClose} className="fixed top-4 right-4 z-10 rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800">
+        Close
+      </button>
+      {show && (
+        <div className="tk-loader-fade flex flex-1 flex-col [&>div]:flex-1">
           <SlidePuzzleLoader theme={theme} />
         </div>
       )}
