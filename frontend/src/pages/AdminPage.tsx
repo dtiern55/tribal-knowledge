@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
+import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
@@ -1806,7 +1807,7 @@ export function AdminPage() {
   }
 
   if (!season) {
-    return <Notice title="No season found">Choose a season before opening commissioner tools.</Notice>
+    return <ColdStart />
   }
 
   const context = commissionerContext(season, episodes)
