@@ -15,6 +15,7 @@ import { LockBadge } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
 import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { EpisodeLabel } from '../components/EpisodeLabel'
+import { ColdStart } from '../components/ColdStart'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
   doubledByContestantEpisode,
@@ -446,7 +447,11 @@ export function MySeasonPage() {
 
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-terracotta-600">{d.error}</p>
-  if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
+  // #520 gave Standings, Cast, and Rules the cold-start screen but not the
+  // landing page, so the commissioner arriving at a league with no season met a
+  // grey line instead of #526's "Create the first season" way in.
+  if (!d.season) return <ColdStart />
+  if (!d.userId) return <p className="text-gray-500">No active season.</p>
 
   const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
   // Active roster castaways — the valid Roster ×2 targets when the strip idol is
