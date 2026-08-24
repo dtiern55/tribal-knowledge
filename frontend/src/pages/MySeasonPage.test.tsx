@@ -139,7 +139,7 @@ describe('MySeasonPage state shell', () => {
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByText('Episode 2 · locked')).toBeVisible()
+    expect(await screen.findByText('Ep 2 · locked')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Results are pending' })).toBeVisible()
     expect(screen.getByText('No ballot was submitted.')).toBeVisible()
     // #451: the redundant standalone Advantage section is dropped while locked.
@@ -163,7 +163,7 @@ describe('MySeasonPage state shell', () => {
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByText('Episode 1 · watch only')).toBeVisible()
+    expect(await screen.findByText('Ep 1 · watch only')).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
