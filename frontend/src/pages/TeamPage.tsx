@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { EpisodeLabel } from '../components/EpisodeLabel'
 import { CorrectVote } from '../components/CorrectVote'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
@@ -224,14 +225,11 @@ export function TeamPage() {
               <div className="space-y-3">
                 {votes.map(({ episode, picks, eliminatedIds }) => (
                   <div key={episode.id} className="rounded-xl border border-paper-edge record-paper p-4">
-                    <p className="mb-2 font-medium text-paper-ink">
-                      Episode {episode.episode_number}
-                      {episode.title && (
-                        <span className="ml-1.5 font-normal text-paper-ink-faded truncate max-w-[16rem] inline-block align-bottom">
-                          · {episode.title}
-                        </span>
-                      )}
-                    </p>
+                    <EpisodeLabel
+                      episode={episode}
+                      className="mb-2 font-medium text-paper-ink"
+                      titleClassName="font-normal text-paper-ink-faded"
+                    />
                     {picks.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {picks.map((pick) => {

@@ -14,6 +14,8 @@ import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
 import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { EpisodeLabel } from '../components/EpisodeLabel'
+import { ColdStart } from '../components/ColdStart'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import {
   doubledByContestantEpisode,
@@ -445,7 +447,11 @@ export function MySeasonPage() {
 
   if (d.loading) return <PageLoader />
   if (d.error) return <p className="text-terracotta-600">{d.error}</p>
-  if (!d.season || !d.userId) return <p className="text-gray-500">No active season.</p>
+  // #520 gave Standings, Cast, and Rules the cold-start screen but not the
+  // landing page, so the commissioner arriving at a league with no season met a
+  // grey line instead of #526's "Create the first season" way in.
+  if (!d.season) return <ColdStart />
+  if (!d.userId) return <p className="text-gray-500">No active season.</p>
 
   const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
   // Active roster castaways — the valid Roster ×2 targets when the strip idol is
@@ -585,14 +591,7 @@ export function MySeasonPage() {
         <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
-            meta={
-              <>
-                Episode {state.episode.episode_number}
-                {state.episode.title && (
-                  <span className="normal-case tracking-normal"> · {state.episode.title}</span>
-                )}
-              </>
-            }
+            meta={<EpisodeLabel episode={state.episode} />}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
           <AdvantagePrompt
@@ -608,20 +607,6 @@ export function MySeasonPage() {
               setBeat('roster')
             }}
           />
-          {/* Sole Survivor rides with the Advantage at the top of the record so
-              it reads as a headline decision, not roster fine-print (#164
-              follow-up). Post-merge only: the designation doubles a FINALE
-              contribution, so it's meaningless before the merge is set. */}
-          {d.season.merge_episode != null && (
-            <SoleSurvivorLine
-              season={d.season}
-              contestants={d.contestants}
-              episodes={d.episodes}
-              userId={d.userId}
-              rosterVersion={d.rosterVersion}
-              onRosterChange={d.bumpRoster}
-            />
-          )}
           <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
 
           <RecordPanel
@@ -630,6 +615,21 @@ export function MySeasonPage() {
             className={`stage-stage ${picking === 'swap' ? 'stage-lit' : ''}`}
           >
             <div id="roster">
+              {/* A roster decision, so it lives inside the Roster beat rather
+                  than above the beat tabs, where it stayed on screen while you
+                  were filling out a ballot (#528). Post-merge only: the
+                  designation doubles a FINALE contribution, so it's meaningless
+                  before the merge is set. */}
+              {d.season.merge_episode != null && (
+                <SoleSurvivorLine
+                  season={d.season}
+                  contestants={d.contestants}
+                  episodes={d.episodes}
+                  userId={d.userId}
+                  rosterVersion={d.rosterVersion}
+                  onRosterChange={d.bumpRoster}
+                />
+              )}
               <RosterSection
                 season={d.season}
                 contestants={d.contestants}
@@ -711,12 +711,11 @@ export function MySeasonPage() {
 function WatchOnlyState({ episode }: { episode: Episode }) {
   return (
     <section className="p-5 bg-forest-50 border border-forest-200 rounded-xl">
-      <p className="text-xs font-semibold uppercase tracking-wide text-forest-700 mb-1">
-        Episode {episode.episode_number} · watch only
-      </p>
-      {episode.title && (
-        <p className="mb-1 font-display text-lg text-forest-900">{episode.title}</p>
-      )}
+      <EpisodeLabel
+        episode={episode}
+        suffix="watch only"
+        className="mb-1 text-xs font-semibold uppercase tracking-wide text-forest-700"
+      />
       <p className="text-sm text-gray-700">
         Watch the premiere and get a feel for the cast. Rosters and ballots
         open after it is scored.
@@ -805,17 +804,15 @@ function LockedState({
     >
       <div>
         <div>
-          <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
-            Episode {episode.episode_number} · locked
-          </p>
+          <EpisodeLabel
+            episode={episode}
+            suffix="locked"
+            className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}
+            titleClassName={broadcast ? 'text-white/60' : 'text-gray-500'}
+          />
           <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
             {broadcast ? 'Tribal Council' : 'Results are pending'}
           </h2>
-          {episode.title && (
-            <p className={`mt-1 text-sm ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-              {episode.title}
-            </p>
-          )}
         </div>
       </div>
 
@@ -2621,10 +2618,11 @@ function PicksSection({
     )
     const header = (
       <div className="flex items-center gap-2">
-        <span className={`min-w-0 truncate ${current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
-          Episode {ep.episode_number}
-          {ep.title && <span className="font-normal text-gray-500"> · {ep.title}</span>}
-        </span>
+        <EpisodeLabel
+          episode={ep}
+          className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}
+          titleClassName="font-normal text-gray-500"
+        />
         {!current && ballotDoubled && (
           <DoubleBadge size={22} title="Double Ballot Points this episode" />
         )}
@@ -2781,9 +2779,12 @@ function PicksSection({
                 />
               )}
               {!activeOnly && (
-                <h3 className="mb-1 font-semibold text-gray-900">
-                  Episode {ep.episode_number}
-                  {ep.title && <span className="font-normal text-gray-500"> · {ep.title}</span>}
+                <h3 className="mb-1">
+                  <EpisodeLabel
+                    episode={ep}
+                    className="font-semibold text-gray-900"
+                    titleClassName="font-normal text-gray-500"
+                  />
                 </h3>
               )}
               {confirmed ? (

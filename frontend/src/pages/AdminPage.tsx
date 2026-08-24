@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
-import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
@@ -1766,6 +1765,99 @@ function LeagueSettingsSection({
 
 // ─── Admin page ───────────────────────────────────────────────────────────────
 
+// ─── First season (#526) ─────────────────────────────────────────────────────
+
+/** A league with zero seasons had no way in: `POST /seasons` has been
+ * admin-guarded since #152 but nothing in the frontend ever called it, so
+ * season one had to be POSTed by hand while /admin cold-started at ColdStart.
+ *
+ * Deliberately three fields. Every other column has a server default and is
+ * editable in Season setup the moment the season exists, so asking for roster
+ * size and lock episodes here would just duplicate that form. */
+function CreateSeasonSection({ onCreated }: { onCreated: (season: Season) => void }) {
+  const [name, setName] = useState('')
+  const [seasonNumber, setSeasonNumber] = useState('')
+  const [status, setStatus] = useState<Season['status']>('upcoming')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const valid = name.trim() !== '' && Number(seasonNumber) > 0
+
+  function submit() {
+    if (!valid) return
+    void run(setBusy, setError, async () => {
+      onCreated(
+        await api.post<Season>('/seasons', {
+          name: name.trim(),
+          season_number: Number(seasonNumber),
+          status,
+        }),
+      )
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-cream-200 bg-white p-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label htmlFor="new-season-name" className="mb-1 block text-xs text-gray-500">
+            Name
+          </label>
+          <input
+            id="new-season-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Survivor 50: In the Hands of the Fans"
+            className="w-full rounded-lg border border-cream-200 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor="new-season-number" className="mb-1 block text-xs text-gray-500">
+            Season number
+          </label>
+          <input
+            id="new-season-number"
+            type="number"
+            min={1}
+            value={seasonNumber}
+            onChange={(e) => setSeasonNumber(e.target.value)}
+            placeholder="50"
+            className="w-full rounded-lg border border-cream-200 px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Practice seasons are numbered 100+. Drives the TVmaze episode lookup.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="new-season-status" className="mb-1 block text-xs text-gray-500">
+            Status
+          </label>
+          <select
+            id="new-season-status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as Season['status'])}
+            className="w-full rounded-lg border border-cream-200 px-3 py-2 text-sm"
+          >
+            <option value="upcoming">Upcoming</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+      <div className="mt-3">
+        <ActionBtn onClick={submit} disabled={busy || !valid}>
+          {busy ? 'Creating…' : 'Create season'}
+        </ActionBtn>
+      </div>
+      <p className="mt-2 text-xs text-gray-500">
+        Roster size, locks, merge episode, and the ballot schedule take their defaults and are
+        editable in Season setup once the season exists.
+      </p>
+      <ErrorMsg msg={error} />
+    </div>
+  )
+}
+
 export function AdminPage() {
   const { profile } = useAuth()
   const [season, setSeason] = useState<Season | null>(null)
@@ -1776,23 +1868,29 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Season-scoped load, reused after #526's create form makes the first season
+  // exist so the page doesn't render with the empty state the mount-time load
+  // left behind.
+  const loadSeason = useCallback(async (target: Season) => {
+    setSeason(target)
+    const [cs, eps, types, settings] = await Promise.all([
+      api.get<Contestant[]>(`/seasons/${target.id}/contestants`),
+      api.get<Episode[]>(`/seasons/${target.id}/episodes`),
+      // Season-scoped since #170's snapshot; the global route is gone
+      api.get<ScoringEventType[]>(`/seasons/${target.id}/scoring-event-types`),
+      api.get<LeagueSettings>('/league-settings'),
+    ])
+    setContestants(cs)
+    setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
+    setEventTypes(types)
+    setLeagueSettings(settings)
+  }, [])
+
   useEffect(() => {
     async function load() {
       try {
         const active = await getActiveSeason()
-        if (!active) return
-        setSeason(active)
-        const [cs, eps, types, settings] = await Promise.all([
-          api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
-          api.get<Episode[]>(`/seasons/${active.id}/episodes`),
-          // Season-scoped since #170's snapshot; the global route is gone
-          api.get<ScoringEventType[]>(`/seasons/${active.id}/scoring-event-types`),
-          api.get<LeagueSettings>('/league-settings'),
-        ])
-        setContestants(cs)
-        setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
-        setEventTypes(types)
-        setLeagueSettings(settings)
+        if (active) await loadSeason(active)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
       } finally {
@@ -1800,7 +1898,7 @@ export function AdminPage() {
       }
     }
     void load()
-  }, [])
+  }, [loadSeason])
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load commissioner tools">{error}</Notice>
@@ -1810,7 +1908,16 @@ export function AdminPage() {
   }
 
   if (!season) {
-    return <ColdStart />
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Commissioner"
+          title="Create the first season"
+          description="This league has no seasons yet. Create one to open scheduling, cast setup, and scoring."
+        />
+        <CreateSeasonSection onCreated={(s) => void loadSeason(s)} />
+      </div>
+    )
   }
 
   const context = commissionerContext(season, episodes)

@@ -75,8 +75,9 @@ export function CastPage() {
                       </span>
                     </span>
                     {member.placement != null ? (
-                      <span className="rounded bg-gold-50 px-2 py-1 text-[11px] uppercase tracking-wide text-gold-700">
+                      <span className="shrink-0 rounded bg-gold-50 px-2 py-1 text-[11px] uppercase tracking-wide text-gold-700">
                         #{member.placement}
+                        {member.eliminated_in_episode != null && ` · ep ${member.eliminated_in_episode}`}
                       </span>
                     ) : eliminated ? (
                       <span className="shrink-0 text-[11px] uppercase tracking-wide text-stone-400">
