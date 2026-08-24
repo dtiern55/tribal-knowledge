@@ -14,6 +14,7 @@ function member(
     image_url: null,
     placement: null,
     eliminated_in_episode: eliminated,
+    final_episode: eliminated,
     tribe_name: tribe,
     tribe_color: '#123456',
     total_points: points,

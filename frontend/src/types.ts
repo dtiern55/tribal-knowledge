@@ -313,6 +313,11 @@ export interface CastMember {
   image_url: string | null
   placement: number | null
   eliminated_in_episode: number | null
+  /** Last episode played. Not the same as `eliminated_in_episode` for a
+   *  finalist, who is never eliminated but whose run ends at the finale
+   *  (#532). Use this for the badge, `eliminated_in_episode` for the
+   *  strike-through and the boot-order sort. */
+  final_episode: number | null
   tribe_name: string | null
   tribe_color: string | null
   total_points: number

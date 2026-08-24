@@ -80,6 +80,26 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                 [str(season_id)],
             )
             rows = cur.fetchall()
+
+            # A finalist has a placement but no elimination — survivoR maps
+            # sole survivor and runner-up to no elimination row at all
+            # (survivor_import.map_elimination_type) — so their run ends at the
+            # finale, and reading it off `eliminated_in_episode` finds nothing.
+            cur.execute(
+                "select episode_number from episodes"
+                " where season_id = %s and is_finale",
+                [str(season_id)],
+            )
+            finale = cur.fetchone()
+            finale_episode = finale["episode_number"] if finale else None
+            for row in rows:
+                if row["eliminated_in_episode"] is not None:
+                    row["final_episode"] = row["eliminated_in_episode"]
+                elif row["placement"] is not None:
+                    row["final_episode"] = finale_episode
+                else:
+                    row["final_episode"] = None
+
             rows.sort(key=_cast_sort_key)
             return rows
 
