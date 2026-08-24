@@ -1,6 +1,7 @@
+import castMask from '../assets/cast-icon-mask.png'
+
 // Inline nav icons (#106): emoji rendered inconsistently across phones.
-// Monochrome stroke/currentColor so the active tab color just works.
-// Primary navigation uses custom Survivor-specific drawings; utility controls
+// Primary navigation uses custom Survivor-specific drawings. Utility controls
 // retain familiar conventional symbols. No icon dependency.
 
 function Svg({ children }: { children: React.ReactNode }) {
@@ -33,23 +34,42 @@ export function PalmIcon() {
 
 export function RankedTorchesIcon() {
   return (
-    <Svg>
-      <path d="M5 22V13M12 22V6M19 22V10" />
-      <path d="M3.5 13h3L6 16H4zM10.5 6h3L13 9h-2zM17.5 10h3l-.5 3h-2z" />
-      <path d="M5 11c-1.8-1.8.8-2.8 0-4.6 1.8 1 2.5 2.7.8 4.6M12 4c-1.8-1.8.8-2.8 0-4.5 1.8 1 2.5 2.7.8 4.5M19 8c-1.8-1.8.8-2.8 0-4.6 1.8 1 2.5 2.7.8 4.6" />
-    </Svg>
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="w-5 h-5"
+      aria-hidden="true"
+    >
+      <path d="M5 7.6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
+      <rect x="2.9" y="14.4" width="4.2" height="2.2" rx="1" />
+      <rect x="4.1" y="17.2" width="1.8" height="4.8" rx="0.9" />
+      <path d="M12 .6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
+      <rect x="9.9" y="7.4" width="4.2" height="2.2" rx="1" />
+      <rect x="11.1" y="10.2" width="1.8" height="11.8" rx="0.9" />
+      <path d="M19 4.6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
+      <rect x="16.9" y="11.4" width="4.2" height="2.2" rx="1" />
+      <rect x="18.1" y="14.2" width="1.8" height="7.8" rx="0.9" />
+    </svg>
   )
 }
 
 export function BuffPairIcon() {
   return (
-    <Svg>
-      <path d="M5.5 6.8c.2-2.5 1.7-4.1 4-4.1 2.5 0 4.1 1.7 4 4.3-.1 2.4-1.6 4.1-4 4.2-2.3.1-4.2-1.7-4-4.4Z" />
-      <path d="M5.8 6.2c2.2-.7 4.8-.7 7.4 0M6.6 4.8l-2-.7" />
-      <path d="M2.5 21c0-4.2 2.7-6.8 6.8-6.8 4.4 0 7 2.4 7.2 6.8" />
-      <path d="M15.2 3.6c2.6-.5 4.7 1.2 4.8 3.8.1 2.1-1.2 3.7-3.3 4.3" />
-      <path d="M16 5.5c1.3-.4 2.6-.4 3.8.1M18 14.7c2.4.8 3.6 2.8 3.5 6.3" />
-    </Svg>
+    <span
+      aria-hidden="true"
+      className="w-5 h-5 inline-block"
+      style={{
+        backgroundColor: 'currentColor',
+        WebkitMaskImage: `url(${castMask})`,
+        maskImage: `url(${castMask})`,
+        WebkitMaskSize: '128%',
+        maskSize: '128%',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+      }}
+    />
   )
 }
 

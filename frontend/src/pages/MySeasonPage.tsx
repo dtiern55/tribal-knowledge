@@ -1429,21 +1429,29 @@ function HeaderPoints({
   return (
     <div className="relative z-40 shrink-0">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="header-points rounded-xl border border-forest-700 px-4 py-2 bg-gradient-to-br from-forest-500 to-forest-700 text-cream-100 text-right shadow-md hover:from-forest-600 hover:to-forest-800 transition-colors"
+        aria-expanded={open}
+        aria-controls="header-points-breakdown"
+        className="header-points inline-flex min-h-[4.75rem] min-w-[7.5rem] flex-col items-center justify-center px-5 py-3 text-center text-cream-100"
       >
         <div className="text-[11px] font-semibold uppercase tracking-wider text-cream-100/75">
           My Points
         </div>
-        <div className="text-2xl font-bold leading-none tabular-nums">{total}</div>
+        <div className="font-display text-2xl font-bold leading-none tabular-nums text-gold-300">
+          {total}
+        </div>
         {rank != null && (
-          <div className="text-[11px] text-cream-100/75 mt-0.5">
+          <div className="mt-0.5 text-[11px] text-cream-100/75">
             {ordinal(rank)} of {count}
           </div>
         )}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border border-cream-200 rounded-xl shadow-lg p-3 z-20">
+        <div
+          id="header-points-breakdown"
+          className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-cream-200 bg-white p-3 shadow-lg"
+        >
           <ul className="space-y-1">
             {components.map((c) => (
               <li key={c.label} className="flex justify-between text-sm">

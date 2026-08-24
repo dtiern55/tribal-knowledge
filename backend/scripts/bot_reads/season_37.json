@@ -84,7 +84,7 @@
     "Davie Rickenbacker",
     "Alec Merlino"
    ],
-   "note": "Merge teased, so the read is weak. Nobody votes Christian, Mike or John. No fresh boot read, so episode 3's names carry forward — the room's sense of who is exposed rarely resets week to week. Double targets are held very lightly: the names with some standing, not a confident call."
+   "note": "Merge teased, so the read is weak. Nobody votes Christian, Mike or John. No fresh boot read, so episode 3's names carry forward \u2014 the room's sense of who is exposed rarely resets week to week. Double targets are held very lightly: the names with some standing, not a confident call."
   },
   "5": {
    "likely_boots": [
@@ -141,7 +141,132 @@
     "Mike White"
    ],
    "confidence": "medium",
-   "note": "Boot read (in order): Lyrsa, Kara, Angelina, Gabby, Alison. Doubles favour the Tiva tribe (Alison/Christian/Dan/Gabby/John) plus Mike White. Neither list is universal — a good share of bots should diverge onto castaways not named here."
+   "note": "Boot read (in order): Lyrsa, Kara, Angelina, Gabby, Alison. Doubles favour the Tiva tribe (Alison/Christian/Dan/Gabby/John) plus Mike White. Neither list is universal \u2014 a good share of bots should diverge onto castaways not named here."
+  },
+  "8": {
+   "likely_boots": [
+    [
+     "Carl Boudreaux",
+     10
+    ],
+    [
+     "Angelina Keeley",
+     9
+    ],
+    [
+     "Davie Rickenbacker",
+     9
+    ],
+    [
+     "Kara Kay",
+     8
+    ],
+    [
+     "Alec Merlino",
+     8
+    ],
+    [
+     "Christian Hubicki",
+     8
+    ],
+    [
+     "Dan Rengering",
+     8
+    ],
+    [
+     "Alison Raybould",
+     6
+    ],
+    [
+     "Gabby Pascuzzi",
+     6
+    ],
+    [
+     "Nick Wilson",
+     5
+    ],
+    [
+     "Mike White",
+     4
+    ],
+    [
+     "John Hennigan",
+     4
+    ]
+   ],
+   "double_targets": [
+    "Dan Rengering",
+    "Davie Rickenbacker",
+    "Carl Boudreaux",
+    "Nick Wilson",
+    "John Hennigan",
+    "Alison Raybould"
+   ],
+   "confidence": "low",
+   "note": "Wide-open first post-merge vote, no strong read. Slight lean to Carl/Angelina/Davie/Kara/Alec/Christian/Dan; Alison and Gabby next; Nick outside that; Mike and John safest. Bots should diverge widely. Doubles nudge toward advantage-holders (Dan/Davie/Carl/Nick) and challenge threats John/Alison \u2014 but near-even."
+  },
+  "9": {
+   "likely_boots": [
+    [
+     "Dan Rengering",
+     10
+    ],
+    [
+     "Alison Raybould",
+     10
+    ],
+    [
+     "Christian Hubicki",
+     12
+    ],
+    [
+     "Davie Rickenbacker",
+     10
+    ],
+    [
+     "Gabby Pascuzzi",
+     10
+    ],
+    [
+     "Nick Wilson",
+     10
+    ],
+    [
+     "Alec Merlino",
+     10
+    ],
+    [
+     "Mike White",
+     10
+    ],
+    [
+     "Angelina Keeley",
+     12
+    ],
+    [
+     "Carl Boudreaux",
+     10
+    ],
+    [
+     "Kara Kay",
+     10
+    ]
+   ],
+   "double_targets": [
+    "Dan Rengering",
+    "Alison Raybould",
+    "Christian Hubicki",
+    "Davie Rickenbacker",
+    "Gabby Pascuzzi",
+    "Nick Wilson",
+    "Alec Merlino",
+    "Mike White",
+    "Angelina Keeley",
+    "Carl Boudreaux",
+    "Kara Kay"
+   ],
+   "confidence": "low",
+   "note": "No real read. Spread the vote about evenly across the eleven, with a nudge toward Christian and Angelina. Doubles are unsteered \u2014 whoever backs their roster picks at random."
   }
  }
 }
