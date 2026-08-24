@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -31,7 +32,7 @@ export function CastPage() {
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load the cast">{error}</Notice>
-  if (!season) return <Notice title="No season found">Choose an active season from the menu.</Notice>
+  if (!season) return <ColdStart />
 
   const ranked = rankCast(cast)
 

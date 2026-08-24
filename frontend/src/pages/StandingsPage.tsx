@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -104,7 +105,7 @@ export function StandingsPage() {
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>
   const season = seasons.find((s) => s.id === selectedId)
-  if (!season) return <Notice title="No season found">Choose an active season from the menu.</Notice>
+  if (!season) return <ColdStart />
 
   const ranked = rankStandings(entries)
   const mine = ranked.find(({ entry }) => entry.user_id === userId)

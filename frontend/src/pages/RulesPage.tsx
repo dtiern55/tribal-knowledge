@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -122,7 +123,7 @@ export function RulesPage() {
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load the rules">{error}</Notice>
-  if (!rules) return <Notice title="No season found">Choose an active season from the menu.</Notice>
+  if (!rules) return <ColdStart />
 
   const { season, scoring_events, prediction_scores, advantages } = rules
   const usesTokens = season.token_economy_enabled
