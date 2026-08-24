@@ -1,12 +1,14 @@
+import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 
 /** The app before there is anything to show: a league whose commissioner
  * hasn't created a season yet (#520). Every page used to render "No season
  * found — choose one from the menu", pointing at an empty menu.
  *
- * No call to action for the commissioner on purpose: there is no create-season
- * UI yet (the endpoint exists, nothing calls it), and /admin cold-starts here
- * too, so any button would loop. See #526.
+ * The commissioner gets a way out now that /admin has a create-season form
+ * (#526); before that any button here would have looped back to a page that
+ * cold-started the same way. Players still get no call to action, because
+ * there genuinely isn't one for them.
  */
 export function ColdStart() {
   const { profile } = useAuth()
@@ -29,6 +31,14 @@ export function ColdStart() {
           ? 'Once a season exists, commissioner tools open up and the league can start picking.'
           : 'Your commissioner hasn’t started a season. Once they do, your roster and the weekly play show up here.'}
       </p>
+      {admin && (
+        <Link
+          to="/admin"
+          className="mt-6 rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800"
+        >
+          Create the first season
+        </Link>
+      )}
     </div>
   )
 }
