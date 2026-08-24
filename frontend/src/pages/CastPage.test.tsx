@@ -22,6 +22,7 @@ describe('CastPage', () => {
         image_url: null,
         placement: null,
         eliminated_in_episode: 1,
+        final_episode: 1,
         tribe_name: 'Yanu',
         tribe_color: '#7651a1',
         total_points: 20,
@@ -33,6 +34,7 @@ describe('CastPage', () => {
         image_url: null,
         placement: null,
         eliminated_in_episode: null,
+        final_episode: null,
         tribe_name: 'Siga',
         tribe_color: '#4ca56a',
         total_points: 12,
@@ -53,5 +55,45 @@ describe('CastPage', () => {
     expect(screen.getByText('+12 pts')).toHaveClass('text-jade-700')
     expect(screen.getByTitle('Siga')).toHaveStyle({ '--tribe-color': '#4ca56a' })
     expect(screen.queryByTitle('Still in the game')).not.toBeInTheDocument()
+  })
+
+  // #532: the placement badge reads `final_episode`, not `eliminated_in_episode`
+  // — a finalist is never eliminated, so the latter is null for exactly the
+  // three castaways whose run you most want the end of.
+  it('shows a finalist the finale they reached', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'completed' } as Season
+    const cast: CastMember[] = [
+      {
+        id: 'winner',
+        name: 'Winner',
+        image_url: null,
+        placement: 1,
+        eliminated_in_episode: null,
+        final_episode: 13,
+        tribe_name: 'Siga',
+        tribe_color: '#4ca56a',
+        total_points: 90,
+        total_tokens: 0,
+      },
+      {
+        id: 'juror',
+        name: 'Juror',
+        image_url: null,
+        placement: 7,
+        eliminated_in_episode: 8,
+        final_episode: 8,
+        tribe_name: 'Yanu',
+        tribe_color: '#7651a1',
+        total_points: 40,
+        total_tokens: 0,
+      },
+    ]
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockResolvedValue(cast)
+
+    renderWithApp(<CastPage />)
+
+    expect(await screen.findByText(/#1 · ep 13/)).toBeVisible()
+    expect(screen.getByText(/#7 · ep 8/)).toBeVisible()
   })
 })

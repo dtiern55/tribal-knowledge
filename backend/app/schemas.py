@@ -348,6 +348,11 @@ class CastMember(BaseModel):
     image_url: Optional[str] = None
     placement: Optional[int] = None
     eliminated_in_episode: Optional[int] = None
+    # The last episode this castaway played, which is NOT the elimination
+    # episode for a finalist: survivoR maps sole survivor and runner-up to no
+    # elimination at all, so their run ends at the finale (#532). Drives the
+    # Cast badge; `eliminated_in_episode` still drives strike-through and sort.
+    final_episode: Optional[int] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
     # Base gameplay score: raw scoring events only, no per-user advantage
