@@ -60,6 +60,7 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
   return {
     episode_id: 'episode-2',
     episode_number: 2,
+    title: null,
     is_finale: false,
     eliminated: [
       { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, elimination_type: 'voted_out' },

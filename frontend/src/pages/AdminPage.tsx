@@ -1437,6 +1437,9 @@ function EpisodeProposalSection({
             air_date: e.air_date,
             picks_lock_at: e.picks_lock_at,
             is_finale: e.is_finale,
+            // TVmaze hands us the episode title; dropping it here is why
+            // episodes created in bulk showed up untitled (#487).
+            title: e.name || null,
           }),
         )
       }
@@ -1489,7 +1492,7 @@ function EpisodeProposalSection({
                   onChange={() => toggle(e.episode_number)}
                 />
                 <span className={e.exists ? 'text-gray-500' : 'text-gray-700'}>
-                  Ep {e.episode_number} · {e.air_date} · locks{' '}
+                  Ep {e.episode_number}{e.name ? ` · ${e.name}` : ''} · {e.air_date} · locks{' '}
                   {utcToCentralLocal(e.picks_lock_at).replace('T', ' ')} CT
                   {e.is_finale && ' · finale'}
                   {e.exists && ' · already created'}

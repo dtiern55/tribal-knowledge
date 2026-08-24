@@ -111,6 +111,10 @@ export function EpisodeResultReveal({
               {snuffedHeadline(result.eliminated)}
             </h2>
 
+            {result.title && (
+              <p className="mt-1.5 text-sm text-cream-100/60">{result.title}</p>
+            )}
+
             {result.eliminated.length > 1 && (
               <ul className="mt-3 flex flex-wrap gap-2" aria-label="Eliminated castaways">
                 {result.eliminated.map((castaway) => (

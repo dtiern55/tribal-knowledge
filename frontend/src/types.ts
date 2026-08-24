@@ -212,6 +212,7 @@ export interface EpisodeResultInsight {
 export interface EpisodeResult {
   episode_id: string
   episode_number: number
+  title: string | null
   is_finale: boolean
   eliminated: EpisodeResultElimination[]
   ballot: EpisodeResultBallotPick[]
