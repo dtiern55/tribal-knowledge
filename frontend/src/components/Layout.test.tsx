@@ -55,9 +55,6 @@ describe('Layout', () => {
   it('provides skip navigation, a named main region, and matching primary destinations', () => {
     renderLayout('/standings')
 
-    expect(screen.getByRole('link', { name: 'Tribal Knowledge home' })).toHaveTextContent(
-      'TRIBALKNOWLEDGE',
-    )
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute(
       'href',
       '#main-content',

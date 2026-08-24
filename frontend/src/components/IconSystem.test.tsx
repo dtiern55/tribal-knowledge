@@ -45,11 +45,22 @@ describe('approved icon system', () => {
     )
 
     const icons = container.querySelectorAll('svg')
-    expect(icons).toHaveLength(3)
-    for (const icon of icons) {
-      expect(icon).toHaveAttribute('aria-hidden', 'true')
-      expect(icon).toHaveAttribute('viewBox', '0 0 24 24')
-      expect(icon).toHaveAttribute('stroke', 'currentColor')
-    }
+    expect(icons).toHaveLength(2)
+
+    const palm = icons[0]
+    expect(palm).toHaveAttribute('aria-hidden', 'true')
+    expect(palm).toHaveAttribute('viewBox', '0 0 24 24')
+    expect(palm).toHaveAttribute('stroke', 'currentColor')
+
+    const torches = icons[1]
+    expect(torches).toHaveAttribute('aria-hidden', 'true')
+    expect(torches).toHaveAttribute('viewBox', '0 0 24 24')
+    expect(torches).toHaveAttribute('fill', 'currentColor')
+
+    const cast = container.querySelector('span[aria-hidden="true"]')
+    expect(cast).toHaveClass('inline-block', 'h-5', 'w-5')
+    expect(cast?.getAttribute('style')).toContain('background-color: currentcolor')
+    expect(cast?.getAttribute('style')).toContain('mask-image: url(')
+    expect(cast?.getAttribute('style')).toContain('mask-size: 128%')
   })
 })

@@ -124,10 +124,10 @@ export function Layout() {
           <NavLink
             to="/"
             aria-label="Tribal Knowledge home"
-            className="app-brand-wordmark inline-flex min-h-11 shrink-0 items-center whitespace-nowrap font-brand text-[1.05rem] font-bold leading-none tracking-wide sm:text-xl md:text-2xl"
+            className="inline-flex min-h-11 shrink-0 items-center font-brand text-xl font-bold leading-none tracking-wide md:text-2xl"
           >
-            <span className="app-brand-primary text-cream-50">TRIBAL</span>
-            <span className="app-brand-secondary text-terracotta-300">KNOWLEDGE</span>
+            <span className="app-brand-primary text-cream-50">TRIBAL</span>{' '}
+            <span className="app-brand-secondary text-terracotta-600">KNOWLEDGE</span>
           </NavLink>
 
           {authed && (

@@ -1,7 +1,8 @@
+import castMask from '../assets/cast-icon-mask.png'
+
 // Inline nav icons (#106): emoji rendered inconsistently across phones.
-// Primary navigation uses loose Survivor-specific drawings in the same
-// round-stroke language as the original palm. Utility controls retain familiar
-// conventional symbols. No icon dependency.
+// Primary navigation uses custom Survivor-specific drawings. Utility controls
+// retain familiar conventional symbols. No icon dependency.
 
 function Svg({ children }: { children: React.ReactNode }) {
   return (
@@ -33,25 +34,42 @@ export function PalmIcon() {
 
 export function RankedTorchesIcon() {
   return (
-    <Svg>
-      <path d="M6 22c.2-2.7.7-5.7 1-8.8M12 22c-.3-5.3.2-10.4 0-16M18 22c-.3-4-.6-7.1-1-10.6" />
-      <path d="m5.7 15.5 1.9-.5m-1.7 2 1.6-.5M11 9l2 .2m-2 1.3 2 .2m3.3 3.3 2-.5m-1.8 2 1.7-.5" />
-      <path d="M7 12c-2-1.5.4-2.9.1-4.8 1.6 1.1 2.2 2.8.7 4.5M12 5c-2.2-1.7.5-3.1.2-4.7 1.8 1.3 2.3 3.1.6 4.5M17 10.5c-1.9-1.5.4-2.8.2-4.5 1.5 1.2 2.1 2.7.6 4.2" />
-    </Svg>
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="w-5 h-5"
+      aria-hidden="true"
+    >
+      <path d="M5 7.6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
+      <rect x="2.9" y="14.4" width="4.2" height="2.2" rx="1" />
+      <rect x="4.1" y="17.2" width="1.8" height="4.8" rx="0.9" />
+      <path d="M12 .6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
+      <rect x="9.9" y="7.4" width="4.2" height="2.2" rx="1" />
+      <rect x="11.1" y="10.2" width="1.8" height="11.8" rx="0.9" />
+      <path d="M19 4.6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
+      <rect x="16.9" y="11.4" width="4.2" height="2.2" rx="1" />
+      <rect x="18.1" y="14.2" width="1.8" height="7.8" rx="0.9" />
+    </svg>
   )
 }
 
 export function BuffPairIcon() {
   return (
-    <Svg>
-      <path d="M3.5 8.2c0-3.2 1.7-5.1 4.3-5.1 2.8 0 4.6 2 4.4 5.2-.1 2.8-1.8 4.7-4.4 4.7-2.5 0-4.4-1.9-4.3-4.8Z" />
-      <path d="M3.8 6.4c2.7-.8 5.4-.7 8.2.1M4.1 6.1 2.3 5m1.9 1.5-1.8.8" />
-      <path d="M1.5 22c.2-4.8 2.6-7.4 6.4-7.4 2.5 0 4.4 1.1 5.5 3" />
-      <path d="M14.2 8c0-2.9 1.4-4.7 3.7-4.7 2.5 0 4 1.9 4 4.7 0 2.7-1.5 4.4-3.9 4.4-2.3 0-3.8-1.7-3.8-4.4Z" />
-      <path d="M16.5 3.4c-.2-1.1.5-1.9 1.5-1.9s1.8.8 1.6 1.9" />
-      <path d="m15.2 12.6.4 3 2.5 1.6 2.4-1.6.3-3-2.8 1.3Z" />
-      <path d="M12.2 21.8c.2-3.6 2.2-5.5 5.8-5.5 3.2 0 4.7 1.8 4.8 5.5" />
-    </Svg>
+    <span
+      aria-hidden="true"
+      className="w-5 h-5 inline-block"
+      style={{
+        backgroundColor: 'currentColor',
+        WebkitMaskImage: `url(${castMask})`,
+        maskImage: `url(${castMask})`,
+        WebkitMaskSize: '128%',
+        maskSize: '128%',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+      }}
+    />
   )
 }
 

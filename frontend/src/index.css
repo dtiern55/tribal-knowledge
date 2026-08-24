@@ -454,32 +454,6 @@ html.locked-night .braid-rule { opacity: 0.55; }
   outline-offset: 2px;
 }
 
-/* The wordmark stays real text, while the dry-brush underline gives its warm
-   half the same hand-painted edge as the logo artwork. */
-.app-brand-wordmark {
-  position: relative;
-  isolation: isolate;
-}
-
-.app-brand-wordmark > span {
-  position: relative;
-  z-index: 1;
-}
-
-.app-brand-wordmark::after {
-  position: absolute;
-  right: 0.08em;
-  bottom: 0.34rem;
-  left: 42%;
-  z-index: 0;
-  height: 0.16rem;
-  content: "";
-  background: var(--color-gold-500);
-  clip-path: polygon(0 22%, 18% 4%, 42% 25%, 67% 0, 100% 28%, 96% 78%, 72% 100%, 45% 76%, 19% 94%, 3% 70%);
-  opacity: 0.72;
-  transform: rotate(-0.7deg);
-}
-
 /* Live score text sits on a small painted swatch instead of a conventional
    rounded UI card. The transparent fringe leaves the irregular edge visible. */
 .header-points {
