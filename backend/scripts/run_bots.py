@@ -399,6 +399,15 @@ def used_play(cur, uid, epid) -> bool:
     return cur.fetchone() is not None
 
 
+def has_sole_survivor(cur, uid, sid) -> bool:
+    cur.execute(
+        "select 1 from roster_picks"
+        " where user_id=%s and season_id=%s and is_sole_survivor",
+        [uid, sid],
+    )
+    return cur.fetchone() is not None
+
+
 def active_roster(cur, uid, sid) -> list[dict]:
     cur.execute(
         "select id, contestant_id::text cid, active_from_episode af"
@@ -533,6 +542,12 @@ def week(cur, episode_n: int):
     swaps_open = not ep["is_finale"] and not (
         swap_lock is not None and episode_n >= swap_lock
     )
+    # Designation closes when episode ss_lock itself locks (app/routers/
+    # roster.py:_effective_ss_lock). Bots only ever run on the episode that
+    # still accepts picks, so that episode is by definition unlocked — which
+    # makes "ss_lock has not locked yet" simply ss_lock >= episode_n.
+    ss_lock = season["ss_lock_episode"] or season["advantage_lock_episode"]
+    ss_open = ss_lock is None or ss_lock >= episode_n
 
     cur.execute(
         """select contestant_id::text cid, count(*) n from roster_picks
@@ -542,7 +557,7 @@ def week(cur, episode_n: int):
     owned = {r["cid"]: r["n"] for r in cur.fetchall()}
 
     by_name = {a["name"]: a for a in archetypes()}
-    picks_made = swaps_made = plays_made = 0
+    picks_made = swaps_made = plays_made = ss_made = 0
     # roster_swap counts PAID swaps now, not advantage plays (#404).
     tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
 
@@ -704,12 +719,29 @@ def week(cur, episode_n: int):
             plays_made += 1
             tally[choice] += 1
 
+        # --- sole survivor: one per season, at random (Danny 2026-08-23) ---
+        # The read is forward-looking and has no opinion on who wins, so this
+        # is a coin toss across the bot's live roster rather than a judgement.
+        # alive_ids already excludes the eliminated, who aren't valid (#180).
+        if ss_open and not has_sole_survivor(cur, uid, sid):
+            live = [p["cid"] for p in active_roster(cur, uid, sid) if p["cid"] in alive]
+            if live:
+                cur.execute(
+                    "update roster_picks set is_sole_survivor = true"
+                    " where user_id=%s and season_id=%s and contestant_id=%s",
+                    [uid, sid, min(live, key=lambda c: rng(uid, "ss", c))],
+                )
+                ss_made += 1
+
     print(f"week {episode_n} of {season['name']}:")
     print(f"  {picks_made} picks, {swaps_made} swaps, {plays_made} plays")
-    print(
-        "  plays: "
-        + ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in tally.items() if v)
-    )
+    if ss_made:
+        print(f"  {ss_made} sole survivors designated")
+    if any(tally.values()):
+        print(
+            "  plays: "
+            + ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in tally.items() if v)
+        )
     if ep_read.get("note"):
         print(f"  read: {ep_read['note']}")
 
