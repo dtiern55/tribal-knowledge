@@ -1898,8 +1898,8 @@ export function AdminPage() {
       }
     }
     void load()
-
   }, [loadSeason])
+
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load commissioner tools">{error}</Notice>
 

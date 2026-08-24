@@ -12,6 +12,11 @@ import type { Episode } from '../types'
  * squeeze, so the label is always exactly one line. `Ep` rather than `Episode`
  * per the issue: the four characters are the difference between fitting and
  * truncating on an SE-class screen.
+ *
+ * The number inherits the caller's type — these labels sit in uppercase
+ * eyebrows — but an episode title is prose and is never uppercased or
+ * letterspaced, so the title run resets both. `titleClassName` is for tone,
+ * not for case.
  */
 export function EpisodeLabel({
   episode,
@@ -33,7 +38,9 @@ export function EpisodeLabel({
         {suffix && ` · ${suffix}`}
       </span>
       {episode.title && (
-        <span className={`min-w-0 truncate ${titleClassName}`}>· {episode.title}</span>
+        <span className={`min-w-0 truncate normal-case tracking-normal ${titleClassName}`}>
+          · {episode.title}
+        </span>
       )}
     </span>
   )

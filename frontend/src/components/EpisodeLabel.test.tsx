@@ -23,6 +23,16 @@ describe('EpisodeLabel', () => {
     expect(screen.getByText('Ep 3 · locked')).toBeVisible()
   })
 
+  // These labels sit in uppercase eyebrows (the record header, the locked and
+  // watch-only states). The number wears that type; the title is prose and must
+  // not, or #530's shared component reintroduces the inconsistency it removed.
+  it('does not let an uppercase caller reach the title', () => {
+    renderWithApp(<EpisodeLabel episode={ep('Kindergarten Camp')} className="uppercase" />)
+    const title = screen.getByText('· Kindergarten Camp')
+    expect(title).toHaveClass('normal-case')
+    expect(title).toHaveClass('tracking-normal')
+  })
+
   // The point of the component (#530): a long title truncates instead of
   // wrapping the label onto a second line, so the number never gets pushed off.
   it('truncates the title rather than letting it wrap', () => {

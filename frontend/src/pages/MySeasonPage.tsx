@@ -586,7 +586,7 @@ export function MySeasonPage() {
         <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
-            meta={<EpisodeLabel episode={state.episode} className="normal-case tracking-normal" />}
+            meta={<EpisodeLabel episode={state.episode} />}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
           <AdvantagePrompt
@@ -2774,11 +2774,13 @@ function PicksSection({
                 />
               )}
               {!activeOnly && (
-                <EpisodeLabel
-                  episode={ep}
-                  className="mb-1 font-semibold text-gray-900"
-                  titleClassName="font-normal text-gray-500"
-                />
+                <h3 className="mb-1">
+                  <EpisodeLabel
+                    episode={ep}
+                    className="font-semibold text-gray-900"
+                    titleClassName="font-normal text-gray-500"
+                  />
+                </h3>
               )}
               {confirmed ? (
                 <div className="mb-5">
