@@ -585,7 +585,14 @@ export function MySeasonPage() {
         <SeasonRecord glowOut={stageOpen}>
           <RecordHead
             title={d.season.name}
-            meta={`Episode ${state.episode.episode_number}`}
+            meta={
+              <>
+                Episode {state.episode.episode_number}
+                {state.episode.title && (
+                  <span className="normal-case tracking-normal"> · {state.episode.title}</span>
+                )}
+              </>
+            }
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />}
           />
           <AdvantagePrompt
@@ -707,6 +714,9 @@ function WatchOnlyState({ episode }: { episode: Episode }) {
       <p className="text-xs font-semibold uppercase tracking-wide text-forest-700 mb-1">
         Episode {episode.episode_number} · watch only
       </p>
+      {episode.title && (
+        <p className="mb-1 font-display text-lg text-forest-900">{episode.title}</p>
+      )}
       <p className="text-sm text-gray-700">
         Watch the premiere and get a feel for the cast. Rosters and ballots
         open after it is scored.
@@ -801,6 +811,11 @@ function LockedState({
           <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
             {broadcast ? 'Tribal Council' : 'Results are pending'}
           </h2>
+          {episode.title && (
+            <p className={`mt-1 text-sm ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+              {episode.title}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1980,6 +1995,7 @@ function RosterSection({
   }
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
+  const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
 
   // Whether the current selection differs from the saved roster (#94): drives
   // the save button's enabled/label state so it's clear a click is needed.
@@ -2267,6 +2283,7 @@ function RosterSection({
                   activeFrom={pick.active_from_episode}
                   activeUntil={pick.active_until_episode}
                   doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+                  episodeTitles={episodeTitles}
                 />
               </RosterCard>
             ))}
@@ -2604,8 +2621,9 @@ function PicksSection({
     )
     const header = (
       <div className="flex items-center gap-2">
-        <span className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}>
+        <span className={`min-w-0 truncate ${current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
           Episode {ep.episode_number}
+          {ep.title && <span className="font-normal text-gray-500"> · {ep.title}</span>}
         </span>
         {!current && ballotDoubled && (
           <DoubleBadge size={22} title="Double Ballot Points this episode" />
@@ -2762,7 +2780,12 @@ function PicksSection({
                   stamp={ballotStamped}
                 />
               )}
-              {!activeOnly && <h3 className="mb-1 font-semibold text-gray-900">Episode {ep.episode_number}</h3>}
+              {!activeOnly && (
+                <h3 className="mb-1 font-semibold text-gray-900">
+                  Episode {ep.episode_number}
+                  {ep.title && <span className="font-normal text-gray-500"> · {ep.title}</span>}
+                </h3>
+              )}
               {confirmed ? (
                 <div className="mb-5">
                   {/* Submitted is the state people look for, so it gets a mark
@@ -3285,10 +3308,14 @@ function SoleSurvivorLine({
     }
   }
 
+  // Locked: the roster card already wears the Sole Survivor ring, so a second
+  // box restating a decision nobody can change any more is just noise (#487).
+  if (!windowOpen) return null
+
   // Played: collapse to a slim confirmation with just an Undo, mirroring the
   // Advantage played row (no header, lock, or rules — only the state and its
   // undo). Reassign by dragging the ring on the roster, or Undo to choose again.
-  if (windowOpen && designee) {
+  if (designee) {
     return (
       <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
         <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
@@ -3325,51 +3352,35 @@ function SoleSurvivorLine({
           />
         )}
       </div>
-      {!windowOpen ? (
-        <p className="text-sm text-gray-600">
-          {designee ? (
-            <>
-              Your pick:{' '}
-              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>{' '}
-              — finale roster points doubled.
-            </>
-          ) : (
-            'No Sole Survivor designated — the window has closed.'
-          )}
-        </p>
-      ) : (
-        <>
-          <p className="text-xs text-gray-600">
-            Doubles this castaway&apos;s finale roster points.
-          </p>
-          <p className="mt-1.5 mb-2">
-            <RuleLink anchor="finale">How Sole Survivor works</RuleLink>
-          </p>
-          <div className="flex gap-2 flex-wrap items-center">
-            <select
-              value={choice}
-              onChange={(e) => setChoice(e.target.value)}
-              aria-label="Sole Survivor"
-              className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Select your Sole Survivor…</option>
-              {active.map((p) => (
-                <option key={p.id} value={p.contestant_id}>
-                  {nameOf(p.contestant_id)}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={designate}
-              disabled={!choice || saving}
-              className="px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
-            >
-              {saving ? 'Saving…' : 'Designate'}
-            </button>
-          </div>
-          {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
-        </>
-      )}
+      <p className="text-xs text-gray-600">
+        Doubles this castaway&apos;s finale roster points.
+      </p>
+      <p className="mt-1.5 mb-2">
+        <RuleLink anchor="finale">How Sole Survivor works</RuleLink>
+      </p>
+      <div className="flex gap-2 flex-wrap items-center">
+        <select
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          aria-label="Sole Survivor"
+          className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Select your Sole Survivor…</option>
+          {active.map((p) => (
+            <option key={p.id} value={p.contestant_id}>
+              {nameOf(p.contestant_id)}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={designate}
+          disabled={!choice || saving}
+          className="px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
+        >
+          {saving ? 'Saving…' : 'Designate'}
+        </button>
+      </div>
+      {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
     </div>
   )
 }

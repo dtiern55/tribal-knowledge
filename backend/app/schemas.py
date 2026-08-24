@@ -459,6 +459,7 @@ class EpisodeResultInsight(BaseModel):
 class EpisodeResult(BaseModel):
     episode_id: UUID
     episode_number: int
+    title: Optional[str] = None
     is_finale: bool
     eliminated: list[EpisodeResultElimination]
     ballot: list[EpisodeResultBallotPick]

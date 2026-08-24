@@ -35,6 +35,7 @@ FILES = [
     "advantage_movement",
     "advantage_details",
     "castaways",
+    "episodes",
 ]
 CACHE = Path.home() / ".cache" / "survivoR"
 
@@ -119,6 +120,17 @@ def main() -> None:
         )
     cast = client.get(f"/seasons/{season['id']}/contestants").raise_for_status().json()
 
+    # Episode titles were being typed in by hand and stopped getting typed
+    # (#487). survivoR has them; fill the blank ones in on the way past.
+    title = next(
+        (
+            r["episode_title"]
+            for r in data["episodes"]
+            if r["version_season"] == season_key and r["episode"] == args.episode
+        ),
+        None,
+    )
+
     # survivoR castaway_id → our contestant UUID, by name. Loud on misses.
     by_name = {c["name"].lower(): c["id"] for c in cast}
     castaway_names = {
@@ -170,6 +182,8 @@ def main() -> None:
         print("\nPlacements:")
         for p in proposal["placements"]:
             print(f"  {p['name']:<20} {p['placement']}")
+    if title and not ep["title"]:
+        print(f"\nEpisode title: {title}")
     print("\nReview flags:")
     for w in proposal["warnings"]:
         print(f"  ! {w}")
@@ -181,6 +195,10 @@ def main() -> None:
     if input("\nPost this to the API? [y/N] ").strip().lower() != "y":
         print("Aborted.")
         return
+
+    if title and not ep["title"]:
+        client.patch(f"/episodes/{ep['id']}", json={"title": title}).raise_for_status()
+        print(f"set episode title: {title}")
 
     note = f"import: {season_key} e{args.episode}"
     if proposal["eliminations"]:
