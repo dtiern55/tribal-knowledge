@@ -88,11 +88,15 @@
 
 html {
   color-scheme: light;
-  /* Dynamic viewport, not 100%/100vh: on iOS Safari those resolve to the
-     large (toolbar-retracted) viewport, leaving the document taller than the
-     visible area so the page scrolls into empty filler past the fixed bottom
-     bar. dvh tracks the visible viewport and matches the rest of the shell. */
-  min-height: 100dvh;
+  /* Small viewport, not 100%/100vh/100dvh: iOS Safari resolves the first two to
+     the large (toolbar-retracted) viewport, and Chrome on iOS overlays its
+     toolbars on a full-screen layout viewport, so dvh is the large one there
+     too. Either way the document ends up taller than the visible area and the
+     page scrolls into empty filler past the fixed bottom bar. svh is the
+     toolbars-shown height, which is the only one that never overflows — and a
+     page short enough for min-height to matter can't scroll, so the toolbars
+     never retract and svh is exactly the visible height. */
+  min-height: 100svh;
   background: var(--color-cream-100);
   scroll-padding-top: 5rem;
 }
@@ -100,7 +104,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100dvh;
+  min-height: 100svh;
   background: var(--color-cream-100);
   color: var(--color-ink);
   font-family: var(--font-body);
@@ -115,7 +119,7 @@ body {
 
 #root,
 .app-shell {
-  min-height: 100dvh;
+  min-height: 100svh;
 }
 
 /* Firelight (#392): the unlocked state is the daylight side of the same room

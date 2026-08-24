@@ -24,7 +24,7 @@ export function AuthScene({
   eyebrow?: string
 }) {
   return (
-    <div style={CAMP} className="flex min-h-dvh flex-col items-center justify-center px-5 py-10">
+    <div style={CAMP} className="flex min-h-svh flex-col items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <img
