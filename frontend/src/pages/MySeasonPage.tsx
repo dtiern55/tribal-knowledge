@@ -3285,10 +3285,14 @@ function SoleSurvivorLine({
     }
   }
 
+  // Locked: the roster card already wears the Sole Survivor ring, so a second
+  // box restating a decision nobody can change any more is just noise (#487).
+  if (!windowOpen) return null
+
   // Played: collapse to a slim confirmation with just an Undo, mirroring the
   // Advantage played row (no header, lock, or rules — only the state and its
   // undo). Reassign by dragging the ring on the roster, or Undo to choose again.
-  if (windowOpen && designee) {
+  if (designee) {
     return (
       <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
         <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
@@ -3325,51 +3329,35 @@ function SoleSurvivorLine({
           />
         )}
       </div>
-      {!windowOpen ? (
-        <p className="text-sm text-gray-600">
-          {designee ? (
-            <>
-              Your pick:{' '}
-              <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>{' '}
-              — finale roster points doubled.
-            </>
-          ) : (
-            'No Sole Survivor designated — the window has closed.'
-          )}
-        </p>
-      ) : (
-        <>
-          <p className="text-xs text-gray-600">
-            Doubles this castaway&apos;s finale roster points.
-          </p>
-          <p className="mt-1.5 mb-2">
-            <RuleLink anchor="finale">How Sole Survivor works</RuleLink>
-          </p>
-          <div className="flex gap-2 flex-wrap items-center">
-            <select
-              value={choice}
-              onChange={(e) => setChoice(e.target.value)}
-              aria-label="Sole Survivor"
-              className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Select your Sole Survivor…</option>
-              {active.map((p) => (
-                <option key={p.id} value={p.contestant_id}>
-                  {nameOf(p.contestant_id)}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={designate}
-              disabled={!choice || saving}
-              className="px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
-            >
-              {saving ? 'Saving…' : 'Designate'}
-            </button>
-          </div>
-          {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
-        </>
-      )}
+      <p className="text-xs text-gray-600">
+        Doubles this castaway&apos;s finale roster points.
+      </p>
+      <p className="mt-1.5 mb-2">
+        <RuleLink anchor="finale">How Sole Survivor works</RuleLink>
+      </p>
+      <div className="flex gap-2 flex-wrap items-center">
+        <select
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          aria-label="Sole Survivor"
+          className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Select your Sole Survivor…</option>
+          {active.map((p) => (
+            <option key={p.id} value={p.contestant_id}>
+              {nameOf(p.contestant_id)}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={designate}
+          disabled={!choice || saving}
+          className="px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
+        >
+          {saving ? 'Saving…' : 'Designate'}
+        </button>
+      </div>
+      {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
     </div>
   )
 }
