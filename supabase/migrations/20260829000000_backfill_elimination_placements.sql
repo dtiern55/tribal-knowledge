@@ -19,6 +19,9 @@ update contestants c
   from ordered o
  where c.id = o.id
    and c.placement is null
+   -- 1-3 are finale outcomes; deriving them from boot order would have the
+   -- placement trigger award won_season to someone who was voted out.
+   and o.placement > 3
    and not exists (
      select 1 from contestants c2
       where c2.season_id = c.season_id and c2.placement = o.placement

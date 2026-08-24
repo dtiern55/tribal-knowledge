@@ -298,13 +298,20 @@ def test_set_scoring_events_invalid_event_type(client, db_conn):
     assert "Unknown event types" in r.json()["detail"]
 
 
+def _placements(client, season_id):
+    return {
+        row["name"]: row["placement"]
+        for row in client.get(f"/seasons/{season_id}/cast").json()
+    }
+
+
 @pytest.mark.integration
 def test_eliminations_assign_placement(client, db_conn):
     """#487: placement is boot order from the bottom, set on elimination."""
     season = insert_season(db_conn)
     ep1 = insert_episode(db_conn, season["id"], episode_number=1)
     ep2 = insert_episode(db_conn, season["id"], episode_number=2)
-    cast = [insert_contestant(db_conn, season["id"], f"P{i}") for i in range(4)]
+    cast = [insert_contestant(db_conn, season["id"], f"P{i}") for i in range(6)]
 
     client.post(
         f"/episodes/{ep1['id']}/eliminations",
@@ -318,11 +325,31 @@ def test_eliminations_assign_placement(client, db_conn):
             {"contestant_id": str(cast[2]["id"]), "elimination_type": "voted_out"},
         ],
     )
-    placements = {
-        row["name"]: row["placement"]
-        for row in client.get(f"/seasons/{season['id']}/cast").json()
+    assert _placements(client, season["id"]) == {
+        "P0": 6,
+        "P1": 5,
+        "P2": 4,
+        "P3": None,
+        "P4": None,
+        "P5": None,
     }
-    assert placements == {"P0": 4, "P1": 3, "P2": 2, "P3": None}
+
+
+@pytest.mark.integration
+def test_eliminations_never_assign_finale_placements(client, db_conn):
+    """#487: 1-3 are finale outcomes. Minting them from an elimination would
+    have the placement trigger award won_season to someone voted out."""
+    season = insert_season(db_conn)
+    ep = insert_episode(db_conn, season["id"])
+    cast = [insert_contestant(db_conn, season["id"], f"P{i}") for i in range(3)]
+    client.post(
+        f"/episodes/{ep['id']}/eliminations",
+        json=[
+            {"contestant_id": str(c["id"]), "elimination_type": "voted_out"}
+            for c in cast
+        ],
+    )
+    assert set(_placements(client, season["id"]).values()) == {None}
 
 
 @pytest.mark.integration
@@ -330,11 +357,11 @@ def test_delete_elimination_clears_placement(client, db_conn):
     """#487: undoing the elimination frees the placement slot it took."""
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
-    c = insert_contestant(db_conn, season["id"])
+    cast = [insert_contestant(db_conn, season["id"], f"P{i}") for i in range(5)]
     created = client.post(
         f"/episodes/{ep['id']}/eliminations",
-        json=[{"contestant_id": str(c["id"]), "elimination_type": "voted_out"}],
+        json=[{"contestant_id": str(cast[0]["id"]), "elimination_type": "voted_out"}],
     ).json()
+    assert _placements(client, season["id"])["P0"] == 5
     client.delete(f"/eliminations/{created[0]['id']}")
-    cast = client.get(f"/seasons/{season['id']}/cast").json()
-    assert cast[0]["placement"] is None
+    assert _placements(client, season["id"])["P0"] is None

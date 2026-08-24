@@ -99,20 +99,25 @@ def set_eliminations(
                     [str(episode_id), str(entry.contestant_id), entry.elimination_type],
                 )
                 rows.append(cur.fetchone())
-                # Never overwrite a placement the commissioner already set, and
-                # never fight the one-placement-per-season unique index.
-                cur.execute(
-                    "update contestants set placement = %s"
-                    " where id = %s and placement is null"
-                    "   and not exists (select 1 from contestants c2"
-                    "     where c2.season_id = %s and c2.placement = %s)",
-                    [
-                        remaining,
-                        str(entry.contestant_id),
-                        str(episode["season_id"]),
-                        remaining,
-                    ],
-                )
+                # 1-3 are finale outcomes, not elimination outcomes — the
+                # commissioner or the import sets those. Minting them here
+                # would have sync_placement_events award won_season to
+                # someone who was voted out.
+                if remaining > 3:
+                    # Never overwrite a placement the commissioner already set,
+                    # and never fight the one-placement-per-season index.
+                    cur.execute(
+                        "update contestants set placement = %s"
+                        " where id = %s and placement is null"
+                        "   and not exists (select 1 from contestants c2"
+                        "     where c2.season_id = %s and c2.placement = %s)",
+                        [
+                            remaining,
+                            str(entry.contestant_id),
+                            str(episode["season_id"]),
+                            remaining,
+                        ],
+                    )
                 remaining -= 1
             return rows
 
