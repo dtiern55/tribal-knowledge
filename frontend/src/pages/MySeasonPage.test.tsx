@@ -283,7 +283,12 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
-    expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    const casting = within(ballot).getByRole('status', { name: 'Casting your ballot' })
+    expect(within(casting).getByRole('img', { name: 'Carved wooden voting urn' })).toBeVisible()
+    expect(within(casting).getByText('The votes are in')).toBeVisible()
+    expect(
+      await screen.findByText('Ballot submitted', {}, { timeout: 1500 }),
+    ).toBeVisible()
     expect(within(ballot).getByText('Kenzie').closest('.ballot-slip')).toHaveStyle({
       '--ballot-tribe-color': '#7651a1',
       '--ballot-rotation': '-0.7deg',

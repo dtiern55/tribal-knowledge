@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router'
 import { PageLoader } from '../components/PageLoader'
@@ -7,6 +7,7 @@ import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
+import ballotUrn from '../assets/ballot-urn-dimensional.webp'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.png'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
@@ -2465,6 +2466,57 @@ function RosterSection({
 
 // ─── Picks section ──────────────────────────────────────────────────────────
 
+const BALLOT_CAST_DURATION_MS = 820
+const BALLOT_CAST_STAGGER_MS = 180
+
+/**
+ * A short commit beat after the server accepts a ballot. The open page stays
+ * daylight while the player is deciding; torchlit atmosphere appears only for
+ * this saved transition, then yields to the normal editable submitted state.
+ */
+function BallotCastMoment({ names, doubled }: { names: string[]; doubled: boolean }) {
+  return (
+    <div
+      className="ballot-cast-moment"
+      role="status"
+      aria-label="Casting your ballot"
+    >
+      <div className="ballot-cast-moment__copy">
+        <p>Casting your ballot</p>
+        <h3>The votes are in</h3>
+        <span>Your saved ballot remains editable until lock.</span>
+      </div>
+      <div className="ballot-cast-moment__slips" aria-hidden="true">
+        {names.map((name, index) => (
+          <span
+            key={name}
+            className="ballot-cast-slip"
+            style={
+              {
+                '--ballot-cast-delay': `${index * 0.18}s`,
+                '--ballot-cast-rotation': `${index % 2 === 0 ? -0.8 : 0.8}deg`,
+                zIndex: names.length - index,
+              } as CSSProperties
+            }
+          >
+            <span>{name}</span>
+          </span>
+        ))}
+      </div>
+      <img
+        src={ballotUrn}
+        alt="Carved wooden voting urn"
+        className="ballot-cast-urn"
+      />
+      {doubled && (
+        <span className="ballot-cast-double">
+          <DoubleBadge size={58} title="Double Ballot Points applied" />
+        </span>
+      )}
+    </div>
+  )
+}
+
 function PicksSection({
   season,
   contestants,
@@ -2496,6 +2548,21 @@ function PicksSection({
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [errors, setErrors] = useState<Map<string, string>>(new Map())
   const [editing, setEditing] = useState(false)
+  const [castMoment, setCastMoment] = useState<{
+    names: string[]
+    doubled: boolean
+  } | null>(null)
+
+  useEffect(() => {
+    if (!castMoment) return
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const staggerDuration = Math.max(0, castMoment.names.length - 1) * BALLOT_CAST_STAGGER_MS
+    const timer = window.setTimeout(
+      () => setCastMoment(null),
+      reducedMotion ? 60 : BALLOT_CAST_DURATION_MS + staggerDuration,
+    )
+    return () => window.clearTimeout(timer)
+  }, [castMoment])
 
   useEffect(() => {
     async function load() {
@@ -2550,6 +2617,7 @@ function PicksSection({
   }
 
   async function submitPicks(episodeId: string) {
+    const contestantIds = [...(pending.get(episodeId) ?? [])]
     setSubmitting(episodeId)
     setErrors((prev) => {
       const m = new Map(prev)
@@ -2558,10 +2626,21 @@ function PicksSection({
     })
     try {
       const picks = await api.post<EliminationPick[]>(`/episodes/${episodeId}/picks`, {
-        contestant_ids: [...(pending.get(episodeId) ?? [])],
+        contestant_ids: contestantIds,
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
       setEditing(false)
+      setCastMoment({
+        names: contestantIds.map((id) => {
+          const contestant = contestantMap.get(id)
+          return contestant ? displayName(contestant) : '—'
+        }),
+        doubled: plays.some(
+          (played) =>
+            played.episode_id === episodeId &&
+            played.advantage_type === 'double_vote_points',
+        ),
+      })
       // The Ballot beat shows the saved count, so it follows the save.
       onBallotSaved?.()
     } catch (e) {
@@ -2769,6 +2848,7 @@ function PicksSection({
             0,
             Math.min(ep.max_elimination_picks, stillIn - 1),
           )
+          const pendingIds = [...epPending]
 
           // Only list castaways still in the game, grouped by tribe so the
           // field is easy to scan (#249). Already-eliminated players aren't
@@ -2783,15 +2863,12 @@ function PicksSection({
             else byTribe.set(key, [c])
           }
 
+          if (castMoment) {
+            return <BallotCastMoment names={castMoment.names} doubled={castMoment.doubled} />
+          }
+
           return (
             <div className={activeOnly ? 'relative' : 'relative mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
-              {ballotDoubled && (
-                <BallotStamp
-                  onPointerDown={onDragToRoster ? startBallotDrag : undefined}
-                  lifted={ballotDragging}
-                  stamp={ballotStamped}
-                />
-              )}
               {!activeOnly && (
                 <h3 className="mb-1">
                   <EpisodeLabel
@@ -2803,69 +2880,138 @@ function PicksSection({
               )}
               {confirmed ? (
                 <div className="mb-5">
-                  {/* Submitted is the state people look for, so it gets a mark
-                      and the strongest type in the section rather than a line
-                      of prose. */}
-                  <p className="mb-2 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
-                    <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                    Ballot submitted
-                  </p>
+                  <div className="ballot-tray" data-doubled={ballotDoubled || undefined}>
+                    {ballotDoubled && (
+                      <BallotStamp
+                        onPointerDown={onDragToRoster ? startBallotDrag : undefined}
+                        lifted={ballotDragging}
+                        stamp={ballotStamped}
+                      />
+                    )}
+                    <div className="ballot-tray__head">
+                      <span>Your ballot</span>
+                      <span className="ballot-tray__status">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M5 13l4 4L19 7" />
+                        </svg>
+                        Ballot submitted
+                      </span>
+                    </div>
+                    <div
+                      className="ballot-tray__slots"
+                      style={{ '--ballot-slot-count': Math.max(1, maxPicks) } as CSSProperties}
+                    >
+                      {savedPicks.map((p, index) => {
+                        const sc = contestantMap.get(p.contestant_id)
+                        // Voted-for someone already eliminated earlier — no
+                        // longer eligible (#5), but still visible while saved.
+                        const stale =
+                          sc?.eliminated_in_episode != null &&
+                          sc.eliminated_in_episode < ep.episode_number
+                        return (
+                          <span key={p.id} className="ballot-tray__saved-slot">
+                            <VoteSlip
+                              name={sc ? displayName(sc) : '—'}
+                              stale={stale}
+                              tribeColor={sc?.tribe_color}
+                              rotation={[-0.7, 0.5, -0.2][index % 3]}
+                            />
+                            {stale && <span className="sr-only">Eliminated</span>}
+                          </span>
+                        )
+                      })}
+                      {Array.from({ length: Math.max(0, maxPicks - savedPicks.length) }, (_, index) => (
+                        <span key={`empty-${index}`} className="ballot-tray__empty">
+                          Open vote
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                   {savedPicks.length < maxPicks && (
-                    <p className="text-xs text-jade-700 mb-3">
+                    <p className="mt-2 text-xs text-jade-700">
                       {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
                   )}
-                  <div className="flex flex-wrap items-start gap-3 py-1">
-                    {savedPicks.map((p, index) => {
-                      const sc = contestantMap.get(p.contestant_id)
-                      // Voted-for someone already eliminated earlier — no longer eligible (#5)
-                      const stale =
-                        sc?.eliminated_in_episode != null &&
-                        sc.eliminated_in_episode < ep.episode_number
-                      return (
-                        <span key={p.id} className="inline-flex items-center gap-1.5">
-                          <VoteSlip
-                            name={sc ? displayName(sc) : '—'}
-                            stale={stale}
-                            tribeColor={sc?.tribe_color}
-                            rotation={[-0.7, 0.5, -0.2][index % 3]}
-                          />
-                          {stale && <span className="text-[11px] text-gray-500">(out)</span>}
-                        </span>
-                      )
-                    })}
-                  </div>
                 </div>
               ) : (
                 <>
-                  <div className="mb-5 flex items-center justify-between gap-3 border-b border-cream-200 pb-3 text-sm">
-                    <span className="text-gray-600">Vote for up to {maxPicks} castaways</span>
-                    <span
-                      aria-live="polite"
-                      className={`shrink-0 font-semibold ${epPending.size === maxPicks ? 'text-jade-700' : 'text-forest-800'}`}
+                  <div className="ballot-tray mb-4" data-doubled={ballotDoubled || undefined}>
+                    {ballotDoubled && (
+                      <BallotStamp
+                        onPointerDown={onDragToRoster ? startBallotDrag : undefined}
+                        lifted={ballotDragging}
+                        stamp={ballotStamped}
+                      />
+                    )}
+                    <div className="ballot-tray__head">
+                      <span>Your ballot</span>
+                      <span aria-live="polite">
+                        {epPending.size} of {maxPicks} selected
+                      </span>
+                    </div>
+                    <div
+                      className="ballot-tray__slots"
+                      style={{ '--ballot-slot-count': Math.max(1, maxPicks) } as CSSProperties}
                     >
-                      {epPending.size} of {maxPicks} selected
-                    </span>
+                      {Array.from({ length: maxPicks }, (_, index) => {
+                        const contestantId = pendingIds[index]
+                        const contestant = contestantId
+                          ? contestantMap.get(contestantId)
+                          : undefined
+                        if (!contestantId || !contestant) {
+                          return (
+                            <span key={`empty-${index}`} className="ballot-tray__empty">
+                              Vote {index + 1}
+                            </span>
+                          )
+                        }
+                        return (
+                          <button
+                            key={contestantId}
+                            type="button"
+                            onClick={() => togglePick(ep.id, contestantId, maxPicks)}
+                            aria-label={`Remove vote for ${displayName(contestant)}`}
+                            className="ballot-slip ballot-slip--button"
+                            style={
+                              {
+                                '--ballot-tribe-color':
+                                  contestant.tribe_color ?? 'var(--color-gold-500)',
+                                '--ballot-rotation': `${[-0.7, 0.5, -0.2][index % 3]}deg`,
+                              } as CSSProperties
+                            }
+                          >
+                            <span>{displayName(contestant)}</span>
+                            <span aria-hidden="true">×</span>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div className="mb-5 space-y-6">
+                  <p className="mb-3 text-sm text-gray-600">
+                    Vote for up to {maxPicks} castaways.
+                  </p>
+                  <div className="mb-5 space-y-3">
                     {[...byTribe.entries()].map(([tribeName, members]) => (
-                      <div key={tribeName}>
-                        <div className="mb-3 flex items-center gap-2">
-                          {members[0].tribe_color && (
-                            <span
-                              className="tribe-marker"
-                              style={{ backgroundColor: members[0].tribe_color }}
-                              aria-hidden="true"
-                            />
-                          )}
-                          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
+                      <section
+                        key={tribeName}
+                        className="ballot-tribe"
+                        style={
+                          {
+                            '--ballot-tribe-color':
+                              members[0].tribe_color ?? 'var(--color-gold-500)',
+                          } as CSSProperties
+                        }
+                      >
+                        <div className="ballot-tribe__head">
+                          <h3>
                             {tribeName}
                           </h3>
+                          <span>
+                            {members.filter((member) => epPending.has(member.id)).length} selected
+                          </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                        <div className="ballot-tribe__grid">
                           {members.map((c) => {
                             const isSelected = epPending.has(c.id)
                             const maxed = !isSelected && epPending.size >= maxPicks
@@ -2877,19 +3023,12 @@ function PicksSection({
                                 disabled={maxed}
                                 aria-pressed={isSelected}
                                 aria-label={isSelected ? `Remove vote for ${displayName(c)}` : `Vote for ${displayName(c)}`}
-                                className={[
-                                  'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
-                                  isSelected
-                                    ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
-                                    : maxed
-                                      ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
-                                ].join(' ')}
+                                className="ballot-choice"
                               >
                                 <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                                <span className="min-w-0 leading-tight">{displayName(c)}</span>
+                                <span className="ballot-choice__name">{displayName(c)}</span>
                                 {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
+                                  <span className="ballot-choice__check" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M5 13l4 4L19 7" />
                                     </svg>
@@ -2899,7 +3038,7 @@ function PicksSection({
                             )
                           })}
                         </div>
-                      </div>
+                      </section>
                     ))}
                   </div>
                 </>
@@ -3002,9 +3141,11 @@ function PicksSection({
         right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
       >
         <div className="px-4 py-3">
-          <p className="mb-3 text-sm text-paper-ink-faded">
-            Vote for the castaways you think will be eliminated.
-          </p>
+          {!castMoment && (
+            <p className="mb-3 text-sm text-paper-ink-faded">
+              Vote for the castaways you think will be eliminated.
+            </p>
+          )}
           {content}
         </div>
 

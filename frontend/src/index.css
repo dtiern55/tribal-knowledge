@@ -617,28 +617,378 @@ html.locked-night .tribal-border {
   }
 }
 
-/* Submitted votes read as handwritten Tribal Council slips rather than
-   structured roster chips. Rotation is supplied per slip and remains stable
-   across renders. */
+/* Ballot choices are the only parchment on the open screen. The cast stays a
+   clean field guide; an actual vote becomes a tactile handwritten slip. */
 .ballot-slip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  overflow: hidden;
+  border: 1px solid #ceb990;
   border-left: 3px solid var(--ballot-tribe-color, var(--color-gold-500));
-  border-radius: 4px;
-  padding: 10px 18px;
-  background: #1e3a2f;
-  color: #f2e9db;
-  box-shadow: 1px 2px 5px rgb(0 0 0 / 12%);
+  border-radius: 3px 8px 4px 7px;
+  padding: 9px 14px;
+  background: linear-gradient(165deg, #f8edcf, #e5cd9d);
+  color: #3e342b;
+  box-shadow: 1px 3px 7px rgb(89 72 57 / 18%);
+  clip-path: polygon(1% 3%, 98% 0, 100% 94%, 97% 100%, 1% 97%, 0 9%);
   font-family: "Kalam", cursive;
   font-size: 16px;
   line-height: 1.25;
   transform: rotate(var(--ballot-rotation, 0deg));
 }
 
+.ballot-slip--button {
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+
 .ballot-slip--stale {
   border-left-color: var(--color-stone-400);
-  background: var(--color-stone-600);
-  color: rgb(242 233 219 / 70%);
+  background: linear-gradient(165deg, var(--color-stone-200), var(--color-stone-300));
+  color: var(--color-stone-600);
+}
+
+/* The current ballot is one dark tray above tribe-organized cast choices. It
+   keeps parchment reserved for selected votes and gives the whole-ballot ×2
+   one seal instead of repeating the play on individual names. */
+.ballot-tray {
+  position: relative;
+  border: 1px solid var(--color-forest-600);
+  border-radius: 9px;
+  padding: 10px;
+  background: linear-gradient(145deg, #264a3c, #172e26);
+  box-shadow: 0 5px 12px rgb(16 34 28 / 18%);
+  color: var(--color-paper);
+}
+
+.ballot-tray__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: rgb(242 233 219 / 62%);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ballot-tray[data-doubled='true'] .ballot-tray__head {
+  padding-right: 48px;
+}
+
+.ballot-tray__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-gold-200);
+}
+
+.ballot-tray__status svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ballot-tray__slots {
+  display: grid;
+  grid-template-columns: repeat(var(--ballot-slot-count, 2), minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ballot-tray__saved-slot {
+  display: flex;
+  min-width: 0;
+}
+
+.ballot-tray__saved-slot .ballot-slip {
+  width: 100%;
+}
+
+.ballot-tray__empty {
+  display: grid;
+  min-height: 48px;
+  place-items: center;
+  border: 1px dashed rgb(242 233 219 / 22%);
+  border-radius: 6px;
+  background: rgb(10 22 19 / 22%);
+  color: rgb(242 233 219 / 42%);
+  font-size: 12px;
+}
+
+.ballot-tribe {
+  overflow: hidden;
+  border: 1px solid var(--color-paper-edge);
+  border-left: 5px solid var(--ballot-tribe-color, var(--color-gold-500));
+  border-radius: 8px;
+  background: rgb(248 242 232 / 72%);
+}
+
+.ballot-tribe__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px 4px;
+}
+
+.ballot-tribe__head h3 {
+  color: var(--color-forest-800);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ballot-tribe__head span {
+  color: var(--color-paper-ink-faded);
+  font-size: 11px;
+}
+
+.ballot-tribe__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border-top: 1px solid var(--color-paper-line);
+  background: var(--color-paper-line);
+}
+
+.ballot-choice {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 76px;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 8px 5px 7px;
+  background: var(--color-cream-50);
+  color: var(--color-paper-ink);
+  text-align: center;
+}
+
+.ballot-choice:hover:not(:disabled) {
+  background: #fffaf1;
+}
+
+.ballot-choice[aria-pressed='true'] {
+  background: color-mix(
+    in srgb,
+    var(--ballot-tribe-color, var(--color-jade-500)) 15%,
+    var(--color-cream-50)
+  );
+  box-shadow: inset 0 -3px 0 var(--ballot-tribe-color, var(--color-jade-600));
+}
+
+.ballot-choice:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.ballot-choice__name {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.ballot-choice__check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: inline-flex;
+  width: 19px;
+  height: 19px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-forest-600);
+  color: var(--color-paper);
+}
+
+@media (min-width: 640px) {
+  .ballot-tribe__grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Saving is the only theatrical beat in the open state. The generated urn is
+   masked into the same torchlit field as the ×2 idol, so its source backdrop
+   never reads as a rectangular image. */
+.ballot-cast-moment {
+  position: relative;
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid #213d33;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 74% 18%, rgb(196 84 50 / 18%), transparent 42%),
+    linear-gradient(155deg, #1b392e, #10221c);
+  color: var(--color-paper);
+}
+
+.ballot-cast-moment__copy {
+  position: relative;
+  z-index: 4;
+  padding: 16px 16px 0;
+  text-align: center;
+}
+
+.ballot-cast-moment__copy p {
+  margin: 0;
+  color: var(--color-gold-200);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ballot-cast-moment__copy h3 {
+  margin-top: 1px;
+  color: var(--color-paper);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+}
+
+.ballot-cast-moment__copy span {
+  display: block;
+  margin-top: 4px;
+  color: rgb(242 233 219 / 62%);
+  font-size: 12px;
+}
+
+.ballot-cast-urn {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: min(76%, 340px);
+  aspect-ratio: 1;
+  object-fit: contain;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 14px 15px rgb(0 0 0 / 30%));
+  -webkit-mask-image: radial-gradient(
+    circle at center,
+    #000 68%,
+    rgb(0 0 0 / 88%) 76%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    circle at center,
+    #000 68%,
+    rgb(0 0 0 / 88%) 76%,
+    transparent 100%
+  );
+}
+
+.ballot-cast-moment__slips {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ballot-cast-slip {
+  position: absolute;
+  top: 102px;
+  left: 50%;
+  display: grid;
+  width: min(58%, 250px);
+  height: 64px;
+  place-items: center;
+  border: 1px solid #ceb990;
+  border-radius: 4px 9px 3px 7px;
+  background: linear-gradient(165deg, #f8edcf, #e5cd9d);
+  box-shadow: 0 8px 14px rgb(0 0 0 / 24%);
+  color: #3e342b;
+  font-family: "Kalam", cursive;
+  font-size: 21px;
+  transform: translateX(-50%) rotate(var(--ballot-cast-rotation, 0deg));
+}
+
+.ballot-cast-double {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 5;
+  opacity: 1;
+  transform: rotate(7deg);
+}
+
+@keyframes ballot-write-name {
+  from { max-width: 0; }
+  to { max-width: 13rem; }
+}
+
+@keyframes ballot-drop-slip {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0)
+      rotate(var(--ballot-cast-rotation, 0deg)) scale(1);
+  }
+  38% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0)
+      rotate(var(--ballot-cast-rotation, 0deg)) scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(142px) rotate(7deg) scale(0.56);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(205px) rotate(14deg) scale(0.26);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ballot-cast-slip {
+    animation: ballot-drop-slip 0.7s cubic-bezier(0.35, 0, 0.2, 1) both;
+    animation-delay: var(--ballot-cast-delay, 0s);
+  }
+
+  .ballot-cast-slip > span {
+    display: inline-block;
+    overflow: hidden;
+    max-width: 0;
+    white-space: nowrap;
+    animation: ballot-write-name 0.22s steps(8, end) forwards;
+    animation-delay: var(--ballot-cast-delay, 0s);
+  }
+
+  .ballot-cast-double {
+    animation: seal-stamp 0.5s cubic-bezier(0.2, 0.7, 0.3, 1.3) both;
+    animation-delay: 0.35s;
+    opacity: 0;
+  }
+}
+
+@media (max-width: 390px) {
+  .ballot-tray__slots {
+    gap: 6px;
+  }
+
+  .ballot-slip {
+    padding-inline: 10px;
+    font-size: 15px;
+  }
+
+  .ballot-cast-moment {
+    min-height: 450px;
+  }
 }
 
 /* Weekly plays borrow the compact geometry of a rubber stamp: oversized
