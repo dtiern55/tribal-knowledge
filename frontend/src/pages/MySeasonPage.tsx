@@ -31,7 +31,6 @@ import type { Beat, BeatKey } from '../components/SeasonRecord'
 import {
   RecordBeats,
   RecordHead,
-  RecordLine,
   RecordPanel,
   RecordSection,
   SeasonRecord,
@@ -556,6 +555,8 @@ export function MySeasonPage() {
               season={d.season}
               userId={d.userId}
               episodes={d.episodes}
+              plays={d.plays}
+              contestants={d.contestants}
               onReplay={openReplay}
               replayLoading={replayLoading}
               replayError={replayError}
@@ -675,17 +676,15 @@ export function MySeasonPage() {
           </RecordPanel>
         </SeasonRecord>
         {/* Below the record, not inside it, and only under the Roster beat
-            (#478): a small history affordance that doesn't follow you to the
-            Ballot beat. Past Plays rides alongside it now that the Advantage
-            beat is gone (#399). */}
-        {beat === 'roster' && (
-          <PastPlays plays={d.plays} contestants={d.contestants} episodes={d.episodes} />
-        )}
+            (#478): one history affordance that doesn't follow you to the Ballot
+            beat. Spent plays fold into the same sheet (#545). */}
         {beat === 'roster' && (
           <EpisodeHistorySection
             season={d.season}
             userId={d.userId}
             episodes={d.episodes}
+            plays={d.plays}
+            contestants={d.contestants}
             onReplay={openReplay}
             replayLoading={replayLoading}
             replayError={replayError}
@@ -1216,6 +1215,8 @@ function EpisodeHistorySection({
   season,
   userId,
   episodes,
+  plays,
+  contestants,
   onReplay,
   replayLoading,
   replayError,
@@ -1224,6 +1225,8 @@ function EpisodeHistorySection({
   season: Season
   userId: string
   episodes: Episode[]
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
@@ -1253,7 +1256,31 @@ function EpisodeHistorySection({
         episode.episode_number >= season.roster_lock_episode,
     )
     .sort((a, b) => b.episode_number - a.episode_number)
-  if (scoredEpisodes.length === 0 && (ledger == null || ledger.length === 0)) return null
+
+  // Spent advantages from closed episodes, folded in from the old standalone
+  // Past Plays section (#545). Resolved here so the sheet stays a dumb list.
+  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const spent: SpentPlay[] = plays
+    .flatMap((p) => {
+      const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
+      if (ep == null || !episodeClosed(ep)) return []
+      const target = p.target_contestant_id ? contestantMap.get(p.target_contestant_id) : undefined
+      return [
+        {
+          id: p.id,
+          label: ADV_LABELS[p.advantage_type] ?? p.advantage_type,
+          target: target ? displayName(target) : null,
+          episodeLabel: ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`,
+          episodeNumber: ep.episode_number,
+          points: p.points_earned,
+        },
+      ]
+    })
+    .sort((a, b) => b.episodeNumber - a.episodeNumber)
+
+  if (scoredEpisodes.length === 0 && spent.length === 0 && (ledger == null || ledger.length === 0))
+    return null
 
   return (
     <>
@@ -1284,6 +1311,7 @@ function EpisodeHistorySection({
         createPortal(
           <EpisodeHistorySheet
             scoredEpisodes={scoredEpisodes}
+            spent={spent}
             ledger={ledger ?? []}
             onReplay={(episode) => {
               setOpen(false)
@@ -1299,11 +1327,21 @@ function EpisodeHistorySection({
   )
 }
 
-// The recap replays + retired token ledger, in a bottom sheet (#478) matching
-// the app's other sheets. Replay closes the sheet; the recap reveal opens over
-// the page from MySeasonPage.
+type SpentPlay = {
+  id: string
+  label: string
+  target: string | null
+  episodeLabel: string
+  episodeNumber: number
+  points: number | null
+}
+
+// The recap replays + spent plays + retired token ledger, in a bottom sheet
+// (#478) matching the app's other sheets. Replay closes the sheet; the recap
+// reveal opens over the page from MySeasonPage.
 function EpisodeHistorySheet({
   scoredEpisodes,
+  spent,
   ledger,
   onReplay,
   replayLoading,
@@ -1311,6 +1349,7 @@ function EpisodeHistorySheet({
   onClose,
 }: {
   scoredEpisodes: Episode[]
+  spent: SpentPlay[]
   ledger: TokenLedgerEntry[]
   onReplay: (episode: Episode) => void
   replayLoading: string | null
@@ -1380,6 +1419,31 @@ function EpisodeHistorySheet({
             </ul>
           )}
           {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
+
+      {spent.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+            Plays
+          </p>
+          <ul className="space-y-1.5">
+            {spent.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 text-sm text-gray-600">
+                <span>
+                  {p.label}
+                  {p.target && <span className="text-gray-400"> → {p.target}</span>}
+                  <span className="text-gray-400"> · {p.episodeLabel}</span>
+                </span>
+                {p.points != null && (
+                  <span className={p.points > 0 ? 'font-medium text-jade-700' : 'text-gray-500'}>
+                    {p.points > 0 ? '+' : ''}
+                    {p.points} pts
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {ledger.length > 0 && (
         <div className="mt-4">
@@ -1690,36 +1754,8 @@ function AdvantagePrompt({
   )
 }
 
-// Spent advantages from closed episodes (#478), relocated below the record now
-// that the Advantage beat is gone (#399). Hidden until there's history.
-function PastPlays({
-  plays,
-  contestants,
-  episodes,
-}: {
-  plays: AdvantagePlay[]
-  contestants: Contestant[]
-  episodes: Episode[]
-}) {
-  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const spent = plays
-    .filter((p) => {
-      const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-      return ep != null && episodeClosed(ep)
-    })
-    .sort(
-      (a, b) =>
-        (episodeMap.get(b.episode_id ?? '')?.episode_number ?? 0) -
-        (episodeMap.get(a.episode_id ?? '')?.episode_number ?? 0),
-    )
-  if (spent.length === 0) return null
-  return <PastPlaysSection spent={spent} contestantMap={contestantMap} episodeMap={episodeMap} />
-}
-
-// A ruled "Past X" sub-section under a record beat (#478) — the shared shell
-// for Past Plays (Advantage) and Past Ballots (Ballot). Collapsed by default,
-// since it's reference, not the week's decision.
+// A ruled "Past Ballots" sub-section under the Ballot record beat (#478).
+// Collapsed by default, since it's reference, not the week's decision.
 function CollapsibleRecordSection({
   title,
   count,
@@ -1759,54 +1795,6 @@ function CollapsibleRecordSection({
       </h2>
       {open && children}
     </div>
-  )
-}
-
-// Your season's spent plays, grouped with the Advantage beat (#478).
-function PastPlaysSection({
-  spent,
-  contestantMap,
-  episodeMap,
-}: {
-  spent: AdvantagePlay[]
-  contestantMap: Map<string, Contestant>
-  episodeMap: Map<string, Episode>
-}) {
-  return (
-    <CollapsibleRecordSection title="Past Plays" count={spent.length}>
-      {spent.map((p) => (
-        <RecordLine key={p.id}>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-paper-ink">
-              {ADV_LABELS[p.advantage_type] ?? p.advantage_type}
-              {p.target_contestant_id && (
-                <span className="text-paper-ink-faded">
-                  {' '}
-                  → {(() => {
-                    const target = contestantMap.get(p.target_contestant_id)
-                    return target ? displayName(target) : '—'
-                  })()}
-                </span>
-              )}
-              <span className="text-paper-ink-faded">
-                {' '}
-                · Ep {episodeMap.get(p.episode_id ?? '')?.episode_number}
-              </span>
-            </span>
-            {p.points_earned != null && (
-              <span
-                className={`shrink-0 text-xs ${
-                  p.points_earned > 0 ? 'font-medium text-jade-700' : 'text-paper-ink-faded'
-                }`}
-              >
-                {p.points_earned > 0 ? '+' : ''}
-                {p.points_earned} pts
-              </span>
-            )}
-          </div>
-        </RecordLine>
-      ))}
-    </CollapsibleRecordSection>
   )
 }
 
