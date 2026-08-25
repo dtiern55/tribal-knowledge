@@ -248,6 +248,11 @@ def build_proposal(
                     add_event(cid, name, "idol_played_successfully")
             elif atype == "Idol Nullifier":
                 add_event(cid, name, "play_idol_nullifier")
+                # Same split as the idol above (#535): the play scores on its
+                # own, voiding a real idol pays the bonus. survivoR records
+                # `success` for nullifiers — all three ever played landed.
+                if r.get("success") == "Yes":
+                    add_event(cid, name, "nullifier_played_successfully")
             else:
                 add_event(cid, name, "play_other_advantage")
         elif event == "Voted out with advantage":

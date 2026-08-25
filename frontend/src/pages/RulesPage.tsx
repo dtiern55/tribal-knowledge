@@ -276,6 +276,7 @@ export function RulesPage() {
             <li><b>Blindside:</b> The castaway voted correctly and the eliminated player had an active idol.</li>
             <li><b>Quit or removal:</b> A quit, medical removal, or disqualification counts as an elimination.</li>
             <li><b>Successful idol play:</b> The protected person received votes and would have been eliminated. Shared credit may be used for a deliberate team play.</li>
+            <li><b>Idol nullifier voids a real idol:</b> The nullifier was aimed at a castaway who actually held an idol and played it. Aiming at someone with no idol, or at an idol that was never played, scores the play alone.</li>
             {usesTokens && <li><b>Personal background story:</b> The episode shows meaningful pre-game footage, photos, or life history.</li>}
           </RuleList>
         </RuleSection>
