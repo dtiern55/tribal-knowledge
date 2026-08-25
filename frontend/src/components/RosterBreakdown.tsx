@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ContestantPerformance } from '../types'
+import { EpisodeLabel } from './EpisodeLabel'
 
 /**
  * Per-episode breakdown for one rostered contestant (#257, #271): each episode
@@ -22,7 +23,7 @@ export function RosterBreakdown({
   activeUntil: number | null
   doubledByEp: Map<number, number>
   // Episode number -> title (#450). Optional — callers that don't pass it
-  // just get "Episode N" with no secondary line.
+  // just get the episode number.
   episodeTitles?: Map<number, string | null>
 }) {
   const [openEps, setOpenEps] = useState<Set<number>>(new Set())
@@ -71,13 +72,15 @@ export function RosterBreakdown({
               aria-expanded={open}
               className="w-full flex items-center gap-2 text-left font-medium text-gray-700"
             >
-              <span className="flex flex-col items-start gap-0.5">
-                <span>Episode {ep.episode_number}</span>
-                {episodeTitles?.get(ep.episode_number) && (
-                  <span className="text-[11px] font-normal text-gray-500 truncate max-w-[12rem]">
-                    {episodeTitles.get(ep.episode_number)}
-                  </span>
-                )}
+              <span className="flex min-w-0 flex-col items-start gap-0.5">
+                <EpisodeLabel
+                  episode={{
+                    episode_number: ep.episode_number,
+                    title: episodeTitles?.get(ep.episode_number) ?? null,
+                  }}
+                  className="max-w-full"
+                  titleClassName="font-normal text-gray-500"
+                />
                 {bonus !== 0 && (
                   <span className="rounded-full bg-forest-50 border border-forest-100 px-1.5 py-0.5 text-[11px] font-semibold text-forest-700">
                     2x Points

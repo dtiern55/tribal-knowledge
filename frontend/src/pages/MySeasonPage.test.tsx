@@ -828,10 +828,10 @@ describe('MySeasonPage state shell', () => {
 
     await screen.findByRole('heading', { name: 'Between episodes' })
     await user.click(screen.getByRole('button', { name: /Episode History/ }))
-    await user.click(screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }))
+    await user.click(screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }))
 
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('Episode 2 replay')
+    expect(dialog).toHaveTextContent('Ep 2 replay')
     expect(dialog).not.toHaveTextContent(/ranked|spots to|Held at/)
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
     await user.click(screen.getByRole('button', { name: 'Back to My Season' }))
@@ -911,7 +911,7 @@ describe('MySeasonPage state shell', () => {
 
       await user.click(screen.getByRole('button', { name: /Episode History/ }))
       await user.click(
-        screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }),
+        screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
 
       await screen.findByRole('dialog')
@@ -936,7 +936,7 @@ describe('MySeasonPage state shell', () => {
       await screen.findByRole('heading', { name: 'Between episodes' })
       await user.click(screen.getByRole('button', { name: /Episode History/ }))
       await user.click(
-        screen.getByRole('button', { name: /Episode 2.*View your scored result.*Replay/ }),
+        screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
       await screen.findByRole('dialog')
 
@@ -955,7 +955,7 @@ describe('MySeasonPage state shell', () => {
       renderWithApp(<MySeasonPage />, { auth, route: '/?recap=episode-2' })
 
       const dialog = await screen.findByRole('dialog')
-      expect(dialog).toHaveTextContent('Episode 2 replay')
+      expect(dialog).toHaveTextContent('Ep 2 replay')
       expect(api.get).toHaveBeenCalledWith('/seasons/season-1/episode-results/episode-2')
     })
   })

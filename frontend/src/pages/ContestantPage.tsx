@@ -224,7 +224,7 @@ export function ContestantPage() {
                         className="flex w-full items-center gap-3 px-4 py-3 text-left sm:px-5"
                       >
                         <span className="flex flex-col items-start">
-                          <span className="font-semibold text-paper-ink">Episode {episode.episode_number}</span>
+                          <span className="font-semibold text-paper-ink">Ep {episode.episode_number}</span>
                           {episode.is_finale && <span className="text-xs font-medium uppercase tracking-wide text-terracotta-700">Finale</span>}
                         </span>
                         <span className="ml-auto"><Points value={episode.points} /></span>

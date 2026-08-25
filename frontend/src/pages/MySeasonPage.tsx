@@ -980,7 +980,7 @@ function LeagueHub({
       className={`mt-5 overflow-hidden rounded-2xl border p-5 sm:p-6 ${card}`}
     >
       <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
-        Episode {episodeNumber} · the field
+        Ep {episodeNumber} · the field
       </p>
       <h2 id="league-hub-title" className="mt-1 font-display text-2xl tracking-wide">
         The League
@@ -1365,7 +1365,7 @@ function EpisodeHistorySheet({
                   >
                     <span className="min-w-0">
                       <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
-                        {episode.is_finale ? 'Finale' : `Episode ${episode.episode_number}`}
+                        {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
                       </span>
                       <span className="block text-xs text-paper-ink-faded">View your scored result</span>
                     </span>
@@ -1393,7 +1393,7 @@ function EpisodeHistorySheet({
                 <span>
                   {h.description ?? h.transaction_type.replace(/_/g, ' ')}
                   {h.episode_number != null && (
-                    <span className="text-gray-400"> · Episode {h.episode_number}</span>
+                    <span className="text-gray-400"> · Ep {h.episode_number}</span>
                   )}
                 </span>
                 <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
@@ -1609,7 +1609,7 @@ function AdvantagePrompt({
       <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <p className="font-display text-[0.7rem] font-bold uppercase tracking-[0.15em] text-terracotta-700">
-            Weekly advantage · Episode {episode.episode_number}
+            Weekly advantage · Ep {episode.episode_number}
           </p>
           <h2 className="mt-0.5 font-display text-xl font-bold leading-tight text-forest-800">
             Play your ×2
@@ -1785,7 +1785,7 @@ function PastPlaysSection({
               )}
               <span className="text-paper-ink-faded">
                 {' '}
-                · Episode {episodeMap.get(p.episode_id ?? '')?.episode_number}
+                · Ep {episodeMap.get(p.episode_id ?? '')?.episode_number}
               </span>
             </span>
             {p.points_earned != null && (
@@ -2894,7 +2894,7 @@ function PicksSection({
               {!activeOnly && !play.locked && (
                 <div className="mb-4 p-3 bg-forest-50 border border-forest-100 rounded-lg space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-forest-700">
-                    Your play · Episode {ep.episode_number}
+                    Your play · Ep {ep.episode_number}
                   </p>
                   {ballotDoubled ? (
                     <div className="flex items-center justify-between text-sm">
@@ -3123,7 +3123,7 @@ function FinaleBallot({
     <div className="mb-6 p-4 bg-white border border-cream-200 rounded-xl">
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-semibold text-gray-900">
-          Finale · Episode {finaleEp.episode_number}
+          Finale · Ep {finaleEp.episode_number}
         </h3>
         <LockBadge
           lockAt={finaleEp.picks_lock_at}
