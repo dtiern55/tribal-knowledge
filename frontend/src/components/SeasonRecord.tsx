@@ -103,21 +103,6 @@ export function RecordSection({
   )
 }
 
-/** One line of the record — an entry, an option, a play. */
-export function RecordLine({
-  children,
-  className = '',
-}: {
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <div className={`border-b border-paper-line px-4 py-2.5 last:border-b-0 ${className}`}>
-      {children}
-    </div>
-  )
-}
-
 export type BeatKey = 'roster' | 'ballot'
 
 export type Beat = {
