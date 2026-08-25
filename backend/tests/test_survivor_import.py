@@ -301,3 +301,41 @@ def test_idol_played_not_needed_gets_play_points_without_save_bonus():
     p = _build(advantage_movement=moves, advantage_details=details)
     assert len(_events(p, "play_idol")) == 1
     assert _events(p, "idol_played_successfully") == []
+
+
+def _nullifier(success=None):
+    details = [
+        {"version_season": S, "advantage_id": 4, "advantage_type": "Idol Nullifier"}
+    ]
+    move = {
+        "version_season": S,
+        "episode": 5,
+        "castaway_id": "A",
+        "castaway": "Ann",
+        "advantage_id": 4,
+        "event": "Played",
+    }
+    if success is not None:
+        move["success"] = success
+    return _build(advantage_movement=[move], advantage_details=details)
+
+
+def test_nullifier_that_voids_an_idol_earns_the_success_bonus():
+    """#535: the nullifier splits like the idol — the play scores on its own,
+    landing on a real idol pays the bonus."""
+    p = _nullifier(success="Yes")
+    assert len(_events(p, "play_idol_nullifier")) == 1
+    assert len(_events(p, "nullifier_played_successfully")) == 1
+
+
+def test_nullifier_that_hits_nothing_scores_the_play_alone():
+    p = _nullifier(success="No")
+    assert len(_events(p, "play_idol_nullifier")) == 1
+    assert _events(p, "nullifier_played_successfully") == []
+
+
+def test_nullifier_without_a_recorded_outcome_scores_the_play_alone():
+    """survivoR leaves `success` off some plays; absent is not a success."""
+    p = _nullifier()
+    assert len(_events(p, "play_idol_nullifier")) == 1
+    assert _events(p, "nullifier_played_successfully") == []
