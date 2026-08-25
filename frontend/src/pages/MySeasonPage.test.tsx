@@ -673,7 +673,8 @@ describe('MySeasonPage state shell', () => {
 
   // #401: this control was unreachable for a while — rendered only under a
   // `compact={false}` that no call site ever passed. It is the only way to
-  // designate, so it gets a test of its own.
+  // designate, so it gets a test of its own. #529 moved it from a select above
+  // the roster onto the roster card's own ring; the guarantee is unchanged.
   it('lets you designate a Sole Survivor once the merge episode is set', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({
       ...season,
@@ -702,10 +703,8 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const select = await screen.findByRole('combobox', { name: /Sole Survivor/i })
-    await screen.findByRole('option', { name: 'Kenzie' })
-    await userEvent.selectOptions(select, 'cast-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Designate' }))
+    const ring = await screen.findByRole('button', { name: 'Name Kenzie your Sole Survivor' })
+    await userEvent.click(ring)
 
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/seasons/season-1/sole-survivor', {

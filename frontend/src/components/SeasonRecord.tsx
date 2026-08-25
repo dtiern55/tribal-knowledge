@@ -63,11 +63,15 @@ export function RecordHead({
 export function RecordSection({
   title,
   right,
+  note,
   children,
   bare = false,
 }: {
   title: string
   right?: ReactNode
+  /** A status line that shares the action's row rather than stacking under it
+   *  (#529). Bare mode only — with a heading there's no spare room. */
+  note?: ReactNode
   children: ReactNode
   /** Under the beat bar the tab IS the heading, so the section drops its own
    *  and keeps only its action. */
@@ -76,7 +80,12 @@ export function RecordSection({
   if (bare) {
     return (
       <div>
-        {right && <div className="flex justify-end px-4 pt-2">{right}</div>}
+        {(right || note) && (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 pt-2">
+            {note}
+            {right && <span className="ml-auto shrink-0">{right}</span>}
+          </div>
+        )}
         {children}
       </div>
     )
