@@ -89,7 +89,7 @@ describe('TeamPage', () => {
 
     await userEvent.click(name)
 
-    expect(await screen.findByRole('button', { name: /Episode 2/ })).toBeVisible()
+    expect(await screen.findByRole('button', { name: /Ep 2/ })).toBeVisible()
     expect(screen.queryByText('Contestant page')).not.toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
   })

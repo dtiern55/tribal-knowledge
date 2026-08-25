@@ -62,7 +62,7 @@ function AdvantageEarned({ value }: { value: number }) {
       <strong className="font-display text-lg tabular-nums text-gray-500">
         {value < 0 ? `−${Math.abs(value)}` : value}
       </strong>
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">pts&nbsp;included</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">pts included</span>
     </span>
   )
 }
@@ -267,7 +267,7 @@ export function TeamPage() {
                     const target = play.target_contestant_id ? contestantMap.get(play.target_contestant_id)?.name : null
                     return (
                       <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-paper-edge record-paper p-3 text-sm">
-                        <div><p className="font-medium text-paper-ink">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-paper-ink-faded">Episode {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
+                        <div><p className="font-medium text-paper-ink">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-paper-ink-faded">Ep {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
                         <Points value={play.points_earned ?? undefined} />
                       </li>
                     )

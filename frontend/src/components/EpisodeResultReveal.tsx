@@ -88,7 +88,7 @@ export function EpisodeResultReveal({
           <div className="relative">
             <div className="flex min-w-0 items-center justify-between gap-3">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-200">
-                Episode {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
+                Ep {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
               </p>
               {mode === 'replay' && (
                 <button

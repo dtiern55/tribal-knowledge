@@ -13,6 +13,13 @@ import type { Episode } from '../types'
  * per the issue: the four characters are the difference between fitting and
  * truncating on an SE-class screen.
  *
+ * `Ep N` is the form for a label, a chip, an eyebrow, an accordion row —
+ * anywhere the episode sits beside other metadata rather than inside a
+ * sentence. Running prose spells the word out ("Results appear here after
+ * Episode 4 is scored.", "Swaps close at Episode 9."), and so does the admin's
+ * Open Episode button. That is the whole rule (#539); reach for the full word
+ * only when you are writing a sentence.
+ *
  * The number inherits the caller's type — these labels sit in uppercase
  * eyebrows — but an episode title is prose and is never uppercased or
  * letterspaced, so the title run resets both. `titleClassName` is for tone,
