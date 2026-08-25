@@ -26,6 +26,19 @@ run against a season nobody has watched yet.
 }
 ```
 
+The `finale` block is the one part you write late: names that have been voted
+out by finale night are dropped, so a read written at the merge is mostly
+wasted. Write it once the final few are set.
+
+Check a read without filing anything:
+
+```
+uv run python scripts/run_bots.py ballot --check
+```
+
+It names the season it would write to, reports every problem at once rather
+than stopping at the first, and warns when a `finale` list has gone stale.
+
 Notes from building it:
 
 - **List at least as many `likely_boots` as the episode's pick limit.** Bots
@@ -51,4 +64,10 @@ Notes from building it:
 - **`double_targets` decides who a roster double lands on** — bots only double
   a castaway they actually roster, so naming a whole tribe is fine.
 - Names are matched case- and punctuation-insensitively. An unrecognised name
-  stops the run rather than being silently dropped.
+  stops the run rather than being silently dropped. Matching strips digits
+  too, so placeholder casts numbered `Castaway 01`/`Castaway 02` collide —
+  real names don't, but test fixtures should use distinct words.
+- **A `finale` list whose names are all out falls back to the whole field**,
+  which spreads every bot at random. So does an empty or missing list. Both
+  are warnings on `ballot --check` (#534) — the ballot still files, it just
+  files a worse one.
