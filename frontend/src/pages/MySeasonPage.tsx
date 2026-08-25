@@ -607,6 +607,23 @@ export function MySeasonPage() {
               setBeat('roster')
             }}
           />
+          {/* Above the beat tabs, alongside the weekly advantage: both are
+              standing prompts for a decision you still owe, and both refer to
+              things you act on inside a beat. This reverses #528, which put it
+              inside the Roster beat back when it was a 204px picker box that
+              followed you onto the ballot; as a one-line prompt it doesn't
+              (#529). Post-merge only: the designation doubles a FINALE
+              contribution, so it's meaningless before the merge is set. */}
+          {d.season.merge_episode != null && (
+            <SoleSurvivorLine
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              rosterVersion={d.rosterVersion}
+              onRosterChange={d.bumpRoster}
+            />
+          )}
           <RecordBeats value={beat} onChange={setBeat} beats={beatsFor(state.episode)} />
 
           <RecordPanel
@@ -615,21 +632,6 @@ export function MySeasonPage() {
             className={`stage-stage ${picking === 'swap' ? 'stage-lit' : ''}`}
           >
             <div id="roster">
-              {/* A roster decision, so it lives inside the Roster beat rather
-                  than above the beat tabs, where it stayed on screen while you
-                  were filling out a ballot (#528). Post-merge only: the
-                  designation doubles a FINALE contribution, so it's meaningless
-                  before the merge is set. */}
-              {d.season.merge_episode != null && (
-                <SoleSurvivorLine
-                  season={d.season}
-                  contestants={d.contestants}
-                  episodes={d.episodes}
-                  userId={d.userId}
-                  rosterVersion={d.rosterVersion}
-                  onRosterChange={d.bumpRoster}
-                />
-              )}
               <RosterSection
                 season={d.season}
                 contestants={d.contestants}
@@ -1602,23 +1604,23 @@ function AdvantagePrompt({
 
   return (
     <div
-      className="relative m-3 rounded-xl border-2 border-terracotta-300 bg-gradient-to-br from-gold-50 to-terracotta-50 p-4 shadow-sm"
+      className="relative m-3 rounded-xl border-2 border-terracotta-300 bg-gradient-to-br from-gold-50 to-terracotta-50 px-4 py-2.5 shadow-sm"
       onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
     >
       <SealGhost drag={drag} />
-      <div className="flex items-center gap-4">
+      {/* #529: this was a 172px card — the tallest thing between the masthead
+          and the roster, restating the same three sentences every week. It now
+          wears the same slim row its played and locked states already wore, and
+          the instructions it carried moved into the idol's own menu, which is
+          where you go to act on them anyway. */}
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-display text-[0.7rem] font-bold uppercase tracking-[0.15em] text-terracotta-700">
-            Weekly advantage · Ep {episode.episode_number}
-          </p>
-          <h2 className="mt-0.5 font-display text-xl font-bold leading-tight text-forest-800">
-            Play your ×2
-          </h2>
-          <p className="mt-1 text-sm leading-snug text-paper-ink/80">
-            Drag the idol onto a castaway or your ballot to double points — one play per episode.
-          </p>
-          <p className="mt-1.5">
-            <RuleLink anchor="weekly-play">How the advantage works</RuleLink>
+          <p className="text-sm leading-snug text-paper-ink">
+            <span className="font-display text-xs font-bold uppercase tracking-wide text-terracotta-700">
+              Weekly advantage
+            </span>
+            {' — '}
+            drag or tap the idol to play your ×2.
           </p>
         </div>
         <div className="relative shrink-0">
@@ -1637,7 +1639,7 @@ function AdvantagePrompt({
             style={{ opacity: dragging ? 0.3 : 1 }}
             className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta-500 active:cursor-grabbing disabled:opacity-40"
           >
-            <DoubleBadge size={60} title="Your advantage — play it" />
+            <DoubleBadge size={42} title="Your advantage — play it" />
           </button>
           {menuOpen && (
             <>
@@ -1675,12 +1677,15 @@ function AdvantagePrompt({
                 >
                   Double your ballot
                 </button>
+                <div className="border-t border-paper-line px-3 py-2">
+                  <RuleLink anchor="weekly-play">How the advantage works</RuleLink>
+                </div>
               </div>
             </>
           )}
         </div>
       </div>
-      {weekly.error && <p className="mt-2 text-xs text-terracotta-600">{weekly.error}</p>}
+      {weekly.error && <p className="mt-1.5 text-xs text-terracotta-600">{weekly.error}</p>}
     </div>
   )
 }
@@ -2093,6 +2098,63 @@ function RosterSection({
   }
 
 
+  // Editing the roster and swapping are both roster actions; they share the
+  // section's action row rather than owning a row each.
+  const editAvailable = windowOpen && rosterLoaded && hasRoster && !editing
+
+  // The swap chip / cancel / undo cluster, lifted out of the JSX so the
+  // Edit button can share its row instead of stacking under it (#529).
+  const swapAction = (
+    picking === 'swap' ? (
+      <button
+        type="button"
+        onClick={() => {
+          setDropping(null)
+          onPickingDone?.()
+        }}
+        className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+      >
+        Cancel
+      </button>
+    ) : swapAvailable ? (
+      <button
+        type="button"
+        onClick={() => onStartSwap?.()}
+        aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
+      >
+        <span className="tribe-marker bg-gold-500" aria-hidden="true" />
+        <span>Roster swap</span>
+        <span
+          className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
+            nextSwapCost === 0
+              ? 'bg-jade-600 text-cream-50'
+              : 'bg-terracotta-100 text-terracotta-800'
+          }`}
+        >
+          {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
+        </span>
+      </button>
+    ) : thisEpisodeSwap ? (
+      /* Reversible until picks lock — see the swap-undo decision. */
+      <span className="inline-flex items-baseline gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
+          Swapped this episode
+          {thisEpisodeSwap.swap_penalty_points !== 0 &&
+            ` · ${thisEpisodeSwap.swap_penalty_points}`}
+        </span>
+        <button
+          type="button"
+          onClick={() => void undoSwap()}
+          disabled={swapping}
+          className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+        >
+          Undo
+        </button>
+      </span>
+    ) : undefined
+  )
+
   return (
     <>
     <SealGhost drag={drag} />
@@ -2101,53 +2163,28 @@ function RosterSection({
       title="Roster"
       bare={bare}
       right={
-        picking === 'swap' ? (
-          <button
-            type="button"
-            onClick={() => {
-              setDropping(null)
-              onPickingDone?.()
-            }}
-            className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
-          >
-            Cancel
-          </button>
-        ) : swapAvailable ? (
-          <button
-            type="button"
-            onClick={() => onStartSwap?.()}
-            aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
-          >
-            <span className="tribe-marker bg-gold-500" aria-hidden="true" />
-            <span>Roster swap</span>
-            <span
-              className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
-                nextSwapCost === 0
-                  ? 'bg-jade-600 text-cream-50'
-                  : 'bg-terracotta-100 text-terracotta-800'
-              }`}
-            >
-                              {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
-            </span>
-          </button>
-        ) : thisEpisodeSwap ? (
-          /* Reversible until picks lock — see the swap-undo decision. */
-          <span className="inline-flex items-baseline gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
-              Swapped this episode
-              {thisEpisodeSwap.swap_penalty_points !== 0 &&
-                ` · ${thisEpisodeSwap.swap_penalty_points}`}
-            </span>
+        editAvailable ? (
+          <span className="inline-flex items-center gap-3">
+            {swapAction}
             <button
-              type="button"
-              onClick={() => void undoSwap()}
-              disabled={swapping}
-              className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+              onClick={() => {
+                setSelected(new Set(savedContestantIds))
+                setEditing(true)
+              }}
+              className="shrink-0 text-sm font-medium text-forest-600 hover:text-forest-800"
             >
-              Undo
+              Edit
             </button>
           </span>
+        ) : (
+          swapAction
+        )
+      }
+      note={
+        editAvailable ? (
+          <p className="min-w-0 text-xs text-gray-500">
+            Locks with episode {season.roster_lock_episode} — edit any time before then.
+          </p>
         ) : undefined
       }
     >
@@ -2199,23 +2236,6 @@ function RosterSection({
 
       {!rosterLoaded ? null : hasRoster && !(windowOpen && editing) ? (
         <div className="space-y-6">
-          {windowOpen && (
-            <div className="flex items-center justify-between gap-3 -mt-2">
-              <p className="text-xs text-gray-500">
-                Your roster for episode {season.roster_lock_episode} — plan a weekly play
-                below, or edit before it locks.
-              </p>
-              <button
-                onClick={() => {
-                  setSelected(new Set(savedContestantIds))
-                  setEditing(true)
-                }}
-                className="shrink-0 text-sm text-forest-600 font-medium hover:text-forest-800"
-              >
-                Edit
-              </button>
-            </div>
-          )}
           <ul>
             {/* Boots sink to the bottom (#190); stable sort keeps the rest in place.
                 Each card's points are what that castaway earned *you*: the
@@ -2266,6 +2286,12 @@ function RosterSection({
                 // designation; every row is a drop target for it too.
                 onSsPointerDown={
                   ssOpen && !picking && pick.is_sole_survivor ? startSsDrag : undefined
+                }
+                // #529: nobody designated yet — every row offers the empty ring.
+                onSsDesignate={
+                  ssOpen && !picking && !currentSsId
+                    ? () => void reassignSoleSurvivor(pick.contestant_id)
+                    : undefined
                 }
                 ssLifted={ssDragging && pick.is_sole_survivor}
                 dropId={pick.contestant_id}
@@ -3241,7 +3267,6 @@ function SoleSurvivorLine({
   onRosterChange: () => void
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
-  const [choice, setChoice] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -3250,11 +3275,7 @@ function SoleSurvivorLine({
   useEffect(() => {
     api
       .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
-      .then((picks) => {
-        setRoster(picks)
-        const current = picks.find((p) => p.is_sole_survivor)
-        setChoice(current ? current.contestant_id : '')
-      })
+      .then(setRoster)
       .catch(() => setRoster([]))
   }, [season.id, userId, rosterVersion])
 
@@ -3262,37 +3283,11 @@ function SoleSurvivorLine({
     const c = contestants.find((c) => c.id === id)
     return c ? displayName(c) : '—'
   }
-  // Eliminated castaways can linger on an active roster (never swapped out) —
-  // they're not valid designees (#180)
-  const active = roster.filter(
-    (p) =>
-      p.active_until_episode === null &&
-      contestants.find((c) => c.id === p.contestant_id)?.eliminated_in_episode == null,
-  )
   const designee = roster.find((p) => p.is_sole_survivor)
 
   const lockEp = ssLockEpisodeNumber(season, episodes)
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   const windowOpen = ssDesignationOpen(season, episodes)
-
-  async function designate() {
-    if (!choice) return
-    setSaving(true)
-    setError(null)
-    try {
-      await api.post<RosterPick>(`/seasons/${season.id}/sole-survivor`, {
-        contestant_id: choice,
-      })
-      setRoster((rs) =>
-        rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === choice })),
-      )
-      onRosterChange() // refresh the roster section so the SS stamp moves (#no-reload)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Designation failed')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   async function clearDesignation() {
     setSaving(true)
@@ -3300,7 +3295,6 @@ function SoleSurvivorLine({
     try {
       await api.delete(`/seasons/${season.id}/sole-survivor`)
       setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: false })))
-      setChoice('')
       onRosterChange()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Undo failed')
@@ -3318,7 +3312,7 @@ function SoleSurvivorLine({
   // undo). Reassign by dragging the ring on the roster, or Undo to choose again.
   if (designee) {
     return (
-      <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
+      <div className="m-3 flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
         <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
         <p className="min-w-0 flex-1 text-sm text-paper-ink">
           <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
@@ -3340,48 +3334,31 @@ function SoleSurvivorLine({
     )
   }
 
+  // Undesignated: a prompt, not a picker. The select listed the same five
+  // castaways sitting on screen underneath it, and the box it sat in cost 204px
+  // above the roster (#529). Designating is now a tap on a roster card's ring.
   return (
-    <div className="mx-3 mt-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 p-3.5 shadow-sm">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="font-display text-sm font-semibold uppercase tracking-wide text-gold-800">
-          Sole Survivor
-        </span>
+    <div className="m-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
+      {/* The lock badge runs ~170px wide; sharing one wrapping row with it
+          squeezed the sentence into a six-line column. The sentence gets the
+          row, the badge and rules link get their own beneath it. */}
+      <div className="flex items-center gap-3">
+        <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
+        <p className="min-w-0 flex-1 text-sm leading-snug text-paper-ink">
+          <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+            Sole Survivor
+          </span>
+          {' — '}
+          tap a ring on your roster to name yours.
+        </p>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-10">
         {lockEpisode && (
-          <LockBadge
-            lockAt={lockEpisode.picks_lock_at}
-            scored={lockEpisode.status === 'scored'}
-          />
+          <LockBadge lockAt={lockEpisode.picks_lock_at} scored={lockEpisode.status === 'scored'} />
         )}
+        <RuleLink anchor="finale">How it works</RuleLink>
       </div>
-      <p className="text-xs text-gray-600">
-        Doubles this castaway&apos;s finale roster points.
-      </p>
-      <p className="mt-1.5 mb-2">
-        <RuleLink anchor="finale">How Sole Survivor works</RuleLink>
-      </p>
-      <div className="flex gap-2 flex-wrap items-center">
-        <select
-          value={choice}
-          onChange={(e) => setChoice(e.target.value)}
-          aria-label="Sole Survivor"
-          className="flex-1 min-w-0 border border-cream-200 rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="">Select your Sole Survivor…</option>
-          {active.map((p) => (
-            <option key={p.id} value={p.contestant_id}>
-              {nameOf(p.contestant_id)}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={designate}
-          disabled={!choice || saving}
-          className="px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
-        >
-          {saving ? 'Saving…' : 'Designate'}
-        </button>
-      </div>
-      {error && <p className="text-terracotta-600 text-sm mt-2">{error}</p>}
+      {error && <p className="mt-1 text-xs text-terracotta-600">{error}</p>}
     </div>
   )
 }
