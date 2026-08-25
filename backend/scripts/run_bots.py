@@ -17,6 +17,7 @@ Usage (from backend/):
     uv run python scripts/run_bots.py draft            # opening rosters (needs read)
     uv run python scripts/run_bots.py week 2           # picks + plays for ep 2
     uv run python scripts/run_bots.py ballot           # finale ballot
+    uv run python scripts/run_bots.py ballot --check   # preflight, writes nothing
 
 `week N` runs BEFORE episode N airs. Import and score the episode afterwards
 with scripts/import_episode.py, then run `week N+1`.
@@ -749,7 +750,81 @@ def week(cur, episode_n: int):
 # ── finale ballot ──────────────────────────────────────────────────────────
 
 
-def ballot(cur):
+FINALE_KEYS = ("winner", "early_boot", "fire_loss")
+
+
+def finale_preflight(cur, season):
+    """Everything that can stop or quietly spoil a finale ballot, checked at
+    once (#534).
+
+    The point is to be runnable on any ordinary evening, not discovered on
+    finale night: `ballot --check` reports and writes nothing. Problems are
+    fatal, warnings are not - a stale read still files a ballot, it just files
+    a worse one, and you should be told which.
+    """
+    sid = season["id"]
+    problems, warnings, fields = [], [], {}
+
+    read = load_read(season)
+    fin_read = read.get("finale")
+    if not fin_read:
+        problems.append(
+            f"no 'finale' block in season_{season['season_number']}.json"
+            " - see bot_reads/README.md for the shape"
+        )
+
+    cur.execute(
+        "select episode_number from episodes where season_id=%s and is_finale",
+        [sid],
+    )
+    fin = cur.fetchone()
+    if fin:
+        print(f"  ok  finale episode flagged (ep {fin['episode_number']})")
+    else:
+        problems.append("no episode in this season is flagged is_finale")
+
+    alive = alive_ids(cur, sid)
+    if fin_read:
+        for key in FINALE_KEYS:
+            named = fin_read.get(key, [])
+            # resolve() exits on a name that isn't in the cast at all; that is
+            # a typo, and staying loud about it is the existing behaviour.
+            ids = resolve(cur, sid, named, f"finale.{key}")
+            live = [c for c in ids if c in alive]
+            fields[key] = live or alive
+            if not named:
+                warnings.append(
+                    f"finale.{key}: no names read - every bot picks from the"
+                    f" whole field of {len(alive)}"
+                )
+            elif not live:
+                # The silent half of the old `or alive`: a read overtaken by
+                # events looks like a read right up until it spreads the bots
+                # at random.
+                warnings.append(
+                    f"finale.{key}: all {len(named)} names are already out"
+                    f" - falls back to the whole field of {len(alive)}"
+                )
+            elif len(live) < len(ids):
+                out = len(ids) - len(live)
+                warnings.append(
+                    f"finale.{key}: {out} of {len(ids)} names"
+                    f" {'is' if out == 1 else 'are'} already out"
+                )
+            else:
+                n = len(live)
+                print(
+                    f"  ok  finale.{key}: {n} name{'' if n == 1 else 's'}, all still in"
+                )
+
+    for w in warnings:
+        print(f"  !   {w}")
+    for pb in problems:
+        print(f"  X   {pb}")
+    return problems, fields
+
+
+def ballot(cur, check_only=False):
     """Every bot files a three-part finale ballot from the read's finale block.
 
     Forward-looking like everything else: the read is who the ROOM would back,
@@ -757,20 +832,13 @@ def ballot(cur):
     """
     season = active_season(cur)
     sid = season["id"]
-    read = load_read(season)
-    fin_read = read.get("finale")
-    if not fin_read:
-        sys.exit("No 'finale' block in the read file")
-    cur.execute("select * from episodes where season_id=%s and is_finale", [sid])
-    fin = cur.fetchone()
-    if not fin:
-        sys.exit("No finale episode in this season")
-
-    alive = alive_ids(cur, sid)
-    fields = {}
-    for key in ("winner", "early_boot", "fire_loss"):
-        ids = resolve(cur, sid, fin_read.get(key, []), f"finale.{key}")
-        fields[key] = [c for c in ids if c in alive] or alive
+    print(f"finale ballot preflight for {season['name']}:")
+    problems, fields = finale_preflight(cur, season)
+    if problems:
+        sys.exit(f"\n{len(problems)} problem(s) - no ballots filed.")
+    if check_only:
+        print("\ncheck only - nothing written.")
+        return
 
     by_name = {a["name"]: a for a in archetypes()}
     n = 0
@@ -809,7 +877,10 @@ def ballot(cur):
 def main():
     cmds = ("setup", "draft", "week", "ballot")
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
-        sys.exit(f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]")
+        sys.exit(
+            f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]\n"
+            "       run_bots.py ballot --check   (preflight only, writes nothing)"
+        )
     conn = db()
     try:
         with conn.cursor() as cur:
@@ -819,7 +890,7 @@ def main():
             elif sys.argv[1] == "draft":
                 draft(cur)
             elif sys.argv[1] == "ballot":
-                ballot(cur)
+                ballot(cur, check_only="--check" in sys.argv[2:])
             else:
                 if len(sys.argv) < 3:
                     sys.exit("usage: run_bots.py week <episode_number>")
