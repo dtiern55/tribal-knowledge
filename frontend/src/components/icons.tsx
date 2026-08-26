@@ -175,13 +175,24 @@ export function TeamBuffPairIcon({ className = 'w-5 h-5' }: { className?: string
   )
 }
 
-/** Season history — a clock turned back. */
+/**
+ * Season history — days scratched off, the way a camp counts them.
+ *
+ * It replaced a clock with an arrow around it, which is the stock history
+ * glyph on every app ever built. A tally says the same thing in the show's own
+ * hand, and collides with nothing else in the set: torches are Standings,
+ * buffs are the Cast and your Tribe, a written slip is the Ballot.
+ *
+ * Three strokes and a slash rather than four and a slash: at the 18px the
+ * card actually uses, the fourth closes the gaps and the group turns to mush.
+ */
 export function HistoryIcon({ className }: { className?: string } = {}) {
   return (
     <Svg className={className}>
-      <path d="M3 3v5h5" />
-      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-      <path d="M12 7v5l4 2" />
+      <path d="M6.6 6.2v11.4" />
+      <path d="M12 6.2v11.4" />
+      <path d="M17.4 6.2v11.4" />
+      <path d="M5 17 19 6.8" />
     </Svg>
   )
 }
