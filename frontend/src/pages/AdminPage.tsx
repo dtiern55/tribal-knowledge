@@ -817,7 +817,7 @@ function EpisodeInsightEditor({
       description: "Compare each player's episode score with the league median.",
     },
     ...[
-      ['double_roster_points', 'Double Roster Points usage'],
+      ['double_roster_points', 'Double Castaway Points usage'],
       ['double_vote_points', 'Double Ballot Points usage'],
       ['roster_swap', 'Roster Swap usage'],
     ].map(([type, label]) => ({

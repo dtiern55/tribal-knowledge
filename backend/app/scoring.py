@@ -9,7 +9,7 @@ merge_episode (decision #10). When merge_episode is NULL, everything is pre-merg
 A scoring/prediction value uses postmerge_point_value when it is set and the
 episode is post-merge, otherwise point_value.
 
-Double Roster Points / Double Vote Points (decision #12, 2026-07-06): a player
+Double Castaway Points / Double Vote Points (decision #12, 2026-07-06): a player
 spends tokens to double an episode's points. Double Roster names one rostered
 contestant; Double Vote covers the player's whole ballot for that episode
 (#303) and stores no target. Both are read from advantage_plays at scoring
@@ -33,7 +33,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
     A scoring_event scores for every user who had that contestant rostered in
     the event's episode (effective-episode ranges), plus each user's swap
     penalties. Per-unit events multiply by quantity, then double if the user
-    played Double Roster Points on that contestant for that episode.
+    played Double Castaway Points on that contestant for that episode.
     """
     points: dict[str, int] = {}
     with conn.cursor() as cur:
@@ -215,7 +215,7 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
 
     Same rules as roster_points() but grouped by contestant and scoped to one
     user: scoring-event points during each contestant's active range — doubled
-    by a played Double Roster Points (#257) and by the Sole Survivor finale
+    by a played Double Castaway Points (#257) and by the Sole Survivor finale
     double — plus that contestant's historical swap penalty and placement.
     Folds the Double Roster doubling in now (#257 reverses #136), so summing
     these always equals the user's roster_points total.
@@ -436,7 +436,7 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
     total minus this. Every point in the standings traces to exactly one
     episode, so summing this over all episodes reconciles with the three
     standings components (see the invariant test). Components: roster scoring
-    events (doubled where Double Roster Points was played, plus 50% of a Sole
+    events (doubled where Double Castaway Points was played, plus 50% of a Sole
     Survivor designee's finale total) + swap penalties charged that episode +
     correct elimination picks (doubled); at the finale, also finale-ballot
     points, which resolve then.

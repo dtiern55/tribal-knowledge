@@ -72,7 +72,7 @@ export function RosterCard({
   expanded?: boolean
   onToggle?: () => void
   // #407 drag-to-reassign: the idol on a doubled row is a handle you grab to
-  // move the Double Roster Points onto another castaway. When given, the idol
+  // move the Double Castaway Points onto another castaway. When given, the idol
   // becomes draggable; `sealLifted` dims it while it's in the air.
   onSealPointerDown?: (e: React.PointerEvent) => void
   sealLifted?: boolean

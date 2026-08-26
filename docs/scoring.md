@@ -59,7 +59,7 @@ commissioner when scoring the episode of the first individual Tribal Council —
 the vote that sends the first player to the jury; until then everything is
 pre-merge (decision #10).
 
-Double Roster Points adds one extra copy of the targeted roster member's event
+Double Castaway Points adds one extra copy of the targeted roster member's event
 points for that episode. At the finale, the active Sole Survivor designee adds
 50% of that castaway's complete finale roster contribution, rounded once after
 the events are summed. Placement is not a separate standings component:
@@ -113,7 +113,7 @@ supported facts are:
   the share of submitted ballots that included them.
 - Submitted ballots with at least two correct elimination picks.
 - The viewer's episode score versus the median among season participants.
-- League usage of Double Roster Points, Double Vote Points, or Roster Swap.
+- League usage of Double Castaway Points, Double Vote Points, or Roster Swap.
 
 Configuration contains no aggregate values. Facts are calculated only through
 the authenticated scored-result endpoint and expose counts or percentages,

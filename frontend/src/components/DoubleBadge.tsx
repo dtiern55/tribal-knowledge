@@ -5,7 +5,7 @@ import idolImg from '../assets/weekly-advantage-idol-dimensional.png'
  *  baked into the art so the multiplier reads at every size. */
 export function DoubleBadge({
   size = 22,
-  title = 'Double Roster Points this episode',
+  title = 'Double Castaway Points this episode',
 }: {
   size?: number
   title?: string

@@ -5,7 +5,7 @@ import type { AdvantagePlay, ContestantPerformance, Episode } from '../types'
 export const EMPTY_EP_MAP = new Map<number, number>()
 
 /**
- * Per-contestant, per-episode Double Roster Points bonus, keyed
+ * Per-contestant, per-episode Double Castaway Points bonus, keyed
  * contestant_id → (episode_number → bonus points). Drives the "2x Points" pill
  * and the itemized 2x line; roster totals already fold the doubling in
  * server-side.

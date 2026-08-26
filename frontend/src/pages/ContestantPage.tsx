@@ -176,7 +176,7 @@ export function ContestantPage() {
                 <span aria-hidden>·</span>
                 <span
                   className="inline-flex items-center gap-1"
-                  title="Includes Double Roster Points and any Sole Survivor bonus, and only the episodes they were on your roster"
+                  title="Includes Double Castaway Points and any Sole Survivor bonus, and only the episodes they were on your roster"
                 >
                   <Points value={earnedForYou} suffix="for you" />
                 </span>
