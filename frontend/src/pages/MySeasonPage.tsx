@@ -611,14 +611,12 @@ export function MySeasonPage() {
             {d.season.name}
           </h1>
           <ThisWeekHero
-            eyebrow={`This Week · Ep ${state.episode.episode_number}`}
+            /* The card is already "this week", so the eyebrow spends its line
+               on the episode instead — named the one way the app names one
+               (#530): the number pinned, the title absorbing the squeeze. */
+            eyebrow={<EpisodeLabel episode={state.episode} titleClassName="text-gold-200" />}
             headline={week.headline}
-            sub={
-              <>
-                {state.episode.title && `${state.episode.title} · `}
-                locks {formatCentral(state.episode.picks_lock_at)}
-              </>
-            }
+            sub={<>locks {formatCentral(state.episode.picks_lock_at)}</>}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} hero />}
           >
             <AdvantageLane
