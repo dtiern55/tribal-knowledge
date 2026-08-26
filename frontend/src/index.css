@@ -774,20 +774,30 @@ html.locked-night .contestant-avatar {
    colours run from the hero tiles through the tabs into each card's header
    band, so a lane is recognisable before you read its label. */
 
+/* The hero wears the week's state. Amber and lit while something is still
+   owed — most often an unplayed x2 — and a cool, settled jade once nothing is.
+   The wash covers the whole card rather than glinting off one corner: this is
+   meant to be read from across the room, before the headline it sits above. */
 .week-hero {
   background:
-    radial-gradient(circle at 92% 0%, rgb(212 145 58 / 32%), transparent 55%),
-    linear-gradient(150deg, #25493b, #132e25);
-  box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
+    radial-gradient(ellipse 120% 90% at 85% -25%, rgb(212 145 58 / 58%), transparent 70%),
+    linear-gradient(150deg, #2c4a33, #16281f);
+  box-shadow:
+    0 6px 22px rgb(10 22 19 / 35%),
+    inset 0 0 0 1px rgb(212 145 58 / 30%);
 }
 
-/* Amber while the week still wants something from you — most of all an
-   unplayed x2 — and jade once it doesn't. The colour is the fastest read on
-   the page, ahead of the headline it sits above. */
 .week-hero[data-settled] {
   background:
-    radial-gradient(circle at 92% 0%, rgb(131 181 154 / 34%), transparent 55%),
-    linear-gradient(150deg, #25493b, #132e25);
+    radial-gradient(ellipse 120% 90% at 85% -25%, rgb(87 145 116 / 55%), transparent 70%),
+    linear-gradient(150deg, #1c4133, #0f231c);
+  box-shadow:
+    0 6px 22px rgb(10 22 19 / 35%),
+    inset 0 0 0 1px rgb(87 145 116 / 30%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .week-hero { transition: box-shadow 400ms ease; }
 }
 
 html.locked-night .week-hero {

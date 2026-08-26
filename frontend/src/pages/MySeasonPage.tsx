@@ -8,7 +8,7 @@ import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.png'
-import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
+import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge } from '../components/LockBadge'
@@ -2535,47 +2535,6 @@ function RosterSection({
             </div>
           )}
 
-          {swappedRoster.length > 0 && swappedOpen && (
-            <div className="border-t border-paper-line px-4 py-3">
-              <ul className="space-y-2">
-                {swappedRoster.map((pick) => {
-                  const c = contestantMap.get(pick.contestant_id)
-                  const name = c ? displayName(c) : '—'
-                  return (
-                    <li
-                      key={pick.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-500"
-                    >
-                      {/* Grey + crossed off, matching Cast/Standings/recap
-                          (#457) — no torch. */}
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className={`shrink-0 ${ELIMINATED_DIM}`}>
-                          <ContestantAvatar
-                            name={name}
-                            imageUrl={c?.image_url ?? null}
-                            tribeColor={c?.tribe_color ?? null}
-                            tribeName={c?.tribe_name ?? null}
-                            size="sm"
-                          />
-                        </span>
-                        <span className={ELIMINATED_STRIKE}>{name}</span>
-                      </span>
-                      <span className="text-xs flex items-center gap-2">
-                        <Points value={rosterPoints.get(pick.contestant_id)} />
-                        <span>
-                          ep {pick.active_from_episode}–{pick.active_until_episode}
-                          {pick.swap_penalty_points !== 0 && (
-                            <span className="ml-1 text-terracotta-400">· swap {pick.swap_penalty_points}</span>
-                          )}
-                        </span>
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
-
         </div>
       ) : windowOpen ? (
         <div className="p-4">
@@ -2674,6 +2633,46 @@ function RosterSection({
             <path d="M6 9l6 6 6-6" />
           </svg>
         </button>
+      )}
+      {swappedOpen && (
+        <ul className="border-t border-paper-line bg-black/[.03]">
+              {swappedRoster.map((pick) => (
+                // A castaway you swapped away still earned you points while you
+                // held them, so their row opens onto the same per-episode
+                // breakdown an active one does — scoped to the episodes they
+                // were actually yours for. Not struck through: the strike means
+                // voted out (#457), and a swapped-out castaway may still be in.
+                <RosterCard
+                  key={pick.id}
+                  contestantId={pick.contestant_id}
+                  contestant={contestantMap.get(pick.contestant_id)}
+                  right={
+                    <span className="flex items-center gap-2 text-xs">
+                      <Points value={rosterPoints.get(pick.contestant_id)} />
+                      <span className="text-paper-ink-faded">
+                        ep {pick.active_from_episode}–{pick.active_until_episode}
+                        {pick.swap_penalty_points !== 0 && (
+                          <span className="ml-1 text-terracotta-500">
+                            · swap {pick.swap_penalty_points}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                  }
+                  bioLink={false}
+                  expanded={expandedId === pick.contestant_id}
+                  onToggle={() => toggleExpand(pick.contestant_id)}
+                >
+                  <RosterBreakdown
+                    perf={perfs.get(pick.contestant_id)}
+                    activeFrom={pick.active_from_episode}
+                    activeUntil={pick.active_until_episode}
+                    doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+                    episodeTitles={episodeTitles}
+                  />
+                </RosterCard>
+              ))}
+        </ul>
       )}
     </>
   )
