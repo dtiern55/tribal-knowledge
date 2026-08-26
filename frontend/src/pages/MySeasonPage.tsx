@@ -1291,7 +1291,7 @@ function EpisodeHistorySection({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-cream-50 shadow-sm transition-colors hover:bg-forest-700"
+        className="episode-history-brush inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-cream-50"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 3v5h5" />
@@ -1380,9 +1380,9 @@ function EpisodeHistorySheet({
         <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-cream-200 bg-cream-100 px-4 py-3">
           <h2
             id="episode-history-title"
-            className="font-display text-sm font-semibold uppercase tracking-wide text-forest-800"
+            className="font-display text-sm font-semibold uppercase tracking-wide text-forest-900"
           >
-            Episode History
+            <span className="brush-label brush-label--jade brush-label--sheet">Episode History</span>
           </h2>
           <button
             type="button"
@@ -1629,7 +1629,7 @@ function AdvantagePrompt({
           <DoubleBadge size={26} title="Advantage played" />
         </span>
         <p className="min-w-0 flex-1 text-sm text-paper-ink">
-          <span className="font-display text-xs font-bold uppercase tracking-wide text-jade-700">
+          <span className="brush-label brush-label--jade brush-label--kicker font-display text-xs font-bold uppercase tracking-wide text-jade-900">
             Advantage played
           </span>
           {' — '}
@@ -1659,7 +1659,7 @@ function AdvantagePrompt({
           <DoubleBadge size={26} title="Advantage not played" />
         </span>
         <p className="text-sm text-stone-500">
-          <span className="font-display text-xs font-bold uppercase tracking-wide">Weekly advantage</span>
+          <span className="brush-label brush-label--stone brush-label--kicker font-display text-xs font-bold uppercase tracking-wide">Weekly advantage</span>
           {' — not played this episode'}
         </p>
       </div>
@@ -1680,7 +1680,7 @@ function AdvantagePrompt({
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm leading-snug text-paper-ink">
-            <span className="font-display text-xs font-bold uppercase tracking-wide text-terracotta-700">
+            <span className="brush-label brush-label--terracotta brush-label--kicker font-display text-xs font-bold uppercase tracking-wide text-terracotta-900">
               Weekly advantage
             </span>
             {' — '}
@@ -2806,11 +2806,13 @@ function PicksSection({
                   {/* Submitted is the state people look for, so it gets a mark
                       and the strongest type in the section rather than a line
                       of prose. */}
-                  <p className="mb-2 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
-                    <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                    Ballot submitted
+                  <p className="mb-3">
+                    <span className="brush-label brush-label--jade brush-label--submitted inline-flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-900">
+                      <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                      Ballot submitted
+                    </span>
                   </p>
                   {savedPicks.length < maxPicks && (
                     <p className="text-xs text-jade-700 mb-3">
@@ -3303,7 +3305,7 @@ function SoleSurvivorLine({
       <div className="m-3 flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
         <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
         <p className="min-w-0 flex-1 text-sm text-paper-ink">
-          <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+          <span className="brush-label brush-label--gold brush-label--kicker font-display text-xs font-bold uppercase tracking-wide text-gold-900">
             Sole Survivor
           </span>
           {' — '}
@@ -3333,7 +3335,7 @@ function SoleSurvivorLine({
       <div className="flex items-center gap-3">
         <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
         <p className="min-w-0 flex-1 text-sm leading-snug text-paper-ink">
-          <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+          <span className="brush-label brush-label--gold brush-label--kicker font-display text-xs font-bold uppercase tracking-wide text-gold-900">
             Sole Survivor
           </span>
           {' — '}

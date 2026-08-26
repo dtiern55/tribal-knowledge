@@ -476,6 +476,169 @@ html.locked-night .braid-rule { opacity: 0.55; }
   transform: translateY(1px);
 }
 
+/* Small paint swashes reuse the real transparency from My Points as a mask.
+   One source texture can therefore carry the full theme palette without a
+   family of near-identical image assets. The paint sits behind the words — it
+   is an accent, never another card or status pill. */
+.brush-label,
+.brush-multiplier,
+.brush-tag,
+.episode-history-brush {
+  position: relative;
+  isolation: isolate;
+}
+
+.brush-label::before,
+.brush-multiplier::before,
+.brush-tag::before,
+.episode-history-brush::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--brush-color, var(--color-jade-300));
+  opacity: var(--brush-opacity, 0.72);
+  -webkit-mask-image: url("./assets/points-brush-swatch.png");
+  mask-image: url("./assets/points-brush-swatch.png");
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  transform: rotate(var(--brush-angle, -1deg));
+  transition: background-color 160ms ease, opacity 160ms ease;
+}
+
+.brush-label--roster,
+.brush-label--jade {
+  --brush-color: var(--color-jade-300);
+}
+
+.brush-label--ballot,
+.brush-label--terracotta {
+  --brush-color: var(--color-terracotta-300);
+  --brush-angle: 1.1deg;
+}
+
+.brush-label--gold {
+  --brush-color: var(--color-gold-300);
+  --brush-angle: -1.6deg;
+}
+
+.brush-label--stone {
+  --brush-color: var(--color-stone-300);
+  --brush-opacity: 0.55;
+}
+
+.brush-label--tab {
+  padding: 0.08em 0.48em 0.12em;
+}
+
+.brush-label--tab::before {
+  inset: -0.22em -0.55em -0.2em;
+}
+
+.season-beat-tab:not([data-active="true"]) .brush-label::before {
+  opacity: 0.22;
+}
+
+.brush-label--kicker {
+  padding: 0.02em 0.34em 0.06em;
+}
+
+.brush-label--kicker::before {
+  inset: -0.22em -0.38em -0.18em;
+}
+
+.brush-label--submitted {
+  padding: 0.08em 0.55em 0.12em;
+}
+
+.brush-label--submitted::before {
+  inset: -0.28em -0.7em -0.22em;
+  --brush-opacity: 0.64;
+}
+
+.brush-label--sheet {
+  padding: 0.04em 0.42em 0.08em;
+}
+
+.brush-label--sheet::before {
+  inset: -0.22em -0.48em -0.18em;
+  --brush-opacity: 0.5;
+}
+
+/* A tiny brush dab replaces the boxed ×2 chip on the Roster/Ballot tabs. */
+.brush-multiplier {
+  --brush-color: var(--color-gold-400);
+  --brush-opacity: 0.94;
+  --brush-angle: 2deg;
+}
+
+.brush-multiplier::before {
+  inset: -0.28rem -0.34rem;
+}
+
+/* Provenance/status notes on a roster row stay compact, but no longer look
+   like little pieces of form chrome. */
+.brush-tag {
+  display: inline-flex;
+  padding: 0.08rem 0.34rem 0.1rem;
+}
+
+.brush-tag::before {
+  inset: -0.12rem -0.28rem;
+}
+
+.brush-tag--swap {
+  --brush-color: var(--color-terracotta-200);
+  --brush-opacity: 0.72;
+  --brush-angle: 1.4deg;
+  color: var(--color-terracotta-900);
+}
+
+.brush-tag--sole {
+  --brush-color: var(--color-gold-300);
+  --brush-opacity: 0.78;
+  --brush-angle: -1.5deg;
+  color: var(--color-gold-900);
+}
+
+.brush-tag--sole[data-open="true"] {
+  --brush-opacity: 0.38;
+  color: var(--color-stone-700);
+}
+
+/* Episode History keeps the strong contrast of the old forest pill, but its
+   silhouette now belongs to the same hand-painted system as My Points. */
+.episode-history-brush {
+  --brush-color: var(--color-forest-600);
+  --brush-opacity: 0.98;
+  --brush-angle: -0.8deg;
+  background: transparent;
+  border: 0;
+  text-shadow: 0 1px 1px rgb(10 22 19 / 38%);
+  filter: drop-shadow(0 2px 2px rgb(30 58 47 / 20%));
+  transition: filter 160ms ease, transform 120ms ease;
+}
+
+.episode-history-brush::before {
+  inset: -0.28rem -0.45rem;
+}
+
+.episode-history-brush:hover {
+  filter: brightness(1.1) saturate(1.05) drop-shadow(0 3px 3px rgb(30 58 47 / 24%));
+}
+
+.episode-history-brush:active {
+  transform: translateY(1px);
+}
+
+html.locked-night .episode-history-brush {
+  --brush-color: var(--color-terracotta-700);
+}
+
 /* The signature section divider: alternating paint dashes lifted from the
    same terracotta/gold palette, with real dry-brush transparency at the edge. */
 .tribal-border {
@@ -623,22 +786,45 @@ html.locked-night .tribal-border {
 .ballot-slip {
   display: inline-flex;
   align-items: center;
-  border-left: 3px solid var(--ballot-tribe-color, var(--color-gold-500));
-  border-radius: 4px;
+  position: relative;
+  isolation: isolate;
   padding: 10px 18px;
-  background: #1e3a2f;
+  background: transparent;
   color: #f2e9db;
-  box-shadow: 1px 2px 5px rgb(0 0 0 / 12%);
+  filter: drop-shadow(1px 2px 3px rgb(0 0 0 / 16%));
   font-family: "Kalam", cursive;
   font-size: 16px;
   line-height: 1.25;
+  text-shadow: 0 1px 1px rgb(10 22 19 / 42%);
   transform: rotate(var(--ballot-rotation, 0deg));
 }
 
+.ballot-slip::before {
+  content: "";
+  position: absolute;
+  inset: -0.3rem -0.62rem;
+  z-index: -1;
+  background: color-mix(
+    in srgb,
+    var(--ballot-tribe-color, var(--color-gold-500)) 34%,
+    var(--color-forest-700)
+  );
+  -webkit-mask-image: url("./assets/points-brush-swatch.png");
+  mask-image: url("./assets/points-brush-swatch.png");
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
 .ballot-slip--stale {
-  border-left-color: var(--color-stone-400);
-  background: var(--color-stone-600);
   color: rgb(242 233 219 / 70%);
+}
+
+.ballot-slip--stale::before {
+  background: var(--color-stone-600);
 }
 
 /* Weekly plays borrow the compact geometry of a rubber stamp: oversized

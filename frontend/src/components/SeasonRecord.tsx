@@ -168,11 +168,14 @@ export function RecordBeats({
               tabIndex={active ? 0 : -1}
               onClick={() => onChange(b.key)}
               data-drop-id={`beat:${b.key}`}
-              className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 text-center ${
-                active ? 'border-terracotta-600 text-terracotta-600' : 'border-transparent text-stone-500'
+              data-active={active}
+              className={`season-beat-tab flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 text-center ${
+                active ? 'border-terracotta-600 text-forest-900' : 'border-transparent text-stone-500'
               }`}
             >
-              <span className="font-display text-base font-semibold uppercase tracking-[0.08em]">
+              <span
+                className={`brush-label brush-label--tab brush-label--${b.key} font-display text-base font-semibold uppercase tracking-[0.08em]`}
+              >
                 {b.label}
               </span>
               {b.done && (
@@ -192,7 +195,7 @@ export function RecordBeats({
               {b.doubled && (
                 <span
                   aria-hidden="true"
-                  className="ml-0.5 flex-none rounded-md border border-gold-600 bg-gold-400 px-1 py-0.5 font-display text-[0.7rem] font-bold leading-none text-gold-900"
+                  className="brush-multiplier ml-0.5 flex-none px-1.5 py-0.5 font-display text-[0.7rem] font-bold leading-none text-gold-900"
                 >
                   ×2
                 </span>

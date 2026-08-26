@@ -210,7 +210,7 @@ export function RosterCard({
           )}
           {outEp == null && swappedInEpisode != null && (
             <span
-              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-paper-edge bg-black/[.03] text-paper-ink-faded"
+              className="brush-tag brush-tag--swap text-[9px] font-extrabold uppercase tracking-[0.1em]"
               title={`Swapped onto your roster in episode ${swappedInEpisode}`}
             >
               Swapped in · ep {swappedInEpisode}
@@ -218,11 +218,8 @@ export function RosterCard({
           )}
           {isSoleSurvivor && (
             <span
-              className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
-                ssWindowOpen
-                  ? 'border-stone-400 text-stone-500'
-                  : 'border-gold-500 bg-gold-400/20 text-gold-800'
-              }`}
+              data-open={ssWindowOpen}
+              className="brush-tag brush-tag--sole text-[9px] font-extrabold uppercase tracking-[0.1em]"
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
               Sole Survivor
