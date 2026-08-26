@@ -535,6 +535,8 @@ export function MySeasonPage() {
       !advantagesLocked(openEp, d.season!)
     return {
       beats,
+      // Nothing left at all — including the x2. Colours the hero.
+      settled: left === 0 && !advantageUnplayed,
       headline:
         left > 0
           ? `${left} task${left === 1 ? '' : 's'} left before lock`
@@ -616,6 +618,7 @@ export function MySeasonPage() {
                (#530): the number pinned, the title absorbing the squeeze. */
             eyebrow={<EpisodeLabel episode={state.episode} titleClassName="text-gold-200" />}
             headline={week.headline}
+            settled={week.settled}
             sub={<>locks {formatCentral(state.episode.picks_lock_at)}</>}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} hero />}
           >

@@ -18,6 +18,7 @@ export function ThisWeekHero({
   headline,
   sub,
   right,
+  settled = false,
   children,
 }: {
   eyebrow: ReactNode
@@ -25,11 +26,18 @@ export function ThisWeekHero({
   sub?: ReactNode
   /** The compact My Points block. */
   right?: ReactNode
+  /** Nothing left to do this week, x2 included — cools the corner glow from
+   *  amber to jade, so the week's state reads before any of the words do. */
+  settled?: boolean
   /** The weekly advantage lane. */
   children?: ReactNode
 }) {
   return (
-    <section aria-label="This week" className="week-hero relative rounded-2xl px-4 pt-3.5 pb-4">
+    <section
+      aria-label="This week"
+      data-settled={settled || undefined}
+      className="week-hero relative rounded-2xl px-4 pt-3.5 pb-4"
+    >
       <div className="flex items-start gap-2.5">
         <div className="min-w-0">
           <div className="font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">

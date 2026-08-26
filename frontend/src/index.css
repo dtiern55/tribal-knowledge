@@ -781,6 +781,15 @@ html.locked-night .contestant-avatar {
   box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
 }
 
+/* Amber while the week still wants something from you — most of all an
+   unplayed x2 — and jade once it doesn't. The colour is the fastest read on
+   the page, ahead of the headline it sits above. */
+.week-hero[data-settled] {
+  background:
+    radial-gradient(circle at 92% 0%, rgb(131 181 154 / 34%), transparent 55%),
+    linear-gradient(150deg, #25493b, #132e25);
+}
+
 html.locked-night .week-hero {
   background:
     radial-gradient(circle at 90% 0%, rgb(196 84 50 / 40%), transparent 55%),
