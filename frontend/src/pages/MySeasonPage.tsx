@@ -11,7 +11,7 @@ import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
-import { LockBadge } from '../components/LockBadge'
+import { LockBadge, LockLine } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
 import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { EpisodeLabel } from '../components/EpisodeLabel'
@@ -506,8 +506,12 @@ export function MySeasonPage() {
     const saved = d.openPicks.length
 
     // A roster is settled when no slot is sitting dead — the only job it has
-    // between locks.
-    const rosterDone = active.length === held.length && held.length > 0
+    // between locks. Once swaps are spent or closed there is nothing to be
+    // done about a dead slot, so it stops counting: a task you cannot act on
+    // is not a task, and late in the season everyone has one.
+    const deadSlots = held.length - active.length
+    const canSwap = !swapsLocked(d.season!, d.episodes) && !swappedThisEpisode
+    const rosterDone = held.length > 0 && (deadSlots === 0 || !canSwap)
     const ballotDone = maxPicks > 0 && saved === maxPicks
 
     const beats: Beat[] = [
@@ -537,12 +541,24 @@ export function MySeasonPage() {
       beats,
       // Nothing left at all — including the x2. Colours the hero.
       settled: left === 0 && !advantageUnplayed,
+      // Name the thing rather than counting it: "1 task left" made you go
+      // looking for which one.
       headline:
-        left > 0
-          ? `${left} task${left === 1 ? '' : 's'} left before lock`
-          : advantageUnplayed
-            ? 'Your ×2 is still unplayed'
-            : `You're all set for Ep ${openEp.episode_number}`,
+        left === 2
+          ? 'Your ballot and roster both need you'
+          : !ballotDone
+            ? saved === 0
+              ? 'Your ballot is empty'
+              : `${saved} of ${maxPicks} votes cast`
+            : !rosterDone
+              ? held.length === 0
+                ? 'Pick your roster'
+                : deadSlots === 1
+                  ? 'Swap out your eliminated castaway'
+                  : `Swap out ${deadSlots} eliminated castaways`
+              : advantageUnplayed
+                ? 'Your ×2 is still unplayed'
+                : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
@@ -619,7 +635,7 @@ export function MySeasonPage() {
             eyebrow={<EpisodeLabel episode={state.episode} titleClassName="text-gold-200" />}
             headline={week.headline}
             settled={week.settled}
-            sub={<>locks {formatCentral(state.episode.picks_lock_at)}</>}
+            sub={<LockLine lockAt={state.episode.picks_lock_at} />}
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} hero />}
           >
             <AdvantageLane

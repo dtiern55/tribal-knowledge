@@ -859,6 +859,21 @@ html.locked-night .contestant-avatar {
   }
 }
 
+/* The lock escalates in place: calm at a distance, gold inside a day, ember in
+   the final hour. Same thresholds as the LockBadge chip, which shares the
+   phrase — the hero prints the tail as running text instead of a pill. */
+.week-hero [data-lock='soon'] { color: var(--color-gold-200); }
+.week-hero [data-lock='imminent'] {
+  color: #f7ded4;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .week-hero [data-lock='imminent'] { animation: tk-lock-pulse 1.9s ease-in-out infinite; }
+}
+@keyframes tk-lock-pulse {
+  50% { opacity: 0.55; }
+}
+
 /* The idol's two plays, as a panel under the lane. */
 .hero-menu {
   overflow: hidden;
