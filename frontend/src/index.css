@@ -79,6 +79,12 @@
   --font-body: "Source Sans 3", system-ui, sans-serif;
   --font-sans: var(--font-body);
 
+  /* The page ground, deliberately outside the cream scale: cream-100 is also
+     the record paper and a dozen chips, and the ground has to sit a step below
+     those or an elevated card has nothing to lift off. */
+  --color-ground: #e9dcc3;
+  --color-ground-lift: #f2e7d2;
+
   --color-paper: #f2e9db;
   --color-paper-line: #e4d8c7;
   --color-paper-edge: #d5c4ad;
@@ -93,7 +99,7 @@ html {
      visible area so the page scrolls into empty filler past the fixed bottom
      bar. dvh tracks the visible viewport and matches the rest of the shell. */
   min-height: 100dvh;
-  background: var(--color-cream-100);
+  background: var(--color-ground);
   scroll-padding-top: 5rem;
 }
 
@@ -101,7 +107,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
-  background: var(--color-cream-100);
+  background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
@@ -137,7 +143,7 @@ body {
 .app-shell {
   background-image:
     radial-gradient(circle at 100% 0%, rgb(196 84 50 / 8%), transparent 62vw),
-    linear-gradient(180deg, #f5f0e6, #f2e9db);
+    linear-gradient(180deg, var(--color-ground-lift), var(--color-ground));
 }
 
 /* While an episode is locked and awaiting scoring, carry the torchlit night
