@@ -30,7 +30,7 @@ import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneCard, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
-import { BallotIcon, ChevronRightIcon, HistoryIcon, PeopleIcon } from '../components/icons'
+import { BallotIcon, ChevronRightIcon, HistoryIcon, TeamBuffPairIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
 import { formatCentral } from '../lib/time'
@@ -2359,7 +2359,7 @@ function RosterSection({
     <LaneCard
       lane="jade"
       title="My Team"
-      icon={<PeopleIcon />}
+      icon={<TeamBuffPairIcon />}
       glowOut={glowOut}
       right={
         seasonPoints != null ? (
