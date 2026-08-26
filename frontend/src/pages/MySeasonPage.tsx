@@ -844,7 +844,7 @@ function LockedState({
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
                       <span className="shrink-0">
-                        <DoubleBadge size={26} title="Double Roster Points this episode" />
+                        <DoubleBadge size={26} title="Double Castaway Points this episode" />
                       </span>
                     )}
                   {(() => {
@@ -1012,7 +1012,7 @@ function LeagueHub({
 
   // Advantage aggregates. Doubles are the only playable advantage now (#307),
   // so we track just the two: how many doubled their ballot, and which
-  // castaway drew the most Double Roster Points.
+  // castaway drew the most Double Castaway Points.
   const doubleBallots = entries.filter((e) => e.advantage_type === 'double_vote_points').length
   const rosterDoubleCount = new Map<string, { survivor: StandingSurvivor; n: number }>()
   for (const e of entries) {
@@ -1069,7 +1069,7 @@ function LeagueHub({
             {topRosterDoubles.length > 0 ? (
               topRosterDoubles.map(({ survivor, n }) => (
                 <div key={survivor.contestant_id} className="flex items-center gap-2">
-                  <DoubleBadge size={22} title="Double Roster Points" />
+                  <DoubleBadge size={22} title="Double Castaway Points" />
                   <ContestantAvatar
                     name={survivor.name}
                     imageUrl={survivor.image_url}
@@ -1083,7 +1083,7 @@ function LeagueHub({
               ))
             ) : (
               <div className="flex items-center gap-2">
-                <DoubleBadge size={22} title="Double Roster Points" />
+                <DoubleBadge size={22} title="Double Castaway Points" />
                 <dt className={`flex-1 text-sm ${sub}`}>No roster doubles</dt>
               </div>
             )}
@@ -1191,7 +1191,7 @@ function HubCastawayRow({
               />
               <span className="max-w-[7rem] truncate">{s.name}</span>
               {s.contestant_id === doubledContestantId && (
-                <Times2 title="Double Roster Points this episode" />
+                <Times2 title="Double Castaway Points this episode" />
               )}
             </li>
           ))}
@@ -1893,7 +1893,7 @@ function RosterSection({
   // locked (#190).
   const ssOpen = ssDesignationOpen(season, episodes)
 
-  // Double Roster Points target the next open episode's roster scoring (#81),
+  // Double Castaway Points target the next open episode's roster scoring (#81),
   // and draw on the same single weekly play as the vote double and paid
   // swaps (#307).
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
@@ -2227,7 +2227,7 @@ function RosterSection({
           <ul>
             {/* Boots sink to the bottom (#190); stable sort keeps the rest in place.
                 Each card's points are what that castaway earned *you*: the
-                breakdown folds in Double Roster Points and the Sole Survivor
+                breakdown folds in Double Castaway Points and the Sole Survivor
                 finale bonus, so it can differ from their raw cast-page total. */}
             {[...activeRoster]
               .sort(

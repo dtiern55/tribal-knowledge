@@ -35,7 +35,7 @@ Each player receives one optional play per episode. It does not carry over.
 
 The play can be used for one of three purposes:
 
-1. **Double Roster Points** — choose one active roster member; that castaway's roster points for the episode count twice.
+1. **Double Castaway Points** — choose one active roster member; that castaway's roster points for the episode count twice.
 2. **Double Vote Points** — every correct elimination pick on the episode ballot counts twice, including when an episode has multiple eliminations. It does not add another pick and does not target one ballot selection.
 3. **Roster Swap** — after the season's configured free swaps have been used, a swap consumes that episode's weekly play. A free swap does not consume the play.
 
@@ -128,7 +128,7 @@ stateDiagram-v2
 Open contains several independent pieces of progress; they are not additional page states:
 
 - **Ballot:** empty, unsaved changes, or saved; editable until lock.
-- **Weekly play:** unused, Double Roster Points with a target, Double Vote Points, or consumed by a paid roster swap.
+- **Weekly play:** unused, Double Castaway Points with a target, Double Vote Points, or consumed by a paid roster swap.
 - **Roster swap:** unavailable, free, or weekly-play-funded. A free swap does not change the weekly-play substate.
 
 Keeping these substates independent prevents the UI from implying that the roster, ballot, and weekly play are versions of the same control.

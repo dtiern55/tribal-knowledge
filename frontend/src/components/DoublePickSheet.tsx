@@ -12,7 +12,7 @@ export interface DoublePickCandidate {
 }
 
 /**
- * Focused sheet for choosing a castaway to apply Double Roster Points (#449).
+ * Focused sheet for choosing a castaway to apply Double Castaway Points (#449).
  * Replaces the in-page "stage lighting" for this flow: a self-contained list
  * over a dimmed page can't leak the page's tab strip or the swapped-out
  * expander at its edges, and every candidate reads as a clear, tappable card.

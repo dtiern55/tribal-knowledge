@@ -5,8 +5,8 @@ import { EpisodeLabel } from './EpisodeLabel'
 /**
  * Per-episode breakdown for one rostered contestant (#257, #271): each episode
  * is its own collapsed row (total on the right, "2x Points" pill when you played
- * Double Roster Points there); expanding it itemizes the scoring events plus a
- * final "Double Roster Points bonus" line. Scoped to your active
+ * Double Castaway Points there); expanding it itemizes the scoring events plus a
+ * final "Double Castaway Points bonus" line. Scoped to your active
  * range for the pick. ponytail: reconciles to the row total for the common case;
  * swap penalties and finale placement/SS-double aren't per-episode scoring
  * events, so they aren't itemized here.
@@ -121,7 +121,7 @@ export function RosterBreakdown({
                 ))}
                 {bonus !== 0 && (
                   <li className="flex justify-between gap-2 text-forest-600 font-medium">
-                    <span>Double Roster Points bonus</span>
+                    <span>Double Castaway Points bonus</span>
                     <span>{bonus} pts</span>
                   </li>
                 )}

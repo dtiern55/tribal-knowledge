@@ -207,7 +207,7 @@ the pipeline knows the result before the commissioner does.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, or steals.
 - **Tokens are retired (#307).** Players get one free advantage play per
-  episode instead — **Double Roster Points or Double Ballot Points** (the
+  episode instead — **Double Castaway Points or Double Ballot Points** (the
   advantage is labeled "Double Ballot Points"; the key `double_vote_points` is
   unchanged). Roster swap **left** this economy (it's points-priced now, above),
   and **Extra Vote is retired**. So there is no allocation to grant and nothing

@@ -5,11 +5,11 @@ import { DoubleBadge } from './DoubleBadge'
 import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
-  it('renders the Double Roster Points idol as a sized, labelled image', () => {
+  it('renders the Double Castaway Points idol as a sized, labelled image', () => {
     const { container, getByRole, rerender } = render(<DoubleBadge />)
 
     const badge = getByRole('img')
-    expect(badge).toHaveAttribute('aria-label', 'Double Roster Points this episode')
+    expect(badge).toHaveAttribute('aria-label', 'Double Castaway Points this episode')
     expect(badge).toHaveStyle({ width: '22px', height: '22px' })
     // The artwork itself is decorative — the label lives on the wrapper.
     expect(container.querySelector('img')).toHaveAttribute('aria-hidden', 'true')

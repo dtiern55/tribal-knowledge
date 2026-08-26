@@ -202,7 +202,7 @@ export function RulesPage() {
             <div className="space-y-4 text-sm leading-6 text-gray-700">
               <p>You have one optional weekly advantage for each eligible episode. It does not carry over.</p>
               <dl className="divide-y divide-cream-200 border-y border-cream-200">
-                <div className="py-3"><dt className="font-semibold text-gray-900">Double Roster Points</dt><dd className="mt-1">Double one active roster member's points for the episode.</dd></div>
+                <div className="py-3"><dt className="font-semibold text-gray-900">Double Castaway Points</dt><dd className="mt-1">Double one active castaway's points for the episode.</dd></div>
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Ballot Points</dt><dd className="mt-1">Double all points earned from your ballot. This does not add a vote.</dd></div>
               </dl>
               <p>Double plays can be changed or removed before the episode lock. Roster swaps are separate — they cost points, not this play.</p>
@@ -236,7 +236,7 @@ export function RulesPage() {
             <p className="mt-2 text-sm text-gray-500">No roster scoring is available for this season.</p>
           )}
           <RuleList>
-            <li>Double Roster Points is included in roster points.</li>
+            <li>Double Castaway Points is included in roster points.</li>
             <li>Double Ballot Points is included in weekly ballot points.</li>
             <li>Finale ballot points are scored separately from roster points.</li>
           </RuleList>

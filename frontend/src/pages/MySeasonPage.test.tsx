@@ -344,7 +344,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(sheet).getByRole('button', { name: 'Cancel' })).toBeVisible()
   })
 
-  it('marks the selected roster card after Double Roster Points is saved', async () => {
+  it('marks the selected roster card after Double Castaway Points is saved', async () => {
     const open = episode(3, 'upcoming', '2099-08-27T00:00:00Z')
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -372,13 +372,13 @@ describe('MySeasonPage state shell', () => {
 
     // The doubled castaway carries a wax-seal ×2 mark on the roster row.
     expect(
-      await screen.findByRole('img', { name: /Double Roster Points/ }),
+      await screen.findByRole('img', { name: /Double Castaway Points/ }),
     ).toBeInTheDocument()
     // The Roster beat wears a lightweight ×2 chip — the idol lives on the target
     // row now (#487).
     const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
     expect(rosterTab).toHaveTextContent('×2')
-    expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
+    expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
 
     // The prompt collapses to a slim confirmation naming the played double,
     // with undo, once it's played (#399).
@@ -421,7 +421,7 @@ describe('MySeasonPage state shell', () => {
     const roster = await openBeat('Roster')
 
     // The seal on the doubled row (Kenzie) is the drag handle.
-    const seal = await within(roster).findByRole('img', { name: /Double Roster Points/ })
+    const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
     const kenzieRow = within(roster).getByText('Kenzie').closest('[data-drop-id]')!
     const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
     // The other row is the drop target; jsdom does no layout, so stub the one
@@ -435,11 +435,11 @@ describe('MySeasonPage state shell', () => {
 
     // The visible seal lands optimistically instead of flashing on Kenzie,
     // disappearing during delete, and only then reappearing on Charlie.
-    expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
-    expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Roster Points/ })).toBeVisible()
+    expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
+    expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Castaway Points/ })).toBeVisible()
     // The idol lives on the target now, not the tab (#487); the Roster tab keeps
     // only the lightweight ×2 chip.
-    expect(within(rosterTab).queryByRole('img', { name: /Double Roster Points/ })).not.toBeInTheDocument()
+    expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
     expect(rosterTab).toHaveTextContent('×2')
     // The move is optimistic across the board (#487/#399): the bar idol's label
     // names the new target immediately, not only after the delete+post lands.
@@ -486,7 +486,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
     const roster = await openBeat('Roster')
 
-    const seal = await within(roster).findByRole('img', { name: /Double Roster Points/ })
+    const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
     const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
     // jsdom does no layout; point the hit-test at the Ballot tab (a drop target).
     document.elementFromPoint = () => ballotTab as Element

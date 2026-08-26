@@ -40,7 +40,7 @@ function arrange() {
       ]
     }
     if (path.includes('/scoring-breakdown/')) {
-      // 30 against a raw 15: a Double Roster Points play landed on Kenzie.
+      // 30 against a raw 15: a Double Castaway Points play landed on Kenzie.
       return { roster: [{ contestant_id: 'cast-1', points: 30 }], picks: [] }
     }
     return []
