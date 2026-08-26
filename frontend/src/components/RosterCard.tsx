@@ -127,10 +127,10 @@ export function RosterCard({
     onSealPointerDown ? (
       <span
         onPointerDown={onSealPointerDown}
-        // The tap that takes the play back must not also expand the row behind
-        // the confirmation: stopping the pointerdown doesn't stop the click.
+        // Grabbing the idol must not also expand the row underneath it:
+        // stopping the pointerdown doesn't stop the click that follows.
         onClick={(e) => e.stopPropagation()}
-        title="Drag to move the double to another castaway, or tap to take it back"
+        title="Drag to move the double to another castaway"
         className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg] cursor-grab touch-none transition-opacity active:cursor-grabbing"
         style={{ opacity: sealLifted ? 0.3 : 1 }}
       >

@@ -556,7 +556,7 @@ export function MySeasonPage() {
               the other states have no beat bar, so it rides here near the top so
               replays stay reachable between and after episodes. */}
           {state.kind !== 'watch_only' && (
-            <EpisodeHistorySection
+            <HistorySection
               season={d.season}
               userId={d.userId}
               episodes={d.episodes}
@@ -691,7 +691,7 @@ export function MySeasonPage() {
           {/* Promoted out of the record (#478 follow-on): one jade card under
               both lanes rather than an affordance that only existed on Roster.
               Spent plays fold into the same sheet (#545). */}
-          <EpisodeHistorySection
+          <HistorySection
             season={d.season}
             userId={d.userId}
             episodes={d.episodes}
@@ -1223,7 +1223,7 @@ function HubCastawayRow({
  * are retired, but Cagayan/S49/S50 keep a real history and stay readable
  * forever (#170).
  */
-function EpisodeHistorySection({
+function HistorySection({
   season,
   userId,
   episodes,
@@ -1342,7 +1342,7 @@ function EpisodeHistorySection({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-display text-[13px] font-bold uppercase tracking-[0.08em] text-jade-700">
-            Season history
+            History
           </span>
           <span className="block truncate text-xs text-stone-500">{preview}</span>
         </span>
@@ -1353,7 +1353,7 @@ function EpisodeHistorySection({
 
       {open &&
         createPortal(
-          <EpisodeHistorySheet
+          <HistorySheet
             scoredEpisodes={scoredEpisodes}
             spent={spent}
             ledger={ledger ?? []}
@@ -1383,7 +1383,7 @@ type SpentPlay = {
 // The recap replays + spent plays + retired token ledger, in a bottom sheet
 // (#478) matching the app's other sheets. Replay closes the sheet; the recap
 // reveal opens over the page from MySeasonPage.
-function EpisodeHistorySheet({
+function HistorySheet({
   scoredEpisodes,
   spent,
   ledger,
@@ -1401,6 +1401,13 @@ function EpisodeHistorySheet({
   onClose: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // Episodes and advantages were stacked blocks in one scroll (#545, #546),
+  // which made the plays and the retired ledger read as an appendix to the
+  // replays. They are two different questions, so they get two tabs.
+  const [tab, setTab] = useState<'episodes' | 'advantages'>(
+    scoredEpisodes.length === 0 ? 'advantages' : 'episodes',
+  )
+
   useEffect(() => {
     panelRef.current?.focus()
     function onKey(e: KeyboardEvent) {
@@ -1410,6 +1417,21 @@ function EpisodeHistorySheet({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const TABS = [
+    { key: 'episodes' as const, label: 'Episodes', count: scoredEpisodes.length },
+    { key: 'advantages' as const, label: 'Advantages', count: spent.length },
+  ]
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+    if (!delta) return
+    e.preventDefault()
+    const i = TABS.findIndex((t) => t.key === tab)
+    const next = TABS[(i + delta + TABS.length) % TABS.length]
+    setTab(next.key)
+    document.getElementById(`history-tab-${next.key}`)?.focus()
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col justify-end" role="presentation">
       <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
@@ -1418,15 +1440,15 @@ function EpisodeHistorySheet({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="episode-history-title"
+        aria-labelledby="history-title"
         className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
       >
-        <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-cream-200 bg-cream-100 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-cream-100 px-4 py-3">
           <h2
-            id="episode-history-title"
+            id="history-title"
             className="font-display text-sm font-semibold uppercase tracking-wide text-forest-800"
           >
-            Episode History
+            History
           </h2>
           <button
             type="button"
@@ -1437,84 +1459,132 @@ function EpisodeHistorySheet({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {scoredEpisodes.length > 0 && (
-            <ul className="space-y-2">
-              {scoredEpisodes.map((episode) => (
-                <li key={episode.id}>
-                  <button
-                    type="button"
-                    onClick={() => onReplay(episode)}
-                    disabled={replayLoading != null}
-                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-paper-edge bg-cream-100 p-3 text-left transition-colors hover:border-forest-400 hover:bg-forest-50 disabled:opacity-50"
-                  >
-                    <span className="min-w-0">
-                      <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
-                        {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
-                      </span>
-                      <span className="block text-xs text-paper-ink-faded">View your scored result</span>
-                    </span>
-                    <span className="shrink-0 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream-50">
-                      {replayLoading === episode.id ? 'Loading…' : 'Replay'}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
-
-      {spent.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-            Plays
-          </p>
-          <ul className="space-y-1.5">
-            {spent.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 text-sm text-gray-600">
-                <span>
-                  {p.label}
-                  {p.target && <span className="text-gray-400"> → {p.target}</span>}
-                  <span className="text-gray-400"> · {p.episodeLabel}</span>
-                </span>
-                {p.points != null && (
-                  <span className={p.points > 0 ? 'font-medium text-jade-700' : 'text-gray-500'}>
-                    {p.points > 0 ? '+' : ''}
-                    {p.points} pts
+        <div
+          role="tablist"
+          aria-label="History"
+          onKeyDown={onKeyDown}
+          className="flex items-stretch border-b border-cream-200 bg-cream-100 px-2"
+        >
+          {TABS.map((t) => {
+            const active = t.key === tab
+            return (
+              <button
+                key={t.key}
+                id={`history-tab-${t.key}`}
+                role="tab"
+                type="button"
+                aria-selected={active}
+                aria-controls={`history-panel-${t.key}`}
+                tabIndex={active ? 0 : -1}
+                onClick={() => setTab(t.key)}
+                className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 px-3 font-display text-sm font-semibold uppercase tracking-[0.08em] ${
+                  active
+                    ? 'border-forest-600 text-forest-800'
+                    : 'border-transparent text-paper-ink-faded'
+                }`}
+              >
+                {t.label}
+                {t.count > 0 && (
+                  <span className="rounded-full bg-forest-600 px-1.5 py-0.5 font-sans text-[9px] font-bold text-cream-50">
+                    {t.count}
                   </span>
                 )}
-              </li>
-            ))}
-          </ul>
+              </button>
+            )
+          })}
         </div>
-      )}
 
-      {ledger.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-            Token ledger (retired)
-          </p>
-          <ul className="space-y-1.5">
-            {ledger.map((h, i) => (
-              <li
-                key={`${h.created_at}:${i}`}
-                className="flex items-center justify-between text-sm text-gray-600"
-              >
-                <span>
-                  {h.description ?? h.transaction_type.replace(/_/g, ' ')}
-                  {h.episode_number != null && (
-                    <span className="text-gray-400"> · Ep {h.episode_number}</span>
-                  )}
-                </span>
-                <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
-                  {h.amount > 0 ? '+' : ''}
-                  {h.amount}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div
+            id="history-panel-episodes"
+            role="tabpanel"
+            aria-labelledby="history-tab-episodes"
+            hidden={tab !== 'episodes'}
+          >
+            {scoredEpisodes.length > 0 ? (
+              <ul className="space-y-2">
+                {scoredEpisodes.map((episode) => (
+                  <li key={episode.id}>
+                    <button
+                      type="button"
+                      onClick={() => onReplay(episode)}
+                      disabled={replayLoading != null}
+                      className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-paper-edge bg-cream-100 p-3 text-left transition-colors hover:border-forest-400 hover:bg-forest-50 disabled:opacity-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
+                          {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
+                        </span>
+                        <span className="block text-xs text-paper-ink-faded">View your scored result</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream-50">
+                        {replayLoading === episode.id ? 'Loading…' : 'Replay'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-paper-ink-faded">No episodes have been scored yet.</p>
+            )}
+            {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
+          </div>
+
+          <div
+            id="history-panel-advantages"
+            role="tabpanel"
+            aria-labelledby="history-tab-advantages"
+            hidden={tab !== 'advantages'}
+          >
+            {spent.length > 0 ? (
+              <ul className="space-y-1.5">
+                {spent.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm text-gray-600">
+                    <span>
+                      {p.label}
+                      {p.target && <span className="text-gray-400"> → {p.target}</span>}
+                      <span className="text-gray-400"> · {p.episodeLabel}</span>
+                    </span>
+                    {p.points != null && (
+                      <span className={p.points > 0 ? 'font-medium text-jade-700' : 'text-gray-500'}>
+                        {p.points > 0 ? '+' : ''}
+                        {p.points} pts
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-paper-ink-faded">You have not spent an advantage yet.</p>
+            )}
+
+            {ledger.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Token ledger (retired)
+                </p>
+                <ul className="space-y-1.5">
+                  {ledger.map((h, i) => (
+                    <li
+                      key={`${h.created_at}:${i}`}
+                      className="flex items-center justify-between text-sm text-gray-600"
+                    >
+                      <span>
+                        {h.description ?? h.transaction_type.replace(/_/g, ' ')}
+                        {h.episode_number != null && (
+                          <span className="text-gray-400"> · Ep {h.episode_number}</span>
+                        )}
+                      </span>
+                      <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
+                        {h.amount > 0 ? '+' : ''}
+                        {h.amount}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1624,76 +1694,6 @@ function TeamPoints({ value }: { value: number | undefined }) {
   )
 }
 
-/**
- * Confirm taking back the week's ×2.
- *
- * The advantage's own card used to carry an Undo link; the hero tile that
- * replaced it has no room for one, and the idol is the play's only handle now
- * — drag it to move it, tap it to take it back. A tap is cheap enough to
- * misfire, so it asks first.
- */
-function TakeBackSheet({
-  what,
-  busy,
-  onConfirm,
-  onCancel,
-}: {
-  /** Where the play is currently resting — a castaway's name, or "your ballot". */
-  what: string
-  busy: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
-
-  return createPortal(
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="presentation">
-      <div
-        className="sheet-scrim absolute inset-0 bg-forest-900/60"
-        onClick={onCancel}
-        aria-hidden="true"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="take-back-title"
-        className="relative w-full max-w-xs rounded-2xl border border-paper-edge bg-cream-50 p-4 shadow-[0_12px_40px_rgba(10,22,19,0.35)]"
-      >
-        <h2 id="take-back-title" className="font-display text-lg tracking-wide text-forest-800">
-          Take back your ×2?
-        </h2>
-        <p className="mt-1 text-sm text-gray-600">
-          It is on {what} this week. You can play it again anywhere before lock.
-        </p>
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-            className="min-h-11 flex-1 rounded-lg bg-terracotta-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-terracotta-700 disabled:opacity-40"
-          >
-            Take back
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-11 rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 hover:border-gray-400"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  )
-}
-
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
   const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-500' : 'text-gray-500'
@@ -1787,6 +1787,18 @@ function AdvantageLane({
         label="Advantage"
         done={play != null}
         muted={weekly.locked && play == null}
+        action={
+          play != null && !weekly.locked ? (
+            <button
+              type="button"
+              onClick={() => void weekly.takeBack(play)}
+              disabled={weekly.busy}
+              className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2 disabled:opacity-40"
+            >
+              Undo
+            </button>
+          ) : undefined
+        }
         note={
           weekly.error ? (
             <span role="alert" title={weekly.error} className="text-terracotta-200">
@@ -1916,9 +1928,6 @@ function RosterSection({
   const [roster, setRoster] = useState<RosterPick[]>([])
   // The swapped-out ledger, folded into the card's footer.
   const [swappedOpen, setSwappedOpen] = useState(false)
-  // The idol is the play's only handle now: drag it to move the ×2, tap it to
-  // take it back (the standalone Advantage row that carried Undo is gone).
-  const [takingBack, setTakingBack] = useState(false)
   // Distinct from "loaded but empty": until the fetch lands, an empty roster
   // must not render the "submission window has closed" fallback, which flashed
   // on every refresh mid-season before the roster arrived.
@@ -2035,7 +2044,6 @@ function RosterSection({
         void weekly.replace('double_vote_points')
       }
     },
-    onTap: () => setTakingBack(true),
   })
 
   // Sole Survivor reassign by dragging the ring (#164) — the direct-manipulation
@@ -2253,28 +2261,10 @@ function RosterSection({
       </div>
     ) : null
 
-  const doubledName = displayedDoubleTarget
-    ? (() => {
-        const c = contestantMap.get(displayedDoubleTarget)
-        return c ? displayName(c) : 'your roster'
-      })()
-    : null
-
   return (
     <>
     <SealGhost drag={drag} />
     <SsGhost drag={ssDrag} />
-    {takingBack && doubledName && (
-      <TakeBackSheet
-        what={doubledName}
-        busy={weekly.busy}
-        onCancel={() => setTakingBack(false)}
-        onConfirm={() => {
-          setTakingBack(false)
-          if (weekly.play) void weekly.takeBack(weekly.play)
-        }}
-      />
-    )}
     <LaneCard
       lane="jade"
       title="My Team"
@@ -2643,9 +2633,6 @@ function PicksSection({
   // Past ballots are reference, not this week's decision — folded away behind
   // the card's footer.
   const [pastOpen, setPastOpen] = useState(false)
-  // Tapping the ballot's seal takes the week's ×2 back (the Advantage row that
-  // used to carry Undo is gone).
-  const [takingBack, setTakingBack] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -2735,7 +2722,6 @@ function PicksSection({
     onDrop: (id) => {
       if (resolveDrop('ballot', id).kind === 'to_roster_picking') onDragToRoster?.()
     },
-    onTap: () => setTakingBack(true),
   })
   // Stamp the ballot seal as the double lands on it (#487) — on the flip to
   // doubled, not on first paint.
@@ -3002,7 +2988,13 @@ function PicksSection({
                 </div>
               ) : (
                 <>
-                  <div className="mb-5 flex items-center justify-between gap-3 border-b border-cream-200 pb-3 text-sm">
+                  {/* The ×2 seal is pressed on this corner, so the counter has
+                      to clear it or the idol sits on top of "N of M selected". */}
+                  <div
+                    className={`mb-5 flex items-center justify-between gap-3 border-b border-cream-200 pb-3 text-sm ${
+                      ballotDoubled ? 'pr-16' : ''
+                    }`}
+                  >
                     <span className="text-gray-600">Vote for up to {maxPicks} castaways</span>
                     <span
                       aria-live="polite"
@@ -3158,17 +3150,6 @@ function PicksSection({
   if (activeOnly) {
     return (
       <>
-      {takingBack && ballotIsDoubled && (
-        <TakeBackSheet
-          what="your ballot"
-          busy={play.busy}
-          onCancel={() => setTakingBack(false)}
-          onConfirm={() => {
-            setTakingBack(false)
-            if (play.play) void play.takeBack(play.play)
-          }}
-        />
-      )}
       <LaneCard
         lane="terracotta"
         title="My Ballot"

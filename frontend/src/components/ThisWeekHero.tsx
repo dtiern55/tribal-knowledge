@@ -58,6 +58,7 @@ export function HeroLane({
   icon,
   done = false,
   muted = false,
+  action,
 }: {
   label: string
   note: ReactNode
@@ -65,6 +66,8 @@ export function HeroLane({
   done?: boolean
   /** The lane is closed for the week — locked, or left unplayed. */
   muted?: boolean
+  /** Trailing control — Undo, once the play is spent. */
+  action?: ReactNode
 }) {
   return (
     <div className="hero-lane" data-muted={muted || undefined}>
@@ -80,6 +83,7 @@ export function HeroLane({
           </svg>
         </span>
       )}
+      {action}
     </div>
   )
 }

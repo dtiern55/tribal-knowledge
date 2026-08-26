@@ -822,7 +822,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     await screen.findByRole('heading', { name: 'Between episodes' })
-    await user.click(screen.getByRole('button', { name: /Season history/ }))
+    await user.click(screen.getByRole('button', { name: /^History/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }))
 
     const dialog = await screen.findByRole('dialog')
@@ -904,7 +904,7 @@ describe('MySeasonPage state shell', () => {
       await screen.findByRole('heading', { name: 'Between episodes' })
       expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', '')
 
-      await user.click(screen.getByRole('button', { name: /Season history/ }))
+      await user.click(screen.getByRole('button', { name: /^History/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
@@ -929,7 +929,7 @@ describe('MySeasonPage state shell', () => {
       )
 
       await screen.findByRole('heading', { name: 'Between episodes' })
-      await user.click(screen.getByRole('button', { name: /Season history/ }))
+      await user.click(screen.getByRole('button', { name: /^History/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
