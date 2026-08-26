@@ -925,7 +925,7 @@ function LockedState({
                 </li>
               )
             })}
-          </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active roster was found.</p>}
+          </ul> : <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No active tribe was found.</p>}
         </div>
 
         <div className="tribal-border tribal-border--dim" aria-hidden="true" />
@@ -1174,10 +1174,10 @@ function LeagueHub({
                     doubled={entry.advantage_type === 'double_vote_points'}
                   />
                   <HubCastawayRow
-                    label="Roster"
+                    label="Tribe"
                     survivors={entry.roster}
                     sub={sub}
-                    empty="No active roster."
+                    empty="No active tribe."
                     doubledContestantId={
                       entry.advantage_type === 'double_roster_points'
                         ? (entry.advantage_target?.contestant_id ?? null)
@@ -1740,7 +1740,7 @@ function HeaderPoints({
   const [open, setOpen] = useState(false)
   const total = standing?.total_points ?? 0
   const components = [
-    { label: 'Roster', value: standing?.roster_points ?? 0 },
+    { label: 'Tribe', value: standing?.roster_points ?? 0 },
     { label: 'Ballot', value: standing?.elimination_points ?? 0 },
     { label: 'Finale', value: standing?.finale_points ?? 0 },
   ]
@@ -2071,7 +2071,7 @@ function RosterSection({
         const active = picks.filter((p) => p.active_until_episode === null)
         if (active.length) setSelected(new Set(active.map((p) => p.contestant_id)))
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load roster'))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load tribe'))
       .finally(() => setRosterLoaded(true))
     // rosterVersion: refetch when a sibling section changes the roster (e.g. a
     // Sole Survivor designation) so the SS stamp updates without a reload.
@@ -2319,7 +2319,7 @@ function RosterSection({
         className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
       >
         <span className="tribe-marker bg-gold-500" aria-hidden="true" />
-        <span>Roster swap</span>
+        <span>Tribe swap</span>
         <span
           className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
             nextSwapCost === 0
@@ -2963,7 +2963,7 @@ function PicksSection({
       <SealGhost drag={ballotDrag} />
       {!currentEp && (
         <Notice title="The season hasn’t started yet">
-          Once the commissioner schedules the first episode, your roster and the weekly play show up here.
+          Once the commissioner schedules the first episode, your tribe and the weekly play show up here.
         </Notice>
       )}
 

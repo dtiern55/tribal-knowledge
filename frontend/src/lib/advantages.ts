@@ -4,5 +4,5 @@ export const ADV_LABELS: Record<string, string> = {
   double_roster_points: 'Double Castaway Points',
   double_vote_points: 'Double Ballot Points',
   extra_vote: 'Extra Vote',
-  roster_swap: 'Roster Swap',
+  roster_swap: 'Tribe Swap',
 }

@@ -786,7 +786,7 @@ describe('MySeasonPage state shell', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Two torches snuffed')
-    expect(screen.getByRole('heading', { name: 'Roster' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Tribe' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Ballot' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Advantage' })).toBeVisible()
     expect(dialog).toHaveTextContent(/Up 3.*#2/)
