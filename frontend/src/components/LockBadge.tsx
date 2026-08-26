@@ -14,17 +14,8 @@ const base =
   'inline-flex items-center gap-1 text-[11px] uppercase tracking-wide px-2 py-1 rounded font-semibold'
 
 /** On a coloured card band the chip is the band's own text, not a pill on top
- *  of it — and the full "Aug 29, 8:24 PM CT" crowds the title out, so a distant
- *  lock shortens to its date. */
+ *  of it. The stamp itself is unchanged — every surface shows the same one. */
 const onBandBase = 'inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.04em]'
-
-function shortCentral(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 /** The stamped "Locked" chip — LockBadge's terminal state, used on its own
  * where the lock is a rule rather than a deadline (advantages, swaps). */
@@ -81,7 +72,7 @@ export function LockBadge({
   }
   return (
     <span className={onBand ? `${onBandBase} text-white/85` : `${base} bg-cream-100 text-gray-600`}>
-      <LockGlyph /> Locks {onBand ? shortCentral(lockAt) : formatCentral(lockAt)}
+      <LockGlyph /> Locks {formatCentral(lockAt)}
     </span>
   )
 }

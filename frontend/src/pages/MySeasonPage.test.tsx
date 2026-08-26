@@ -283,7 +283,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
-    expect(await screen.findByText(/Submitted — you voted to send home/)).toBeVisible()
+    expect(await screen.findByText('Ballot submitted')).toBeVisible()
     expect(within(ballot).getByText('Kenzie').closest('.ballot-slip')).toHaveStyle({
       '--ballot-tribe-color': '#7651a1',
       '--ballot-rotation': '-0.7deg',

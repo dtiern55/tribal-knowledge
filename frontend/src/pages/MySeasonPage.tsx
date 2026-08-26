@@ -604,9 +604,12 @@ export function MySeasonPage() {
         const week = weekSummary(state.episode)
         return (
         <div className="space-y-3.5">
-          {/* The week's command hero: what episode, whether you're done, and
-              the weekly advantage. It replaces the season masthead — the
-              season's name never told you what you owed. */}
+          {/* The hero answers what you owe; the masthead still says whose
+              season it is. The hero's own headline is a <p>, so this stays the
+              page's one h1. */}
+          <h1 className="font-display text-xl tracking-wide text-forest-800 md:text-2xl">
+            {d.season.name}
+          </h1>
           <ThisWeekHero
             eyebrow={`This Week · Ep ${state.episode.episode_number}`}
             headline={week.headline}
@@ -1866,7 +1869,7 @@ function AdvantageLane({
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
     : weekly.locked
       ? 'Not played'
-      : 'Play your ×2'
+      : 'Drag or tap to play your ×2'
 
   const idle = play == null && !weekly.locked
 
@@ -3040,11 +3043,11 @@ function PicksSection({
                    record of it — so the mark and the strongest type in the card
                    sit above the votes themselves. */
                 <div className="mb-4">
-                  <p className="mb-3 flex items-center gap-1.5 font-display text-[15px] uppercase tracking-[0.04em] text-jade-700">
+                  <p className="mb-3 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
                     <svg viewBox="0 0 24 24" className="size-4 flex-none" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
-                    Submitted — you voted to send home
+                    Ballot submitted
                   </p>
                   <div className="flex flex-wrap items-start gap-3">
                     {savedPicks.map((p, index) => {

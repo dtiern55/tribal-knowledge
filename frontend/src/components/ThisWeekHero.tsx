@@ -35,9 +35,9 @@ export function ThisWeekHero({
           <div className="font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">
             {eyebrow}
           </div>
-          <h1 className="mt-0.5 font-display text-xl font-bold leading-tight text-cream-50">
+          <p className="mt-0.5 font-display text-xl font-bold leading-tight text-cream-50">
             {headline}
-          </h1>
+          </p>
           {sub && <p className="mt-1 text-[11px] text-cream-100/60">{sub}</p>}
         </div>
         {right && <div className="ml-auto shrink-0">{right}</div>}
