@@ -26,8 +26,9 @@ export function ThisWeekHero({
   sub?: ReactNode
   /** The compact My Points block. */
   right?: ReactNode
-  /** Nothing left to do this week, x2 included — cools the corner glow from
-   *  amber to jade, so the week's state reads before any of the words do. */
+  /** Nothing left to do this week, x2 included. Settled is the hero's resting
+   *  green; anything still owed repaints the whole card amber, so the week's
+   *  state reads before any of the words do. */
   settled?: boolean
   /** The weekly advantage lane. */
   children?: ReactNode
@@ -35,18 +36,18 @@ export function ThisWeekHero({
   return (
     <section
       aria-label="This week"
-      data-settled={settled || undefined}
+      data-owed={settled ? undefined : true}
       className="week-hero relative rounded-2xl px-4 pt-3.5 pb-4"
     >
       <div className="flex items-start gap-2.5">
         <div className="min-w-0">
-          <div className="font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">
+          <div className="hero-eyebrow font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">
             {eyebrow}
           </div>
           <p className="mt-0.5 font-display text-xl font-bold leading-tight text-cream-50">
             {headline}
           </p>
-          {sub && <p className="mt-1 text-[11px] text-cream-100/60">{sub}</p>}
+          {sub && <p className="hero-sub mt-1 text-[11px] text-cream-100/60">{sub}</p>}
         </div>
         {right && <div className="ml-auto shrink-0">{right}</div>}
       </div>
@@ -110,11 +111,15 @@ export function HeroPoints({
 }) {
   const inner = (
     <>
-      <span className="block text-[9px] uppercase tracking-[0.12em] text-cream-100/55">My pts</span>
-      <span className="block font-display text-2xl font-bold leading-none tabular-nums text-gold-300">
+      <span className="hero-points__label block text-[9px] uppercase tracking-[0.12em] text-cream-100/55">
+        My pts
+      </span>
+      <span className="hero-points__total block font-display text-2xl font-bold leading-none tabular-nums text-gold-300">
         {total}
       </span>
-      {rankLabel && <span className="block text-[10px] text-cream-100/55">{rankLabel}</span>}
+      {rankLabel && (
+        <span className="hero-points__label block text-[10px] text-cream-100/55">{rankLabel}</span>
+      )}
     </>
   )
   if (!onClick) return <div className="text-center">{inner}</div>

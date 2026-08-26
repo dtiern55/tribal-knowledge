@@ -774,30 +774,47 @@ html.locked-night .contestant-avatar {
    colours run from the hero tiles through the tabs into each card's header
    band, so a lane is recognisable before you read its label. */
 
-/* The hero wears the week's state. Amber and lit while something is still
-   owed — most often an unplayed x2 — and a cool, settled jade once nothing is.
-   The wash covers the whole card rather than glinting off one corner: this is
-   meant to be read from across the room, before the headline it sits above. */
+/* The hero's resting state is green: the week is settled and the card is the
+   same dark forest as the rest of the app, with a gold glint off one corner.
+   While anything is still owed — most often an unplayed x2 — the whole card
+   turns amber. Repainting the base rather than tinting a corner is the point:
+   this is meant to be read from across the room, before the headline. */
 .week-hero {
   background:
-    radial-gradient(ellipse 120% 90% at 85% -25%, rgb(212 145 58 / 58%), transparent 70%),
-    linear-gradient(150deg, #2c4a33, #16281f);
-  box-shadow:
-    0 6px 22px rgb(10 22 19 / 35%),
-    inset 0 0 0 1px rgb(212 145 58 / 30%);
+    radial-gradient(circle at 92% 0%, rgb(212 145 58 / 32%), transparent 55%),
+    linear-gradient(150deg, #25493b, #132e25);
+  box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
 }
 
-.week-hero[data-settled] {
+/* Deep burnt amber, not a bright one: the small labels sit on the lightest
+   part of this card, and a mid-luminance orange put them under 3:1. */
+.week-hero[data-owed] {
   background:
-    radial-gradient(ellipse 120% 90% at 85% -25%, rgb(87 145 116 / 55%), transparent 70%),
-    linear-gradient(150deg, #1c4133, #0f231c);
-  box-shadow:
-    0 6px 22px rgb(10 22 19 / 35%),
-    inset 0 0 0 1px rgb(87 145 116 / 30%);
+    radial-gradient(ellipse 120% 90% at 85% -25%, rgb(240 200 120 / 30%), transparent 70%),
+    linear-gradient(150deg, #8a4f16, #452508);
+  box-shadow: 0 6px 22px rgb(50 24 6 / 42%);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .week-hero { transition: box-shadow 400ms ease; }
+/* Gold ink vanishes on an amber card, so the type warms to cream. */
+.week-hero[data-owed] .hero-eyebrow,
+.week-hero[data-owed] .hero-eyebrow span {
+  color: #ffe7bd;
+}
+.week-hero[data-owed] .hero-sub { color: rgb(248 242 232 / 85%); }
+.week-hero[data-owed] .hero-points__label { color: rgb(248 242 232 / 85%); }
+.week-hero[data-owed] .hero-points__total { color: #fff; }
+
+/* The advantage lane is a gold inset on green; on amber it has to read as a
+   recess instead, or it disappears into the card. */
+.week-hero[data-owed] .hero-lane {
+  border-color: rgb(255 255 255 / 30%);
+  background: rgb(56 28 6 / 30%);
+}
+.week-hero[data-owed] .hero-lane__label { color: #ffe7bd; }
+.week-hero[data-owed] .hero-lane__note { color: rgb(248 242 232 / 85%); }
+.week-hero[data-owed] .hero-lane__check {
+  background: #f8f2e8;
+  color: #8a4f16;
 }
 
 html.locked-night .week-hero {
