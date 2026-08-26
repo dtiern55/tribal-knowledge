@@ -28,9 +28,9 @@ import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
-import { LaneCard, LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
+import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
-import { BallotIcon, ChevronRightIcon, HistoryIcon, TeamBuffPairIcon } from '../components/icons'
+import { ChevronRightIcon, HistoryIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
 import { formatCentral } from '../lib/time'
@@ -2327,13 +2327,21 @@ function RosterSection({
     ) : undefined
   )
 
+  // The lane's header is its tab now, so the season total leads this row
+  // instead of riding in a band that repeated the tab's own label.
   const toolbar =
-    swapAction || editAvailable ? (
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-paper-line px-4 py-2">
-        {editAvailable && (
-          <p className="min-w-0 text-xs text-gray-500">
-            Locks with episode {season.roster_lock_episode} — edit any time before then.
-          </p>
+    seasonPoints != null || swapAction || editAvailable ? (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-paper-line px-4 py-2">
+        {seasonPoints != null && (
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="font-display text-lg font-bold leading-none text-jade-700">
+              {seasonPoints > 0 ? '+' : ''}
+              {seasonPoints}
+            </span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-stone-500">
+              Season pts
+            </span>
+          </span>
         )}
         <span className="ml-auto inline-flex shrink-0 items-center gap-3">
           {swapAction}
@@ -2356,46 +2364,6 @@ function RosterSection({
     <>
     <SealGhost drag={drag} />
     <SsGhost drag={ssDrag} />
-    <LaneCard
-      lane="jade"
-      title="My Team"
-      icon={<TeamBuffPairIcon />}
-      right={
-        seasonPoints != null ? (
-          <span className="text-right">
-            <span className="block font-display text-lg font-bold leading-none text-gold-100">
-              {seasonPoints > 0 ? '+' : ''}
-              {seasonPoints}
-            </span>
-            <span className="block text-[9px] uppercase tracking-[0.1em] text-white/70">
-              Season pts
-            </span>
-          </span>
-        ) : undefined
-      }
-      footer={
-        swappedRoster.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => setSwappedOpen((o) => !o)}
-            aria-expanded={swappedOpen}
-            className="lane-card__foot justify-center gap-1.5 text-sm font-semibold text-jade-700"
-          >
-            Swapped-out castaways
-            <svg
-              viewBox="0 0 24 24"
-              className={`h-3.5 w-3.5 transition-transform ${swappedOpen ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-        ) : undefined
-      }
-    >
       {toolbar}
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
@@ -2684,7 +2652,26 @@ function RosterSection({
             : 'Roster submission window has closed.'}
         </p>
       )}
-    </LaneCard>
+      {swappedRoster.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setSwappedOpen((o) => !o)}
+          aria-expanded={swappedOpen}
+          className="lane-card__foot justify-center gap-1.5 text-sm font-semibold text-jade-700"
+        >
+          Swapped-out castaways
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-3.5 w-3.5 transition-transform ${swappedOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      )}
     </>
   )
 }
@@ -3256,21 +3243,21 @@ function PicksSection({
   if (activeOnly) {
     return (
       <>
-      <LaneCard
-        lane="terracotta"
-        title="My Ballot"
-        icon={<BallotIcon />}
-        right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} onBand />}
-      >
-        <div className="px-4 py-3.5">
-          {play.error && (
-            <p role="alert" className="mb-3 text-sm text-terracotta-600">
-              {play.error}
-            </p>
-          )}
-          {content}
+      {/* The lock belongs to the whole lane, so it leads the panel — and back
+          on white it can wear its full urgency colouring again. */}
+      {nextOpen && (
+        <div className="flex justify-end border-b border-paper-line px-4 py-2">
+          <LockBadge lockAt={nextOpen.picks_lock_at} />
         </div>
-      </LaneCard>
+      )}
+      <div className="px-4 py-3.5">
+        {play.error && (
+          <p role="alert" className="mb-3 text-sm text-terracotta-600">
+            {play.error}
+          </p>
+        )}
+        {content}
+      </div>
       </>
     )
   }

@@ -13,15 +13,11 @@ function LockGlyph() {
 const base =
   'inline-flex items-center gap-1 text-[11px] uppercase tracking-wide px-2 py-1 rounded font-semibold'
 
-/** On a coloured card band the chip is the band's own text, not a pill on top
- *  of it. The stamp itself is unchanged — every surface shows the same one. */
-const onBandBase = 'inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.04em]'
-
 /** The stamped "Locked" chip — LockBadge's terminal state, used on its own
  * where the lock is a rule rather than a deadline (advantages, swaps). */
-function LockedBadge({ onBand = false }: { onBand?: boolean }) {
+function LockedBadge() {
   return (
-    <span className={onBand ? `${onBandBase} text-white/85` : `${base} bg-gray-800 text-cream-100`}>
+    <span className={`${base} bg-gray-800 text-cream-100`}>
       <LockGlyph /> Locked
     </span>
   )
@@ -29,16 +25,7 @@ function LockedBadge({ onBand = false }: { onBand?: boolean }) {
 
 /** Live lock-state chip (#56): calm while distant, amber inside a day,
  * ember pulse in the final hour, a stamped "Locked" after. */
-export function LockBadge({
-  lockAt,
-  scored,
-  onBand = false,
-}: {
-  lockAt: string | null
-  scored?: boolean
-  /** Render for a coloured card band — see {@link onBandBase}. */
-  onBand?: boolean
-}) {
+export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: boolean }) {
   const [, tick] = useState(0)
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30_000)
@@ -48,30 +35,24 @@ export function LockBadge({
   if (!lockAt) return null
   const ms = new Date(lockAt).getTime() - Date.now()
 
-  if (scored || ms <= 0) return <LockedBadge onBand={onBand} />
+  if (scored || ms <= 0) return <LockedBadge />
   const mins = Math.floor(ms / 60_000)
   if (mins < 60) {
     return (
-      <span
-        className={
-          onBand
-            ? `${onBandBase} animate-pulse text-white`
-            : `${base} bg-terracotta-100 text-terracotta-700 animate-pulse`
-        }
-      >
+      <span className={`${base} bg-terracotta-100 text-terracotta-700 animate-pulse`}>
         <LockGlyph /> Locks in {mins}m
       </span>
     )
   }
   if (mins < 24 * 60) {
     return (
-      <span className={onBand ? `${onBandBase} text-white` : `${base} bg-gold-100 text-gold-700`}>
+      <span className={`${base} bg-gold-100 text-gold-700`}>
         <LockGlyph /> Locks in {Math.floor(mins / 60)}h
       </span>
     )
   }
   return (
-    <span className={onBand ? `${onBandBase} text-white/85` : `${base} bg-cream-100 text-gray-600`}>
+    <span className={`${base} bg-cream-100 text-gray-600`}>
       <LockGlyph /> Locks {formatCentral(lockAt)}
     </span>
   )

@@ -878,14 +878,12 @@ html.locked-night .hero-points { filter: brightness(0.9); }
    tab covers its share of it. Painting the selected tab instead left a visible
    seam: a 120deg gradient run across a half-width tab lands on a different
    colour than the same gradient run across the full-width band beneath it. */
-.lane-stack[data-lane='jade'] .lane-tabs,
-.lane-card[data-lane='jade'] .lane-card__band {
+.lane-stack[data-lane='jade'] .lane-tabs {
   background:
     radial-gradient(circle at 96% 0%, rgb(212 145 58 / 16%), transparent 60%),
     linear-gradient(120deg, #3c7e63, #2e6b52);
 }
-.lane-stack[data-lane='terracotta'] .lane-tabs,
-.lane-card[data-lane='terracotta'] .lane-card__band {
+.lane-stack[data-lane='terracotta'] .lane-tabs {
   background:
     radial-gradient(circle at 96% 0%, rgb(212 145 58 / 14%), transparent 60%),
     linear-gradient(120deg, #c45432, #9f4229);
@@ -908,11 +906,11 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   text-transform: uppercase;
 }
 
-.lane-tab__dot {
-  width: 8px;
-  height: 8px;
+.lane-tab__icon {
+  display: inline-flex;
   flex: none;
-  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Resting: a pale wash of the lane's own colour, so an unselected tab still
@@ -921,12 +919,10 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   background: var(--color-jade-50);
   color: #5a8571;
 }
-.lane-tab[data-lane='jade'] .lane-tab__dot { background: var(--color-jade-600); }
 .lane-tab[data-lane='terracotta'] {
   background: var(--color-terracotta-50);
   color: #b07a63;
 }
-.lane-tab[data-lane='terracotta'] .lane-tab__dot { background: var(--color-terracotta-600); }
 
 /* Selected: the same paint as the band directly beneath it, so the two read as
    one header with a tab raised out of it. */
@@ -934,7 +930,6 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   background: transparent;
   color: #fff;
 }
-.lane-tab[aria-selected='true'] .lane-tab__dot { background: rgb(255 255 255 / 78%); }
 
 .lane-tab[data-drag-over] {
   outline: 2px solid var(--color-gold-400);
@@ -946,28 +941,7 @@ html.locked-night .lane-tab:not([aria-selected='true']) {
   color: rgb(242 233 219 / 50%);
 }
 
-/* ── Lane cards (My Team / My Ballot) ──────────────────────────────────── */
-
-.lane-card__band {
-  display: flex;
-  /* On an SE-class screen the full lock stamp and the title can't share a row.
-     The stamp drops to its own line rather than squeezing the title, which
-     otherwise wrapped mid-name. */
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 9px;
-  padding: 11px 15px;
-  color: #fff;
-}
-
-.lane-card__title {
-  white-space: nowrap;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
+/* ── Lane footers ──────────────────────────────────────────────────────── */
 
 .lane-card__foot {
   display: flex;
@@ -979,7 +953,7 @@ html.locked-night .lane-tab:not([aria-selected='true']) {
   background: #f7f4ef;
   text-align: left;
 }
-.lane-card[data-lane='terracotta'] .lane-card__foot {
+.lane-stack[data-lane='terracotta'] .lane-card__foot {
   border-top-color: #f0e2da;
   background: #fbf1ec;
 }

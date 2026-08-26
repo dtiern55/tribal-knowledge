@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { BallotIcon, TeamBuffPairIcon } from './icons'
 
 /**
  * My Season's lane furniture.
@@ -21,11 +22,18 @@ export type Beat = {
   note: string
 }
 
-/** Each lane's colour, carried from the hero tiles through here into the
+/** Each lane's colour and mark, carried from the hero through here into the
  *  card each tab reveals. */
 const LANE: Record<BeatKey, 'jade' | 'terracotta'> = {
   roster: 'jade',
   ballot: 'terracotta',
+}
+
+/** The tab is the lane's only header now, so it carries the lane's icon
+ *  rather than a plain colour dot. */
+const LANE_ICON: Record<BeatKey, () => ReactNode> = {
+  roster: () => <TeamBuffPairIcon className="w-[18px] h-[18px]" />,
+  ballot: () => <BallotIcon className="w-[18px] h-[18px]" />,
 }
 
 /**
@@ -79,7 +87,7 @@ export function RecordBeats({
             data-lane={LANE[b.key]}
             className="lane-tab"
           >
-            <span className="lane-tab__dot" aria-hidden="true" />
+            <span className="lane-tab__icon" aria-hidden="true">{LANE_ICON[b.key]()}</span>
             <span className="truncate">{b.label}</span>
             {b.done && !active && (
               <svg
@@ -100,47 +108,6 @@ export function RecordBeats({
           </button>
         )
       })}
-    </div>
-  )
-}
-
-/**
- * The elevated card a lane tab reveals: a colour band naming what it is, the
- * lane's content, and an optional footer link to that lane's history.
- *
- * This replaces the ruled sections of the old one-sheet record. The record
- * made Roster and Ballot two divisions of the same document; the redesign
- * makes each one an object you own — "my team", "my ballot" — which is what
- * the band and the elevation are for.
- */
-export function LaneCard({
-  lane,
-  title,
-  icon,
-  right,
-  footer,
-  children,
-}: {
-  lane: 'jade' | 'terracotta'
-  title: string
-  icon: ReactNode
-  /** Trailing content in the band — a season total, a lock chip. */
-  right?: ReactNode
-  /** A full-width footer row, e.g. swapped-out castaways / past ballots. */
-  footer?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <div className="lane-card" data-lane={lane}>
-      <div className="lane-card__band">
-        <span className="flex size-6 flex-none items-center justify-center text-cream-100" aria-hidden="true">
-          {icon}
-        </span>
-        <h2 className="lane-card__title">{title}</h2>
-        {right && <span className="ml-auto shrink-0">{right}</span>}
-      </div>
-      {children}
-      {footer}
     </div>
   )
 }
