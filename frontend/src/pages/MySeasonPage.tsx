@@ -505,12 +505,15 @@ export function MySeasonPage() {
     const maxPicks = Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
     const saved = d.openPicks.length
 
-    // A roster is settled when no slot is sitting dead — the only job it has
-    // between locks. Once swaps are spent or closed there is nothing to be
-    // done about a dead slot, so it stops counting: a task you cannot act on
-    // is not a task, and late in the season everyone has one.
+    // Holding a dead slot is a position, not a chore: sitting on an eliminated
+    // castaway for a week — to spend the weekly play on a x2 instead, or to
+    // see who looks strong first — is a legitimate way to play. So it is worth
+    // saying out loud and it keeps the hero warm, but it is not a task and it
+    // never nags. Nothing can be done about it at all once swaps are spent or
+    // closed, and by then most rosters have one.
     const deadSlots = held.length - active.length
     const canSwap = !swapsLocked(d.season!, d.episodes) && !swappedThisEpisode
+    const heldDead = deadSlots > 0 && canSwap
     const rosterDone = held.length > 0 && (deadSlots === 0 || !canSwap)
     const ballotDone = maxPicks > 0 && saved === maxPicks
 
@@ -532,15 +535,18 @@ export function MySeasonPage() {
     // The advantage is optional, so it is never something you owe — but "all
     // set" is a lie while a ×2 you could still play is sitting there unspent,
     // so it gets its own headline rather than being counted or ignored.
-    const left = (rosterDone ? 0 : 1) + (ballotDone ? 0 : 1)
+    // Only two things are actually owed: a ballot, and a roster if you have
+    // never set one.
+    const noRoster = held.length === 0
+    const left = (noRoster ? 1 : 0) + (ballotDone ? 0 : 1)
     const advantageUnplayed =
       !d.plays.some((p) => p.episode_id === openEp.id) &&
       !openEp.is_finale &&
       !advantagesLocked(openEp, d.season!)
     return {
       beats,
-      // Nothing left at all — including the x2. Colours the hero.
-      settled: left === 0 && !advantageUnplayed,
+      // Nothing left at all, owed or optional. Colours the hero.
+      settled: left === 0 && !heldDead && !advantageUnplayed,
       // Name the thing rather than counting it: "1 task left" made you go
       // looking for which one.
       headline:
@@ -550,15 +556,15 @@ export function MySeasonPage() {
             ? saved === 0
               ? 'Your ballot is empty'
               : `${saved} of ${maxPicks} votes cast`
-            : !rosterDone
-              ? held.length === 0
-                ? 'Pick your roster'
-                : deadSlots === 1
-                  ? 'Swap out your eliminated castaway'
-                  : `Swap out ${deadSlots} eliminated castaways`
-              : advantageUnplayed
-                ? 'Your ×2 is still unplayed'
-                : `You're all set for Ep ${openEp.episode_number}`,
+            : noRoster
+              ? 'Pick your roster'
+              : heldDead
+                ? deadSlots === 1
+                  ? 'A castaway on your roster is out'
+                  : `${deadSlots} castaways on your roster are out`
+                : advantageUnplayed
+                  ? 'Your ×2 is still unplayed'
+                  : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
