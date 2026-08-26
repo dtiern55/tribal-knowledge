@@ -520,7 +520,11 @@ export function MySeasonPage() {
     const beats: Beat[] = [
       {
         key: 'roster',
-        label: 'Roster',
+        // "Tribe" is the show's own word for your group, and it collides with
+        // nothing on this page: the rows print tribe *names* (Kalokalo), never
+        // the word. The BeatKey stays `roster` — the drop ids, the panel ids
+        // and the scoring all speak roster.
+        label: 'Tribe',
         done: rosterDone,
         note: `${active.length} active${swappedThisEpisode ? ' · swapped' : ''}`,
       },
@@ -551,17 +555,17 @@ export function MySeasonPage() {
       // looking for which one.
       headline:
         left === 2
-          ? 'Your ballot and roster both need you'
+          ? 'Your ballot and tribe both need you'
           : !ballotDone
             ? saved === 0
               ? 'Your ballot is empty'
               : `${saved} of ${maxPicks} votes cast`
             : noRoster
-              ? 'Pick your roster'
+              ? 'Pick your tribe'
               : heldDead
                 ? deadSlots === 1
-                  ? 'A castaway on your roster is out'
-                  : `${deadSlots} castaways on your roster are out`
+                  ? 'A castaway in your tribe is out'
+                  : `${deadSlots} castaways in your tribe are out`
                 : advantageUnplayed
                   ? 'Your ×2 is still unplayed'
                   : `You're all set for Ep ${openEp.episode_number}`,
@@ -2556,8 +2560,8 @@ function RosterSection({
         <div className="p-4">
           <p className="text-sm text-gray-600 mb-1">
             {hasRoster
-              ? `Rearrange your roster freely before episode ${season.roster_lock_episode} — no penalty.`
-              : `Choose ${season.roster_size} castaways for your season roster.`}
+              ? `Rearrange your tribe freely before episode ${season.roster_lock_episode} — no penalty.`
+              : `Choose ${season.roster_size} castaways for your tribe.`}
           </p>
           <p className="text-xs text-gray-500 mb-4">
             {selected.size} / {season.roster_size} selected
@@ -2603,7 +2607,7 @@ function RosterSection({
               disabled={selected.size !== season.roster_size || !rosterDirty || submitting}
               className="px-4 py-2 bg-jade-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jade-700 transition-colors"
             >
-              {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Roster'}
+              {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Tribe'}
             </button>
             {hasRoster && editing && (
               <button
@@ -2626,8 +2630,8 @@ function RosterSection({
       ) : (
         <p className="p-4 text-sm text-gray-500">
           {season.roster_lock_episode == null
-            ? 'Roster submission window has not opened yet.'
-            : 'Roster submission window has closed.'}
+            ? 'Tribe selection has not opened yet.'
+            : 'Tribe selection has closed.'}
         </p>
       )}
       {swappedRoster.length > 0 && (
