@@ -5,10 +5,13 @@ import type { ReactNode } from 'react'
  *
  * The page used to open on a masthead that named the season and then made you
  * read three sections to find out what you still owed. The hero answers that
- * first: what week it is, whether you're done, and one tile per lane —
- * Advantage (gold), Ballot (terracotta), Roster (jade) — each showing its own
- * done check or the thing you haven't done. The lanes carry those colours all
- * the way down the page, through the tabs and into the cards.
+ * first: what week it is, whether you're done, and the one weekly control that
+ * isn't reachable any other way — the advantage idol.
+ *
+ * It deliberately carries no Roster or Ballot shortcut. The first draft gave
+ * each lane a status tile here, which put a second row of buttons directly
+ * above the tabs that already switch lanes; the tabs carry their own settled
+ * check, so the tiles were duplicating both the navigation and the status.
  */
 export function ThisWeekHero({
   eyebrow,
@@ -22,12 +25,12 @@ export function ThisWeekHero({
   sub?: ReactNode
   /** The compact My Points block. */
   right?: ReactNode
-  /** The lane tiles — rendered in an even grid across the hero's foot. */
-  children: ReactNode
+  /** The weekly advantage lane. */
+  children?: ReactNode
 }) {
   return (
     <section aria-label="This week" className="week-hero relative rounded-2xl px-4 pt-3.5 pb-4">
-      <div className="mb-3 flex items-start gap-2.5">
+      <div className="flex items-start gap-2.5">
         <div className="min-w-0">
           <div className="font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">
             {eyebrow}
@@ -39,68 +42,44 @@ export function ThisWeekHero({
         </div>
         {right && <div className="ml-auto shrink-0">{right}</div>}
       </div>
-      <div className="hero-tiles">{children}</div>
+      {children}
     </section>
   )
 }
 
-export type Lane = 'gold' | 'terracotta' | 'jade'
-
 /**
- * One lane's status tile. `done` stamps the lane-coloured check; `emphasis`
- * is the outstanding-task glow, which only ever belongs to one tile at a time.
- * Given `onClick` the whole tile is the shortcut to that lane's tab; the
- * Advantage tile passes its own idol as `icon` and keeps the drag handle there.
+ * The advantage lane inside the hero: the idol, what it's resting on, and a
+ * gold check once it's spent. `icon` is the idol itself, which stays the drag
+ * handle and the tap menu's trigger — this only supplies the frame.
  */
-export function HeroTile({
-  lane,
+export function HeroLane({
   label,
   note,
   icon,
   done = false,
-  emphasis = false,
   muted = false,
-  onClick,
-  ariaLabel,
 }: {
-  lane: Lane
   label: string
   note: ReactNode
   icon: ReactNode
   done?: boolean
-  emphasis?: boolean
-  /** The lane is closed for the week (locked, or an advantage left unplayed). */
+  /** The lane is closed for the week — locked, or left unplayed. */
   muted?: boolean
-  onClick?: () => void
-  ariaLabel?: string
 }) {
-  const body = (
-    <>
+  return (
+    <div className="hero-lane" data-muted={muted || undefined}>
+      <span className="hero-lane__icon">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="hero-lane__label">{label}</span>
+        <span className="hero-lane__note">{note}</span>
+      </span>
       {done && (
-        <span className="hero-tile__check" aria-hidden="true">
+        <span className="hero-lane__check" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 13l4 4L19 7" />
           </svg>
         </span>
       )}
-      <span className="hero-tile__icon">{icon}</span>
-      <span className="hero-tile__label">{label}</span>
-      <span className="hero-tile__note">{note}</span>
-    </>
-  )
-  const className = 'hero-tile'
-  const data = {
-    'data-lane': lane,
-    'data-emphasis': emphasis || undefined,
-    'data-muted': muted || undefined,
-  }
-  return onClick ? (
-    <button type="button" onClick={onClick} aria-label={ariaLabel} className={className} {...data}>
-      {body}
-    </button>
-  ) : (
-    <div className={className} {...data}>
-      {body}
     </div>
   )
 }

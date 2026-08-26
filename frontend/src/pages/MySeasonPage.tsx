@@ -29,7 +29,7 @@ import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneCard, RecordBeats, RecordPanel } from '../components/SeasonRecord'
-import { HeroPoints, HeroTile, ThisWeekHero } from '../components/ThisWeekHero'
+import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
 import { BallotIcon, ChevronRightIcon, HistoryIcon, PeopleIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
@@ -510,14 +510,6 @@ export function MySeasonPage() {
     const rosterDone = active.length === held.length && held.length > 0
     const ballotDone = maxPicks > 0 && saved === maxPicks
 
-    const contestantById = new Map(d.contestants.map((c) => [c.id, c]))
-    const votedFor = d.openPicks
-      .map((p) => {
-        const c = contestantById.get(p.contestant_id)
-        return c ? displayName(c) : null
-      })
-      .filter((n): n is string => n != null)
-
     const beats: Beat[] = [
       {
         key: 'roster',
@@ -537,14 +529,7 @@ export function MySeasonPage() {
     // something you owe. Only the roster and the ballot count as tasks.
     const left = (rosterDone ? 0 : 1) + (ballotDone ? 0 : 1)
     return {
-      // The glow means "do this next", so exactly one tile can wear it. The
-      // ballot goes first: it's the one that actually closes at lock.
-      owed: !ballotDone ? ('ballot' as const) : !rosterDone ? ('roster' as const) : null,
       beats,
-      rosterDone,
-      rosterNote: `Set · ${active.length}`,
-      ballotDone,
-      ballotNote: votedFor.length > 0 ? votedFor.join(', ') : 'Vote now →',
       headline:
         left === 0
           ? `You're all set for Ep ${openEp.episode_number}`
@@ -611,9 +596,9 @@ export function MySeasonPage() {
         const week = weekSummary(state.episode)
         return (
         <div className="space-y-3.5">
-          {/* The week's command hero: what episode, whether you're done, and one
-              tile per lane. It replaces the season masthead — the season's name
-              never told you what you owed. */}
+          {/* The week's command hero: what episode, whether you're done, and
+              the weekly advantage. It replaces the season masthead — the
+              season's name never told you what you owed. */}
           <ThisWeekHero
             eyebrow={`This Week · Ep ${state.episode.episode_number}`}
             headline={week.headline}
@@ -625,7 +610,7 @@ export function MySeasonPage() {
             }
             right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} hero />}
           >
-            <AdvantageTile
+            <AdvantageLane
               season={d.season}
               episodes={d.episodes}
               contestants={d.contestants}
@@ -637,26 +622,6 @@ export function MySeasonPage() {
                 setPicking('double')
                 setBeat('roster')
               }}
-            />
-            <HeroTile
-              lane="terracotta"
-              label="Ballot"
-              icon={<BallotIcon />}
-              note={week.ballotNote}
-              done={week.ballotDone}
-              emphasis={week.owed === 'ballot'}
-              onClick={() => setBeat('ballot')}
-              ariaLabel={`Ballot — ${week.ballotDone ? 'done' : 'not submitted'}. Go to your ballot.`}
-            />
-            <HeroTile
-              lane="jade"
-              label="Roster"
-              icon={<PeopleIcon />}
-              note={week.rosterNote}
-              done={week.rosterDone}
-              emphasis={week.owed === 'roster'}
-              onClick={() => setBeat('roster')}
-              ariaLabel={`Roster — ${week.rosterNote}. Go to your team.`}
             />
           </ThisWeekHero>
 
@@ -1741,15 +1706,15 @@ function Points({ value }: { value: number | undefined }) {
 }
 
 /**
- * The weekly advantage, as the hero's gold lane tile.
+ * The weekly advantage, as the hero's gold lane.
  *
  * It was a card of its own between the masthead and the beats (#399, slimmed
- * by #529). As a tile it says the same three things in a third of the space:
- * whether the play is spent, on what, and — while it isn't — the idol you drag
- * or tap to spend it. Taking it back happens where the idol landed: the seal
- * on the doubled roster row, or the one on the ballot.
+ * by #529). Inside the hero it says the same three things in a fraction of the
+ * space: whether the play is spent, on what, and — while it isn't — the idol
+ * you drag or tap to spend it. Taking it back happens where the idol landed:
+ * the seal on the doubled roster row, or the one on the ballot.
  */
-function AdvantageTile({
+function AdvantageLane({
   season,
   episodes,
   contestants,
@@ -1818,8 +1783,7 @@ function AdvantageTile({
   return (
     <>
       <SealGhost drag={drag} />
-      <HeroTile
-        lane="gold"
+      <HeroLane
         label="Advantage"
         done={play != null}
         muted={weekly.locked && play == null}
@@ -1863,7 +1827,7 @@ function AdvantageTile({
                   />
                   <div
                     role="menu"
-                    className="absolute left-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white text-left shadow-lg"
+                    className="absolute left-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white text-left shadow-lg"
                   >
                     <button
                       type="button"
