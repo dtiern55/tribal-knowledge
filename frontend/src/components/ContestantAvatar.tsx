@@ -29,6 +29,9 @@ function initials(name: string): string {
 const sizeClass = {
   sm: 'w-6 h-6 text-[11px]',
   md: 'w-9 h-9 text-xs',
+  // The My Team card's portrait scale (My Season redesign) — big enough that
+  // the roster reads as your five people rather than a list of names.
+  lg: 'w-[42px] h-[42px] text-sm',
 } as const
 
 /**

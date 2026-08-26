@@ -623,6 +623,8 @@ html.locked-night .tribal-border {
 .ballot-slip {
   display: inline-flex;
   align-items: center;
+  /* Room for the castaway's portrait, set into the slip beside the name. */
+  gap: 9px;
   border-left: 3px solid var(--ballot-tribe-color, var(--color-gold-500));
   border-radius: 4px;
   padding: 10px 18px;
@@ -766,3 +768,342 @@ html.locked-night .contestant-avatar {
 @media (prefers-reduced-motion: reduce) {
   .tk-loader-fade { animation: none; }
 }
+
+/* ── My Season: This Week hero + colour-coded lanes ──────────────────────
+   Advantage = gold, Roster = jade, Ballot = terracotta. The same three
+   colours run from the hero tiles through the tabs into each card's header
+   band, so a lane is recognisable before you read its label. */
+
+.week-hero {
+  background:
+    radial-gradient(circle at 92% 0%, rgb(212 145 58 / 32%), transparent 55%),
+    linear-gradient(150deg, #25493b, #132e25);
+  box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
+}
+
+html.locked-night .week-hero {
+  background:
+    radial-gradient(circle at 90% 0%, rgb(196 84 50 / 40%), transparent 55%),
+    linear-gradient(150deg, #1a3a2e, #0a1613);
+  box-shadow:
+    0 6px 22px rgb(5 12 9 / 50%),
+    inset 0 0 0 1px rgb(242 233 219 / 6%);
+}
+
+html.locked-night .hero-points { filter: brightness(0.9); }
+
+.hero-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hero-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 9px 8px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  text-align: center;
+}
+
+.hero-tile__check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.hero-tile__check svg { width: 10px; height: 10px; }
+
+.hero-tile__icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3px;
+}
+
+.hero-tile__label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hero-tile__note {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgb(242 233 219 / 60%);
+}
+
+.hero-tile[data-lane='gold'] {
+  background: rgb(212 145 58 / 16%);
+  border-color: rgb(212 145 58 / 50%);
+}
+.hero-tile[data-lane='gold'] .hero-tile__label { color: #f0d9a8; }
+.hero-tile[data-lane='gold'] .hero-tile__check { background: #d4913a; color: #132e25; }
+.hero-tile[data-lane='gold'] .hero-tile__icon { color: #e6b657; }
+
+.hero-tile[data-lane='terracotta'] {
+  background: rgb(196 84 50 / 18%);
+  border-color: rgb(228 145 117 / 70%);
+}
+.hero-tile[data-lane='terracotta'] .hero-tile__label { color: #f2b39d; }
+.hero-tile[data-lane='terracotta'] .hero-tile__check { background: #c45432; color: #fff; }
+.hero-tile[data-lane='terracotta'] .hero-tile__icon { color: #e9a488; }
+
+.hero-tile[data-lane='jade'] {
+  background: rgb(46 107 82 / 20%);
+  border-color: rgb(131 181 154 / 60%);
+}
+.hero-tile[data-lane='jade'] .hero-tile__label { color: #cfe4d7; }
+.hero-tile[data-lane='jade'] .hero-tile__check { background: #579174; color: #0a1613; }
+.hero-tile[data-lane='jade'] .hero-tile__icon { color: #b2d2c0; }
+
+/* The one thing you still owe. Only ever one tile at a time. */
+.hero-tile[data-emphasis] {
+  border-width: 1.5px;
+  box-shadow:
+    inset 0 0 0 1px rgb(228 145 117 / 40%),
+    0 0 18px rgb(196 84 50 / 28%);
+}
+.hero-tile[data-lane='terracotta'][data-emphasis] { background: rgb(196 84 50 / 28%); }
+.hero-tile[data-lane='jade'][data-emphasis] {
+  background: rgb(46 107 82 / 32%);
+  box-shadow:
+    inset 0 0 0 1px rgb(131 181 154 / 45%),
+    0 0 18px rgb(46 107 82 / 34%);
+}
+
+.hero-tile[data-muted] { opacity: 0.55; }
+
+button.hero-tile { cursor: pointer; }
+button.hero-tile:hover { border-color: rgb(242 233 219 / 55%); }
+button.hero-tile:focus-visible {
+  outline: 2px solid var(--color-gold-300);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-tile { transition: background-color 160ms ease, border-color 160ms ease; }
+}
+
+/* ── Lane tabs ─────────────────────────────────────────────────────────── */
+
+.lane-tab {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: #fff;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lane-tab__dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.lane-tab[data-lane='jade'] { border-color: #cbd8ce; color: #5a8571; }
+.lane-tab[data-lane='jade'] .lane-tab__dot { background: var(--color-jade-600); }
+.lane-tab[data-lane='jade'][aria-selected='true'] {
+  border-color: transparent;
+  background: var(--color-jade-600);
+  color: #fff;
+  box-shadow: 0 3px 10px rgb(46 107 82 / 30%);
+}
+
+.lane-tab[data-lane='terracotta'] { border-color: #e3c8bd; color: #b07a63; }
+.lane-tab[data-lane='terracotta'] .lane-tab__dot { background: var(--color-terracotta-600); }
+.lane-tab[data-lane='terracotta'][aria-selected='true'] {
+  border-color: transparent;
+  background: var(--color-terracotta-600);
+  color: #fff;
+  box-shadow: 0 3px 10px rgb(196 84 50 / 32%);
+}
+
+.lane-tab[aria-selected='true'] .lane-tab__dot { background: rgb(255 255 255 / 78%); }
+
+.lane-tab[data-drag-over] {
+  outline: 2px solid var(--color-gold-400);
+  outline-offset: 2px;
+}
+
+html.locked-night .lane-tab {
+  background: #132e25;
+  border-color: rgb(242 233 219 / 12%);
+  color: rgb(242 233 219 / 50%);
+}
+html.locked-night .lane-tab[aria-selected='true'] {
+  border-color: transparent;
+  background: var(--color-jade-600);
+  color: #fff;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 40%);
+}
+html.locked-night .lane-tab[data-lane='terracotta'][aria-selected='true'] {
+  background: var(--color-terracotta-600);
+}
+
+/* ── Lane cards (My Team / My Ballot) ──────────────────────────────────── */
+
+.lane-card {
+  overflow: hidden;
+  border: 1px solid #cbd8ce;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgb(20 40 30 / 16%);
+}
+.lane-card[data-lane='terracotta'] {
+  border-color: #e3c8bd;
+  box-shadow: 0 6px 20px rgb(40 20 15 / 14%);
+}
+
+/* A lit row's halo has to be allowed out of the card, which otherwise clips it. */
+.lane-card[data-glow] { overflow: visible; }
+
+.lane-card__band {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 96% 0%, rgb(212 145 58 / 16%), transparent 60%),
+    linear-gradient(120deg, #3c7e63, #2e6b52);
+}
+.lane-card[data-lane='terracotta'] .lane-card__band {
+  background:
+    radial-gradient(circle at 96% 0%, rgb(212 145 58 / 14%), transparent 60%),
+    linear-gradient(120deg, #c45432, #9f4229);
+}
+
+.lane-card__title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lane-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 15px;
+  border-top: 1px solid #eef1ec;
+  background: #f7f4ef;
+  text-align: left;
+}
+.lane-card[data-lane='terracotta'] .lane-card__foot {
+  border-top-color: #f0e2da;
+  background: #fbf1ec;
+}
+
+/* The team card keeps its paper at night — the one page you can still read by
+   the fire, same conceit the roster ledger has always had. Warm-lit cream and
+   an ember glow instead of the daylight drop shadow; the ballot card and the
+   rest of the chrome go dark around it. */
+html.locked-night .app-shell .lane-card[data-lane='jade'] {
+  border-color: #cbbfa6;
+  background: #f5efe3;
+  box-shadow:
+    0 0 46px rgb(212 145 58 / 22%),
+    0 6px 22px rgb(5 12 9 / 50%);
+}
+html.locked-night .app-shell .lane-card[data-lane='jade'] .lane-card__foot {
+  border-top-color: #e6ddcb;
+  background: rgb(28 25 23 / 4%);
+}
+/* ...which means the whole daylight palette has to survive inside it. The
+   shell's night overrides repaint ink cream for a dark ground; on the one card
+   that stays lit that is cream on cream, so put the paper's own ink back. */
+html.locked-night .app-shell .lane-card[data-lane='jade'] {
+  color: var(--color-paper-ink);
+}
+html.locked-night .app-shell .lane-card[data-lane='jade'] :is(
+  .text-paper-ink, .text-gray-900, .text-gray-800, .text-forest-900, .text-forest-800
+) {
+  color: var(--color-paper-ink);
+}
+html.locked-night .app-shell .lane-card[data-lane='jade'] :is(
+  .text-paper-ink-faded, .text-gray-700, .text-gray-600, .text-gray-500, .text-gray-400,
+  .text-forest-700
+) {
+  color: var(--color-paper-ink-faded);
+}
+html.locked-night .app-shell .lane-card[data-lane='jade'] :is(
+  .text-gold-700, .text-gold-800, .text-gold-900
+) {
+  color: var(--color-gold-800);
+}
+html.locked-night .app-shell .lane-card[data-lane='jade'] :is(
+  .bg-white, .bg-cream-50, .bg-gray-50, .bg-forest-50, .bg-jade-50
+) {
+  background-color: #fbf7ef;
+}
+html.locked-night .app-shell .lane-card[data-lane='jade'] :is(
+  .border-paper-line, .border-paper-edge, .border-cream-100, .border-cream-200,
+  .border-gray-100, .border-forest-100
+) {
+  border-color: #e6ddcb;
+}
+
+/* Everything that isn't the team card goes dark around it. */
+html.locked-night .app-shell .lane-card[data-lane='terracotta'] {
+  border-color: rgb(242 233 219 / 12%);
+  background: #132e25;
+  box-shadow: 0 6px 22px rgb(5 12 9 / 50%);
+}
+html.locked-night .app-shell .lane-card[data-lane='terracotta'] .lane-card__foot {
+  border-top-color: rgb(242 233 219 / 12%);
+  background: rgb(242 233 219 / 4%);
+}
+
+/* Season history, promoted out of the record into its own jade-tinted card. */
+.history-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-jade-200);
+  border-radius: 12px;
+  background: #eaf1ec;
+  text-align: left;
+}
+html.locked-night .app-shell .history-card {
+  border-color: rgb(242 233 219 / 12%);
+  background: #132e25;
+}
+/* Jade ink on the daylight card; on the night card it has to lift off the dark. */
+html.locked-night .app-shell .history-card .text-jade-700 { color: #9cc2ac; }
+html.locked-night .app-shell .history-card .text-jade-600 { color: var(--color-jade-400); }
+html.locked-night .app-shell .history-card .text-stone-500 { color: rgb(242 233 219 / 50%); }
+html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0a1613; }

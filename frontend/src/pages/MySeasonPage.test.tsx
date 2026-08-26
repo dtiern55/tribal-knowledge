@@ -283,7 +283,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
-    expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    expect(await screen.findByText(/Submitted — you voted to send home/)).toBeVisible()
     expect(within(ballot).getByText('Kenzie').closest('.ballot-slip')).toHaveStyle({
       '--ballot-tribe-color': '#7651a1',
       '--ballot-rotation': '-0.7deg',
@@ -374,17 +374,15 @@ describe('MySeasonPage state shell', () => {
     expect(
       await screen.findByRole('img', { name: /Double Castaway Points/ }),
     ).toBeInTheDocument()
-    // The Roster beat wears a lightweight ×2 chip — the idol lives on the target
-    // row now (#487).
+    // The idol lives on the target row, not the tab (#487), and the tab no
+    // longer restates the play at all — that's the hero's Advantage tile.
     const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
-    expect(rosterTab).toHaveTextContent('×2')
+    expect(rosterTab).not.toHaveTextContent('×2')
     expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
 
-    // The prompt collapses to a slim confirmation naming the played double,
-    // with undo, once it's played (#399).
-    const confirmation = screen.getByRole('button', { name: 'Undo' }).closest('div')!
-    expect(confirmation).toHaveTextContent('Advantage played')
-    expect(confirmation).toHaveTextContent('Roster ×2 on Kenzie')
+    // The hero's Advantage tile is the played state now: checked, and naming
+    // where the ×2 landed.
+    expect(screen.getByText('×2 · Kenzie')).toBeVisible()
   })
 
   it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
@@ -437,13 +435,12 @@ describe('MySeasonPage state shell', () => {
     // disappearing during delete, and only then reappearing on Charlie.
     expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
     expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Castaway Points/ })).toBeVisible()
-    // The idol lives on the target now, not the tab (#487); the Roster tab keeps
-    // only the lightweight ×2 chip.
+    // The idol lives on the target now, not the tab (#487).
     expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
-    expect(rosterTab).toHaveTextContent('×2')
-    // The move is optimistic across the board (#487/#399): the bar idol's label
-    // names the new target immediately, not only after the delete+post lands.
-    expect(screen.getByRole('button', { name: 'Undo' }).closest('div')).toHaveTextContent('Charlie')
+    expect(rosterTab).not.toHaveTextContent('×2')
+    // The move is optimistic across the board (#487/#399): the hero's Advantage
+    // tile names the new target immediately, not only after delete+post lands.
+    expect(screen.getByText('×2 · Charlie')).toBeVisible()
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
@@ -454,7 +451,6 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
-    expect(screen.getByRole('button', { name: 'Undo' }).closest('div')).toHaveTextContent('Charlie')
   })
 
   it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {
@@ -826,7 +822,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     await screen.findByRole('heading', { name: 'Between episodes' })
-    await user.click(screen.getByRole('button', { name: /Episode History/ }))
+    await user.click(screen.getByRole('button', { name: /Season history/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }))
 
     const dialog = await screen.findByRole('dialog')
@@ -908,7 +904,7 @@ describe('MySeasonPage state shell', () => {
       await screen.findByRole('heading', { name: 'Between episodes' })
       expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', '')
 
-      await user.click(screen.getByRole('button', { name: /Episode History/ }))
+      await user.click(screen.getByRole('button', { name: /Season history/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
@@ -933,7 +929,7 @@ describe('MySeasonPage state shell', () => {
       )
 
       await screen.findByRole('heading', { name: 'Between episodes' })
-      await user.click(screen.getByRole('button', { name: /Episode History/ }))
+      await user.click(screen.getByRole('button', { name: /Season history/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )

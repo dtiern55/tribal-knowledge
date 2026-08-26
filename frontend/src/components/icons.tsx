@@ -4,7 +4,13 @@ import castMask from '../assets/cast-icon-mask.png'
 // Primary navigation uses custom Survivor-specific drawings. Utility controls
 // retain familiar conventional symbols. No icon dependency.
 
-function Svg({ children }: { children: React.ReactNode }) {
+function Svg({
+  children,
+  className = 'w-5 h-5',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -13,7 +19,7 @@ function Svg({ children }: { children: React.ReactNode }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="w-5 h-5"
+      className={className}
       aria-hidden="true"
     >
       {children}
@@ -144,6 +150,47 @@ export function LogOutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <path d="m16 17 5-5-5-5" />
       <path d="M21 12H9" />
+    </Svg>
+  )
+}
+
+/** The Roster lane's mark (My Season redesign): a team, not a person. */
+export function PeopleIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </Svg>
+  )
+}
+
+/** The Ballot lane's mark: a marked slip. */
+export function BallotIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M8.5 11.5l2.5 2.5 4.5-5.5" />
+    </Svg>
+  )
+}
+
+/** Season history — a clock turned back. */
+export function HistoryIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+      <path d="M12 7v5l4 2" />
+    </Svg>
+  )
+}
+
+/** Disclosure arrow for a row that opens something. */
+export function ChevronRightIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <path d="M9 6l6 6-6 6" />
     </Svg>
   )
 }
