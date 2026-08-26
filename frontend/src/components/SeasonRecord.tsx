@@ -62,7 +62,7 @@ export function RecordBeats({
   }
 
   return (
-    <div role="tablist" aria-label="Season record" onKeyDown={onKeyDown} className="flex gap-2">
+    <div role="tablist" aria-label="Season record" onKeyDown={onKeyDown} className="lane-tabs">
       {beats.map((b) => {
         const active = b.key === value
         return (
@@ -119,7 +119,6 @@ export function LaneCard({
   icon,
   right,
   footer,
-  glowOut = false,
   children,
 }: {
   lane: 'jade' | 'terracotta'
@@ -129,12 +128,10 @@ export function LaneCard({
   right?: ReactNode
   /** A full-width footer row, e.g. swapped-out castaways / past ballots. */
   footer?: ReactNode
-  /** Let a lit row's halo out of the card, which otherwise clips it. */
-  glowOut?: boolean
   children: ReactNode
 }) {
   return (
-    <div className="lane-card" data-lane={lane} data-glow={glowOut || undefined}>
+    <div className="lane-card" data-lane={lane}>
       <div className="lane-card__band">
         <span className="flex size-6 flex-none items-center justify-center text-cream-100" aria-hidden="true">
           {icon}
@@ -144,6 +141,34 @@ export function LaneCard({
       </div>
       {children}
       {footer}
+    </div>
+  )
+}
+
+/**
+ * Tabs and the lane they reveal, as one object.
+ *
+ * The redesign had them as separate stacked cards — a row of pills, a gap,
+ * then an elevated card — which lost what the one-sheet record (#396) got
+ * right: a lane read as a single thing you were looking at. They share a
+ * border again, with the active tab in its lane's colour running straight into
+ * that lane's header band, so the tab is the top edge of the card rather than a
+ * control floating above it.
+ */
+export function LaneStack({
+  lane,
+  glowOut = false,
+  children,
+}: {
+  /** The lane currently showing — colours the stack and its night treatment. */
+  lane: 'jade' | 'terracotta'
+  /** Let a lit row's halo out of the stack, which otherwise clips it. */
+  glowOut?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div className="lane-stack" data-lane={lane} data-glow={glowOut || undefined}>
+      {children}
     </div>
   )
 }

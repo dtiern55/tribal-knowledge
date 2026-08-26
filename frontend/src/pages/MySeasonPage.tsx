@@ -28,7 +28,7 @@ import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
 import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
-import { LaneCard, RecordBeats, RecordPanel } from '../components/SeasonRecord'
+import { LaneCard, LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
 import { BallotIcon, ChevronRightIcon, HistoryIcon, TeamBuffPairIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
@@ -647,6 +647,9 @@ export function MySeasonPage() {
             />
           )}
 
+          {/* Tabs and the lane they reveal share one border: a lane is one
+              object again, the way the record's beats were (#396). */}
+          <LaneStack lane={beat === 'roster' ? 'jade' : 'terracotta'} glowOut={stageOpen}>
           <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
 
           <RecordPanel
@@ -670,7 +673,6 @@ export function MySeasonPage() {
                 onPickingDone={() => setPicking(null)}
                 onStartSwap={() => setPicking('swap')}
                 onBeatChange={setBeat}
-                glowOut={stageOpen}
               />
             </div>
           </RecordPanel>
@@ -696,6 +698,7 @@ export function MySeasonPage() {
               />
             </div>
           </RecordPanel>
+          </LaneStack>
 
           {/* Promoted out of the record (#478 follow-on): one jade card under
               both lanes rather than an affordance that only existed on Roster.
@@ -1991,7 +1994,6 @@ function RosterSection({
   onPickingDone,
   onStartSwap,
   onBeatChange,
-  glowOut = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -2013,8 +2015,6 @@ function RosterSection({
   /** Switch the visible beat — used when a seal drag moves the play to the
    *  Ballot beat so its landing is visible (#487). */
   onBeatChange?: (beat: BeatKey) => void
-  /** Let a lit row's halo out of the team card while picking. */
-  glowOut?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   // The swapped-out ledger, folded into the card's footer.
@@ -2360,7 +2360,6 @@ function RosterSection({
       lane="jade"
       title="My Team"
       icon={<TeamBuffPairIcon />}
-      glowOut={glowOut}
       right={
         seasonPoints != null ? (
           <span className="text-right">
