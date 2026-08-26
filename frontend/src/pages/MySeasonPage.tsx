@@ -525,15 +525,22 @@ export function MySeasonPage() {
       },
     ]
 
-    // The advantage is optional, so an unplayed one is a soft state, not
-    // something you owe. Only the roster and the ballot count as tasks.
+    // The advantage is optional, so it is never something you owe — but "all
+    // set" is a lie while a ×2 you could still play is sitting there unspent,
+    // so it gets its own headline rather than being counted or ignored.
     const left = (rosterDone ? 0 : 1) + (ballotDone ? 0 : 1)
+    const advantageUnplayed =
+      !d.plays.some((p) => p.episode_id === openEp.id) &&
+      !openEp.is_finale &&
+      !advantagesLocked(openEp, d.season!)
     return {
       beats,
       headline:
-        left === 0
-          ? `You're all set for Ep ${openEp.episode_number}`
-          : `${left} task${left === 1 ? '' : 's'} left before lock`,
+        left > 0
+          ? `${left} task${left === 1 ? '' : 's'} left before lock`
+          : advantageUnplayed
+            ? 'Your ×2 is still unplayed'
+            : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
@@ -562,6 +569,7 @@ export function MySeasonPage() {
               episodes={d.episodes}
               plays={d.plays}
               contestants={d.contestants}
+              pickResults={pickResults}
               onReplay={openReplay}
               replayLoading={replayLoading}
               replayError={replayError}
@@ -697,6 +705,7 @@ export function MySeasonPage() {
             episodes={d.episodes}
             plays={d.plays}
             contestants={d.contestants}
+            pickResults={pickResults}
             onReplay={openReplay}
             replayLoading={replayLoading}
             replayError={replayError}
@@ -1229,6 +1238,7 @@ function HistorySection({
   episodes,
   plays,
   contestants,
+  pickResults,
   onReplay,
   replayLoading,
   replayError,
@@ -1238,6 +1248,7 @@ function HistorySection({
   episodes: Episode[]
   plays: AdvantagePlay[]
   contestants: Contestant[]
+  pickResults: Map<string, PickResult>
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
@@ -1248,6 +1259,9 @@ function HistorySection({
   // has something to promise. One extra fetch, only once there is a scored
   // episode to preview.
   const [lastResult, setLastResult] = useState<EpisodeResult | null>(null)
+  // Past ballots, fetched the first time the sheet is opened rather than on
+  // every page load — they are reference, and nobody reads them most weeks.
+  const [pastBallots, setPastBallots] = useState<Map<string, EliminationPick[]> | null>(null)
 
   useEffect(() => {
     let live = true
@@ -1259,6 +1273,18 @@ function HistorySection({
       live = false
     }
   }, [season.id, userId])
+
+  // Weekly ballots only: the finale is its own 3-part ballot (#86), and
+  // pre-roster-lock premieres accept no votes (#82).
+  const weeklyEpisodes = episodes.filter(
+    (ep) => !ep.is_finale && ep.episode_number >= (season.roster_lock_episode ?? 1),
+  )
+  const currentBallotEp =
+    weeklyEpisodes.find((ep) => isEpisodeOpen(ep, season, episodes)) ??
+    weeklyEpisodes.find((ep) => episodeClosed(ep) && ep.status !== 'scored')
+  const closedBallots = weeklyEpisodes
+    .filter((ep) => episodeClosed(ep) && ep.id !== currentBallotEp?.id)
+    .reverse()
 
   const newestScoredId = episodes
     .filter((e) => e.status === 'scored')
@@ -1278,6 +1304,23 @@ function HistorySection({
       live = false
     }
   }, [season.id, newestScoredId])
+
+  const closedBallotIds = closedBallots.map((ep) => ep.id).join(',')
+  useEffect(() => {
+    if (!open || !closedBallotIds) return
+    let live = true
+    void Promise.all(
+      closedBallotIds.split(',').map((id) =>
+        api
+          .get<EliminationPick[]>(`/episodes/${id}/picks/${userId}`)
+          .then((picks): [string, EliminationPick[]] => [id, picks])
+          .catch((): [string, EliminationPick[]] => [id, []]),
+      ),
+    ).then((entries) => live && setPastBallots(new Map(entries)))
+    return () => {
+      live = false
+    }
+  }, [open, closedBallotIds, userId])
 
   const scoredEpisodes = episodes
     .filter(
@@ -1310,7 +1353,12 @@ function HistorySection({
     })
     .sort((a, b) => b.episodeNumber - a.episodeNumber)
 
-  if (scoredEpisodes.length === 0 && spent.length === 0 && (ledger == null || ledger.length === 0))
+  if (
+    scoredEpisodes.length === 0 &&
+    closedBallots.length === 0 &&
+    spent.length === 0 &&
+    (ledger == null || ledger.length === 0)
+  )
     return null
 
   // "+64, up 3 spots" — what the last episode did to you, so the card says
@@ -1355,6 +1403,11 @@ function HistorySection({
         createPortal(
           <HistorySheet
             scoredEpisodes={scoredEpisodes}
+            closedBallots={closedBallots}
+            pastBallots={pastBallots}
+            pickResults={pickResults}
+            plays={plays}
+            contestants={contestants}
             spent={spent}
             ledger={ledger ?? []}
             onReplay={(episode) => {
@@ -1385,6 +1438,11 @@ type SpentPlay = {
 // reveal opens over the page from MySeasonPage.
 function HistorySheet({
   scoredEpisodes,
+  closedBallots,
+  pastBallots,
+  pickResults,
+  plays,
+  contestants,
   spent,
   ledger,
   onReplay,
@@ -1393,6 +1451,12 @@ function HistorySheet({
   onClose,
 }: {
   scoredEpisodes: Episode[]
+  closedBallots: Episode[]
+  /** Null until the picks for those episodes land. */
+  pastBallots: Map<string, EliminationPick[]> | null
+  pickResults: Map<string, PickResult>
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
   spent: SpentPlay[]
   ledger: TokenLedgerEntry[]
   onReplay: (episode: Episode) => void
@@ -1404,8 +1468,8 @@ function HistorySheet({
   // Episodes and advantages were stacked blocks in one scroll (#545, #546),
   // which made the plays and the retired ledger read as an appendix to the
   // replays. They are two different questions, so they get two tabs.
-  const [tab, setTab] = useState<'episodes' | 'advantages'>(
-    scoredEpisodes.length === 0 ? 'advantages' : 'episodes',
+  const [tab, setTab] = useState<'episodes' | 'ballots' | 'advantages'>(
+    scoredEpisodes.length > 0 ? 'episodes' : closedBallots.length > 0 ? 'ballots' : 'advantages',
   )
 
   useEffect(() => {
@@ -1419,6 +1483,7 @@ function HistorySheet({
 
   const TABS = [
     { key: 'episodes' as const, label: 'Episodes', count: scoredEpisodes.length },
+    { key: 'ballots' as const, label: 'Ballots', count: closedBallots.length },
     { key: 'advantages' as const, label: 'Advantages', count: spent.length },
   ]
 
@@ -1477,7 +1542,7 @@ function HistorySheet({
                 aria-controls={`history-panel-${t.key}`}
                 tabIndex={active ? 0 : -1}
                 onClick={() => setTab(t.key)}
-                className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 px-3 font-display text-sm font-semibold uppercase tracking-[0.08em] ${
+                className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 px-2 font-display text-sm font-semibold uppercase tracking-[0.06em] ${
                   active
                     ? 'border-forest-600 text-forest-800'
                     : 'border-transparent text-paper-ink-faded'
@@ -1528,6 +1593,31 @@ function HistorySheet({
               <p className="text-sm text-paper-ink-faded">No episodes have been scored yet.</p>
             )}
             {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
+          </div>
+
+          <div
+            id="history-panel-ballots"
+            role="tabpanel"
+            aria-labelledby="history-tab-ballots"
+            hidden={tab !== 'ballots'}
+            className="-mx-4"
+          >
+            {closedBallots.length === 0 ? (
+              <p className="px-4 text-sm text-paper-ink-faded">No ballots have closed yet.</p>
+            ) : pastBallots == null ? (
+              <p className="px-4 text-sm text-paper-ink-faded">Loading…</p>
+            ) : (
+              closedBallots.map((ep) => (
+                <BallotRecord
+                  key={ep.id}
+                  ep={ep}
+                  picks={pastBallots.get(ep.id) ?? []}
+                  pickResults={pickResults}
+                  plays={plays}
+                  contestants={contestants}
+                />
+              ))
+            )}
           </div>
 
           <div
@@ -2601,6 +2691,117 @@ function RosterSection({
 
 // ─── Picks section ──────────────────────────────────────────────────────────
 
+/**
+ * One episode's ballot as a record line: the votes, which ones came true, and
+ * what the ×2 paid. Drawn prominently for the episode you're waiting on, and
+ * flat for a past one inside the History sheet.
+ */
+function BallotRecord({
+  ep,
+  picks,
+  pickResults,
+  plays,
+  contestants,
+  current = false,
+}: {
+  ep: Episode
+  picks: EliminationPick[]
+  pickResults: Map<string, PickResult>
+  plays: AdvantagePlay[]
+  contestants: Contestant[]
+  current?: boolean
+}) {
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const scored = ep.status === 'scored'
+  // The doubled ballot wears the ×2 idol once (#484): a corner-seal stamp on
+  // the prominent current ballot, a small inline seal by the episode number on
+  // the compact past rows. The per-pick earnings chips still name which vote
+  // the double paid on.
+  const ballotDoubled = plays.some(
+    (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
+  )
+  const header = (
+    <div className="flex items-center gap-2">
+      <EpisodeLabel
+        episode={ep}
+        className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}
+        titleClassName="font-normal text-gray-500"
+      />
+      {!current && ballotDoubled && (
+        <DoubleBadge size={22} title="Double Ballot Points this episode" />
+      )}
+      {/* Never show the raw DB status — a locked, unscored episode said
+          "upcoming", the opposite of true (#272). */}
+      <span
+        className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
+          scored ? 'bg-jade-50 text-jade-700' : 'bg-gold-50 text-gold-700'
+        }`}
+      >
+        {scored ? 'Scored' : 'Awaiting scoring'}
+      </span>
+    </div>
+  )
+  const body =
+    picks.length > 0 ? (
+      <div className="flex flex-wrap gap-2">
+        {picks.map((p) => {
+          const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
+          const pickC = contestantMap.get(p.contestant_id)
+          const name = pickC ? displayName(pickC) : '—'
+          // A ballot-wide double covers every pick (#303); pre-#303 plays named
+          // one contestant, so past seasons still pay out per-pick.
+          const doubled = plays.some(
+            (pl) =>
+              pl.episode_id === ep.id &&
+              pl.advantage_type === 'double_vote_points' &&
+              (pl.target_contestant_id === null || pl.target_contestant_id === p.contestant_id),
+          )
+          // Only scored episodes have a settled result. A correct vote gets the
+          // CorrectVote pill; incorrect stays neutral, not red — most votes miss
+          // and a wall of red feels bad (#53, #135).
+          const isCorrect = scored && result?.correct === true
+          // Pick chip shows the BASE points; the double's own earnings render as
+          // a separate chip beside it (#136).
+          const votePoints = result && result.points > 0 ? result.points : undefined
+          return (
+            <span key={p.id} className="contents">
+              {isCorrect ? (
+                <CorrectVote name={name} points={votePoints} />
+              ) : (
+                <span className={`inline-flex items-center text-sm px-2 py-1 border rounded-md bg-white border-cream-200 ${scored ? 'text-gray-500' : 'text-gray-700'}`}>
+                  {name}
+                </span>
+              )}
+              {doubled && isCorrect && votePoints != null && (
+                <span className="text-sm px-2 py-1 border rounded-md bg-forest-50 border-forest-200 text-forest-700">
+                  Double Ballot Points <span className="font-semibold">+{votePoints}</span>
+                </span>
+              )}
+            </span>
+          )
+        })}
+      </div>
+    ) : (
+      <p className="text-sm text-gray-500">No votes submitted</p>
+    )
+
+  return current ? (
+    <div className="relative mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
+      {ballotDoubled && <BallotStamp size={48} />}
+      {header}
+      <p className="text-xs text-gray-500 mt-0.5 mb-3">
+        Ballot locked {formatCentral(ep.picks_lock_at)}
+      </p>
+      {body}
+    </div>
+  ) : (
+    <div className="border-b border-paper-line px-4 py-3 last:border-b-0">
+      {header}
+      <div className="mt-2">{body}</div>
+    </div>
+  )
+}
+
 function PicksSection({
   season,
   contestants,
@@ -2630,9 +2831,6 @@ function PicksSection({
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [errors, setErrors] = useState<Map<string, string>>(new Map())
   const [editing, setEditing] = useState(false)
-  // Past ballots are reference, not this week's decision — folded away behind
-  // the card's footer.
-  const [pastOpen, setPastOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -2750,112 +2948,11 @@ function PicksSection({
   const currentEp =
     weekly.find(isOpen) ??
     weekly.find((ep) => episodeClosed(ep) && ep.status !== 'scored')
-  // Past = actually closed. `!isOpen` would sweep in every FUTURE episode,
-  // since only one episode is ever open.
-  const closedEpisodes = weekly
-    .filter((ep) => episodeClosed(ep) && ep.id !== currentEp?.id)
-    .reverse()
-
-  // Shared by the current locked episode and every past row.
-  function episodeRow(ep: Episode, current: boolean) {
-    const picks = picksByEpisode.get(ep.id) ?? []
-    const scored = ep.status === 'scored'
-    // The doubled ballot wears the ×2 idol once (#484): a corner-seal stamp on
-    // the prominent current ballot, a small inline seal by the episode number on
-    // the compact Past Ballots rows. The per-pick earnings chips still name
-    // which vote the double paid on.
-    const ballotDoubled = plays.some(
-      (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
-    )
-    const header = (
-      <div className="flex items-center gap-2">
-        <EpisodeLabel
-          episode={ep}
-          className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}
-          titleClassName="font-normal text-gray-500"
-        />
-        {!current && ballotDoubled && (
-          <DoubleBadge size={22} title="Double Ballot Points this episode" />
-        )}
-        {/* Never show the raw DB status — a locked, unscored episode said
-            "upcoming", the opposite of true (#272). */}
-        <span
-          className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-            scored ? 'bg-jade-50 text-jade-700' : 'bg-gold-50 text-gold-700'
-          }`}
-        >
-          {scored ? 'Scored' : 'Awaiting scoring'}
-        </span>
-      </div>
-    )
-    const body =
-      picks.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {picks.map((p) => {
-            const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
-            const pickC = contestantMap.get(p.contestant_id)
-            const name = pickC ? displayName(pickC) : '—'
-            // A ballot-wide double covers every pick (#303); pre-#303 plays
-            // named one contestant, so past seasons still pay out per-pick.
-            const doubled = plays.some(
-              (pl) =>
-                pl.episode_id === ep.id &&
-                pl.advantage_type === 'double_vote_points' &&
-                (pl.target_contestant_id === null ||
-                  pl.target_contestant_id === p.contestant_id),
-            )
-            // Only scored episodes have a settled result. A correct vote gets
-            // the CorrectVote pill; incorrect stays neutral, not red — most
-            // votes miss and a wall of red feels bad (#53, #135).
-            const isCorrect = scored && result?.correct === true
-            // Pick chip shows the BASE points; the double's own earnings render
-            // as a separate chip beside it (#136).
-            const votePoints = result && result.points > 0 ? result.points : undefined
-            return (
-              <span key={p.id} className="contents">
-                {isCorrect ? (
-                  <CorrectVote name={name} points={votePoints} />
-                ) : (
-                  <span className={`inline-flex items-center text-sm px-2 py-1 border rounded-md bg-white border-cream-200 ${scored ? 'text-gray-500' : 'text-gray-700'}`}>
-                    {name}
-                  </span>
-                )}
-                {doubled && isCorrect && votePoints != null && (
-                  <span className="text-sm px-2 py-1 border rounded-md bg-forest-50 border-forest-200 text-forest-700">
-                    Double Ballot Points <span className="font-semibold">+{votePoints}</span>
-                  </span>
-                )}
-              </span>
-            )
-          })}
-        </div>
-      ) : (
-        <p className="text-sm text-gray-500">No votes submitted</p>
-      )
-
-    return current ? (
-      <div key={ep.id} className="relative mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
-        {ballotDoubled && <BallotStamp size={48} />}
-        {header}
-        <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Ballot locked {formatCentral(ep.picks_lock_at)}
-        </p>
-        {body}
-      </div>
-    ) : (
-      // Flat record line inside the "Past Ballots" section (#478) — ruled like
-      // the rest of the record, not a grey card. The ×2 seal rides in the header.
-      <div key={ep.id} className="border-b border-paper-line px-4 py-3 last:border-b-0">
-        {header}
-        <div className="mt-2">{body}</div>
-      </div>
-    )
-  }
 
   const content = (
     <>
       <SealGhost drag={ballotDrag} />
-      {!currentEp && closedEpisodes.length === 0 && (
+      {!currentEp && (
         <Notice title="The season hasn’t started yet">
           Once the commissioner schedules the first episode, your roster and the weekly play show up here.
         </Notice>
@@ -3143,7 +3240,16 @@ function PicksSection({
           )
         })()}
 
-      {currentEp && !isOpen(currentEp) && episodeRow(currentEp, true)}
+      {currentEp && !isOpen(currentEp) && (
+        <BallotRecord
+          ep={currentEp}
+          picks={picksByEpisode.get(currentEp.id) ?? []}
+          pickResults={pickResults}
+          plays={plays}
+          contestants={contestants}
+          current
+        />
+      )}
     </>
   )
 
@@ -3155,36 +3261,6 @@ function PicksSection({
         title="My Ballot"
         icon={<BallotIcon />}
         right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} onBand />}
-        footer={
-          closedEpisodes.length > 0 ? (
-            <>
-            <button
-              type="button"
-              onClick={() => setPastOpen((o) => !o)}
-              aria-expanded={pastOpen}
-              className="lane-card__foot"
-            >
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-terracotta-700">
-                Past ballots
-              </span>
-              <span className="ml-auto text-xs font-semibold text-terracotta-500">
-                {closedEpisodes.length} episode{closedEpisodes.length === 1 ? '' : 's'}
-              </span>
-              <span
-                className={`flex-none text-terracotta-600 transition-transform ${pastOpen ? 'rotate-90' : ''}`}
-                aria-hidden="true"
-              >
-                <ChevronRightIcon className="size-4" />
-              </span>
-            </button>
-            {pastOpen && (
-              <div className="border-t border-paper-line">
-                {closedEpisodes.map((ep) => episodeRow(ep, false))}
-              </div>
-            )}
-            </>
-          ) : undefined
-        }
       >
         <div className="px-4 py-3.5">
           {play.error && (
