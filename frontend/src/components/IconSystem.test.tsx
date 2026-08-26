@@ -20,15 +20,17 @@ describe('approved icon system', () => {
     expect(big).toHaveStyle({ width: '60px', height: '60px' })
   })
 
-  it('marks a cast ballot with a clean, decorative slip-and-check icon', () => {
+  it('marks a cast ballot with a decorative written-slip icon', () => {
     const { container, rerender } = render(<VoteMark className="h-5 w-5" />)
     let ballot = container.querySelector('svg')
 
     expect(ballot).toHaveAttribute('viewBox', '0 0 24 24')
     expect(ballot).toHaveAttribute('data-mark', 'ballot')
     expect(ballot).toHaveAttribute('aria-hidden', 'true')
-    expect(ballot?.querySelectorAll('rect')).toHaveLength(1)
-    expect(ballot?.querySelectorAll('path')).toHaveLength(1)
+    // The slip and the scrawl across it — no rect, which is what made the old
+    // mark read as a checkbox.
+    expect(ballot?.querySelectorAll('rect')).toHaveLength(0)
+    expect(ballot?.querySelectorAll('path')).toHaveLength(2)
 
     rerender(<VoteMark className="h-10 w-10" />)
     ballot = container.querySelector('svg')

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { BallotIcon, TeamBuffPairIcon } from './icons'
+import { TeamBuffPairIcon } from './icons'
+import { VoteMark } from './VoteMark'
 
 /**
  * My Season's lane furniture.
@@ -33,7 +34,7 @@ const LANE: Record<BeatKey, 'jade' | 'terracotta'> = {
  *  rather than a plain colour dot. */
 const LANE_ICON: Record<BeatKey, () => ReactNode> = {
   roster: () => <TeamBuffPairIcon className="w-[18px] h-[18px]" />,
-  ballot: () => <BallotIcon className="w-[18px] h-[18px]" />,
+  ballot: () => <VoteMark className="w-[18px] h-[18px]" />,
 }
 
 /**

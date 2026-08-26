@@ -175,16 +175,6 @@ export function TeamBuffPairIcon({ className = 'w-5 h-5' }: { className?: string
   )
 }
 
-/** The Ballot lane's mark: a marked slip. */
-export function BallotIcon({ className }: { className?: string } = {}) {
-  return (
-    <Svg className={className}>
-      <rect x="4" y="3" width="16" height="18" rx="2" />
-      <path d="M8.5 11.5l2.5 2.5 4.5-5.5" />
-    </Svg>
-  )
-}
-
 /** Season history — a clock turned back. */
 export function HistoryIcon({ className }: { className?: string } = {}) {
   return (
