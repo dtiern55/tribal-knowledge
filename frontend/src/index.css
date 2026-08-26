@@ -778,22 +778,43 @@ html.locked-night .contestant-avatar {
    same dark forest as the rest of the app, with a gold glint off one corner.
    While anything is still owed — most often an unplayed x2 — the whole card
    turns amber. Repainting the base rather than tinting a corner is the point:
-   this is meant to be read from across the room, before the headline. */
+   this is meant to be read from across the room, before the headline.
+
+   The two states cross-fade on stacked pseudo-elements because a gradient
+   can't be transitioned. `isolation` keeps them behind the hero's own content
+   without escaping behind the page; nothing inside the hero overlays the rest
+   of the page, so the stacking context it creates costs nothing. */
 .week-hero {
+  isolation: isolate;
+  box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
+}
+
+.week-hero::before,
+.week-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+}
+
+.week-hero::before {
   background:
     radial-gradient(circle at 92% 0%, rgb(212 145 58 / 32%), transparent 55%),
     linear-gradient(150deg, #25493b, #132e25);
-  box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
 }
 
 /* Deep burnt amber, not a bright one: the small labels sit on the lightest
    part of this card, and a mid-luminance orange put them under 3:1. */
-.week-hero[data-owed] {
+.week-hero::after {
+  opacity: 0;
   background:
     radial-gradient(ellipse 120% 90% at 85% -25%, rgb(240 200 120 / 30%), transparent 70%),
     linear-gradient(150deg, #8a4f16, #452508);
-  box-shadow: 0 6px 22px rgb(50 24 6 / 42%);
 }
+
+.week-hero[data-owed]::after { opacity: 1; }
+.week-hero[data-owed] { box-shadow: 0 6px 22px rgb(50 24 6 / 42%); }
 
 /* Gold ink vanishes on an amber card, so the type warms to cream. */
 .week-hero[data-owed] .hero-eyebrow,
@@ -817,10 +838,67 @@ html.locked-night .contestant-avatar {
   color: #8a4f16;
 }
 
-html.locked-night .week-hero {
+@media (prefers-reduced-motion: no-preference) {
+  .week-hero,
+  .week-hero::after,
+  .week-hero .hero-eyebrow,
+  .week-hero .hero-eyebrow span,
+  .week-hero .hero-sub,
+  .week-hero .hero-points__label,
+  .week-hero .hero-points__total,
+  .week-hero .hero-lane,
+  .week-hero .hero-lane__label,
+  .week-hero .hero-lane__note,
+  .week-hero .hero-lane__check {
+    transition:
+      opacity 520ms ease,
+      color 520ms ease,
+      background-color 520ms ease,
+      border-color 520ms ease,
+      box-shadow 520ms ease;
+  }
+}
+
+/* The idol's two plays, as a panel under the lane. */
+.hero-menu {
+  overflow: hidden;
+  margin-top: 8px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 11px;
+  background: rgb(0 0 0 / 22%);
+}
+
+.hero-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--color-cream-100);
+  font-size: 14px;
+  text-align: left;
+}
+.hero-menu__item + .hero-menu__item {
+  border-top: 1px solid rgb(255 255 255 / 14%);
+}
+button.hero-menu__item:hover { background: rgb(255 255 255 / 8%); }
+
+/* RuleLink is forest ink for a paper page; on the hero it has to be cream. */
+.hero-menu__item a {
+  color: var(--color-cream-100);
+  text-decoration-color: rgb(242 233 219 / 45%);
+}
+.hero-menu__item a:hover { color: #fff; }
+
+/* Torchlight overrides both day states: at night the ember is atmosphere, not
+   a signal about what you owe. It paints the same layer they do. */
+html.locked-night .week-hero::before {
   background:
     radial-gradient(circle at 90% 0%, rgb(196 84 50 / 40%), transparent 55%),
     linear-gradient(150deg, #1a3a2e, #0a1613);
+}
+html.locked-night .week-hero::after { opacity: 0; }
+html.locked-night .week-hero {
   box-shadow:
     0 6px 22px rgb(5 12 9 / 50%),
     inset 0 0 0 1px rgb(242 233 219 / 6%);

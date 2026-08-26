@@ -1907,67 +1907,23 @@ function AdvantageLane({
         }
         icon={
           idle ? (
-            <span className="relative" onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}>
-              <button
-                type="button"
-                onPointerDown={start}
-                onClick={(e) => {
-                  // Keyboard activation only (detail 0); pointer taps come
-                  // through the drag's onTap so the menu doesn't double-toggle.
-                  if (e.detail === 0) setMenuOpen((o) => !o)
-                }}
-                disabled={weekly.busy}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-label="Play your advantage — drag onto a castaway or your ballot, or activate to choose"
-                style={{ opacity: dragging ? 0.3 : 1 }}
-                className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-gold-300 active:cursor-grabbing disabled:opacity-40"
-              >
-                <DoubleBadge size={32} title="Your advantage — play it" />
-              </button>
-              {menuOpen && (
-                <>
-                  <button
-                    type="button"
-                    aria-hidden="true"
-                    tabIndex={-1}
-                    onClick={() => setMenuOpen(false)}
-                    className="fixed inset-0 z-10 cursor-default"
-                  />
-                  <div
-                    role="menu"
-                    className="absolute left-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-paper-edge bg-white text-left shadow-lg"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false)
-                        onOpenRosterDouble()
-                      }}
-                      className="block w-full px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
-                    >
-                      Double a castaway
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false)
-                        onBeatChange('ballot')
-                        void weekly.replace('double_vote_points')
-                      }}
-                      className="block w-full border-t border-paper-line px-3 py-2 text-left text-sm text-paper-ink hover:bg-cream-100"
-                    >
-                      Double your ballot
-                    </button>
-                    <div className="border-t border-paper-line px-3 py-2">
-                      <RuleLink anchor="weekly-play">How the advantage works</RuleLink>
-                    </div>
-                  </div>
-                </>
-              )}
-            </span>
+            <button
+              type="button"
+              onPointerDown={start}
+              onClick={(e) => {
+                // Keyboard activation only (detail 0); pointer taps come
+                // through the drag's onTap so the menu doesn't double-toggle.
+                if (e.detail === 0) setMenuOpen((o) => !o)
+              }}
+              disabled={weekly.busy}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="Play your advantage — drag onto a castaway or your ballot, or activate to choose"
+              style={{ opacity: dragging ? 0.3 : 1 }}
+              className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-gold-300 active:cursor-grabbing disabled:opacity-40"
+            >
+              <DoubleBadge size={32} title="Your advantage — play it" />
+            </button>
           ) : (
             <span className={play ? '' : 'opacity-40 grayscale'}>
               <DoubleBadge
@@ -1978,6 +1934,44 @@ function AdvantageLane({
           )
         }
       />
+      {menuOpen && (
+        // A panel under the lane rather than a popover over the page. As an
+        // overlay it had to out-stack the roster beneath it, which fought the
+        // hero's own cross-fade; pushing the hero taller costs nothing and is
+        // a bigger tap target besides.
+        <div
+          role="menu"
+          onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
+          className="hero-menu"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuOpen(false)
+              onOpenRosterDouble()
+            }}
+            className="hero-menu__item"
+          >
+            Double a castaway
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuOpen(false)
+              onBeatChange('ballot')
+              void weekly.replace('double_vote_points')
+            }}
+            className="hero-menu__item"
+          >
+            Double your ballot
+          </button>
+          <div className="hero-menu__item">
+            <RuleLink anchor="weekly-play">How the advantage works</RuleLink>
+          </div>
+        </div>
+      )}
     </>
   )
 }
