@@ -3239,13 +3239,6 @@ function PicksSection({
   if (activeOnly) {
     return (
       <>
-      {/* The lock belongs to the whole lane, so it leads the panel — and back
-          on white it can wear its full urgency colouring again. */}
-      {nextOpen && (
-        <div className="flex justify-end border-b border-paper-line px-4 py-2">
-          <LockBadge lockAt={nextOpen.picks_lock_at} />
-        </div>
-      )}
       <div className="px-4 py-3.5">
         {play.error && (
           <p role="alert" className="mb-3 text-sm text-terracotta-600">
