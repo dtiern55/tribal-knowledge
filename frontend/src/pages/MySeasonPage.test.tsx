@@ -308,7 +308,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('heading', { name: 'Siga' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Nami' })).toBeVisible()
     expect(within(ballot).queryByText('Earlier Boot')).not.toBeInTheDocument()
-    expect(within(ballot).getByText('0 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('0 of 2 names written')
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
 
     expect(within(ballot).getAllByRole('button', { name: /^Vote for/ })).toHaveLength(18)
@@ -319,7 +319,7 @@ describe('MySeasonPage state shell', () => {
     // Selection is a tick, not a rank — votes are unordered and equally weighted
     expect(kenzie).toHaveAttribute('aria-pressed', 'true')
     expect(charlie).toHaveAttribute('aria-pressed', 'true')
-    expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
@@ -337,7 +337,7 @@ describe('MySeasonPage state shell', () => {
     })
 
     await user.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
-    expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
   })
 
@@ -703,12 +703,12 @@ describe('MySeasonPage state shell', () => {
 
     const ballot = await openBeat('Ballot')
     await userEvent.click(within(ballot).getByRole('button', { name: /Kenzie/ }))
-    expect(within(ballot).getByText('1 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('1 of 2 names written')
 
     // Panels stay mounted rather than unmounting, so the pick survives the trip.
     await openBeat('Tribe')
     const again = await openBeat('Ballot')
-    expect(within(again).getByText('1 of 2 selected')).toBeVisible()
+    expect(within(again).getByText(/names written/)).toHaveTextContent('1 of 2 names written')
   })
 
   // #401: this control was unreachable for a while — rendered only under a
@@ -867,6 +867,7 @@ describe('MySeasonPage state shell', () => {
 
     await screen.findByRole('heading', { name: 'Between episodes' })
     await user.click(screen.getByRole('button', { name: /^History/ }))
+    await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }))
 
     const dialog = await screen.findByRole('dialog')
@@ -949,6 +950,7 @@ describe('MySeasonPage state shell', () => {
       expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', '')
 
       await user.click(screen.getByRole('button', { name: /^History/ }))
+      await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
@@ -974,6 +976,7 @@ describe('MySeasonPage state shell', () => {
 
       await screen.findByRole('heading', { name: 'Between episodes' })
       await user.click(screen.getByRole('button', { name: /^History/ }))
+      await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )

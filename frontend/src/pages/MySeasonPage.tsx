@@ -26,14 +26,12 @@ import { RosterCard } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
-import { SectionShell } from '../components/SectionShell'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
-import { formatCentral } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
@@ -744,7 +742,6 @@ export function MySeasonPage() {
                   setPicking('double')
                   setBeat('roster')
                 }}
-                activeOnly
               />
             </div>
           </RecordPanel>
@@ -1522,8 +1519,15 @@ function HistorySheet({
   // Episodes and advantages were stacked blocks in one scroll (#545, #546),
   // which made the plays and the retired ledger read as an appendix to the
   // replays. They are two different questions, so they get two tabs.
-  const [tab, setTab] = useState<'episodes' | 'ballots' | 'advantages'>(
-    scoredEpisodes.length > 0 ? 'episodes' : closedBallots.length > 0 ? 'ballots' : 'advantages',
+  // Your own record — ballots, then plays — comes before the recaps, which are
+  // about the episode rather than about you.
+  const TABS = [
+    { key: 'ballots' as const, label: 'Ballots', count: closedBallots.length },
+    { key: 'advantages' as const, label: 'Advantages', count: spent.length },
+    { key: 'recaps' as const, label: 'Recaps', count: scoredEpisodes.length },
+  ]
+  const [tab, setTab] = useState<'ballots' | 'advantages' | 'recaps'>(
+    () => (TABS.find((t) => t.count > 0) ?? TABS[0]).key,
   )
 
   useEffect(() => {
@@ -1534,12 +1538,6 @@ function HistorySheet({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-
-  const TABS = [
-    { key: 'episodes' as const, label: 'Episodes', count: scoredEpisodes.length },
-    { key: 'ballots' as const, label: 'Ballots', count: closedBallots.length },
-    { key: 'advantages' as const, label: 'Advantages', count: spent.length },
-  ]
 
   function onKeyDown(e: React.KeyboardEvent) {
     const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
@@ -1552,7 +1550,7 @@ function HistorySheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end" role="presentation">
+    <div className="fixed inset-0 z-40 flex flex-col justify-end sm:justify-center sm:p-6" role="presentation">
       <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
@@ -1560,7 +1558,7 @@ function HistorySheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="history-title"
-        className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
+        className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
       >
         <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-cream-100 px-4 py-3">
           <h2
@@ -1615,41 +1613,6 @@ function HistorySheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div
-            id="history-panel-episodes"
-            role="tabpanel"
-            aria-labelledby="history-tab-episodes"
-            hidden={tab !== 'episodes'}
-          >
-            {scoredEpisodes.length > 0 ? (
-              <ul className="space-y-2">
-                {scoredEpisodes.map((episode) => (
-                  <li key={episode.id}>
-                    <button
-                      type="button"
-                      onClick={() => onReplay(episode)}
-                      disabled={replayLoading != null}
-                      className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-paper-edge bg-cream-100 p-3 text-left transition-colors hover:border-forest-400 hover:bg-forest-50 disabled:opacity-50"
-                    >
-                      <span className="min-w-0">
-                        <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
-                          {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
-                        </span>
-                        <span className="block text-xs text-paper-ink-faded">View your scored result</span>
-                      </span>
-                      <span className="shrink-0 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream-50">
-                        {replayLoading === episode.id ? 'Loading…' : 'Replay'}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-paper-ink-faded">No episodes have been scored yet.</p>
-            )}
-            {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
-          </div>
-
-          <div
             id="history-panel-ballots"
             role="tabpanel"
             aria-labelledby="history-tab-ballots"
@@ -1702,6 +1665,7 @@ function HistorySheet({
               <p className="text-sm text-paper-ink-faded">You have not spent an advantage yet.</p>
             )}
 
+
             {ledger.length > 0 && (
               <div className="mt-4">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1728,6 +1692,41 @@ function HistorySheet({
                 </ul>
               </div>
             )}
+          </div>
+
+          <div
+            id="history-panel-recaps"
+            role="tabpanel"
+            aria-labelledby="history-tab-recaps"
+            hidden={tab !== 'recaps'}
+          >
+            {scoredEpisodes.length > 0 ? (
+              <ul className="space-y-2">
+                {scoredEpisodes.map((episode) => (
+                  <li key={episode.id}>
+                    <button
+                      type="button"
+                      onClick={() => onReplay(episode)}
+                      disabled={replayLoading != null}
+                      className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-paper-edge bg-cream-100 p-3 text-left transition-colors hover:border-forest-400 hover:bg-forest-50 disabled:opacity-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-display text-sm font-semibold uppercase tracking-wide text-forest-800">
+                          {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
+                        </span>
+                        <span className="block text-xs text-paper-ink-faded">View your scored result</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-forest-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream-50">
+                        {replayLoading === episode.id ? 'Loading…' : 'Replay'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-paper-ink-faded">No episodes have been scored yet.</p>
+            )}
+            {replayError && <p role="alert" className="mt-2 text-sm text-terracotta-700">{replayError}</p>}
           </div>
         </div>
       </div>
@@ -2690,13 +2689,11 @@ function RosterSection({
                   right={
                     <span className="flex items-center gap-2 text-xs">
                       <Points value={rosterPoints.get(pick.contestant_id)} />
+                      {/* The penalty is itemised inside the breakdown, not
+                          hung off the name (#556 follow-on) — the total on the
+                          left already includes it. */}
                       <span className="text-paper-ink-faded">
                         ep {pick.active_from_episode}–{pick.active_until_episode}
-                        {pick.swap_penalty_points !== 0 && (
-                          <span className="ml-1 text-terracotta-500">
-                            · swap {pick.swap_penalty_points}
-                          </span>
-                        )}
                       </span>
                     </span>
                   }
@@ -2710,6 +2707,7 @@ function RosterSection({
                     activeUntil={pick.active_until_episode}
                     doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
                     episodeTitles={episodeTitles}
+                    swapPenalty={pick.swap_penalty_points}
                   />
                 </RosterCard>
               ))}
@@ -2720,6 +2718,29 @@ function RosterSection({
 }
 
 // ─── Picks section ──────────────────────────────────────────────────────────
+
+/**
+ * The masthead every ballot sheet wears: when it closes, which week it is, and
+ * the ask. Shared so the open ballot and the locked one are visibly the same
+ * piece of paper rather than two cards that happen to be adjacent.
+ */
+function BallotSheetHead({ ep, prompt }: { ep: Episode; prompt?: string }) {
+  return (
+    <>
+      <p className="ballot-sheet__eyebrow">
+        <LockLine lockAt={ep.picks_lock_at} />
+      </p>
+      {/* Prose spells the word out, per the EpisodeLabel rule — this is a
+          title, not a chip. */}
+      <h3 className="ballot-sheet__title">
+        {ep.is_finale ? 'The Finale' : `Episode ${ep.episode_number}`}
+      </h3>
+      {ep.title && <p className="ballot-sheet__subtitle">{ep.title}</p>}
+      <span className="ballot-sheet__rule" aria-hidden="true" />
+      {prompt && <p className="ballot-sheet__prompt">{prompt}</p>}
+    </>
+  )
+}
 
 /**
  * One episode's ballot as a record line: the votes, which ones came true, and
@@ -2750,84 +2771,101 @@ function BallotRecord({
   const ballotDoubled = plays.some(
     (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
   )
-  const header = (
-    <div className="flex items-center gap-2">
-      <EpisodeLabel
-        episode={ep}
-        className={current ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}
-        titleClassName="font-normal text-gray-500"
-      />
-      {!current && ballotDoubled && (
-        <DoubleBadge size={22} title="Double Ballot Points this episode" />
-      )}
-      {/* Never show the raw DB status — a locked, unscored episode said
-          "upcoming", the opposite of true (#272). */}
-      <span
-        className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-          scored ? 'bg-jade-50 text-jade-700' : 'bg-gold-50 text-gold-700'
-        }`}
-      >
-        {scored ? 'Scored' : 'Awaiting scoring'}
-      </span>
-    </div>
-  )
-  const body =
-    picks.length > 0 ? (
-      <div className="flex flex-wrap gap-2">
-        {picks.map((p) => {
-          const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
-          const pickC = contestantMap.get(p.contestant_id)
-          const name = pickC ? displayName(pickC) : '—'
-          // A ballot-wide double covers every pick (#303); pre-#303 plays named
-          // one contestant, so past seasons still pay out per-pick.
-          const doubled = plays.some(
-            (pl) =>
-              pl.episode_id === ep.id &&
-              pl.advantage_type === 'double_vote_points' &&
-              (pl.target_contestant_id === null || pl.target_contestant_id === p.contestant_id),
-          )
-          // Only scored episodes have a settled result. A correct vote gets the
-          // CorrectVote pill; incorrect stays neutral, not red — most votes miss
-          // and a wall of red feels bad (#53, #135).
-          const isCorrect = scored && result?.correct === true
-          // Pick chip shows the BASE points; the double's own earnings render as
-          // a separate chip beside it (#136).
-          const votePoints = result && result.points > 0 ? result.points : undefined
-          return (
-            <span key={p.id} className="contents">
-              {isCorrect ? (
-                <CorrectVote name={name} points={votePoints} />
-              ) : (
-                <span className={`inline-flex items-center text-sm px-2 py-1 border rounded-md bg-white border-cream-200 ${scored ? 'text-gray-500' : 'text-gray-700'}`}>
-                  {name}
-                </span>
-              )}
-              {doubled && isCorrect && votePoints != null && (
-                <span className="text-sm px-2 py-1 border rounded-md bg-forest-50 border-forest-200 text-forest-700">
-                  Double Ballot Points <span className="font-semibold">+{votePoints}</span>
-                </span>
-              )}
-            </span>
-          )
-        })}
+  // The ballot you are waiting on is the same sheet you filled in — the paper
+  // does not change at lock, only what you can do with it.
+  if (current)
+    return (
+      <div className="ballot-sheet">
+        {ballotDoubled && <BallotStamp size={48} />}
+        <BallotSheetHead ep={ep} />
+        {picks.length > 0 ? (
+          <div className="ballot-sheet__slips mb-4">
+            {picks.map((p, index) => {
+              const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
+              const pickC = contestantMap.get(p.contestant_id)
+              const name = pickC ? displayName(pickC) : '—'
+              // Only scored episodes have a settled result. A correct vote gets
+              // the CorrectVote pill; incorrect stays neutral, not red — most
+              // votes miss and a wall of red feels bad (#53, #135).
+              if (scored && result?.correct === true)
+                return (
+                  <CorrectVote
+                    key={p.id}
+                    name={name}
+                    points={result.points > 0 ? result.points : undefined}
+                  />
+                )
+              return (
+                <VoteSlip
+                  key={p.id}
+                  name={name}
+                  stale={
+                    pickC?.eliminated_in_episode != null &&
+                    pickC.eliminated_in_episode < ep.episode_number
+                  }
+                  tribeColor={pickC?.tribe_color}
+                  rotation={[-0.9, 0.6, -0.3][index % 3]}
+                />
+              )
+            })}
+          </div>
+        ) : (
+          <p className="mb-4 text-sm text-gray-500">No votes submitted</p>
+        )}
+        {/* Never show the raw DB status — a locked, unscored episode said
+            "upcoming", the opposite of true (#272). */}
+        <p
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs ${
+            scored ? 'bg-jade-50 text-jade-700' : 'bg-gold-50 text-gold-700'
+          }`}
+        >
+          {scored ? 'Scored' : 'Awaiting scoring'}
+        </p>
       </div>
-    ) : (
-      <p className="text-sm text-gray-500">No votes submitted</p>
     )
 
-  return current ? (
-    <div className="relative mb-6 p-4 bg-white border-2 border-forest-500 rounded-xl">
-      {ballotDoubled && <BallotStamp size={48} />}
-      {header}
-      <p className="text-xs text-gray-500 mt-0.5 mb-3">
-        Ballot locked {formatCentral(ep.picks_lock_at)}
-      </p>
-      {body}
-    </div>
-  ) : (
-    <div className="border-b border-paper-line px-4 py-3 last:border-b-0">
-      {header}
-      <div className="mt-2">{body}</div>
+  // A past ballot is a ledger line, not a card: episode, who you wrote down,
+  // and whether it has been scored, all on one row. The episode title is the
+  // first thing cut — the recap carries it, and this row only has to say
+  // which week it was.
+  return (
+    <div className="flex items-center gap-2 border-b border-paper-line px-4 py-2 last:border-b-0">
+      <span className="shrink-0 text-sm font-medium text-gray-700">
+        {ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`}
+      </span>
+      {ballotDoubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+        {picks.length === 0 ? (
+          <span className="text-sm text-gray-500">No votes</span>
+        ) : (
+          picks.map((p) => {
+            const result = pickResults.get(`${ep.id}:${p.contestant_id}`)
+            const pickC = contestantMap.get(p.contestant_id)
+            const name = pickC ? displayName(pickC) : '—'
+            // Same rule as the prominent ballot: correct votes get the pill,
+            // misses stay neutral rather than red (#53, #135). The ×2 badge in
+            // this row already says the ballot was doubled, so the per-pick
+            // double chip is dropped here.
+            return scored && result?.correct === true ? (
+              <span key={p.id} className="shrink-0">
+                <CorrectVote name={name} points={result.points > 0 ? result.points : undefined} />
+              </span>
+            ) : (
+              <span
+                key={p.id}
+                className={`shrink-0 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
+              >
+                {name}
+              </span>
+            )
+          })
+        )}
+      </span>
+      {!scored && (
+        <span className="shrink-0 rounded-full bg-gold-50 px-2 py-0.5 text-[11px] text-gold-700">
+          Awaiting
+        </span>
+      )}
     </div>
   )
 }
@@ -2840,7 +2878,6 @@ function PicksSection({
   plays,
   setPlays,
   pickResults,
-  activeOnly = false,
   onBallotSaved,
   onDragToRoster,
 }: {
@@ -2851,7 +2888,6 @@ function PicksSection({
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
-  activeOnly?: boolean
   onBallotSaved?: () => void
   /** Drag the ballot ×2 seal onto the Roster tab to move the play there (#487). */
   onDragToRoster?: () => void
@@ -3048,7 +3084,7 @@ function PicksSection({
           }
 
           return (
-            <div className={activeOnly ? 'relative' : 'relative mb-6 rounded-xl border-2 border-forest-500 bg-white p-4'}>
+            <div className="ballot-sheet">
               {ballotDoubled && (
                 <BallotStamp
                   onPointerDown={onDragToRoster ? startBallotDrag : undefined}
@@ -3056,27 +3092,19 @@ function PicksSection({
                   stamp={ballotStamped}
                 />
               )}
-              {!activeOnly && (
-                <h3 className="mb-1">
-                  <EpisodeLabel
-                    episode={ep}
-                    className="font-semibold text-gray-900"
-                    titleClassName="font-normal text-gray-500"
-                  />
-                </h3>
-              )}
+              <BallotSheetHead ep={ep} prompt={confirmed ? undefined : 'Who goes home tonight?'} />
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
                    sit above the votes themselves. */
-                <div className="mb-4">
-                  <p className="mb-3 flex items-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
+                <div className="mb-5">
+                  <p className="mb-4 flex items-center justify-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
                     <svg viewBox="0 0 24 24" className="size-4 flex-none" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
                     Ballot submitted
                   </p>
-                  <div className="flex flex-wrap items-start gap-3">
+                  <div className="ballot-sheet__slips">
                     {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
@@ -3098,7 +3126,7 @@ function PicksSection({
                     })}
                   </div>
                   {savedPicks.length < maxPicks && (
-                    <p className="mt-2 text-xs text-jade-700">
+                    <p className="mt-3 text-xs text-jade-700">
                       {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
                       {maxPicks - savedPicks.length} more before lock.
                     </p>
@@ -3106,25 +3134,13 @@ function PicksSection({
                 </div>
               ) : (
                 <>
-                  {/* The ×2 seal is pressed on this corner, so the counter has
-                      to clear it or the idol sits on top of "N of M selected". */}
-                  <div
-                    className={`mb-5 flex items-center justify-between gap-3 border-b border-cream-200 pb-3 text-sm ${
-                      ballotDoubled ? 'pr-16' : ''
-                    }`}
-                  >
-                    <span className="text-gray-600">Vote for up to {maxPicks} castaways</span>
-                    <span
-                      aria-live="polite"
-                      className={`shrink-0 font-semibold ${epPending.size === maxPicks ? 'text-jade-700' : 'text-forest-800'}`}
-                    >
-                      {epPending.size} of {maxPicks} selected
-                    </span>
-                  </div>
+                  <p aria-live="polite" className="ballot-sheet__count mb-5">
+                    <b>{epPending.size}</b> of {maxPicks} names written
+                  </p>
                   <div className="mb-5 space-y-6">
                     {[...byTribe.entries()].map(([tribeName, members]) => (
                       <div key={tribeName}>
-                        <div className="mb-3 flex items-center gap-2">
+                        <div className="mb-3 flex items-center justify-center gap-2">
                           {members[0].tribe_color && (
                             <span
                               className="tribe-marker"
@@ -3132,9 +3148,10 @@ function PicksSection({
                               aria-hidden="true"
                             />
                           )}
-                          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
+                          {/* h4, not h3 — the sheet's own title is the h3. */}
+                          <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
                             {tribeName}
-                          </h3>
+                          </h4>
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
@@ -3154,7 +3171,7 @@ function PicksSection({
                                     ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
                                     : maxed
                                       ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                                      : 'border-paper-edge bg-white/80 text-paper-ink hover:border-forest-300',
                                 ].join(' ')}
                               >
                                 <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
@@ -3176,52 +3193,9 @@ function PicksSection({
                 </>
               )}
 
-              {!activeOnly && !play.locked && (
-                <div className="mb-4 p-3 bg-forest-50 border border-forest-100 rounded-lg space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-forest-700">
-                    Your play · Ep {ep.episode_number}
-                  </p>
-                  {ballotDoubled ? (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">
-                        Every correct vote scores ×2
-                      </span>
-                      <button
-                        onClick={() => void play.takeBack(play.play!)}
-                        disabled={play.busy}
-                        className="text-xs text-forest-700 hover:text-forest-900 font-medium"
-                      >
-                        Take back
-                      </button>
-                    </div>
-                  ) : play.play ? (
-                    /* Spent elsewhere — say where, and how to get it back (#307). */
-                    <p className="text-sm text-gray-600">
-                      {play.play.advantage_type === 'roster_swap'
-                        ? 'Your play went on a roster swap this episode.'
-                        : `Your play is on ${
-                            (() => {
-                              const targetC = contestantMap.get(play.play!.target_contestant_id ?? '')
-                              return targetC ? displayName(targetC) : 'your roster'
-                            })()
-                          } this week — take it back on My Roster to use it here.`}
-                    </p>
-                  ) : (
-                    <button
-                      onClick={() => void play.spend('double_vote_points')}
-                      disabled={play.busy}
-                      className="w-full px-4 py-2 bg-forest-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-forest-700 transition-colors"
-                    >
-                      Double Ballot Points ×2
-                    </button>
-                  )}
-                  {play.error && <p className="text-terracotta-600 text-xs">{play.error}</p>}
-                </div>
-              )}
-
               {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
               {confirmed ? (
-                <div className="flex items-center justify-between">
+                <div className="flex justify-center">
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
@@ -3231,7 +3205,7 @@ function PicksSection({
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2">
+                <div className="mx-auto flex max-w-xs gap-2">
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}
@@ -3274,30 +3248,15 @@ function PicksSection({
     </>
   )
 
-  if (activeOnly) {
-    return (
-      <>
-      <div className="px-4 py-3.5">
-        {play.error && (
-          <p role="alert" className="mb-3 text-sm text-terracotta-600">
-            {play.error}
-          </p>
-        )}
-        {content}
-      </div>
-      </>
-    )
-  }
-
   return (
-    <SectionShell
-      title="Episode Ballots"
-      prominent
-      collapsible={false}
-      right={nextOpen && <LockBadge lockAt={nextOpen.picks_lock_at} />}
-    >
+    <div className="px-4 py-3.5">
+      {play.error && (
+        <p role="alert" className="mb-3 text-sm text-terracotta-600">
+          {play.error}
+        </p>
+      )}
       {content}
-    </SectionShell>
+    </div>
   )
 }
 

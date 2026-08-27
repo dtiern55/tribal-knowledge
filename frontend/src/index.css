@@ -636,6 +636,113 @@ html.locked-night .tribal-border {
    chip with a portrait in it read as a roster row, and the portrait is gone
    with it. The tribe still rides the left edge. Rotation is supplied per slip
    and remains stable across renders. */
+/* ── The ballot as a sheet of paper ────────────────────────────────────────
+   The Ballot beat was another rounded card on a page already full of them,
+   which is the wrong shape for the one place in the app where you write a
+   name down. So the card becomes the paper: a torn sheet with a ruled
+   margin, the week set in the brand face, and the ask in handwriting.
+
+   The deckle rides a ::before rather than sitting on the element, because a
+   clip-path on the element would also cut off the ×2 seal that hangs over
+   the top edge. `isolation` keeps the z-index:-1 layer above the lane's own
+   white background instead of behind it. */
+.ballot-sheet {
+  position: relative;
+  isolation: isolate;
+  padding: 26px 18px 22px;
+  text-align: center;
+}
+.ballot-sheet::before,
+.ballot-sheet::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+.ballot-sheet::before {
+  inset: 0;
+  z-index: -1;
+  background: var(--color-paper);
+  clip-path: polygon(
+    0 3px, 4% 0, 9% 4px, 15% 1px, 22% 5px, 30% 1px, 38% 4px, 46% 0, 55% 4px,
+    63% 1px, 71% 5px, 79% 1px, 87% 4px, 94% 0, 100% 3px,
+    100% calc(100% - 3px), 95% 100%, 88% calc(100% - 4px), 80% calc(100% - 1px),
+    72% calc(100% - 5px), 64% calc(100% - 1px), 56% calc(100% - 4px), 47% 100%,
+    39% calc(100% - 4px), 31% calc(100% - 1px), 23% calc(100% - 5px),
+    16% calc(100% - 1px), 10% calc(100% - 4px), 5% 100%, 0 calc(100% - 3px)
+  );
+}
+/* The ruled margin a printed ballot carries. Sits inside the sheet's padding,
+   so it never crosses anything. */
+.ballot-sheet::after {
+  inset: 13px 10px;
+  border: 1px solid var(--color-paper-edge);
+  opacity: 0.5;
+}
+
+.ballot-sheet__eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--color-stone-500);
+}
+/* The lock colours its own urgency, the way the LockBadge chip does. */
+.ballot-sheet__eyebrow [data-lock='soon'] { color: var(--color-gold-700); }
+.ballot-sheet__eyebrow [data-lock='imminent'] { color: var(--color-terracotta-600); }
+
+.ballot-sheet__title {
+  margin-top: 2px;
+  font-family: var(--font-brand);
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--color-forest-800);
+}
+.ballot-sheet__subtitle {
+  margin-top: 3px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--color-stone-600);
+}
+.ballot-sheet__rule {
+  display: block;
+  width: 56px;
+  height: 2px;
+  margin: 13px auto 15px;
+  background: var(--color-forest-600);
+  opacity: 0.35;
+}
+.ballot-sheet__prompt {
+  font-family: "Kalam", cursive;
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--color-forest-700);
+}
+.ballot-sheet__count {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-stone-600);
+}
+.ballot-sheet__count b { color: var(--color-forest-800); }
+
+/* Submitted votes are the point of the sheet, so they are set larger here
+   than the same slips are in the History ledger. */
+.ballot-sheet__slips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+}
+.ballot-sheet__slips .ballot-slip {
+  padding: 9px 20px;
+  font-size: 19px;
+  background: var(--color-cream-50);
+}
+
 .ballot-slip {
   display: inline-flex;
   align-items: center;
