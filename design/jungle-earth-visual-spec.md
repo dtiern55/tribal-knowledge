@@ -3,6 +3,9 @@
 **Status:** Approved direction for implementation
 **Last updated:** 2026-08-18
 
+> The painted-vs-flat question that #548 reopened is settled in
+> [`painted-direction.md`](painted-direction.md) — read that alongside this.
+
 ## Concept
 
 Tribal Knowledge should feel like a well-designed field guide to the game — not a skeuomorphic prop. The theme comes from **bold geometric typography, tribal-inspired border patterns, and a saturated earth-tone palette** rather than from textures or illustrations. Clean enough to maintain; characterful enough to be unmistakably Tribal Knowledge.
