@@ -1,7 +1,6 @@
 # Painted direction (#552)
 
-**Status:** Direction settled. Icon set settled. Surface treatment forked —
-"painted plaque" is the safe default, "one panel" is being explored on a branch.
+**Status:** Settled. Painted plaques, on the `painted-my-season` branch.
 **Last updated:** 2026-08-27
 **Issue:** [#552](https://github.com/dtiern55/tribal-knowledge/issues/552) — decide whether the painted identity survives the flat card layout
 
@@ -129,10 +128,27 @@ admins) from `resolveMySeasonState(...).kind === 'locked'`, but My Season picks
 its layout from the same call, so the theme and the lane stack are mutually
 exclusive. See [#554](https://github.com/dtiern55/tribal-knowledge/issues/554).
 
-## Open questions
+## Settled: the surface, and the ballot
 
-- Which of plaque / one panel ships. Both are on the `painted-my-season`
-  branch behind a preview toggle.
+**Painted plaques.** One panel was built and previewed alongside it and lost:
+it is a layout only the `open` state can hold, where the plaque is a surface
+that also paints the Tribal Council card and the other three states. The
+toggle, the panel CSS and `SurfaceToggle.tsx` came out once the call was made.
+
+**The ballot became paper.** A submitted vote was a dark green chip with the
+castaway's portrait in it, which read as a roster row — the roster is where you
+look at people, the ballot is where you write a name down. It is now a torn
+slip a step warmer than the card it sits on, name in Kalam, tribe carried by a
+pip. A brush-stroke version was drawn and rejected: paint standing in for paper
+in the one place the real object *is* paper.
+
+**Edit ballot lost its rectangle.** It wears the tapered stroke instead, the
+same mark the selected lane tab has, so the stroke means "this is the live one"
+wherever it appears.
+
+The filled gradient band and the pale tab washes were deleted rather than
+overridden — they belonged to the white card, and the tabs now sit on painted
+paper with the active one marked by a stroke.
 
 ## Settled: the rule family
 

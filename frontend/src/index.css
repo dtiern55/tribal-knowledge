@@ -623,30 +623,38 @@ html.locked-night .tribal-border {
   }
 }
 
-/* Submitted votes read as handwritten Tribal Council slips rather than
-   structured roster chips. Rotation is supplied per slip and remains stable
+/* A submitted vote is the object it represents: a torn slip with a name
+   written on it. The paper is a step warmer than the card it sits on — a cream
+   slip on a cream plaque has no edge — and the tribe rides as a pip rather
+   than a portrait, because the ballot is where you write a name down, not
+   where you look at people. Rotation is supplied per slip and stays stable
    across renders. */
 .ballot-slip {
   display: inline-flex;
   align-items: center;
-  /* Room for the castaway's portrait, set into the slip beside the name. */
-  gap: 9px;
-  border-left: 3px solid var(--ballot-tribe-color, var(--color-gold-500));
-  border-radius: 4px;
-  padding: 10px 18px;
-  background: #1e3a2f;
-  color: #f2e9db;
-  box-shadow: 1px 2px 5px rgb(0 0 0 / 12%);
+  gap: 8px;
+  border: 11px solid transparent;
+  border-image: url("./assets/painted-swatch-slip.webp") 46 fill / 11px / 0 repeat;
+  padding: 0 4px;
+  color: var(--color-ink);
   font-family: "Kalam", cursive;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.25;
   transform: rotate(var(--ballot-rotation, 0deg));
 }
 
+.ballot-slip__pip {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: var(--ballot-tribe-color, var(--color-gold-500));
+}
+
+/* A vote for someone already out. The slip stays; the name is struck. */
 .ballot-slip--stale {
-  border-left-color: var(--color-stone-400);
-  background: var(--color-stone-600);
-  color: rgb(242 233 219 / 70%);
+  color: var(--color-stone-600);
+  filter: saturate(0.7) brightness(0.98);
 }
 
 /* Weekly plays borrow the compact geometry of a rubber stamp: oversized
@@ -1009,21 +1017,6 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   align-items: stretch;
 }
 
-/* The strip carries the band's paint across its whole width, and an unselected
-   tab covers its share of it. Painting the selected tab instead left a visible
-   seam: a 120deg gradient run across a half-width tab lands on a different
-   colour than the same gradient run across the full-width band beneath it. */
-.lane-stack[data-lane='jade'] .lane-tabs {
-  background:
-    radial-gradient(circle at 96% 0%, rgb(212 145 58 / 16%), transparent 60%),
-    linear-gradient(120deg, #3c7e63, #2e6b52);
-}
-.lane-stack[data-lane='terracotta'] .lane-tabs {
-  background:
-    radial-gradient(circle at 96% 0%, rgb(212 145 58 / 14%), transparent 60%),
-    linear-gradient(120deg, #c45432, #9f4229);
-}
-
 .lane-tab {
   display: flex;
   flex: 1 1 0;
@@ -1048,22 +1041,14 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   justify-content: center;
 }
 
-/* Resting: a pale wash of the lane's own colour, so an unselected tab still
-   says which lane it is. */
-.lane-tab[data-lane='jade'] {
-  background: var(--color-jade-50);
-  color: #5a8571;
-}
-.lane-tab[data-lane='terracotta'] {
-  background: var(--color-terracotta-50);
-  color: #b07a63;
-}
+/* Resting: the lane's own colour in the ink alone. The pale wash and the
+   filled band went with the white card (#552) — the tabs sit on painted paper
+   now, and the active one is marked by a stroke rather than by paint. */
+.lane-tab[data-lane='jade'] { color: #5a8571; }
+.lane-tab[data-lane='terracotta'] { color: #b07a63; }
 
-/* Selected: the same paint as the band directly beneath it, so the two read as
-   one header with a tab raised out of it. */
 .lane-tab[aria-selected='true'] {
-  background: transparent;
-  color: #fff;
+  color: var(--color-forest-900);
 }
 
 .lane-tab[data-drag-over] {
@@ -1255,42 +1240,49 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
   border-image: url("./assets/points-brush-swatch.png") 46 fill / 14px / 0 repeat;
 }
 
-/* ── #552 preview: two painted surface treatments ─────────────────────────
-   TEMPORARY. Both are shipped behind the SurfaceToggle so the fork can be
-   judged on a deploy preview. Whichever wins, the loser's block and the
-   toggle come out before merge.
-
-   Shared by both: the hero is a forest plaque, and the lane tabs stop being a
-   filled gradient band. The active tab wears a tapered stroke in its lane's
-   colour instead, which frees the card to be painted paper all the way up. */
+/* ── My Season, painted (#552) ────────────────────────────────────────────
+   The hero is a forest plaque and the lane and history cards are cream ones,
+   so the page is made of painted slabs rather than rounded rectangles. The
+   lane tabs stop being a filled gradient band: the active tab wears a tapered
+   stroke in its lane's colour instead, which frees the card to be paper all
+   the way up. */
 .season-body {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
 }
 
-[data-surface] .week-hero {
+.week-hero {
   padding: 0;
-  box-shadow: none;
-}
-[data-surface] .week-hero {
   border: 13px solid transparent;
   border-radius: 0;
   border-image: url("./assets/points-brush-swatch.png") 46 fill / 13px / 0 repeat;
+  box-shadow: none;
 }
-/* The amber "still owed" state repaints the plaque rather than a gradient. */
-[data-surface] .week-hero::before,
-[data-surface] .week-hero::after { display: none; }
-[data-surface] .week-hero[data-owed] {
+/* The two states used to cross-fade on stacked pseudo-elements; the plaque
+   paints the card itself, so each state is its own swatch. */
+.week-hero::before,
+.week-hero::after { display: none; }
+.week-hero[data-owed] {
   border-image: url("./assets/painted-swatch-amber.webp") 46 fill / 13px / 0 repeat;
+  box-shadow: none;
 }
 
-[data-surface] .lane-stack .lane-tabs { background: none; }
-[data-surface] .lane-tab { position: relative; background: none; }
-[data-surface] .lane-tab[data-lane='jade'] { color: #5a8571; }
-[data-surface] .lane-tab[data-lane='terracotta'] { color: #b07a63; }
-[data-surface] .lane-tab[aria-selected='true'] { color: var(--color-forest-900); }
-[data-surface] .lane-tab[aria-selected='true']::after {
+.lane-stack,
+.history-card {
+  border: 14px solid transparent;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  border-image: url("./assets/painted-swatch-cream.webp") 46 fill / 14px / 0 repeat;
+}
+.lane-card__foot {
+  border-top-color: rgb(139 115 88 / 26%);
+  background: transparent;
+}
+
+.lane-tab { position: relative; }
+.lane-tab[aria-selected='true']::after {
   content: '';
   position: absolute;
   right: 12%;
@@ -1305,57 +1297,28 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
-[data-surface] .lane-tab[data-lane='jade'][aria-selected='true']::after { color: var(--color-jade-600); }
-[data-surface] .lane-tab[data-lane='terracotta'][aria-selected='true']::after { color: var(--color-terracotta-600); }
+.lane-tab[data-lane='jade'][aria-selected='true']::after { color: var(--color-jade-600); }
+.lane-tab[data-lane='terracotta'][aria-selected='true']::after { color: var(--color-terracotta-600); }
 
-/* ── plaque: three separate painted slabs ─────────────────────────────── */
-[data-surface='plaque'] .lane-stack,
-[data-surface='plaque'] .history-card {
-  border: 14px solid transparent;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  border-image: url("./assets/painted-swatch-cream.webp") 46 fill / 14px / 0 repeat;
-}
-[data-surface='plaque'] .lane-card__foot {
-  border-top-color: rgb(139 115 88 / 26%);
-  background: transparent;
-}
-
-/* ── panel: the cards dissolve into one slab ──────────────────────────── */
-[data-surface='panel'] .season-body {
-  gap: 0;
-  border: 14px solid transparent;
-  border-image: url("./assets/painted-swatch-cream.webp") 46 fill / 14px / 0 repeat;
-}
-[data-surface='panel'] .lane-stack,
-[data-surface='panel'] .history-card {
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  overflow: visible;
-}
-[data-surface='panel'] .lane-card__foot {
-  border-top: 0;
-  background: transparent;
-}
-/* Sections are divided by a rule rather than by an edge. */
-[data-surface='panel'] .lane-card__foot,
-[data-surface='panel'] .history-card {
+/* A control marked the way the selected lane tab is: the tapered stroke means
+   "this is the live one" wherever it appears, so a text action carries it
+   rather than a rounded rectangle that belongs to no part of this world. */
+.ruled-action {
   position: relative;
-  margin-top: 10px;
-  padding-top: 12px;
+  align-self: flex-start;
+  padding: 4px 4px 13px;
+  color: var(--color-terracotta-700);
+  font-size: 14px;
+  font-weight: 600;
 }
-[data-surface='panel'] .lane-card__foot::before,
-[data-surface='panel'] .history-card::before {
+.ruled-action::after {
   content: '';
   position: absolute;
-  top: 0;
   right: 0;
+  bottom: 2px;
   left: 0;
-  height: 9px;
-  background-color: var(--color-stone-400);
+  height: 8px;
+  background-color: var(--color-terracotta-600);
   -webkit-mask-image: url("./assets/rule-taper.svg");
   mask-image: url("./assets/rule-taper.svg");
   -webkit-mask-size: 100% 100%;
@@ -1363,31 +1326,5 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
-
-.surface-toggle {
-  position: fixed;
-  right: 12px;
-  bottom: calc(4.5rem + env(safe-area-inset-bottom));
-  z-index: 40;
-  display: flex;
-  overflow: hidden;
-  border: 1px solid var(--color-forest-700);
-  border-radius: 999px;
-  background: var(--color-forest-600);
-  box-shadow: 0 4px 14px rgb(10 22 19 / 35%);
-}
-@media (min-width: 768px) { .surface-toggle { bottom: 12px; } }
-.surface-toggle__btn {
-  min-height: 36px;
-  padding: 0 13px;
-  color: rgb(242 233 219 / 62%);
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.surface-toggle__btn[aria-pressed='true'] {
-  background: var(--color-terracotta-600);
-  color: #fff;
-}
+.ruled-action:hover { color: var(--color-terracotta-800); }
+.ruled-action:hover::after { background-color: var(--color-terracotta-700); }

@@ -31,7 +31,6 @@ import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
-import { SurfaceToggle, useSurface } from '../components/SurfaceToggle'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
 import { formatCentral } from '../lib/time'
@@ -370,8 +369,6 @@ export function MySeasonPage() {
   // Doubling and swapping are both bought in Advantage and answered on the
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
-  // #552 preview: flips the painted surface treatment. Temporary.
-  const [surface, setSurface] = useSurface()
   const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
@@ -655,7 +652,7 @@ export function MySeasonPage() {
       {state.kind === 'open' && (() => {
         const week = weekSummary(state.episode)
         return (
-        <div className="space-y-3.5" data-surface={surface}>
+        <div className="space-y-3.5">
           {/* The hero answers what you owe; the masthead still says whose
               season it is. The hero's own headline is a <p>, so this stays the
               page's one h1. */}
@@ -700,9 +697,6 @@ export function MySeasonPage() {
             />
           )}
 
-          {/* The lane and the history card are separate plaques under
-              `plaque`, and one continuous painted panel under `panel` — so
-              they are wrapped either way and the treatment is pure CSS. */}
           <div className="season-body">
           {/* Tabs and the lane they reveal share one border: a lane is one
               object again, the way the record's beats were (#396). */}
@@ -772,7 +766,6 @@ export function MySeasonPage() {
             replayError={replayError}
           />
           </div>
-          <SurfaceToggle value={surface} onChange={setSurface} />
         </div>
         )
       })()}
@@ -3100,15 +3093,6 @@ function PicksSection({
                             stale={stale}
                             tribeColor={sc?.tribe_color}
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
-                            avatar={
-                              <ContestantAvatar
-                                name={slipName}
-                                imageUrl={sc?.image_url ?? null}
-                                tribeColor={sc?.tribe_color ?? null}
-                                tribeName={sc?.tribe_name ?? null}
-                                size="sm"
-                              />
-                            }
                           />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
@@ -3243,7 +3227,7 @@ function PicksSection({
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
-                    className="rounded-lg border border-terracotta-600 px-4 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-50 hover:text-terracotta-800"
+                    className="ruled-action"
                   >
                     Edit ballot
                   </button>
@@ -3466,7 +3450,7 @@ function FinaleBallot({
                 setEditing(true)
                 setSaved(false)
               }}
-              className="mt-4 px-4 py-1.5 text-sm font-medium text-jade-800 bg-white border border-jade-300 rounded-lg hover:bg-jade-100 transition-colors"
+              className="ruled-action mt-4"
             >
               Edit ballot
             </button>
