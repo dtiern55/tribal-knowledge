@@ -1019,16 +1019,27 @@ html.locked-night .hero-points { filter: brightness(0.9); }
    same document — which is what the one-sheet record (#396) had and the first
    draft of this redesign lost. */
 
+/* The card is paper rather than white (#552). Everything structural about it
+   is unchanged — the rectangle, the radius, the hairline border, the drop
+   shadow, the crisp tab band — but pure white was the one colour in the app
+   that belonged to no part of the Jungle Earth palette, and the green band
+   sits better on a warm ground than it ever did on white.
+
+   The weave is the middle of `points-brush-swatch.png`, made seamless and
+   carried in the alpha channel, so it composites over the paper colour with
+   plain alpha and needs no blend mode. */
 .lane-stack {
   overflow: hidden;
-  border: 1px solid #cbd8ce;
+  border: 1px solid #d9cdb4;
   border-radius: 15px;
-  background: #fff;
-  box-shadow: 0 6px 20px rgb(20 40 30 / 16%);
+  background-color: #f7f1e4;
+  background-image: url("./assets/paper-weave.webp");
+  background-size: 128px 128px;
+  box-shadow: 0 6px 20px rgb(58 40 20 / 15%);
 }
 .lane-stack[data-lane='terracotta'] {
-  border-color: #e3c8bd;
-  box-shadow: 0 6px 20px rgb(40 20 15 / 14%);
+  border-color: #ddc9b8;
+  box-shadow: 0 6px 20px rgb(58 34 20 / 14%);
 }
 
 /* A lit row's halo has to be allowed out, which the stack otherwise clips. */
@@ -1080,12 +1091,14 @@ html.locked-night .hero-points { filter: brightness(0.9); }
 
 /* Resting: a pale wash of the lane's own colour, so an unselected tab still
    says which lane it is. */
+/* The wash is mixed into the card's own paper rather than taken from the cool
+   -50 tints, which read blue-ish once the card stopped being white. */
 .lane-tab[data-lane='jade'] {
-  background: var(--color-jade-50);
+  background: color-mix(in srgb, var(--color-jade-600) 7%, #f7f1e4);
   color: #5a8571;
 }
 .lane-tab[data-lane='terracotta'] {
-  background: var(--color-terracotta-50);
+  background: color-mix(in srgb, var(--color-terracotta-600) 7%, #f7f1e4);
   color: #b07a63;
 }
 
@@ -1114,13 +1127,15 @@ html.locked-night .lane-tab:not([aria-selected='true']) {
   gap: 8px;
   width: 100%;
   padding: 10px 15px;
-  border-top: 1px solid #eef1ec;
-  background: #f7f4ef;
+  border-top: 1px solid #e4d8c7;
+  /* Translucent, so the card's own weave carries through the footer instead of
+     being covered by a second flat panel. */
+  background: rgb(139 115 88 / 7%);
   text-align: left;
 }
 .lane-stack[data-lane='terracotta'] .lane-card__foot {
-  border-top-color: #f0e2da;
-  background: #fbf1ec;
+  border-top-color: #ecdccd;
+  background: rgb(159 66 41 / 5%);
 }
 
 /* The team lane keeps its paper at night — the one page you can still read by
