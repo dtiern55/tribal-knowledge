@@ -22,18 +22,17 @@ describe('approved icon system', () => {
 
   it('marks a cast ballot with a decorative written-slip icon', () => {
     const { container, rerender } = render(<VoteMark className="h-5 w-5" />)
-    let ballot = container.querySelector('svg')
+    let ballot = container.querySelector('[data-mark="ballot"]')
 
-    expect(ballot).toHaveAttribute('viewBox', '0 0 24 24')
-    expect(ballot).toHaveAttribute('data-mark', 'ballot')
+    // Painted rather than drawn (#552) — an alpha mask filled with the
+    // surrounding colour, so it still themes and is still decorative.
     expect(ballot).toHaveAttribute('aria-hidden', 'true')
-    // The slip and the scrawl across it — no rect, which is what made the old
-    // mark read as a checkbox.
-    expect(ballot?.querySelectorAll('rect')).toHaveLength(0)
-    expect(ballot?.querySelectorAll('path')).toHaveLength(2)
+    expect(ballot).toHaveClass('h-5', 'w-5')
+    expect(ballot?.getAttribute('style')).toContain('background-color: currentcolor')
+    expect(ballot?.getAttribute('style')).toContain('mask-image: url(')
 
     rerender(<VoteMark className="h-10 w-10" />)
-    ballot = container.querySelector('svg')
+    ballot = container.querySelector('[data-mark="ballot"]')
     expect(ballot).toHaveClass('h-10', 'w-10')
   })
 
@@ -46,24 +45,22 @@ describe('approved icon system', () => {
       </>,
     )
 
-    const icons = container.querySelectorAll('svg')
-    expect(icons).toHaveLength(2)
+    // All three are painted masks (#552). The Cast buffs were the only icon
+    // drawn this way and the only one that read at 20px; the rest now match.
+    const icons = container.querySelectorAll('span[aria-hidden="true"]')
+    expect(icons).toHaveLength(3)
 
-    const palm = icons[0]
-    expect(palm).toHaveAttribute('aria-hidden', 'true')
-    expect(palm).toHaveAttribute('viewBox', '0 0 24 24')
-    expect(palm).toHaveAttribute('stroke', 'currentColor')
+    for (const icon of icons) {
+      expect(icon).toHaveClass('inline-block', 'h-5', 'w-5')
+      expect(icon.getAttribute('style')).toContain('background-color: currentcolor')
+      expect(icon.getAttribute('style')).toContain('mask-image: url(')
+    }
 
-    const torches = icons[1]
-    expect(torches).toHaveAttribute('aria-hidden', 'true')
-    expect(torches).toHaveAttribute('viewBox', '0 0 24 24')
-    expect(torches).toHaveAttribute('fill', 'currentColor')
-
-    const cast = container.querySelector('span[aria-hidden="true"]')
-    expect(cast).toHaveClass('inline-block', 'h-5', 'w-5')
-    expect(cast?.getAttribute('style')).toContain('background-color: currentcolor')
-    expect(cast?.getAttribute('style')).toContain('mask-image: url(')
-    expect(cast?.getAttribute('style')).toContain('mask-size: 128%')
+    // The Cast mask was drawn with more margin than the generated ones, so it
+    // alone is scaled up to sit at the same optical size.
+    expect(icons[0].getAttribute('style')).toContain('mask-size: 100%')
+    expect(icons[1].getAttribute('style')).toContain('mask-size: 100%')
+    expect(icons[2].getAttribute('style')).toContain('mask-size: 128%')
   })
 
   it('uses the recovered buff-pair drawing for the My Team lane', () => {

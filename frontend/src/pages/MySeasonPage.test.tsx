@@ -132,6 +132,46 @@ async function openBeat(name: 'Tribe' | 'Ballot' | 'Advantage') {
 describe('MySeasonPage state shell', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('waits for the roster and ballot before the hero claims anything', async () => {
+    // The hero's colour and headline are computed from the roster and this
+    // episode's picks, which load after the main fetch. Until they land an
+    // empty roster looks identical to an unset one, so the page used to open
+    // on an owed week and correct itself — a lie, briefly, every visit.
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2036-01-01T00:00:00Z'),
+    ]
+    let releaseRoster: (value: unknown) => void = () => {}
+    const rosterPending = new Promise((resolve) => {
+      releaseRoster = resolve
+    })
+
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.includes('/roster/')) return rosterPending
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    // The main fetch has resolved, but the roster has not — and nothing about
+    // the week is on screen yet.
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+    expect(screen.queryByText(/need you/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ballot is empty/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /this week/i })).not.toBeInTheDocument()
+
+    releaseRoster([
+      { id: 'r1', contestant_id: 'c1', active_until_episode: null },
+    ])
+
+    // And when it does appear it appears once, already correct.
+    const hero = await screen.findByRole('region', { name: /this week/i })
+    expect(within(hero).queryByText(/tribe both need you/i)).not.toBeInTheDocument()
+  })
+
   it('renders a locked composition without mounting editable Open controls', async () => {
     arrange([
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -284,10 +324,14 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
-    expect(within(ballot).getByText('Kenzie').closest('.ballot-slip')).toHaveStyle({
+    const slip = within(ballot).getByText('Kenzie').closest('.ballot-slip')
+    expect(slip).toHaveStyle({
       '--ballot-tribe-color': '#7651a1',
       '--ballot-rotation': '-0.7deg',
     })
+    // A vote is a name written down, not a person looked at (#552) — the tribe
+    // rides the slip's left edge and the portrait is gone.
+    expect(slip?.querySelector('.contestant-avatar')).toBeNull()
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
     })
