@@ -482,11 +482,19 @@ html.locked-night .braid-rule { opacity: 0.55; }
   transform: translateY(1px);
 }
 
-/* The signature section divider: alternating paint dashes lifted from the
-   same terracotta/gold palette, with real dry-brush transparency at the edge. */
+/* The signature mark, and now the only place it appears (#552): alternating
+   paint dashes with real dry-brush transparency at the edge.
+
+   Forest and gold rather than the terracotta and gold it was painted in. The
+   two inks are what make it read as dashed, and terracotta against gold
+   separates by only about 1.7 — worse, gold alone is 1.96 against the cream
+   ground, so half the rule was barely present. Forest is 9.10 against that
+   ground and 4.65 against the gold, which gives the mark a spine. The file is
+   the original brush, recoloured by hue rather than repainted, so the bristle
+   and the dry ends are still the ones somebody actually painted. */
 .tribal-border {
   height: 5px;
-  background-image: url("./assets/brush-divider.png");
+  background-image: url("./assets/brush-divider.webp");
   background-position: center;
   background-repeat: repeat-x;
   background-size: auto 5px;
@@ -721,7 +729,7 @@ html.locked-night .tribal-border {
   width: min(100%, 8rem);
   height: 3px;
   margin: 11px 0 7px;
-  background-image: url("./assets/brush-divider.png");
+  background-image: url("./assets/brush-divider.webp");
   background-position: center;
   background-repeat: repeat-x;
   background-size: auto 3px;
