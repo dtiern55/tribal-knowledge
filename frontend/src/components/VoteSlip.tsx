@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /** One submitted vote, treated like a handwritten Tribal Council slip. */
 export function VoteSlip({
@@ -6,11 +6,15 @@ export function VoteSlip({
   stale = false,
   tribeColor = null,
   rotation = 0,
+  avatar,
 }: {
   name: string
   stale?: boolean
   tribeColor?: string | null
   rotation?: number
+  /** The castaway's portrait, set into the slip — you wrote a person's name
+   *  down, so the slip shows the person (My Season redesign). */
+  avatar?: ReactNode
 }) {
   return (
     <span
@@ -22,6 +26,7 @@ export function VoteSlip({
         } as CSSProperties
       }
     >
+      {avatar}
       <span className={stale ? 'line-through' : undefined}>{name}</span>
     </span>
   )

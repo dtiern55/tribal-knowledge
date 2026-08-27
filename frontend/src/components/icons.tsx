@@ -4,7 +4,13 @@ import castMask from '../assets/cast-icon-mask.png'
 // Primary navigation uses custom Survivor-specific drawings. Utility controls
 // retain familiar conventional symbols. No icon dependency.
 
-function Svg({ children }: { children: React.ReactNode }) {
+function Svg({
+  children,
+  className = 'w-5 h-5',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -13,7 +19,7 @@ function Svg({ children }: { children: React.ReactNode }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="w-5 h-5"
+      className={className}
       aria-hidden="true"
     >
       {children}
@@ -144,6 +150,58 @@ export function LogOutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <path d="m16 17 5-5-5-5" />
       <path d="M21 12H9" />
+    </Svg>
+  )
+}
+
+/** The My Team lane's Survivor-specific mark: two castaways wearing buffs. */
+export function TeamBuffPairIcon({ className = 'w-5 h-5' }: { className?: string } = {}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M5.5 6.8c.2-2.5 1.7-4.1 4-4.1 2.5 0 4.1 1.7 4 4.3-.1 2.4-1.6 4.1-4 4.2-2.3.1-4.2-1.7-4-4.4Z" />
+      <path d="M5.8 6.2c2.2-.7 4.8-.7 7.4 0M6.6 4.8l-2-.7" />
+      <path d="M2.5 21c0-4.2 2.7-6.8 6.8-6.8 4.4 0 7 2.4 7.2 6.8" />
+      <path d="M15.2 3.6c2.6-.5 4.7 1.2 4.8 3.8.1 2.1-1.2 3.7-3.3 4.3M16 5.5c1.3-.4 2.6-.4 3.8.1M18 14.7c2.4.8 3.6 2.8 3.5 6.3" />
+    </svg>
+  )
+}
+
+/**
+ * Season history — days scratched off, the way a camp counts them.
+ *
+ * It replaced a clock with an arrow around it, which is the stock history
+ * glyph on every app ever built. A tally says the same thing in the show's own
+ * hand, and collides with nothing else in the set: torches are Standings,
+ * buffs are the Cast and your Tribe, a written slip is the Ballot.
+ *
+ * Three strokes and a slash rather than four and a slash: at the 18px the
+ * card actually uses, the fourth closes the gaps and the group turns to mush.
+ */
+export function HistoryIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <path d="M6.6 6.2v11.4" />
+      <path d="M12 6.2v11.4" />
+      <path d="M17.4 6.2v11.4" />
+      <path d="M5 17 19 6.8" />
+    </Svg>
+  )
+}
+
+/** Disclosure arrow for a row that opens something. */
+export function ChevronRightIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <path d="M9 6l6 6-6 6" />
     </Svg>
   )
 }

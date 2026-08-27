@@ -1,107 +1,17 @@
 import type { ReactNode } from 'react'
+import { TeamBuffPairIcon } from './icons'
+import { VoteMark } from './VoteMark'
 
 /**
- * My Season as one document (#396).
+ * My Season's lane furniture.
  *
- * The page used to be three containers stacked on a background, which is what
- * kept reading as disjointed no matter how evenly the headings were weighted:
- * the parts shared a heading style but never a surface. Roster, Ballot and
- * Advantage now sit on one sheet as ruled sections of a single record, so
- * there is nothing to be disjointed *between*.
+ * The page was one paper record with ruled sections (#396) — Roster and Ballot
+ * as divisions of a single document. The redesign gives each lane a colour and
+ * an object of its own instead: gold for the weekly advantage, jade for your
+ * team, terracotta for your ballot, carried from the hero's status tiles
+ * through these tabs into each card's header band. Nothing here knows what a
+ * lane contains; it only knows which colour it wears.
  */
-export function SeasonRecord({
-  children,
-  glowOut = false,
-}: {
-  children: ReactNode
-  /** Let a lit row's halo out of the record, which otherwise clips it. */
-  glowOut?: boolean
-}) {
-  return (
-    <div
-      className={`record-paper rounded-lg border border-paper-edge shadow-sm ${
-        glowOut ? 'stage-open' : 'overflow-hidden'
-      }`}
-    >
-      {children}
-    </div>
-  )
-}
-
-/** The record's masthead: whose season this is, and where it's up to. */
-export function RecordHead({
-  title,
-  meta,
-  right,
-}: {
-  title: string
-  meta?: ReactNode
-  right?: ReactNode
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 border-b-2 border-paper-edge px-4 py-3">
-      <div className="min-w-0">
-        <h1 className="font-display text-xl tracking-wide text-forest-800 md:text-2xl">{title}</h1>
-        {meta && (
-          <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-paper-ink-faded">
-            {meta}
-          </p>
-        )}
-      </div>
-      {right}
-    </div>
-  )
-}
-
-/**
- * A ruled section header inside the record.
- *
- * Deliberately a small letterspaced label rather than a display heading: these
- * are divisions of one document, not titles of three. It stays a real `h2` so
- * the page keeps its outline, and the section it labels is a landmark.
- */
-export function RecordSection({
-  title,
-  right,
-  note,
-  children,
-  bare = false,
-}: {
-  title: string
-  right?: ReactNode
-  /** A status line that shares the action's row rather than stacking under it
-   *  (#529). Bare mode only — with a heading there's no spare room. */
-  note?: ReactNode
-  children: ReactNode
-  /** Under the beat bar the tab IS the heading, so the section drops its own
-   *  and keeps only its action. */
-  bare?: boolean
-}) {
-  if (bare) {
-    return (
-      <div>
-        {(right || note) && (
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 pt-2">
-            {note}
-            {right && <span className="ml-auto shrink-0">{right}</span>}
-          </div>
-        )}
-        {children}
-      </div>
-    )
-  }
-  return (
-    <section aria-label={title}>
-      <div className="flex items-baseline gap-2 border-b-2 border-paper-edge bg-black/[.025] px-4 pt-2.5 pb-1.5">
-        <h2 className="text-xs font-extrabold uppercase tracking-[0.2em] text-paper-ink">
-          {title}
-        </h2>
-        {right && <span className="ml-auto">{right}</span>}
-      </div>
-      {children}
-    </section>
-  )
-}
 
 export type BeatKey = 'roster' | 'ballot'
 
@@ -110,23 +20,36 @@ export type Beat = {
   label: string
   /** Settled — nothing left to decide on this beat this week. */
   done: boolean
-  /** The week's advantage is resting on this beat. */
-  doubled?: boolean
   note: string
 }
 
+/** Each lane's colour and mark, carried from the hero through here into the
+ *  card each tab reveals. */
+const LANE: Record<BeatKey, 'jade' | 'terracotta'> = {
+  roster: 'jade',
+  ballot: 'terracotta',
+}
+
+/** The tab is the lane's only header now, so it carries the lane's icon
+ *  rather than a plain colour dot. */
+const LANE_ICON: Record<BeatKey, () => ReactNode> = {
+  roster: () => <TeamBuffPairIcon className="w-[18px] h-[18px]" />,
+  ballot: () => <VoteMark className="w-[18px] h-[18px]" />,
+}
+
 /**
- * The record's three beats (#396 follow-up).
+ * The record's two beats (#396 follow-up), now colour-coded lane tabs.
  *
- * Roster, Ballot and Advantage were three stacked sections of one sheet; they
- * are now one at a time under the masthead. Each tab carries only its settled
- * check and a small ×2 chip when the week's play rests on it — the idol itself
- * lives on its target (the doubled roster row / ballot seal), not here (#487).
- * Detailed state remains accessible to assistive technology without a second
- * visible row. The tabs double as cross-beat drop targets for the idol drag.
+ * They were ruled tabs on the record's paper, which made both lanes read the
+ * same until you got to the label. As filled pills in their lane's colour the
+ * active one names itself at a glance, and the inactive one still carries its
+ * lane dot and its settled check. The idol's ×2 chip is gone from the tabs —
+ * the idol lives on its target (the doubled roster row / ballot seal) and its
+ * status is in the hero's Advantage tile (#487).
  *
  * A real tablist: roving tabindex, arrow keys, and panels that stay mounted so
- * an unsaved ballot survives a look at the roster.
+ * an unsaved ballot survives a look at the roster. The tabs double as
+ * cross-beat drop targets for the idol drag.
  */
 export function RecordBeats({
   value,
@@ -148,61 +71,72 @@ export function RecordBeats({
   }
 
   return (
-    <div className="border-b border-paper-line">
-      <div
-        role="tablist"
-        aria-label="Season record"
-        onKeyDown={onKeyDown}
-        className="flex items-stretch"
-      >
-        {beats.map((b) => {
-          const active = b.key === value
-          return (
-            <button
-              key={b.key}
-              id={`beat-${b.key}`}
-              role="tab"
-              type="button"
-              aria-selected={active}
-              aria-controls={`panel-${b.key}`}
-              tabIndex={active ? 0 : -1}
-              onClick={() => onChange(b.key)}
-              data-drop-id={`beat:${b.key}`}
-              className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 border-b-2 px-2 text-center ${
-                active ? 'border-terracotta-600 text-terracotta-600' : 'border-transparent text-stone-500'
-              }`}
-            >
-              <span className="font-display text-base font-semibold uppercase tracking-[0.08em]">
-                {b.label}
-              </span>
-              {b.done && (
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 16 16"
-                  className="h-4 w-4 flex-none text-jade-600"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m3 8.5 3 3 7-8" />
-                </svg>
-              )}
-              {b.doubled && (
-                <span
-                  aria-hidden="true"
-                  className="ml-0.5 flex-none rounded-md border border-gold-600 bg-gold-400 px-1 py-0.5 font-display text-[0.7rem] font-bold leading-none text-gold-900"
-                >
-                  ×2
-                </span>
-              )}
-              <span className="sr-only">{b.note}</span>
-              <span className="sr-only">{b.done ? '— done' : ''}</span>
-            </button>
-          )
-        })}
-      </div>
+    <div role="tablist" aria-label="Season record" onKeyDown={onKeyDown} className="lane-tabs">
+      {beats.map((b) => {
+        const active = b.key === value
+        return (
+          <button
+            key={b.key}
+            id={`beat-${b.key}`}
+            role="tab"
+            type="button"
+            aria-selected={active}
+            aria-controls={`panel-${b.key}`}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(b.key)}
+            data-drop-id={`beat:${b.key}`}
+            data-lane={LANE[b.key]}
+            className="lane-tab"
+          >
+            <span className="lane-tab__icon" aria-hidden="true">{LANE_ICON[b.key]()}</span>
+            <span className="truncate">{b.label}</span>
+            {b.done && !active && (
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 16 16"
+                className="h-3.5 w-3.5 flex-none text-jade-600"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m3 8.5 3 3 7-8" />
+              </svg>
+            )}
+            <span className="sr-only">{b.note}</span>
+            <span className="sr-only">{b.done ? '— done' : ''}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Tabs and the lane they reveal, as one object.
+ *
+ * The redesign had them as separate stacked cards — a row of pills, a gap,
+ * then an elevated card — which lost what the one-sheet record (#396) got
+ * right: a lane read as a single thing you were looking at. They share a
+ * border again, with the active tab in its lane's colour running straight into
+ * that lane's header band, so the tab is the top edge of the card rather than a
+ * control floating above it.
+ */
+export function LaneStack({
+  lane,
+  glowOut = false,
+  children,
+}: {
+  /** The lane currently showing — colours the stack and its night treatment. */
+  lane: 'jade' | 'terracotta'
+  /** Let a lit row's halo out of the stack, which otherwise clips it. */
+  glowOut?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div className="lane-stack" data-lane={lane} data-glow={glowOut || undefined}>
+      {children}
     </div>
   )
 }

@@ -123,7 +123,7 @@ const auth = {
 }
 
 /** Switch to a beat and return its panel. The record shows one at a time. */
-async function openBeat(name: 'Roster' | 'Ballot' | 'Advantage') {
+async function openBeat(name: 'Tribe' | 'Ballot' | 'Advantage') {
   const re = new RegExp('^' + name)
   await userEvent.click(await screen.findByRole('tab', { name: re }))
   return screen.getByRole('tabpanel', { name: re })
@@ -198,7 +198,7 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const roster = await screen.findByRole('tabpanel', { name: /^Roster/ })
+    const roster = await screen.findByRole('tabpanel', { name: /^Tribe/ })
     const card = (await within(roster).findByText(/\+30/)).closest('li')!
     expect(within(card).getByText('Kenzie')).toBeVisible()
     // The bio moved to the Cast page (#406 review) — the roster row expands
@@ -216,12 +216,12 @@ describe('MySeasonPage state shell', () => {
     // Two beats now (#399) — the advantage idol rides the beat bar's chrome.
     const tabs = await screen.findAllByRole('tab')
     expect(tabs).toHaveLength(2)
-    expect(tabs[0]).toHaveTextContent(/^Roster/)
+    expect(tabs[0]).toHaveTextContent(/^Tribe/)
     expect(tabs[1]).toHaveTextContent(/^Ballot/)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     // The unplayed advantage idol is always on screen in the bar.
     expect(screen.getByRole('button', { name: /Play your advantage/ })).toBeVisible()
-    expect(screen.getByRole('tabpanel', { name: /^Roster/ })).toBeVisible()
+    expect(screen.getByRole('tabpanel', { name: /^Tribe/ })).toBeVisible()
     // The other two stay mounted (so an unsaved ballot survives) but hidden.
     expect(screen.queryByRole('tabpanel', { name: /^Ballot/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: 'Episode decisions' })).not.toBeInTheDocument()
@@ -325,7 +325,7 @@ describe('MySeasonPage state shell', () => {
 
     // The advantage lives in the persistent strip now (#399); the swap is still
     // started from the Roster beat, priced in points.
-    const roster = await openBeat('Roster')
+    const roster = await openBeat('Tribe')
     expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent(
       'free',
     )
@@ -374,17 +374,15 @@ describe('MySeasonPage state shell', () => {
     expect(
       await screen.findByRole('img', { name: /Double Castaway Points/ }),
     ).toBeInTheDocument()
-    // The Roster beat wears a lightweight ×2 chip — the idol lives on the target
-    // row now (#487).
-    const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
-    expect(rosterTab).toHaveTextContent('×2')
+    // The idol lives on the target row, not the tab (#487), and the tab no
+    // longer restates the play at all — that's the hero's Advantage tile.
+    const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })
+    expect(rosterTab).not.toHaveTextContent('×2')
     expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
 
-    // The prompt collapses to a slim confirmation naming the played double,
-    // with undo, once it's played (#399).
-    const confirmation = screen.getByRole('button', { name: 'Undo' }).closest('div')!
-    expect(confirmation).toHaveTextContent('Advantage played')
-    expect(confirmation).toHaveTextContent('Roster ×2 on Kenzie')
+    // The hero's Advantage tile is the played state now: checked, and naming
+    // where the ×2 landed.
+    expect(screen.getByText('×2 · Kenzie')).toBeVisible()
   })
 
   it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
@@ -418,12 +416,12 @@ describe('MySeasonPage state shell', () => {
     )
 
     renderWithApp(<MySeasonPage />, { auth })
-    const roster = await openBeat('Roster')
+    const roster = await openBeat('Tribe')
 
     // The seal on the doubled row (Kenzie) is the drag handle.
     const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
     const kenzieRow = within(roster).getByText('Kenzie').closest('[data-drop-id]')!
-    const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
+    const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })
     // The other row is the drop target; jsdom does no layout, so stub the one
     // primitive the drop hit-test relies on to point at Charlie's row.
     const charlieRow = within(roster).getByText('Charlie').closest('[data-drop-id]')!
@@ -437,13 +435,12 @@ describe('MySeasonPage state shell', () => {
     // disappearing during delete, and only then reappearing on Charlie.
     expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
     expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Castaway Points/ })).toBeVisible()
-    // The idol lives on the target now, not the tab (#487); the Roster tab keeps
-    // only the lightweight ×2 chip.
+    // The idol lives on the target now, not the tab (#487).
     expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
-    expect(rosterTab).toHaveTextContent('×2')
-    // The move is optimistic across the board (#487/#399): the bar idol's label
-    // names the new target immediately, not only after the delete+post lands.
-    expect(screen.getByRole('button', { name: 'Undo' }).closest('div')).toHaveTextContent('Charlie')
+    expect(rosterTab).not.toHaveTextContent('×2')
+    // The move is optimistic across the board (#487/#399): the hero's Advantage
+    // tile names the new target immediately, not only after delete+post lands.
+    expect(screen.getByText('×2 · Charlie')).toBeVisible()
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
@@ -454,7 +451,6 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
-    expect(screen.getByRole('button', { name: 'Undo' }).closest('div')).toHaveTextContent('Charlie')
   })
 
   it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {
@@ -484,7 +480,7 @@ describe('MySeasonPage state shell', () => {
     vi.mocked(api.delete).mockResolvedValue(undefined)
 
     renderWithApp(<MySeasonPage />, { auth })
-    const roster = await openBeat('Roster')
+    const roster = await openBeat('Tribe')
 
     const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
     const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
@@ -534,7 +530,7 @@ describe('MySeasonPage state shell', () => {
     const ballot = await openBeat('Ballot')
 
     const seal = await within(ballot).findByTitle(/Drag to the Roster tab/)
-    const rosterTab = screen.getByRole('tab', { name: /^Roster/ })
+    const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })
     document.elementFromPoint = () => rosterTab as Element
 
     fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
@@ -579,7 +575,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     // The swap starts on the roster now, and the header carries its price.
-    const rosterSection = await openBeat('Roster')
+    const rosterSection = await openBeat('Tribe')
     const swap = await within(rosterSection).findByRole('button', { name: /^Swap ·/ })
     expect(swap).toHaveTextContent('-10')
 
@@ -631,7 +627,7 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const roster = await openBeat('Roster')
+    const roster = await openBeat('Tribe')
     // No second swap this episode, but the one made is still reversible.
     expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
     expect(await within(roster).findByText(/Swapped this episode · -10/)).toBeVisible()
@@ -666,7 +662,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByText('1 of 2 selected')).toBeVisible()
 
     // Panels stay mounted rather than unmounting, so the pick survives the trip.
-    await openBeat('Roster')
+    await openBeat('Tribe')
     const again = await openBeat('Ballot')
     expect(within(again).getByText('1 of 2 selected')).toBeVisible()
   })
@@ -790,7 +786,7 @@ describe('MySeasonPage state shell', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Two torches snuffed')
-    expect(screen.getByRole('heading', { name: 'Roster' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Tribe' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Ballot' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Advantage' })).toBeVisible()
     expect(dialog).toHaveTextContent(/Up 3.*#2/)
@@ -826,7 +822,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     await screen.findByRole('heading', { name: 'Between episodes' })
-    await user.click(screen.getByRole('button', { name: /Episode History/ }))
+    await user.click(screen.getByRole('button', { name: /^History/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }))
 
     const dialog = await screen.findByRole('dialog')
@@ -908,7 +904,7 @@ describe('MySeasonPage state shell', () => {
       await screen.findByRole('heading', { name: 'Between episodes' })
       expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', '')
 
-      await user.click(screen.getByRole('button', { name: /Episode History/ }))
+      await user.click(screen.getByRole('button', { name: /^History/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
@@ -933,7 +929,7 @@ describe('MySeasonPage state shell', () => {
       )
 
       await screen.findByRole('heading', { name: 'Between episodes' })
-      await user.click(screen.getByRole('button', { name: /Episode History/ }))
+      await user.click(screen.getByRole('button', { name: /^History/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )

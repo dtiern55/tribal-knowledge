@@ -79,6 +79,12 @@
   --font-body: "Source Sans 3", system-ui, sans-serif;
   --font-sans: var(--font-body);
 
+  /* The page ground, deliberately outside the cream scale: cream-100 is also
+     the record paper and a dozen chips, and the ground has to sit a step below
+     those or an elevated card has nothing to lift off. */
+  --color-ground: #e9dcc3;
+  --color-ground-lift: #f2e7d2;
+
   --color-paper: #f2e9db;
   --color-paper-line: #e4d8c7;
   --color-paper-edge: #d5c4ad;
@@ -93,7 +99,7 @@ html {
      visible area so the page scrolls into empty filler past the fixed bottom
      bar. dvh tracks the visible viewport and matches the rest of the shell. */
   min-height: 100dvh;
-  background: var(--color-cream-100);
+  background: var(--color-ground);
   scroll-padding-top: 5rem;
 }
 
@@ -101,7 +107,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
-  background: var(--color-cream-100);
+  background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
@@ -137,7 +143,7 @@ body {
 .app-shell {
   background-image:
     radial-gradient(circle at 100% 0%, rgb(196 84 50 / 8%), transparent 62vw),
-    linear-gradient(180deg, #f5f0e6, #f2e9db);
+    linear-gradient(180deg, var(--color-ground-lift), var(--color-ground));
 }
 
 /* While an episode is locked and awaiting scoring, carry the torchlit night
@@ -623,6 +629,8 @@ html.locked-night .tribal-border {
 .ballot-slip {
   display: inline-flex;
   align-items: center;
+  /* Room for the castaway's portrait, set into the slip beside the name. */
+  gap: 9px;
   border-left: 3px solid var(--ballot-tribe-color, var(--color-gold-500));
   border-radius: 4px;
   padding: 10px 18px;
@@ -766,3 +774,403 @@ html.locked-night .contestant-avatar {
 @media (prefers-reduced-motion: reduce) {
   .tk-loader-fade { animation: none; }
 }
+
+/* ── My Season: This Week hero + colour-coded lanes ──────────────────────
+   Advantage = gold, Roster = jade, Ballot = terracotta. The same three
+   colours run from the hero tiles through the tabs into each card's header
+   band, so a lane is recognisable before you read its label. */
+
+/* The hero's resting state is green: the week is settled and the card is the
+   same dark forest as the rest of the app, with a gold glint off one corner.
+   While anything is still owed — most often an unplayed x2 — the whole card
+   turns amber. Repainting the base rather than tinting a corner is the point:
+   this is meant to be read from across the room, before the headline.
+
+   The two states cross-fade on stacked pseudo-elements because a gradient
+   can't be transitioned. `isolation` keeps them behind the hero's own content
+   without escaping behind the page; nothing inside the hero overlays the rest
+   of the page, so the stacking context it creates costs nothing. */
+.week-hero {
+  isolation: isolate;
+  box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
+}
+
+.week-hero::before,
+.week-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+}
+
+.week-hero::before {
+  background:
+    radial-gradient(circle at 92% 0%, rgb(212 145 58 / 32%), transparent 55%),
+    linear-gradient(150deg, #25493b, #132e25);
+}
+
+/* Deep burnt amber, not a bright one: the small labels sit on the lightest
+   part of this card, and a mid-luminance orange put them under 3:1. */
+.week-hero::after {
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 120% 90% at 85% -25%, rgb(240 200 120 / 30%), transparent 70%),
+    linear-gradient(150deg, #8a4f16, #452508);
+}
+
+.week-hero[data-owed]::after { opacity: 1; }
+.week-hero[data-owed] { box-shadow: 0 6px 22px rgb(50 24 6 / 42%); }
+
+/* Gold ink vanishes on an amber card, so the type warms to cream. */
+.week-hero[data-owed] .hero-eyebrow,
+.week-hero[data-owed] .hero-eyebrow span {
+  color: #ffe7bd;
+}
+.week-hero[data-owed] .hero-sub { color: rgb(248 242 232 / 85%); }
+.week-hero[data-owed] .hero-points__label { color: rgb(248 242 232 / 85%); }
+.week-hero[data-owed] .hero-points__total { color: #fff; }
+
+/* The advantage lane is a gold inset on green; on amber it has to read as a
+   recess instead, or it disappears into the card. */
+.week-hero[data-owed] .hero-lane {
+  border-color: rgb(255 255 255 / 30%);
+  background: rgb(56 28 6 / 30%);
+}
+.week-hero[data-owed] .hero-lane__label { color: #ffe7bd; }
+.week-hero[data-owed] .hero-lane__note { color: rgb(248 242 232 / 85%); }
+.week-hero[data-owed] .hero-lane__check {
+  background: #f8f2e8;
+  color: #8a4f16;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .week-hero,
+  .week-hero::after,
+  .week-hero .hero-eyebrow,
+  .week-hero .hero-eyebrow span,
+  .week-hero .hero-sub,
+  .week-hero .hero-points__label,
+  .week-hero .hero-points__total,
+  .week-hero .hero-lane,
+  .week-hero .hero-lane__label,
+  .week-hero .hero-lane__note,
+  .week-hero .hero-lane__check {
+    transition:
+      opacity 520ms ease,
+      color 520ms ease,
+      background-color 520ms ease,
+      border-color 520ms ease,
+      box-shadow 520ms ease;
+  }
+}
+
+/* The lock escalates in place: calm at a distance, gold inside a day, ember in
+   the final hour. Same thresholds as the LockBadge chip, which shares the
+   phrase — the hero prints the tail as running text instead of a pill. */
+.week-hero [data-lock='soon'] { color: var(--color-gold-200); }
+.week-hero [data-lock='imminent'] {
+  color: #f7ded4;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .week-hero [data-lock='imminent'] { animation: tk-lock-pulse 1.9s ease-in-out infinite; }
+}
+@keyframes tk-lock-pulse {
+  50% { opacity: 0.55; }
+}
+
+/* The idol's two plays, as a panel under the lane. */
+.hero-menu {
+  overflow: hidden;
+  margin-top: 8px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 11px;
+  background: rgb(0 0 0 / 22%);
+}
+
+.hero-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--color-cream-100);
+  font-size: 14px;
+  text-align: left;
+}
+.hero-menu__item + .hero-menu__item {
+  border-top: 1px solid rgb(255 255 255 / 14%);
+}
+button.hero-menu__item:hover { background: rgb(255 255 255 / 8%); }
+
+/* RuleLink is forest ink for a paper page; on the hero it has to be cream. */
+.hero-menu__item a {
+  color: var(--color-cream-100);
+  text-decoration-color: rgb(242 233 219 / 45%);
+}
+.hero-menu__item a:hover { color: #fff; }
+
+/* Torchlight overrides both day states: at night the ember is atmosphere, not
+   a signal about what you owe. It paints the same layer they do. */
+html.locked-night .week-hero::before {
+  background:
+    radial-gradient(circle at 90% 0%, rgb(196 84 50 / 40%), transparent 55%),
+    linear-gradient(150deg, #1a3a2e, #0a1613);
+}
+html.locked-night .week-hero::after { opacity: 0; }
+html.locked-night .week-hero {
+  box-shadow:
+    0 6px 22px rgb(5 12 9 / 50%),
+    inset 0 0 0 1px rgb(242 233 219 / 6%);
+}
+
+html.locked-night .hero-points { filter: brightness(0.9); }
+
+.hero-lane {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 12px;
+  padding: 8px 11px;
+  border: 1px solid rgb(212 145 58 / 50%);
+  border-radius: 11px;
+  background: rgb(212 145 58 / 16%);
+}
+
+.hero-lane[data-muted] { opacity: 0.55; }
+
+.hero-lane__icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-lane__label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f0d9a8;
+}
+
+.hero-lane__note {
+  display: block;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgb(242 233 219 / 60%);
+}
+
+.hero-lane__check {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #d4913a;
+  color: #132e25;
+}
+.hero-lane__check svg { width: 11px; height: 11px; }
+
+/* ── A lane: its tab and its card, as one object ──────────────────────────
+   The tab strip is the top edge of the card, not a control floating above it.
+   The active tab wears its lane's colour and runs straight into that lane's
+   header band, so switching lanes reads as turning to the other page of the
+   same document — which is what the one-sheet record (#396) had and the first
+   draft of this redesign lost. */
+
+.lane-stack {
+  overflow: hidden;
+  border: 1px solid #cbd8ce;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgb(20 40 30 / 16%);
+}
+.lane-stack[data-lane='terracotta'] {
+  border-color: #e3c8bd;
+  box-shadow: 0 6px 20px rgb(40 20 15 / 14%);
+}
+
+/* A lit row's halo has to be allowed out, which the stack otherwise clips. */
+.lane-stack[data-glow] { overflow: visible; }
+
+.lane-tabs {
+  display: flex;
+  align-items: stretch;
+}
+
+/* The strip carries the band's paint across its whole width, and an unselected
+   tab covers its share of it. Painting the selected tab instead left a visible
+   seam: a 120deg gradient run across a half-width tab lands on a different
+   colour than the same gradient run across the full-width band beneath it. */
+.lane-stack[data-lane='jade'] .lane-tabs {
+  background:
+    radial-gradient(circle at 96% 0%, rgb(212 145 58 / 16%), transparent 60%),
+    linear-gradient(120deg, #3c7e63, #2e6b52);
+}
+.lane-stack[data-lane='terracotta'] .lane-tabs {
+  background:
+    radial-gradient(circle at 96% 0%, rgb(212 145 58 / 14%), transparent 60%),
+    linear-gradient(120deg, #c45432, #9f4229);
+}
+
+.lane-tab {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lane-tab__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Resting: a pale wash of the lane's own colour, so an unselected tab still
+   says which lane it is. */
+.lane-tab[data-lane='jade'] {
+  background: var(--color-jade-50);
+  color: #5a8571;
+}
+.lane-tab[data-lane='terracotta'] {
+  background: var(--color-terracotta-50);
+  color: #b07a63;
+}
+
+/* Selected: the same paint as the band directly beneath it, so the two read as
+   one header with a tab raised out of it. */
+.lane-tab[aria-selected='true'] {
+  background: transparent;
+  color: #fff;
+}
+
+.lane-tab[data-drag-over] {
+  outline: 2px solid var(--color-gold-400);
+  outline-offset: -3px;
+}
+
+html.locked-night .lane-tab:not([aria-selected='true']) {
+  background: #132e25;
+  color: rgb(242 233 219 / 50%);
+}
+
+/* ── Lane footers ──────────────────────────────────────────────────────── */
+
+.lane-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 15px;
+  border-top: 1px solid #eef1ec;
+  background: #f7f4ef;
+  text-align: left;
+}
+.lane-stack[data-lane='terracotta'] .lane-card__foot {
+  border-top-color: #f0e2da;
+  background: #fbf1ec;
+}
+
+/* The team lane keeps its paper at night — the one page you can still read by
+   the fire, same conceit the roster ledger has always had. Warm-lit cream and
+   an ember glow instead of the daylight drop shadow; the ballot lane and the
+   rest of the chrome go dark around it. */
+html.locked-night .app-shell .lane-stack[data-lane='jade'] {
+  border-color: #cbbfa6;
+  background: #f5efe3;
+  box-shadow:
+    0 0 46px rgb(212 145 58 / 22%),
+    0 6px 22px rgb(5 12 9 / 50%);
+}
+html.locked-night .app-shell .lane-stack[data-lane='jade'] .lane-card__foot {
+  border-top-color: #e6ddcb;
+  background: rgb(28 25 23 / 4%);
+}
+/* ...which means the whole daylight palette has to survive inside it. The
+   shell's night overrides repaint ink cream for a dark ground; on the one lane
+   that stays lit that is cream on cream, so put the paper's own ink back. */
+html.locked-night .app-shell .lane-stack[data-lane='jade'] {
+  color: var(--color-paper-ink);
+}
+html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
+  .text-paper-ink, .text-gray-900, .text-gray-800, .text-forest-900, .text-forest-800
+) {
+  color: var(--color-paper-ink);
+}
+html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
+  .text-paper-ink-faded, .text-gray-700, .text-gray-600, .text-gray-500, .text-gray-400,
+  .text-forest-700
+) {
+  color: var(--color-paper-ink-faded);
+}
+html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
+  .text-gold-700, .text-gold-800, .text-gold-900
+) {
+  color: var(--color-gold-800);
+}
+html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
+  .bg-white, .bg-cream-50, .bg-gray-50, .bg-forest-50, .bg-jade-50
+) {
+  background-color: #fbf7ef;
+}
+html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
+  .border-paper-line, .border-paper-edge, .border-cream-100, .border-cream-200,
+  .border-gray-100, .border-forest-100
+) {
+  border-color: #e6ddcb;
+}
+
+/* Everything that isn't the team lane goes dark around it. */
+html.locked-night .app-shell .lane-stack[data-lane='terracotta'] {
+  border-color: rgb(242 233 219 / 12%);
+  background: #132e25;
+  box-shadow: 0 6px 22px rgb(5 12 9 / 50%);
+}
+html.locked-night .app-shell .lane-stack[data-lane='terracotta'] .lane-card__foot {
+  border-top-color: rgb(242 233 219 / 12%);
+  background: rgb(242 233 219 / 4%);
+}
+
+/* Season history, promoted out of the record into its own jade-tinted card. */
+.history-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-jade-200);
+  border-radius: 12px;
+  background: #eaf1ec;
+  text-align: left;
+}
+html.locked-night .app-shell .history-card {
+  border-color: rgb(242 233 219 / 12%);
+  background: #132e25;
+}
+/* Jade ink on the daylight card; on the night card it has to lift off the dark. */
+html.locked-night .app-shell .history-card .text-jade-700 { color: #9cc2ac; }
+html.locked-night .app-shell .history-card .text-jade-600 { color: var(--color-jade-400); }
+html.locked-night .app-shell .history-card .text-stone-500 { color: rgb(242 233 219 / 50%); }
+html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0a1613; }

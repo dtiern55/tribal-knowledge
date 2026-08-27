@@ -175,11 +175,11 @@ export function TeamPage() {
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
         <section>
-          <SectionShell title="Roster" prominent right={<SectionPoints value={player.roster_points} />}>
+          <SectionShell title="Tribe" prominent right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
-              <Notice title="Team details are still private">Roster and weekly-play choices unlock when rosters lock.</Notice>
+              <Notice title="Team details are still private">Tribe and weekly-play choices unlock when tribes lock.</Notice>
             ) : active.length === 0 ? (
-              <Notice title="No roster submitted">This player does not have an active roster yet.</Notice>
+              <Notice title="No tribe submitted">This player does not have an active tribe yet.</Notice>
             ) : (
               <RosterManifest>
                 {[...active]
@@ -255,7 +255,7 @@ export function TeamPage() {
 
           <SectionShell title="Advantages" prominent defaultOpen={scoredPlays.length > 0} right={<AdvantageEarned value={weeklyBonus} />}>
             {hidden ? (
-              <p className="text-sm text-gray-500">Advantages unlock with the roster.</p>
+              <p className="text-sm text-gray-500">Advantages unlock with the tribe.</p>
             ) : scoredPlays.length === 0 ? (
               <p className="text-sm text-gray-500">No advantages used yet.</p>
             ) : (

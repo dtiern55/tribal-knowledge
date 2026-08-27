@@ -76,7 +76,7 @@ describe('AdminPage current rules', () => {
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-1/score', {})
   })
 
-  it('lets the commissioner curate up to three scoterracotta-episode insights', async () => {
+  it('lets the commissioner curate up to three scored-episode insights', async () => {
     const user = userEvent.setup()
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -117,7 +117,7 @@ describe('AdminPage current rules', () => {
     await user.click(screen.getByLabelText(/Player vs league median/))
     await user.click(screen.getByLabelText(/Double Ballot Points usage/))
     expect(screen.getByText('3/3 added')).toBeVisible()
-    expect(screen.getByLabelText(/Roster Swap usage/)).toBeDisabled()
+    expect(screen.getByLabelText(/Tribe Swap usage/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Save reveal insights' }))
 
     expect(api.put).toHaveBeenCalledWith('/episodes/episode-1/insights', [

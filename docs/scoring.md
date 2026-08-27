@@ -86,7 +86,7 @@ remains meaningful.
 `finale_predictions` stores the three independent finale calls: early boot,
 fire-making loss, and winner. They resolve against finale `eliminations` and
 the winning contestant's placement using the season's prediction snapshot.
-Finale placement points earned by roster members remain roster points, not
+Finale placement points earned by tribe members remain tribe points, not
 finale-ballot points.
 
 ## Reconciliation and presentation
@@ -113,7 +113,11 @@ supported facts are:
   the share of submitted ballots that included them.
 - Submitted ballots with at least two correct elimination picks.
 - The viewer's episode score versus the median among season participants.
+<<<<<<< HEAD
 - League usage of Double Castaway Points, Double Vote Points, or Roster Swap.
+=======
+- League usage of Double Castaway Points, Double Vote Points, or Tribe Swap.
+>>>>>>> a1f58fa (Speak tribe, not roster, everywhere the player reads it)
 
 Configuration contains no aggregate values. Facts are calculated only through
 the authenticated scored-result endpoint and expose counts or percentages,

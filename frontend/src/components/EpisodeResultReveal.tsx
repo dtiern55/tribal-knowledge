@@ -174,9 +174,9 @@ export function EpisodeResultReveal({
         {/* ── Body: one dark scorecard ── */}
         <div className="px-4 py-5 sm:px-7 sm:py-6">
           <div className="space-y-3">
-            <ResultLane title="Roster" total={rosterLane} accent="roster">
+            <ResultLane title="Tribe" total={rosterLane} accent="roster">
               {result.roster.length === 0 && result.roster_adjustment_points === 0 ? (
-                <LaneEmpty>No active roster members scored this episode.</LaneEmpty>
+                <LaneEmpty>Nobody in your tribe scored this episode.</LaneEmpty>
               ) : (
                 <>
                   {result.roster.map((member) => (

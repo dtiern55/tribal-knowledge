@@ -42,6 +42,7 @@ export function RosterCard({
   dropId,
   dropActive = false,
   stamp = false,
+  prominent = false,
   children,
 }: {
   contestantId: string
@@ -91,6 +92,10 @@ export function RosterCard({
   dropActive?: boolean
   // Play a one-shot "stamp" as the seal lands here after a drag commit (#487).
   stamp?: boolean
+  // The My Team card's scale (My Season redesign): a 42px portrait and a
+  // larger name, so your own five read as people rather than manifest lines.
+  // Another player's team keeps the compact manifest row.
+  prominent?: boolean
   children?: ReactNode
 }) {
   const name = contestant ? displayName(contestant) : '—'
@@ -106,6 +111,9 @@ export function RosterCard({
   // replacement for the tribe — it rides as its own tag so the tribe stays
   // visible (#406 review).
   const note = outEp != null ? `Out · episode ${outEp}` : (contestant?.tribe_name ?? null)
+  // On the team card the doubled row says so in its own tribe line — the idol
+  // by the score is the mark, this is the words (My Season redesign).
+  const doubledNote = prominent && isDoubled && outEp == null
 
   // At row scale the idol rests near the points column, not as a tiny suffix on
   // the castaway's name. The tilt keeps it feeling hand-placed while preserving
@@ -119,6 +127,9 @@ export function RosterCard({
     onSealPointerDown ? (
       <span
         onPointerDown={onSealPointerDown}
+        // Grabbing the idol must not also expand the row underneath it:
+        // stopping the pointerdown doesn't stop the click that follows.
+        onClick={(e) => e.stopPropagation()}
         title="Drag to move the double to another castaway"
         className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg] cursor-grab touch-none transition-opacity active:cursor-grabbing"
         style={{ opacity: sealLifted ? 0.3 : 1 }}
@@ -139,6 +150,7 @@ export function RosterCard({
         imageUrl={contestant?.image_url ?? null}
         tribeColor={contestant?.tribe_color ?? null}
         tribeName={contestant?.tribe_name ?? null}
+        size={prominent ? 'lg' : 'md'}
       />
       {isSoleSurvivor && outEp == null && <SoleSurvivorFrame />}
       {ssDesignatable && (
@@ -188,9 +200,9 @@ export function RosterCard({
       <span className="min-w-0 text-left">
         <span className="flex items-center gap-2">
           <span
-            className={`min-w-0 truncate font-display text-base tracking-wide uppercase ${
-              outEp != null ? `text-paper-ink-faded ${ELIMINATED_STRIKE}` : 'text-paper-ink'
-            }`}
+            className={`min-w-0 truncate font-display uppercase ${
+              prominent ? 'text-[1.05rem] font-semibold' : 'text-base tracking-wide'
+            } ${outEp != null ? `text-paper-ink-faded ${ELIMINATED_STRIKE}` : 'text-paper-ink'}`}
           >
             {name}
           </span>
@@ -206,6 +218,14 @@ export function RosterCard({
                 />
               )}
               {note}
+              {doubledNote && ' · ×2 this week'}
+            </span>
+          )}
+          {/* Nobody has a tribe before the first one is set, so the doubled
+              note needs a home of its own when there's no tribe line. */}
+          {!note && doubledNote && (
+            <span className="inline-flex items-center text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
+              ×2 this week
             </span>
           )}
           {outEp == null && swappedInEpisode != null && (
@@ -248,7 +268,11 @@ export function RosterCard({
           dropActive
             ? 'ring-2 ring-inset ring-forest-500 bg-forest-50/70 -translate-y-px shadow-lg'
             : ''
-        } ${onSelect ? 'p-0' : `px-3 py-2.5 ${onToggle ? 'cursor-pointer' : ''}`}`}
+        } ${
+          onSelect
+            ? 'p-0'
+            : `${prominent ? 'px-4 py-2.5' : 'px-3 py-2.5'} ${onToggle ? 'cursor-pointer' : ''}`
+        }`}
         onClick={onSelect ? undefined : onToggle}
       >
         {onSelect ? (

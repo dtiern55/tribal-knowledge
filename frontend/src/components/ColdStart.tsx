@@ -29,7 +29,7 @@ export function ColdStart() {
       <p className="mt-2 text-sm leading-6 text-gray-600">
         {admin
           ? 'Once a season exists, commissioner tools open up and the league can start picking.'
-          : 'Your commissioner hasn’t started a season. Once they do, your roster and the weekly play show up here.'}
+          : 'Your commissioner hasn’t started a season. Once they do, your tribe and the weekly play show up here.'}
       </p>
       {admin && (
         <Link

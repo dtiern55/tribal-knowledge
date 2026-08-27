@@ -50,3 +50,22 @@ export function formatCentral(iso: string): string {
   })
   return `${s} CT`
 }
+
+export type LockState = 'locked' | 'imminent' | 'soon' | 'far'
+
+/**
+ * How far off a lock is, and how to say it (#56). Shared so the badge and the
+ * hero's sub-line escalate on the same thresholds instead of drifting apart —
+ * the text is the tail of "Locks ...", so callers supply their own verb.
+ */
+export function lockPhrase(
+  lockAt: string,
+  scored?: boolean,
+): { state: LockState; text: string } {
+  const ms = new Date(lockAt).getTime() - Date.now()
+  if (scored || ms <= 0) return { state: 'locked', text: 'Locked' }
+  const mins = Math.floor(ms / 60_000)
+  if (mins < 60) return { state: 'imminent', text: `in ${mins}m` }
+  if (mins < 24 * 60) return { state: 'soon', text: `in ${Math.floor(mins / 60)}h` }
+  return { state: 'far', text: formatCentral(lockAt) }
+}

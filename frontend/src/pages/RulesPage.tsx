@@ -170,7 +170,7 @@ export function RulesPage() {
       </nav>
 
       <div className="mt-8 space-y-8">
-        <RuleSection id="roster" title="Roster">
+        <RuleSection id="roster" title="Tribe">
           <RuleList>
             <li>Choose exactly {season.roster_size} castaways before {configuredEpisode(season.roster_lock_episode, 'the roster lock')} locks.</li>
             <li>You can replace the full roster before the roster lock.</li>
@@ -205,7 +205,7 @@ export function RulesPage() {
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Castaway Points</dt><dd className="mt-1">Double one active castaway's points for the episode.</dd></div>
                 <div className="py-3"><dt className="font-semibold text-gray-900">Double Ballot Points</dt><dd className="mt-1">Double all points earned from your ballot. This does not add a vote.</dd></div>
               </dl>
-              <p>Double plays can be changed or removed before the episode lock. Roster swaps are separate — they cost points, not this play.</p>
+              <p>Double plays can be changed or removed before the episode lock. Tribe swaps are separate — they cost points, not this play.</p>
             </div>
           )}
         </RuleSection>
@@ -228,7 +228,7 @@ export function RulesPage() {
         </RuleSection>
 
         <RuleSection id="scoring" title="Scoring">
-          <p className="text-sm leading-6 text-gray-700">Your total is roster points, weekly ballot points, and finale ballot points.</p>
+          <p className="text-sm leading-6 text-gray-700">Your total is tribe points, weekly ballot points, and finale ballot points.</p>
           <h3 className="mt-5 font-semibold text-gray-900">Roster scoring</h3>
           {rosterEvents.length > 0 ? (
             <ul className="mt-2 divide-y divide-cream-200 border-y border-cream-200">{rosterEvents.map((event) => <EventRow key={event.event_type} event={event} showTokens={usesTokens} />)}</ul>
@@ -236,9 +236,9 @@ export function RulesPage() {
             <p className="mt-2 text-sm text-gray-500">No roster scoring is available for this season.</p>
           )}
           <RuleList>
-            <li>Double Castaway Points is included in roster points.</li>
+            <li>Double Castaway Points is included in tribe points.</li>
             <li>Double Ballot Points is included in weekly ballot points.</li>
-            <li>Finale ballot points are scored separately from roster points.</li>
+            <li>Finale ballot points are scored separately from tribe points.</li>
           </RuleList>
         </RuleSection>
 
@@ -246,8 +246,8 @@ export function RulesPage() {
           <h3 className="font-semibold text-gray-900">Sole Survivor</h3>
           <RuleList>
             <li>Choose one castaway who is still in the game and on your active roster before {configuredEpisode(soleSurvivorLock)} locks.</li>
-            <li>The choice adds 50% of that castaway's finale roster points, rounded once.</li>
-            <li>If the castaway earns no finale roster points, the bonus is zero.</li>
+            <li>The choice adds 50% of that castaway's finale tribe points, rounded once.</li>
+            <li>If the castaway earns no finale tribe points, the bonus is zero.</li>
           </RuleList>
           <h3 className="mt-6 font-semibold text-gray-900">Finale ballot</h3>
           <RuleList>
