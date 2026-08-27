@@ -324,10 +324,14 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
-    expect(within(ballot).getByText('Kenzie').closest('.ballot-slip')).toHaveStyle({
+    const slip = within(ballot).getByText('Kenzie').closest('.ballot-slip')
+    expect(slip).toHaveStyle({
       '--ballot-tribe-color': '#7651a1',
       '--ballot-rotation': '-0.7deg',
     })
+    // A vote is a name written down, not a person looked at (#552) — the tribe
+    // rides the slip's left edge and the portrait is gone.
+    expect(slip?.querySelector('.contestant-avatar')).toBeNull()
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
     })

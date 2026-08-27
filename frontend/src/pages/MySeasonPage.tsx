@@ -3091,15 +3091,6 @@ function PicksSection({
                             stale={stale}
                             tribeColor={sc?.tribe_color}
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
-                            avatar={
-                              <ContestantAvatar
-                                name={slipName}
-                                imageUrl={sc?.image_url ?? null}
-                                tribeColor={sc?.tribe_color ?? null}
-                                tribeName={sc?.tribe_name ?? null}
-                                size="sm"
-                              />
-                            }
                           />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
                         </span>
@@ -3234,7 +3225,7 @@ function PicksSection({
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
-                    className="rounded-lg border border-terracotta-600 px-4 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-50 hover:text-terracotta-800"
+                    className="ruled-action"
                   >
                     Edit ballot
                   </button>
@@ -3457,7 +3448,7 @@ function FinaleBallot({
                 setEditing(true)
                 setSaved(false)
               }}
-              className="mt-4 px-4 py-1.5 text-sm font-medium text-jade-800 bg-white border border-jade-300 rounded-lg hover:bg-jade-100 transition-colors"
+              className="ruled-action mt-4"
             >
               Edit ballot
             </button>
