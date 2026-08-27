@@ -1,8 +1,50 @@
 import castMask from '../assets/cast-icon-mask.png'
+import palmMask from '../assets/icon-palm-mask.webp'
+import torchMask from '../assets/icon-torch-mask.webp'
+import tallyMask from '../assets/icon-tally-mask.webp'
 
 // Inline nav icons (#106): emoji rendered inconsistently across phones.
 // Primary navigation uses custom Survivor-specific drawings. Utility controls
 // retain familiar conventional symbols. No icon dependency.
+
+/**
+ * A painted icon: an alpha mask filled with `currentColor` (#552).
+ *
+ * The Cast buffs were the only icon drawn this way and they were the only ones
+ * that read at 20px, because a solid mass with a bitten edge survives the
+ * downscale where a 2px outline turns to wire. The rest of the primary set now
+ * matches: same technique, same weight, and they still take the nav's colour.
+ *
+ * `size` is the mask's own scale inside the box. The Cast mask carries more
+ * margin than the generated ones, so it needs 128% where they sit at 100%.
+ */
+function MaskIcon({
+  src,
+  size = '100%',
+  className = 'w-5 h-5',
+}: {
+  src: string
+  size?: string
+  className?: string
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`${className} inline-block`}
+      style={{
+        backgroundColor: 'currentColor',
+        WebkitMaskImage: `url(${src})`,
+        maskImage: `url(${src})`,
+        WebkitMaskSize: size,
+        maskSize: size,
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+      }}
+    />
+  )
+}
 
 function Svg({
   children,
@@ -28,55 +70,15 @@ function Svg({
 }
 
 export function PalmIcon() {
-  return (
-    <Svg>
-      <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
-      <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
-      <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" />
-      <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
-    </Svg>
-  )
+  return <MaskIcon src={palmMask} />
 }
 
 export function RankedTorchesIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="w-5 h-5"
-      aria-hidden="true"
-    >
-      <path d="M5 7.6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
-      <rect x="2.9" y="14.4" width="4.2" height="2.2" rx="1" />
-      <rect x="4.1" y="17.2" width="1.8" height="4.8" rx="0.9" />
-      <path d="M12 .6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
-      <rect x="9.9" y="7.4" width="4.2" height="2.2" rx="1" />
-      <rect x="11.1" y="10.2" width="1.8" height="11.8" rx="0.9" />
-      <path d="M19 4.6c1.3 1.6 1.9 2.8 1.9 3.9 0 1.3-.8 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.1.6-2.3 1.9-3.9z" />
-      <rect x="16.9" y="11.4" width="4.2" height="2.2" rx="1" />
-      <rect x="18.1" y="14.2" width="1.8" height="7.8" rx="0.9" />
-    </svg>
-  )
+  return <MaskIcon src={torchMask} />
 }
 
 export function BuffPairIcon() {
-  return (
-    <span
-      aria-hidden="true"
-      className="w-5 h-5 inline-block"
-      style={{
-        backgroundColor: 'currentColor',
-        WebkitMaskImage: `url(${castMask})`,
-        maskImage: `url(${castMask})`,
-        WebkitMaskSize: '128%',
-        maskSize: '128%',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-      }}
-    />
-  )
+  return <MaskIcon src={castMask} size="128%" />
 }
 
 export function BookIcon() {
@@ -187,14 +189,7 @@ export function TeamBuffPairIcon({ className = 'w-5 h-5' }: { className?: string
  * card actually uses, the fourth closes the gaps and the group turns to mush.
  */
 export function HistoryIcon({ className }: { className?: string } = {}) {
-  return (
-    <Svg className={className}>
-      <path d="M6.6 6.2v11.4" />
-      <path d="M12 6.2v11.4" />
-      <path d="M17.4 6.2v11.4" />
-      <path d="M5 17 19 6.8" />
-    </Svg>
-  )
+  return <MaskIcon src={tallyMask} className={className ?? 'w-5 h-5'} />
 }
 
 /** Disclosure arrow for a row that opens something. */

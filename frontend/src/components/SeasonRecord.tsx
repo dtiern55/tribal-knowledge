@@ -90,11 +90,14 @@ export function RecordBeats({
           >
             <span className="lane-tab__icon" aria-hidden="true">{LANE_ICON[b.key]()}</span>
             <span className="truncate">{b.label}</span>
-            {b.done && !active && (
+            {/* Kept mounted and merely hidden on the active tab: unmounting it
+                changed the tab's content width, so switching lanes nudged both
+                labels sideways (#552 preview feedback). */}
+            {b.done && (
               <svg
                 aria-hidden="true"
                 viewBox="0 0 16 16"
-                className="h-3.5 w-3.5 flex-none text-jade-600"
+                className={`h-3.5 w-3.5 flex-none text-jade-600 ${active ? 'invisible' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.25"

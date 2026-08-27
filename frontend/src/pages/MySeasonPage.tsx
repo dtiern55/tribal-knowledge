@@ -158,6 +158,18 @@ function useMySeasonData() {
   const [openPicks, setOpenPicks] = useState<EliminationPick[]>([])
   // Bumped by the ballot when it saves, so the Ballot beat's count follows.
   const [ballotVersion, setBallotVersion] = useState(0)
+  // The two fetches below are not part of `loading`, but the hero's headline
+  // and colour are computed from them: with an empty roster and no ballot the
+  // week reads as owed, so the page opened on "your ballot and tribe both need
+  // you" and corrected itself a moment later.
+  //
+  // These record *what* was fetched rather than *that* something was, because
+  // both effects run once with no season and would otherwise report ready
+  // before the real request had even started. Keying them this way also means
+  // a swap or a ballot save refetches without throwing the page back to the
+  // loader — the key has not changed, so it stays ready throughout.
+  const [rosterFor, setRosterFor] = useState<string | null>(null)
+  const [picksFor, setPicksFor] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -202,20 +214,24 @@ function useMySeasonData() {
   const openEp = season ? openEpisode(episodes, season) : undefined
   useEffect(() => {
     if (!season || !userId) return
+    const seasonId = season.id
     api
-      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`)
       .then(setRoster)
       .catch(() => setRoster([]))
+      .finally(() => setRosterFor(seasonId))
   }, [season, userId, rosterVersion])
   useEffect(() => {
     if (!openEp || !userId) {
       setOpenPicks([])
       return
     }
+    const episodeId = openEp.id
     api
-      .get<EliminationPick[]>(`/episodes/${openEp.id}/picks/${userId}`)
+      .get<EliminationPick[]>(`/episodes/${episodeId}/picks/${userId}`)
       .then(setOpenPicks)
       .catch(() => setOpenPicks([]))
+      .finally(() => setPicksFor(episodeId))
   }, [openEp?.id, userId, ballotVersion])
 
   return {
@@ -232,7 +248,12 @@ function useMySeasonData() {
     setPlays,
     rank,
     playerCount,
-    loading,
+    // Ready when there is nothing to fetch, or when what came back belongs to
+    // the season and episode now on screen.
+    loading:
+      loading ||
+      (Boolean(season) && Boolean(userId) && rosterFor !== season?.id) ||
+      (Boolean(openEp) && Boolean(userId) && picksFor !== openEp?.id),
     error,
     rosterVersion,
     bumpRoster: () => setRosterVersion((v) => v + 1),
