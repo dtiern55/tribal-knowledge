@@ -649,6 +649,28 @@ html.locked-night .tribal-border {
   color: rgb(242 233 219 / 70%);
 }
 
+/* A page title's rule (#552). The painted two-colour dash is the masthead's
+   signature and should appear once a screen; repeated under every page title
+   it stopped reading as a mark and started reading as packaging. A single
+   tapered stroke separates the header from the page without competing with it.
+
+   It paints `currentColor` through a mask, so it takes a colour from the
+   utility on the element and needs no per-colour asset. */
+.rule-taper {
+  display: block;
+  height: 9px;
+  flex: none;
+  background-color: currentColor;
+  -webkit-mask-image: url("./assets/rule-taper.svg");
+  mask-image: url("./assets/rule-taper.svg");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
 /* Weekly plays borrow the compact geometry of a rubber stamp: oversized
    multiplier, display label, patterned rule, and one plain status line. */
 .advantage-card {
