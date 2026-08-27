@@ -31,6 +31,7 @@ import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
+import { SurfaceToggle, useSurface } from '../components/SurfaceToggle'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
 import { formatCentral } from '../lib/time'
@@ -348,6 +349,8 @@ export function MySeasonPage() {
   // Doubling and swapping are both bought in Advantage and answered on the
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
+  // #552 preview: flips the painted surface treatment. Temporary.
+  const [surface, setSurface] = useSurface()
   const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
@@ -631,7 +634,7 @@ export function MySeasonPage() {
       {state.kind === 'open' && (() => {
         const week = weekSummary(state.episode)
         return (
-        <div className="space-y-3.5">
+        <div className="space-y-3.5" data-surface={surface}>
           {/* The hero answers what you owe; the masthead still says whose
               season it is. The hero's own headline is a <p>, so this stays the
               page's one h1. */}
@@ -676,6 +679,10 @@ export function MySeasonPage() {
             />
           )}
 
+          {/* The lane and the history card are separate plaques under
+              `plaque`, and one continuous painted panel under `panel` — so
+              they are wrapped either way and the treatment is pure CSS. */}
+          <div className="season-body">
           {/* Tabs and the lane they reveal share one border: a lane is one
               object again, the way the record's beats were (#396). */}
           <LaneStack lane={beat === 'roster' ? 'jade' : 'terracotta'} glowOut={stageOpen}>
@@ -743,6 +750,8 @@ export function MySeasonPage() {
             replayLoading={replayLoading}
             replayError={replayError}
           />
+          </div>
+          <SurfaceToggle value={surface} onChange={setSurface} />
         </div>
         )
       })()}

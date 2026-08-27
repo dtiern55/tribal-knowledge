@@ -1174,3 +1174,220 @@ html.locked-night .app-shell .history-card .text-jade-700 { color: #9cc2ac; }
 html.locked-night .app-shell .history-card .text-jade-600 { color: var(--color-jade-400); }
 html.locked-night .app-shell .history-card .text-stone-500 { color: rgb(242 233 219 / 50%); }
 html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0a1613; }
+
+/* ── Painted rules (#552) ─────────────────────────────────────────────────
+   The two-colour dash keeps one job — the masthead, where it is the brand
+   mark — and everywhere else a single-colour rule takes the colour of the
+   lane or section it belongs to. Repeated five times a screen the pairing
+   stopped reading as a signature; once a screen it reads as one again.
+
+   Each rule paints `currentColor` through a mask, so it tints like the icons
+   do and needs no per-colour asset. The marked ones repeat at their natural
+   size — stretching a tick across a container turns it into a smear. */
+.rule-taper,
+.rule-blot,
+.rule-lash,
+.rule-weave,
+.rule-deckle {
+  display: block;
+  flex: none;
+  background-color: currentColor;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
+/* Continuous: one stroke, stretched to whatever it has to divide. */
+.rule-taper,
+.rule-blot {
+  height: 9px;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+.rule-taper {
+  -webkit-mask-image: url("./assets/rule-taper.svg");
+  mask-image: url("./assets/rule-taper.svg");
+}
+.rule-blot {
+  -webkit-mask-image: url("./assets/rule-blot.svg");
+  mask-image: url("./assets/rule-blot.svg");
+}
+
+/* Marked: tiled, so a lashing stays a lashing at any width. */
+.rule-lash,
+.rule-weave,
+.rule-deckle {
+  height: 12px;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: auto 12px;
+  mask-size: auto 12px;
+}
+.rule-lash {
+  -webkit-mask-image: url("./assets/rule-lashing.svg");
+  mask-image: url("./assets/rule-lashing.svg");
+}
+.rule-weave {
+  -webkit-mask-image: url("./assets/rule-weave.svg");
+  mask-image: url("./assets/rule-weave.svg");
+}
+.rule-deckle {
+  -webkit-mask-image: url("./assets/rule-deckle.svg");
+  mask-image: url("./assets/rule-deckle.svg");
+}
+
+/* ── Painted surfaces (#552) ──────────────────────────────────────────────
+   A card is a painted slab rather than a rounded rectangle. The swatch is
+   nine-sliced with its middle tiled, so one asset covers every card at every
+   height with the bristle grain intact — and the border width IS the card's
+   padding, which is why it is 14px and not the 30px the slice suggests. */
+.painted {
+  border: 14px solid transparent;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.painted--cream {
+  border-image: url("./assets/painted-swatch-cream.webp") 46 fill / 14px / 0 repeat;
+}
+.painted--forest {
+  border-image: url("./assets/points-brush-swatch.png") 46 fill / 14px / 0 repeat;
+}
+
+/* ── #552 preview: two painted surface treatments ─────────────────────────
+   TEMPORARY. Both are shipped behind the SurfaceToggle so the fork can be
+   judged on a deploy preview. Whichever wins, the loser's block and the
+   toggle come out before merge.
+
+   Shared by both: the hero is a forest plaque, and the lane tabs stop being a
+   filled gradient band. The active tab wears a tapered stroke in its lane's
+   colour instead, which frees the card to be painted paper all the way up. */
+.season-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+[data-surface] .week-hero {
+  padding: 0;
+  box-shadow: none;
+}
+[data-surface] .week-hero {
+  border: 13px solid transparent;
+  border-radius: 0;
+  border-image: url("./assets/points-brush-swatch.png") 46 fill / 13px / 0 repeat;
+}
+/* The amber "still owed" state repaints the plaque rather than a gradient. */
+[data-surface] .week-hero::before,
+[data-surface] .week-hero::after { display: none; }
+[data-surface] .week-hero[data-owed] {
+  border-image: url("./assets/painted-swatch-amber.webp") 46 fill / 13px / 0 repeat;
+}
+
+[data-surface] .lane-stack .lane-tabs { background: none; }
+[data-surface] .lane-tab { position: relative; background: none; }
+[data-surface] .lane-tab[data-lane='jade'] { color: #5a8571; }
+[data-surface] .lane-tab[data-lane='terracotta'] { color: #b07a63; }
+[data-surface] .lane-tab[aria-selected='true'] { color: var(--color-forest-900); }
+[data-surface] .lane-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  right: 12%;
+  bottom: 4px;
+  left: 12%;
+  height: 8px;
+  background-color: currentColor;
+  -webkit-mask-image: url("./assets/rule-taper.svg");
+  mask-image: url("./assets/rule-taper.svg");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+[data-surface] .lane-tab[data-lane='jade'][aria-selected='true']::after { color: var(--color-jade-600); }
+[data-surface] .lane-tab[data-lane='terracotta'][aria-selected='true']::after { color: var(--color-terracotta-600); }
+
+/* ── plaque: three separate painted slabs ─────────────────────────────── */
+[data-surface='plaque'] .lane-stack,
+[data-surface='plaque'] .history-card {
+  border: 14px solid transparent;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  border-image: url("./assets/painted-swatch-cream.webp") 46 fill / 14px / 0 repeat;
+}
+[data-surface='plaque'] .lane-card__foot {
+  border-top-color: rgb(139 115 88 / 26%);
+  background: transparent;
+}
+
+/* ── panel: the cards dissolve into one slab ──────────────────────────── */
+[data-surface='panel'] .season-body {
+  gap: 0;
+  border: 14px solid transparent;
+  border-image: url("./assets/painted-swatch-cream.webp") 46 fill / 14px / 0 repeat;
+}
+[data-surface='panel'] .lane-stack,
+[data-surface='panel'] .history-card {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+[data-surface='panel'] .lane-card__foot {
+  border-top: 0;
+  background: transparent;
+}
+/* Sections are divided by a rule rather than by an edge. */
+[data-surface='panel'] .lane-card__foot,
+[data-surface='panel'] .history-card {
+  position: relative;
+  margin-top: 10px;
+  padding-top: 12px;
+}
+[data-surface='panel'] .lane-card__foot::before,
+[data-surface='panel'] .history-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 9px;
+  background-color: var(--color-stone-400);
+  -webkit-mask-image: url("./assets/rule-taper.svg");
+  mask-image: url("./assets/rule-taper.svg");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.surface-toggle {
+  position: fixed;
+  right: 12px;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-forest-700);
+  border-radius: 999px;
+  background: var(--color-forest-600);
+  box-shadow: 0 4px 14px rgb(10 22 19 / 35%);
+}
+@media (min-width: 768px) { .surface-toggle { bottom: 12px; } }
+.surface-toggle__btn {
+  min-height: 36px;
+  padding: 0 13px;
+  color: rgb(242 233 219 / 62%);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.surface-toggle__btn[aria-pressed='true'] {
+  background: var(--color-terracotta-600);
+  color: #fff;
+}

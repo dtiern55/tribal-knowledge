@@ -36,7 +36,9 @@ export function PageHeader({
           </div>
         )}
       </div>
-      <div className="tribal-border mt-5" aria-hidden="true" />
+      {/* The painted dash is the masthead's mark and appears once a screen
+          (#552); a page title gets a plain stone stroke instead. */}
+      <div className="rule-taper mt-5 text-stone-400" aria-hidden="true" />
     </header>
   )
 }

@@ -131,13 +131,35 @@ exclusive. See [#554](https://github.com/dtiern55/tribal-knowledge/issues/554).
 
 ## Open questions
 
-- **The terracotta/gold dash is overused.** Under "more painted" the same
-  two-colour rule ends up under the header, under page headers, between ledger
-  rows, under the active tab and inside cards. Repeated that often it reads as
-  fast-food branding rather than a signature. Needs a system of rules — likely
-  the two-colour dash reserved for the masthead, and single-colour brush rules
-  elsewhere whose colour says which lane or section they belong to.
-- Which of plaque / one panel ships.
+- Which of plaque / one panel ships. Both are on the `painted-my-season`
+  branch behind a preview toggle.
+
+## Settled: the rule family
+
+The painted two-colour dash was doing every dividing job — masthead, page
+titles, section breaks, row separators — and at five a screen it stopped
+reading as a signature. It now has exactly one job: the masthead, unchanged,
+`brush-divider.png` as it ships.
+
+Everywhere else a single-colour rule takes the colour of the lane or section
+it belongs to, so a divider says where you are instead of decorating. Each is
+`currentColor` painted through a mask, tinting like the icons and needing no
+per-colour asset.
+
+| Form | Job |
+| --- | --- |
+| Tapered stroke | The workhorse. Page titles in stone; a short one under the selected lane tab in that lane's colour, replacing #548's filled gradient band. |
+| Cord lashing | The most Survivor-specific mark in the set. Advantage / gold. |
+| Woven band | A heavier section break. |
+| Hairline and blot | A quiet rule with one loaded end. |
+| Torn band | The same bitten edge the plaques have, as a rule. |
+
+Brush ticks were drawn and cut — they read as noise at the sizes the app uses.
+
+Two implementation notes: marked rules (lashing, weave, torn band) **tile** at
+their natural size rather than stretching, or a mark turns into a smear; and
+the flat CSS `repeating-linear-gradient` in the Jungle Earth spec is *not* the
+shipped divider — the shipped one is painted, and it stays painted.
 
 ## Related findings
 
