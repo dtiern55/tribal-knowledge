@@ -143,11 +143,12 @@ export function TeamPage() {
   const episodeTitles = new Map(episodes.map((episode) => [episode.episode_number, episode.title]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((pick) => pick.active_until_episode === null)
+  const swappedOut = roster.filter((pick) => pick.active_until_episode !== null)
   const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
-  const swaps = roster.filter((pick) => pick.active_until_episode !== null).map((out) => ({
-    out,
-    into: roster.find((pick) => pick.active_from_episode === (out.active_until_episode ?? 0) + 1),
-  }))
+  // A swap's penalty books only once the episode it happened in has closed
+  // (matches My Season; penalties are 0 under the token-cost model).
+  const penaltyBooked = (pick: RosterPick) =>
+    episodes.some((e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e))
   const doubles = plays.filter((play) => play.advantage_type === 'double_vote_points')
   const scoredPlays = plays.filter((play) => play.episode_id !== null)
   const weeklyBonus = scoredPlays.reduce((total, play) => total + (play.points_earned ?? 0), 0)
@@ -201,23 +202,40 @@ export function TeamPage() {
                   ))}
               </RosterManifest>
             )}
-            {swaps.length > 0 && (
+            {swappedOut.length > 0 && (
               <div className="mt-6">
-                <SectionShell title="Swap history" defaultOpen={false}>
-                  <ul className="space-y-1.5 text-sm text-gray-600">
-                    {swaps.map(({ out, into }) => {
-                      const outC = contestantMap.get(out.contestant_id)
-                      const intoC = into ? contestantMap.get(into.contestant_id) : undefined
-                      return (
-                        <li key={out.id} className="flex items-center justify-between gap-2">
-                          <span>{outC ? displayName(outC) : '—'} → {into ? (intoC ? displayName(intoC) : '—') : '?'} <span className="text-gray-500">(episode {(out.active_until_episode ?? 0) + 1})</span></span>
-                          {/* What the swapped-out castaway banked while rostered,
-                              incl. any negative events — already inside the Tribe total. */}
-                          <Points value={rosterPoints.get(out.contestant_id)} />
-                        </li>
-                      )
-                    })}
-                  </ul>
+                {/* Swapped-out castaways read exactly like My Season's: a real
+                    roster card each — the points they banked while held, the
+                    episodes they were yours for, and a tap into their scoped
+                    per-episode breakdown. Not the flat out→into ledger. */}
+                <SectionShell title="Swapped-out castaways" defaultOpen={false}>
+                  <RosterManifest>
+                    {swappedOut.map((pick) => (
+                      <RosterCard
+                        key={pick.id}
+                        contestantId={pick.contestant_id}
+                        contestant={contestantMap.get(pick.contestant_id)}
+                        right={
+                          <span className="flex items-center gap-2 text-xs">
+                            <Points value={rosterPoints.get(pick.contestant_id)} />
+                            <span className="text-paper-ink-faded">ep {pick.active_from_episode}–{pick.active_until_episode}</span>
+                          </span>
+                        }
+                        bioLink={false}
+                        expanded={expandedId === pick.contestant_id}
+                        onToggle={() => toggleExpand(pick.contestant_id)}
+                      >
+                        <RosterBreakdown
+                          perf={perfs.get(pick.contestant_id)}
+                          activeFrom={pick.active_from_episode}
+                          activeUntil={pick.active_until_episode}
+                          doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
+                          episodeTitles={episodeTitles}
+                          swapPenalty={penaltyBooked(pick) ? pick.swap_penalty_points : 0}
+                        />
+                      </RosterCard>
+                    ))}
+                  </RosterManifest>
                 </SectionShell>
               </div>
             )}
