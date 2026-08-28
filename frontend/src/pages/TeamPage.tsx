@@ -204,12 +204,17 @@ export function TeamPage() {
             {swaps.length > 0 && (
               <div className="mt-6">
                 <SectionShell title="Swap history" defaultOpen={false}>
-                  <ul className="space-y-1 text-sm text-gray-600">
+                  <ul className="space-y-1.5 text-sm text-gray-600">
                     {swaps.map(({ out, into }) => {
                       const outC = contestantMap.get(out.contestant_id)
                       const intoC = into ? contestantMap.get(into.contestant_id) : undefined
                       return (
-                        <li key={out.id}>{outC ? displayName(outC) : '—'} → {into ? (intoC ? displayName(intoC) : '—') : '?'} <span className="text-gray-500">(episode {(out.active_until_episode ?? 0) + 1})</span></li>
+                        <li key={out.id} className="flex items-center justify-between gap-2">
+                          <span>{outC ? displayName(outC) : '—'} → {into ? (intoC ? displayName(intoC) : '—') : '?'} <span className="text-gray-500">(episode {(out.active_until_episode ?? 0) + 1})</span></span>
+                          {/* What the swapped-out castaway banked while rostered,
+                              incl. any negative events — already inside the Tribe total. */}
+                          <Points value={rosterPoints.get(out.contestant_id)} />
+                        </li>
                       )
                     })}
                   </ul>

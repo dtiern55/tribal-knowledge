@@ -1588,7 +1588,11 @@ function HistorySection({
             replayError={replayError}
             onClose={() => setOpen(false)}
           />,
-          document.body,
+          // Into the shell, not document.body: the locked-night overrides are
+          // scoped to .app-shell, so a body portal stays daylight under lock
+          // (#478 follow-on). .app-shell has no transform, so fixed still pins
+          // to the viewport.
+          document.querySelector('.app-shell') ?? document.body,
         )}
     </>
   )

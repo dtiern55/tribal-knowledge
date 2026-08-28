@@ -30,7 +30,9 @@ const BOARD = {
 
 const THEMES: Record<Theme, { scene: string; tileImg: string; label: string; frame: string; frameShadow: string }> = {
   unlocked: {
-    scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.10), transparent 62vw), linear-gradient(180deg, #f5f0e6, #f2e9db)',
+    // Match the .app-shell ground gradient (index.css) so the loader blends
+    // into the sand page instead of reading as a white panel over it.
+    scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
     tileImg: 'url("/puzzle-flat-dark.webp")',
     label: '#1e3a2f',
     frame: 'linear-gradient(158deg, #23503d, #122318)',

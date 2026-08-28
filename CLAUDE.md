@@ -4,9 +4,14 @@ Fantasy Survivor league web app for a private group of ~18 friends.
 Survivor airs twice a year; the league plays along every season.
 
 ## Git (overrides global standards)
-In this repo Claude may commit, push, merge to main, and deploy without asking.
-The global "never run git commits" rule does not apply here. Focused,
-reviewable commits still expected; no AI attribution trailers.
+In this repo Claude may commit and push without asking. The global "never run
+git commits" rule does not apply here. Focused, reviewable commits still
+expected; no AI attribution trailers.
+
+**Always open a PR — don't merge to main directly.** Danny reviews the Vercel
+preview from the PR before merging. Default flow: branch, push, `gh pr create`,
+hand back the PR link. Merge (or `gh pr merge --auto`) only when Danny asks for
+an auto-merge.
 
 ## Architecture
 - All database access goes through FastAPI using the service role key.
