@@ -30,6 +30,14 @@ export function PageLoader({
     return () => clearTimeout(t)
   }, [delayMs])
 
+  // Every page renders this while it fetches, which makes it the one place
+  // that knows the app is mid-load — so it says so on <html>. The ballot's
+  // room light reads it to hold the dark until the next page has landed.
+  useEffect(() => {
+    document.documentElement.classList.add('page-loading')
+    return () => document.documentElement.classList.remove('page-loading')
+  }, [])
+
   if (!show) return null
   // The locked-night class is the app's global open/locked signal (Layout).
   const theme = document.documentElement.classList.contains('locked-night') ? 'locked' : 'unlocked'

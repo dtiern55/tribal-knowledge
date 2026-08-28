@@ -308,7 +308,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('heading', { name: 'Siga' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Nami' })).toBeVisible()
     expect(within(ballot).queryByText('Earlier Boot')).not.toBeInTheDocument()
-    expect(within(ballot).getByText('0 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('0 of 2 names written')
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
 
     expect(within(ballot).getAllByRole('button', { name: /^Vote for/ })).toHaveLength(18)
@@ -319,7 +319,7 @@ describe('MySeasonPage state shell', () => {
     // Selection is a tick, not a rank — votes are unordered and equally weighted
     expect(kenzie).toHaveAttribute('aria-pressed', 'true')
     expect(charlie).toHaveAttribute('aria-pressed', 'true')
-    expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
@@ -337,8 +337,54 @@ describe('MySeasonPage state shell', () => {
     })
 
     await user.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
-    expect(within(ballot).getByText('2 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
+  })
+
+  it('lights the room on the Ballot beat and puts it out on the way off the page', async () => {
+    // The room light is DOM side effects on <html>, so nothing else would
+    // catch it breaking. Covers the two exits that behave differently: leaving
+    // the beat, and leaving the page.
+    arrange([
+      episode(1, 'scored', '2026-08-20T00:00:00Z'),
+      episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    const { unmount } = renderWithApp(<MySeasonPage />, { auth })
+
+    await openBeat('Ballot')
+    expect(document.documentElement).toHaveClass('ballot-room')
+
+    // Leaving the beat puts it out; the lane is still in front of you, so this
+    // is the slow lift and nothing marks it as leaving the page.
+    await openBeat('Tribe')
+    expect(document.documentElement).not.toHaveClass('ballot-room')
+    expect(document.documentElement).not.toHaveClass('ballot-room--leaving')
+
+    await openBeat('Ballot')
+    expect(document.documentElement).toHaveClass('ballot-room')
+
+    // Leaving the page holds the dark and flags the fast lift.
+    unmount()
+    expect(document.documentElement).toHaveClass('ballot-room')
+    expect(document.documentElement).toHaveClass('ballot-room--leaving')
+
+    await waitFor(() =>
+      expect(document.documentElement).not.toHaveClass('ballot-room'),
+    )
+  })
+
+  it('leaves the room light alone when you were never on the Ballot beat', async () => {
+    arrange([
+      episode(1, 'scored', '2026-08-20T00:00:00Z'),
+      episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    const { unmount } = renderWithApp(<MySeasonPage />, { auth })
+    await screen.findAllByRole('tab')
+
+    unmount()
+    // Nothing to put away, so nothing is stranded on <html>.
+    expect(document.documentElement).not.toHaveClass('ballot-room')
+    expect(document.documentElement).not.toHaveClass('ballot-room--leaving')
   })
 
   it('keeps the weekly play to the two doubles, with swaps living on the roster', async () => {
@@ -703,12 +749,12 @@ describe('MySeasonPage state shell', () => {
 
     const ballot = await openBeat('Ballot')
     await userEvent.click(within(ballot).getByRole('button', { name: /Kenzie/ }))
-    expect(within(ballot).getByText('1 of 2 selected')).toBeVisible()
+    expect(within(ballot).getByText(/names written/)).toHaveTextContent('1 of 2 names written')
 
     // Panels stay mounted rather than unmounting, so the pick survives the trip.
     await openBeat('Tribe')
     const again = await openBeat('Ballot')
-    expect(within(again).getByText('1 of 2 selected')).toBeVisible()
+    expect(within(again).getByText(/names written/)).toHaveTextContent('1 of 2 names written')
   })
 
   // #401: this control was unreachable for a while — rendered only under a
@@ -867,6 +913,7 @@ describe('MySeasonPage state shell', () => {
 
     await screen.findByRole('heading', { name: 'Between episodes' })
     await user.click(screen.getByRole('button', { name: /^History/ }))
+    await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }))
 
     const dialog = await screen.findByRole('dialog')
@@ -949,6 +996,7 @@ describe('MySeasonPage state shell', () => {
       expect(screen.getByTestId('location-probe')).toHaveAttribute('data-recap', '')
 
       await user.click(screen.getByRole('button', { name: /^History/ }))
+      await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )
@@ -974,6 +1022,7 @@ describe('MySeasonPage state shell', () => {
 
       await screen.findByRole('heading', { name: 'Between episodes' })
       await user.click(screen.getByRole('button', { name: /^History/ }))
+      await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
       await user.click(
         screen.getByRole('button', { name: /Ep 2.*View your scored result.*Replay/ }),
       )

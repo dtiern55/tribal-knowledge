@@ -7,9 +7,10 @@ import { EpisodeLabel } from './EpisodeLabel'
  * is its own collapsed row (total on the right, "2x Points" pill when you played
  * Double Castaway Points there); expanding it itemizes the scoring events plus a
  * final "Double Castaway Points bonus" line. Scoped to your active
- * range for the pick. ponytail: reconciles to the row total for the common case;
- * swap penalties and finale placement/SS-double aren't per-episode scoring
- * events, so they aren't itemized here.
+ * range for the pick. A swap penalty gets its own row above the episodes —
+ * it belongs to the castaway's ledger, not to their name (#556 follow-on).
+ * ponytail: reconciles to the row total for the common case; finale placement
+ * and the SS double aren't per-episode scoring events, so they aren't itemized.
  */
 export function RosterBreakdown({
   perf,
@@ -17,11 +18,14 @@ export function RosterBreakdown({
   activeUntil,
   doubledByEp,
   episodeTitles,
+  swapPenalty = 0,
 }: {
   perf: ContestantPerformance | undefined
   activeFrom: number
   activeUntil: number | null
   doubledByEp: Map<number, number>
+  /** What swapping this castaway out cost, if anything. */
+  swapPenalty?: number
   // Episode number -> title (#450). Optional — callers that don't pass it
   // just get the episode number.
   episodeTitles?: Map<number, string | null>
@@ -43,8 +47,16 @@ export function RosterBreakdown({
     )
     // Newest episode first — most recent is what you check after an airing.
     .sort((a, b) => b.episode_number - a.episode_number)
+  const penaltyRow = swapPenalty !== 0 && (
+    <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
+      <span>Swap penalty</span>
+      <span className="ml-auto text-terracotta-500">{swapPenalty} pts</span>
+      {/* Line the points column up with the expandable episode rows. */}
+      <span className="w-3.5 shrink-0" aria-hidden="true" />
+    </div>
+  )
   if (eps.length === 0)
-    return <p className="text-xs text-gray-500">No scored episodes yet.</p>
+    return penaltyRow || <p className="text-xs text-gray-500">No scored episodes yet.</p>
   const allOpen = eps.every((e) => openEps.has(e.episode_number))
   return (
     <div className="space-y-2">
@@ -60,6 +72,7 @@ export function RosterBreakdown({
           </button>
         </div>
       )}
+      {penaltyRow}
       {eps.map((ep) => {
         const bonus = doubledByEp.get(ep.episode_number) ?? 0
         const total = ep.points + bonus

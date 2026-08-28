@@ -342,6 +342,12 @@ html.locked-night .braid-rule { opacity: 0.55; }
 .stage-scrim {
   position: fixed;
   inset: 0;
+  /* `inset: 0` alone left a ~40px undimmed band at the foot of the viewport —
+     the used height came back short of the viewport even though an identical
+     clone of this element measured full height. Floor it explicitly. `vh`
+     rather than `dvh`: a scrim must cover the largest the viewport can get,
+     not the smallest. */
+  min-height: 100vh;
   z-index: 20;
   background: rgb(14 31 25 / 58%);
   opacity: 0;
@@ -352,6 +358,57 @@ html.locked-night .braid-rule { opacity: 0.55; }
   opacity: 1;
   pointer-events: auto;
 }
+
+/* ── The ballot's room light ───────────────────────────────────────────────
+   A lamp over the table rather than a flat tint over the page: the dark
+   deepens with distance from the ballot instead of sitting at one value
+   everywhere, and a little warmth spills onto the surface just outside it.
+
+   It hangs off <html> rather than the page, the way locked-night does, for
+   one reason: leaving My Season for Standings or Cast unmounts the page, and
+   a scrim that lives in the page would be cut off mid-dark. On <html> the
+   room simply comes back up on the way out.
+
+   `--stage-light-y` tracks the visible centre of the ballot panel, so
+   scrolling moves the page under a fixed lamp rather than dragging the lamp
+   down the page with it.
+
+   It stays under the bottom nav (z-30). Taking the nav down with the room
+   looked right and read terribly: an alpha wash this heavy compresses the
+   nav's cream-on-forest to roughly 1.5:1, so the tab labels stop being
+   legible at all. The room goes dark; the way out of it does not. */
+html::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  min-height: 100vh;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 58% 30% at 50% var(--stage-light-y, 50%),
+      rgb(255 214 170 / 13%),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 74% 46% at 50% var(--stage-light-y, 50%),
+      rgb(14 31 25 / 0%) 0%,
+      rgb(12 26 21 / 20%) 40%,
+      rgb(9 20 16 / 66%) 72%,
+      rgb(5 12 10 / 88%) 100%
+    );
+}
+
+html.ballot-room::after {
+  opacity: 1;
+}
+
+/* Leaving My Season entirely, rather than just leaving the beat: see the
+   shorter duration in the motion query below. The slow swell is right for a
+   beat switch, where the lane is lit and in front of you the whole time — but
+   on a route change the page you asked for arrives underneath the light and
+   spends the fade invisible. */
 
 /* The transitions live on the element, not on the state class. Defined on
    .stage-lit they only existed while lit, so leaving the mode snapped — the
@@ -437,6 +494,11 @@ html.locked-night .braid-rule { opacity: 0.55; }
 @media (prefers-reduced-motion: no-preference) {
   /* One curve, both directions — leaving is arriving reversed, not a cut. */
   .stage-scrim { transition: opacity 520ms cubic-bezier(0.4, 0, 0.2, 1); }
+  html::after { transition: opacity 1400ms cubic-bezier(0.4, 0, 0.2, 1); }
+  /* Inside the motion query with the rest: a bare transition-duration outside
+     it would default transition-property to `all` and animate under
+     prefers-reduced-motion. */
+  html.ballot-room--leaving::after { transition-duration: 400ms; }
   .stage-stage {
     transition:
       box-shadow 520ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -636,6 +698,80 @@ html.locked-night .tribal-border {
    chip with a portrait in it read as a roster row, and the portrait is gone
    with it. The tribe still rides the left edge. Rotation is supplied per slip
    and remains stable across renders. */
+/* ── The ballot ───────────────────────────────────────────────────────────
+   The Ballot beat's layout block: everything centred under a masthead, so
+   the week and the ask read before the field of names does. No surface of
+   its own — the lane panel it sits in is the surface, same as the Tribe
+   beat. `position` is here only so the ×2 seal has something to hang off. */
+.ballot-sheet {
+  position: relative;
+  padding: 24px 4px 4px;
+  text-align: center;
+}
+
+.ballot-sheet__eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--color-stone-500);
+}
+/* The lock colours its own urgency, the way the LockBadge chip does. */
+.ballot-sheet__eyebrow [data-lock='soon'] { color: var(--color-gold-700); }
+.ballot-sheet__eyebrow [data-lock='imminent'] { color: var(--color-terracotta-600); }
+
+.ballot-sheet__title {
+  margin-top: 2px;
+  font-family: var(--font-brand);
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--color-forest-800);
+}
+.ballot-sheet__subtitle {
+  margin-top: 3px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--color-stone-600);
+}
+.ballot-sheet__rule {
+  display: block;
+  width: 56px;
+  height: 2px;
+  margin: 13px auto 15px;
+  background: var(--color-forest-600);
+  opacity: 0.35;
+}
+.ballot-sheet__prompt {
+  font-family: "Kalam", cursive;
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--color-forest-700);
+}
+.ballot-sheet__count {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-stone-600);
+}
+.ballot-sheet__count b { color: var(--color-forest-800); }
+
+/* Submitted votes are the point of the sheet, so they are set larger here
+   than the same slips are in the History ledger. */
+.ballot-sheet__slips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+}
+.ballot-sheet__slips .ballot-slip {
+  padding: 9px 20px;
+  font-size: 19px;
+}
+
 .ballot-slip {
   display: inline-flex;
   align-items: center;
@@ -1041,6 +1177,12 @@ html.locked-night .hero-points { filter: brightness(0.9); }
 
 /* A lit row's halo has to be allowed out, which the stack otherwise clips. */
 .lane-stack[data-glow] { overflow: visible; }
+
+/* Over the scrim, so the lane is the one thing left in the light. */
+.lane-stack[data-lit] {
+  position: relative;
+  z-index: 30;
+}
 
 .lane-tabs {
   display: flex;
