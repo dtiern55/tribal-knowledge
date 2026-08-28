@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router'
-import { PageLoader } from '../components/PageLoader'
+import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
@@ -398,16 +398,37 @@ export function MySeasonPage() {
   }, [ballotLit])
 
   // Leaving the page is not the same as leaving the beat. Empty deps, so this
-  // cleanup runs on unmount only: it marks the room as lifting fast, because
-  // the page you navigated to arrives *under* the light and stays invisible
-  // for as long as the fade takes. A beat switch keeps the slow swell — the
-  // lane is lit and in front of you the whole time.
+  // cleanup runs on unmount only. A beat switch keeps the slow swell — the
+  // lane is lit and in front of you the whole time. Leaving the page instead
+  // holds the dark as a curtain until the destination has actually landed,
+  // then lifts quickly: otherwise the next page arrives underneath the light
+  // and sits there invisible while the fade plays out.
   useEffect(() => {
     const root = document.documentElement
     root.classList.remove('ballot-room--leaving')
     return () => {
       root.classList.add('ballot-room--leaving')
-      root.classList.remove('ballot-room')
+      // The destination mounts in this same commit, so its PageLoader has not
+      // flagged <html> yet — start looking on the next frame. Held no longer
+      // than the loader's own delay: past that the puzzle loader is about to
+      // appear, and it should appear in the light rather than behind a
+      // curtain that is no longer covering anything.
+      // ponytail: a 100ms poll rather than a MutationObserver — this is a
+      // curtain, not a scrubber, and the cap means it cannot hang.
+      let waited = 0
+      const lift = () => {
+        root.classList.remove('ballot-room')
+        window.setTimeout(() => root.classList.remove('ballot-room--leaving'), 600)
+      }
+      const tick = () => {
+        if (waited < LOADER_DELAY_MS && root.classList.contains('page-loading')) {
+          waited += 100
+          window.setTimeout(tick, 100)
+          return
+        }
+        lift()
+      }
+      requestAnimationFrame(tick)
     }
   }, [])
 
