@@ -380,6 +380,11 @@ export function MySeasonPage() {
   // open until the halo has finished fading, or the glow is guillotined at the
   // card edge the instant you pick.
   const [stageOpen, setStageOpen] = useState(false)
+  // Tribal Council is the one thing on this page you do alone and in the dark,
+  // so the Ballot beat borrows the swap picker's stage lighting: the room goes
+  // down, the lane keeps the torch. Leaving the beat — or the page — brings it
+  // back up, since the scrim only exists while this beat is showing.
+  const ballotLit = beat === 'ballot' && picking == null
   // The recap overlay is driven by a `recap=<episode_id>` URL param (#479) so
   // Back closes it instead of leaving the page, and a refresh restores it.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -638,10 +643,11 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || picking === 'swap') && (
+      {state.kind === 'open' && (stageOpen || picking === 'swap' || ballotLit) && (
         <div
           className="stage-scrim"
-          data-on={picking === 'swap'}
+          data-on={picking === 'swap' || ballotLit}
+          data-passthrough={ballotLit || undefined}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
@@ -697,7 +703,11 @@ export function MySeasonPage() {
 
           {/* Tabs and the lane they reveal share one border: a lane is one
               object again, the way the record's beats were (#396). */}
-          <LaneStack lane={beat === 'roster' ? 'jade' : 'terracotta'} glowOut={stageOpen}>
+          <LaneStack
+            lane={beat === 'roster' ? 'jade' : 'terracotta'}
+            glowOut={stageOpen}
+            lit={ballotLit}
+          >
           <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
 
           <RecordPanel
@@ -725,7 +735,11 @@ export function MySeasonPage() {
             </div>
           </RecordPanel>
 
-          <RecordPanel beat="ballot" active={beat === 'ballot'}>
+          <RecordPanel
+            beat="ballot"
+            active={beat === 'ballot'}
+            className={`stage-stage ${ballotLit ? 'stage-lit' : ''}`}
+          >
             <div id="votes">
               <PicksSection
                 season={d.season}

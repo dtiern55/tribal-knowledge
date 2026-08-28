@@ -129,16 +129,25 @@ export function RecordBeats({
 export function LaneStack({
   lane,
   glowOut = false,
+  lit = false,
   children,
 }: {
   /** The lane currently showing — colours the stack and its night treatment. */
   lane: 'jade' | 'terracotta'
   /** Let a lit row's halo out of the stack, which otherwise clips it. */
   glowOut?: boolean
+  /** Lift the whole stack over the stage scrim. The tab is the card's top
+   *  edge, so lighting the panel alone would cut the object in half. */
+  lit?: boolean
   children: ReactNode
 }) {
   return (
-    <div className="lane-stack" data-lane={lane} data-glow={glowOut || undefined}>
+    <div
+      className="lane-stack"
+      data-lane={lane}
+      data-glow={glowOut || undefined}
+      data-lit={lit || undefined}
+    >
       {children}
     </div>
   )

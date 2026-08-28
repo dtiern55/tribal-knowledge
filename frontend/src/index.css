@@ -342,6 +342,12 @@ html.locked-night .braid-rule { opacity: 0.55; }
 .stage-scrim {
   position: fixed;
   inset: 0;
+  /* `inset: 0` alone left a ~40px undimmed band at the foot of the viewport —
+     the used height came back short of the viewport even though an identical
+     clone of this element measured full height. Floor it explicitly. `vh`
+     rather than `dvh`: a scrim must cover the largest the viewport can get,
+     not the smallest. */
+  min-height: 100vh;
   z-index: 20;
   background: rgb(14 31 25 / 58%);
   opacity: 0;
@@ -351,6 +357,15 @@ html.locked-night .braid-rule { opacity: 0.55; }
 .stage-scrim[data-on='true'] {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* The ballot's light is a room state, not a modal. You may sit under it for a
+   while, so it falls softer than the swap picker's scrim, and everything it
+   dims stays reachable — dimmed chrome you cannot tap is just broken chrome.
+   Must follow the [data-on] rule to win the pointer-events tie. */
+.stage-scrim[data-passthrough] {
+  background: rgb(14 31 25 / 42%);
+  pointer-events: none;
 }
 
 /* The transitions live on the element, not on the state class. Defined on
@@ -1115,6 +1130,12 @@ html.locked-night .hero-points { filter: brightness(0.9); }
 
 /* A lit row's halo has to be allowed out, which the stack otherwise clips. */
 .lane-stack[data-glow] { overflow: visible; }
+
+/* Over the scrim, so the lane is the one thing still in the light. */
+.lane-stack[data-lit] {
+  position: relative;
+  z-index: 30;
+}
 
 .lane-tabs {
   display: flex;
