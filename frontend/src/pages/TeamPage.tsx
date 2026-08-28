@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { EpisodeLabel } from '../components/EpisodeLabel'
 import { CorrectVote } from '../components/CorrectVote'
+import { DoubleBadge } from '../components/DoubleBadge'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -227,33 +227,44 @@ export function TeamPage() {
         <div className="space-y-8">
           <SectionShell title="Ballot" prominent defaultOpen={votes.length > 0} right={<SectionPoints value={player.elimination_points} />}>
             {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
-              <div className="space-y-3">
-                {votes.map(({ episode, picks, eliminatedIds }) => (
-                  <div key={episode.id} className="rounded-xl border border-paper-edge record-paper p-4">
-                    <EpisodeLabel
-                      episode={episode}
-                      className="mb-2 font-medium text-paper-ink"
-                      titleClassName="font-normal text-paper-ink-faded"
-                    />
-                    {picks.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {picks.map((pick) => {
-                          const correct = eliminatedIds.has(pick.contestant_id)
-                          const doubled = doubles.some((play) => play.episode_id === episode.id && (play.target_contestant_id === null || play.target_contestant_id === pick.contestant_id))
-                          const nameC = contestantMap.get(pick.contestant_id)
-                          const name = nameC ? displayName(nameC) : '—'
-                          const x2 = doubled ? <span className="font-semibold text-terracotta-700"> ×2</span> : null
-                          if (correct) return <CorrectVote key={pick.id} name={name} trailing={x2} />
-                          return (
-                            <span key={pick.id} className="rounded-md border border-paper-edge bg-black/[.03] px-2 py-1 text-sm text-paper-ink-faded">
-                              {name}{x2}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    ) : <p className="text-sm text-paper-ink-faded">No ballot submitted.</p>}
-                  </div>
-                ))}
+              // One ledger row per episode, matching the My Season History sheet:
+              // "Ep N", the votes (correct ones pilled), a single idol if the
+              // ballot was doubled. The episode title is dropped — the week is
+              // all this row has to say.
+              <div className="overflow-hidden rounded-xl border border-paper-edge record-paper">
+                {votes.map(({ episode, picks, eliminatedIds }) => {
+                  const ballotDoubled = doubles.some((play) => play.episode_id === episode.id)
+                  return (
+                    <div key={episode.id} className="flex items-center gap-2 border-b border-paper-line px-3.5 py-2 last:border-b-0">
+                      <span className="shrink-0 text-sm font-medium text-paper-ink">
+                        {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
+                      </span>
+                      {ballotDoubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
+                      <span
+                        role="group"
+                        aria-label="Votes"
+                        tabIndex={0}
+                        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+                      >
+                        {picks.length === 0 ? (
+                          <span className="text-sm text-paper-ink-faded">No votes</span>
+                        ) : (
+                          picks.map((pick) => {
+                            const nameC = contestantMap.get(pick.contestant_id)
+                            const name = nameC ? displayName(nameC) : '—'
+                            return eliminatedIds.has(pick.contestant_id) ? (
+                              <span key={pick.id} className="shrink-0"><CorrectVote name={name} /></span>
+                            ) : (
+                              <span key={pick.id} className="shrink-0 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                                {name}
+                              </span>
+                            )
+                          })
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </SectionShell>
@@ -264,15 +275,21 @@ export function TeamPage() {
             ) : scoredPlays.length === 0 ? (
               <p className="text-sm text-gray-500">No advantages used yet.</p>
             ) : (
-              <ol className="space-y-2">
+              // One concise row per play — label → target · Ep, points on the
+              // right — matching the History sheet's Advantages tab.
+              <ol className="overflow-hidden rounded-xl border border-paper-edge record-paper">
                 {scoredPlays
                   .sort((a, b) => (episodes.find((episode) => episode.id === b.episode_id)?.episode_number ?? 0) - (episodes.find((episode) => episode.id === a.episode_id)?.episode_number ?? 0))
                   .map((play) => {
                     const episode = episodes.find((row) => row.id === play.episode_id)
                     const target = play.target_contestant_id ? contestantMap.get(play.target_contestant_id)?.name : null
                     return (
-                      <li key={play.id} className="flex items-start justify-between gap-4 rounded-xl border border-paper-edge record-paper p-3 text-sm">
-                        <div><p className="font-medium text-paper-ink">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</p><p className="mt-0.5 text-xs text-paper-ink-faded">Ep {episode?.episode_number ?? '—'}{target ? ` · ${target}` : ''}</p></div>
+                      <li key={play.id} className="flex items-center justify-between gap-3 border-b border-paper-line px-3.5 py-2 text-sm last:border-b-0">
+                        <span className="min-w-0 truncate text-paper-ink">
+                          {ADV_LABELS[play.advantage_type] ?? play.advantage_type}
+                          {target && <span className="text-paper-ink-faded"> → {target}</span>}
+                          <span className="text-paper-ink-faded"> · Ep {episode?.episode_number ?? '—'}</span>
+                        </span>
                         <Points value={play.points_earned ?? undefined} />
                       </li>
                     )
