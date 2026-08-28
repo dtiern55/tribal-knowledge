@@ -7,20 +7,8 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
-import { movementLabel, rankStandings } from '../lib/standings'
-import type { Season, StandingEntry } from '../types'
-
-function Trend({ entry }: { entry: StandingEntry }) {
-  const label = movementLabel(entry)
-  if (!label) return null
-  const color =
-    entry.trend === 'up'
-      ? 'text-jade-700'
-      : entry.trend === 'down'
-        ? 'text-terracotta-600'
-        : 'text-gray-500'
-  return <span className={`text-xs font-medium ${color}`}>{label}</span>
-}
+import { rankStandings } from '../lib/standings'
+import type { Season, StandingEntry, StandingSurvivor } from '../types'
 
 // A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
@@ -44,23 +32,85 @@ function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: Stand
   const up = entry.trend === 'up'
   const down = entry.trend === 'down'
   return (
-    <span className="relative inline-flex flex-col items-start leading-none">
+    <span className="relative inline-flex flex-col items-center leading-none">
       {up && (
-        <span className="absolute bottom-full left-0 mb-1">
+        <span className="absolute bottom-full mb-1">
           <Movement up delta={entry.trend_delta} />
         </span>
       )}
       <span
-        className={`font-display text-2xl font-bold leading-none ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
+        className={`font-display text-xl font-bold leading-none tabular-nums ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
         aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
       >
         {rank}
       </span>
       {down && (
-        <span className="absolute top-full left-0 mt-1">
+        <span className="absolute top-full mt-1">
           <Movement up={false} delta={entry.trend_delta} />
         </span>
       )}
+    </span>
+  )
+}
+
+// The self "hero", sibling of the This Week command hero on My Season: same
+// forest card and gold points block, but it answers the standings question —
+// where you sit, how far you moved this week, and your total. Resting green
+// (no data-owed): standings never "owe" you anything.
+function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank: number; tied: boolean; count: number }) {
+  const up = entry.trend === 'up'
+  const down = entry.trend === 'down'
+  const lep = entry.last_episode_points
+  return (
+    <div className="week-hero relative mb-5 rounded-2xl px-4 pt-3.5 pb-4">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0">
+          <div className="font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">Your standing</div>
+          <p className="mt-0.5 font-display text-3xl font-bold leading-none tracking-wide text-cream-50">
+            {tied ? `Tied #${rank}` : `#${rank}`}
+            <span className="ml-2 font-sans text-sm font-normal tracking-normal text-cream-100/60">of {count}</span>
+          </p>
+          {(up || down) && (
+            <span
+              className={`mt-2.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                up ? 'bg-jade-600/30 text-jade-100' : 'bg-terracotta-600/25 text-terracotta-200'
+              }`}
+            >
+              <span aria-hidden>{up ? '▲' : '▼'}</span>
+              {entry.trend_delta} {entry.trend_delta === 1 ? 'place' : 'places'} this week
+            </span>
+          )}
+        </div>
+        <div className="ml-auto shrink-0 text-right">
+          <span className="block text-[9px] uppercase tracking-[0.12em] text-cream-100/55">My pts</span>
+          <span className="block font-display text-3xl font-bold leading-none tabular-nums text-gold-300">{entry.total_points}</span>
+          {lep !== 0 && (
+            <span className={`mt-1 block text-[11px] font-semibold tabular-nums ${lep > 0 ? 'text-jade-100' : 'text-terracotta-200'}`}>
+              {lep > 0 ? '+' : ''}{lep} last ep
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// The overlapping castaway cluster on a row: still-in at full color, recently
+// eliminated dimmed. Small (sm) so the row stays a single line.
+function SurvivorCluster({ active, eliminated }: { active: StandingSurvivor[]; eliminated: StandingSurvivor[] }) {
+  if (active.length === 0 && eliminated.length === 0) return null
+  return (
+    <span className="flex flex-none -space-x-2">
+      {active.map((s) => (
+        <span key={s.contestant_id} className="rounded-full" title={s.name}>
+          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
+        </span>
+      ))}
+      {eliminated.map((s) => (
+        <span key={s.contestant_id} className={`rounded-full ${ELIMINATED_DIM}`} title={`Eliminated ep ${s.eliminated_episode}`}>
+          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
+        </span>
+      ))}
     </span>
   )
 }
@@ -122,34 +172,27 @@ export function StandingsPage() {
       {mine && (
         <Link
           to={`/seasons/${season.id}/team/${mine.entry.user_id}`}
-          className="mb-6 block border-b-2 border-forest-700 px-1 pb-4 transition-colors hover:border-terracotta-600"
+          className="block transition-transform hover:-translate-y-0.5"
+          aria-label={`Your team — rank ${mine.rank} of ${ranked.length}`}
         >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-700">
-                Your position
-              </p>
-              <p className="mt-1 font-display text-2xl tracking-wide text-forest-900">
-                {mine.tied ? `Tied for #${mine.rank}` : `#${mine.rank}`}
-                <span className="ml-2 font-sans text-sm font-normal tracking-normal text-gray-600">
-                  of {ranked.length}
-                </span>
-              </p>
-              <div className="mt-1"><Trend entry={mine.entry} /></div>
-            </div>
-            <div className="text-right">
-              <p className="font-display text-3xl font-bold text-forest-900">{mine.entry.total_points}</p>
-              <p className="text-xs text-gray-500">season points</p>
-            </div>
-          </div>
+          <StandingHero entry={mine.entry} rank={mine.rank} tied={mine.tied} count={ranked.length} />
         </Link>
       )}
 
       {ranked.length === 0 ? (
         <Notice title="No players yet">The standings will appear after players join this season.</Notice>
       ) : (
-        <section aria-label="League standings">
-          <ol className="divide-y divide-cream-300 border-b border-cream-300">
+        <section
+          aria-label="League standings"
+          className="overflow-hidden rounded-2xl border border-paper-edge record-paper shadow-[0_8px_24px_-12px_rgb(10_22_19_/_0.35)]"
+        >
+          <div className="flex items-center justify-between border-b border-paper-line px-4 py-2.5">
+            <span className="font-display text-[11px] font-bold uppercase tracking-[0.13em] text-forest-700">League</span>
+            <span className="font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-paper-ink-faded">
+              {ranked.length} players
+            </span>
+          </div>
+          <ol>
             {ranked.map(({ entry, rank, tied }) => {
               const isMe = entry.user_id === userId
               return (
@@ -157,54 +200,29 @@ export function StandingsPage() {
                   <Link
                     to={`/seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 px-1 py-4 transition-colors md:grid-cols-[3.5rem_minmax(0,1fr)_auto] ${
-                      isMe ? 'bg-forest-50/45' : 'hover:bg-cream-50/70'
+                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 ${
+                      isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
+                    {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-display text-lg font-semibold text-gray-900 group-hover:text-forest-700">{entry.display_name}</span>
-                        {isMe && <span className="rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>}
-                      </div>
-                      {(entry.active_survivors.length > 0 ||
-                        entry.recently_eliminated_survivors.length > 0) && (
-                        <span className="mt-2 flex -space-x-2 pl-0.5">
-                          {entry.active_survivors.map((survivor) => (
-                            <span key={survivor.contestant_id} className="rounded-full" title={survivor.name}>
-                              <ContestantAvatar
-                                name={survivor.name}
-                                imageUrl={survivor.image_url}
-                                tribeColor={survivor.tribe_color}
-                                tribeName={survivor.tribe_name}
-                              />
-                            </span>
-                          ))}
-                          {entry.recently_eliminated_survivors.map((survivor) => (
-                            <span
-                              key={survivor.contestant_id}
-                              className={`rounded-full ${ELIMINATED_DIM}`}
-                              title={`Eliminated ep ${survivor.eliminated_episode}`}
-                            >
-                              <ContestantAvatar
-                                name={survivor.name}
-                                imageUrl={survivor.image_url}
-                                tribeColor={survivor.tribe_color}
-                                tribeName={survivor.tribe_name}
-                              />
-                            </span>
-                          ))}
-                        </span>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="max-w-[8.5em] truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
+                        {entry.display_name}
+                      </span>
+                      {isMe && (
+                        <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                       )}
+                      <SurvivorCluster active={entry.active_survivors} eliminated={entry.recently_eliminated_survivors} />
                     </div>
                     <div className="text-right">
-                      <p className="font-display text-xl font-bold text-forest-900">{entry.total_points}</p>
+                      <p className="font-display text-lg font-bold leading-tight text-forest-800 tabular-nums">{entry.total_points}</p>
                       {entry.last_episode_points !== 0 ? (
-                        <p className={`text-[11px] font-medium ${entry.last_episode_points > 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
+                        <p className={`text-[11px] font-medium tabular-nums ${entry.last_episode_points > 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
                           {entry.last_episode_points > 0 ? '+' : ''}{entry.last_episode_points} last ep
                         </p>
                       ) : (
-                        <p className="text-[11px] text-gray-400">{hasScoring ? 'No change' : 'Not scored yet'}</p>
+                        <p className="text-[11px] text-paper-ink-faded">{hasScoring ? 'No change' : 'Not scored yet'}</p>
                       )}
                     </div>
                   </Link>
