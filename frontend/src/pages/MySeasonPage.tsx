@@ -3171,7 +3171,7 @@ function PicksSection({
                                     ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
                                     : maxed
                                       ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                      : 'border-paper-edge bg-cream-50 text-paper-ink hover:border-forest-300',
+                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
                                 ].join(' ')}
                               >
                                 <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
@@ -3249,7 +3249,7 @@ function PicksSection({
   )
 
   return (
-    <div className="bg-ground px-4 py-4">
+    <div className="px-4 py-3.5">
       {play.error && (
         <p role="alert" className="mb-3 text-sm text-terracotta-600">
           {play.error}

@@ -636,37 +636,15 @@ html.locked-night .tribal-border {
    chip with a portrait in it read as a roster row, and the portrait is gone
    with it. The tribe still rides the left edge. Rotation is supplied per slip
    and remains stable across renders. */
-/* ── The ballot as a sheet of paper ────────────────────────────────────────
-   The Ballot beat was another rounded card on a page already full of them,
-   which is the wrong shape for the one place in the app where you write a
-   name down. So the card becomes the paper: a torn sheet with a ruled
-   margin, the week set in the brand face, and the ask in handwriting.
-
-   The deckle rides a ::before rather than sitting on the element, because a
-   clip-path on the element would also cut off the ×2 seal that hangs over
-   the top edge. `isolation` keeps the z-index:-1 layer above the lane's own
-   white background instead of behind it. */
-/* ── The ballot as a sheet of paper ────────────────────────────────────────
-   The Ballot beat was another rounded card on a page already full of them,
-   which is the wrong shape for the one place in the app where you write a
-   name down. So the card becomes the paper: a white sheet laid on the warm
-   drawer behind it, square-cornered, with the week set in the brand face and
-   the ask in handwriting.
-
-   An earlier pass tried to draw the paper itself — deckled edges, a fibre
-   tile, gradients for raking light. It read as wavy lines on a shade barely
-   off the page ground. The separation has to come from value, not texture:
-   white on warm, with a shadow to sit it on the surface. */
+/* ── The ballot ───────────────────────────────────────────────────────────
+   The Ballot beat's layout block: everything centred under a masthead, so
+   the week and the ask read before the field of names does. No surface of
+   its own — the lane panel it sits in is the surface, same as the Tribe
+   beat. `position` is here only so the ×2 seal has something to hang off. */
 .ballot-sheet {
   position: relative;
-  /* Paper is square. Just enough radius to not read as a hard-edged div. */
-  border-radius: 2px;
-  background: #fff;
-  padding: 28px 20px 26px;
+  padding: 24px 4px 4px;
   text-align: center;
-  box-shadow:
-    0 1px 2px rgb(28 25 23 / 10%),
-    0 10px 24px rgb(28 25 23 / 11%);
 }
 
 .ballot-sheet__eyebrow {
@@ -730,7 +708,6 @@ html.locked-night .tribal-border {
 .ballot-sheet__slips .ballot-slip {
   padding: 9px 20px;
   font-size: 19px;
-  background: var(--color-cream-50);
 }
 
 .ballot-slip {
