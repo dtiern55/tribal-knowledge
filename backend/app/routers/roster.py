@@ -66,22 +66,33 @@ def get_roster(
             rows = cur.fetchall()
 
             if str(user_id) != str(current_user):
-                # A swap into the still-open episode is undoable strategy, so
-                # bound another player's roster to the latest LOCKED episode:
-                # a pending swap-in (active_from in an unlocked episode) stays
-                # hidden until that episode locks, and the pick it replaces
-                # stays shown until then (#164 follow-up).
+                # Bound another player's roster to the latest LOCKED episode so
+                # undoable strategy stays hidden, but their already-locked swap
+                # history is public (#164 follow-up).
+                #
+                # - A pending swap-IN lands in a still-open episode
+                #   (active_from > locked_through): hide the incoming pick.
+                # - The swap-OUT it pairs with is likewise pending — the swap
+                #   books at active_until + 1, so active_until >= locked_through
+                #   means that episode hasn't locked. Mask active_until so the
+                #   outgoing pick still reads as rostered.
+                # - A swap whose episode has already locked
+                #   (active_until < locked_through) is history: show it as-is.
                 locked_through = latest_locked_episode(cur, season_id)
-                rows = [
-                    r
-                    for r in rows
-                    if locked_through is not None
-                    and r["active_from_episode"] <= locked_through
-                    and (
-                        r["active_until_episode"] is None
-                        or r["active_until_episode"] >= locked_through
-                    )
-                ]
+                visible = []
+                for r in rows:
+                    if (
+                        locked_through is None
+                        or r["active_from_episode"] > locked_through
+                    ):
+                        continue
+                    if (
+                        r["active_until_episode"] is not None
+                        and r["active_until_episode"] >= locked_through
+                    ):
+                        r["active_until_episode"] = None
+                    visible.append(r)
+                rows = visible
                 # Another player's designation is strategy until it locks (#164):
                 # the roster may already be visible, the flag is not.
                 ss_lock = _effective_ss_lock(cur, season)
