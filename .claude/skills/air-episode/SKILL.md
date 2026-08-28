@@ -83,7 +83,19 @@ types, never guessed ones. It returns only *enabled* types, so retired ones
 
 ## 5. Apply (additive, dedup-aware)
 
-First read what's already there so a re-run doesn't double-count (the admin UI
+**First, confirm this episode's picks are LOCKED** — `picks_lock_at <= now()`
+(or `status = 'scored'`). Applying eliminations or scoring events *before* lock
+leaks the boots and the point changes to every player who hasn't locked yet:
+standings (`active_survivors` drops the eliminated, `total_points` jumps) and
+the cast page don't gate on lock or scored status (#559). The reveal endpoints
+*are* safe (gated on `status='scored'`), but standings/cast are not — so a
+pre-lock apply is a live spoiler. If the episode aired but picks are still open,
+either wait for the lock or, with Danny's OK, lock it now (the `episode-lock`
+skill, or `PATCH {API}/episodes/{episode_id}` `{"picks_lock_at": "<now>"}`)
+before applying. `GET {API}/seasons/{season_id}/episodes` shows each episode's
+`picks_lock_at`.
+
+Then read what's already there so a re-run doesn't double-count (the admin UI
 does exactly this):
 
 - `GET {API}/episodes/{episode_id}/eliminations`
@@ -118,7 +130,7 @@ it happens — that's future knowledge.) The point values it changes:
 this episode on (#413). Global template only — seasons snapshotted before the
 change keep the old values.
 
-## 7. Verify & score
+## 7. Verify the standings
 
 - `GET {API}/seasons/{season_id}/cast` and `.../standings`. Show Danny:
   - per-contestant point deltas for this episode,
@@ -131,30 +143,21 @@ change keep the old values.
     standings by scoring) — the commissioner enters nothing for them.
 - Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
 
-## 8. Set the reveal insights (Results screen)
+## 8. Set the baseline reveal cards (Results screen)
 
-The results reveal shows up to three **curated** insight cards plus one
-**automatic** lead — `episode_insights` table, config via
-`PUT {API}/episodes/{episode_id}/insights` (admin). This step is where you and
-Danny decide them. All values come from the events applied in step 5, so run it
-after verify; the cards render once the episode is scored (step 9).
+The reveal shows up to three **curated** insight cards plus one **automatic**
+lead — `episode_insights` table, config via
+`PUT {API}/episodes/{episode_id}/insights` (admin). Set the standing cards here;
+**the commissioner's story pick comes after scoring (step 10).**
 
 - **Automatic lead — nothing to do.** `_auto_league_call` always leads with
   "League call: {boot} — {pct}%" (share of ballots that caught the boot),
   *unless* a curated `pick_popularity` card takes that slot.
-- **Recurring baseline — keep every episode.** Configure `performance_vs_median`
-  (each viewer's own episode score vs the league median; personalised, evergreen).
-  That plus the auto League Call is the standard set Danny wants every week.
-- **The actual job of this step: find the manual note.** Scan the episode for a
-  *story* worth a `manual_note` — a usage swing, a gamble that backfired, a
-  cooled boot-read — **or decide none is worth adding.** A bare computed number
-  is not an insight: the built-in types are single-episode and flat
-  (`weekly_play_usage` renders "Double Ballot Points usage: 9 of 21", which
-  doesn't say it *tripled* or that four of the nine whiffed). Trends and
-  whiff-rates only land as a written `manual_note`. So compute the candidates
-  (usage per play across recent episodes, boot-catch rate trend, how many who
-  doubled their ballot actually caught the boot, roster ownership of the boot),
-  judge what's genuinely notable, and write it — or don't.
+- **Recurring baseline — keep every episode.** `performance_vs_median` (each
+  viewer's own episode score vs the league median; personalised, evergreen).
+  That plus the auto League Call is the standard set every week.
+- **Multi-boot weeks:** also add `multiple_correct_ballots` (ballots that called
+  ≥2 boots) — it only carries meaning when more than one person left.
 
 **The menu** (`insight_type`, up to 3, deduped on target; `display_order` sets
 order):
@@ -173,28 +176,64 @@ PUT {API}/episodes/{episode_id}/insights
   { "insight_type": "manual_note", "label": "...", "value": "...", "detail": "..." } ]
 ```
 
-Then re-open the reveal (`?recap={episode_id}` on My Season, or GET
-`/seasons/{season_id}/episode-results/{episode_id}`) to eyeball it.
-
 ## 9. Close the episode out
 
 `POST {API}/episodes/{episode_id}/score` — flips status `upcoming` → `scored`
 (#49). Easy to forget, and skipping it is silent: points still show, but
 standings `trend` / `last_episode_points` keep reporting the *previous* scored
 episode (they read `max(episode_number) where status = 'scored'`), and unused
-extra-vote plays never get auto-unplayed (#157). Do this **before** step 10 —
-verify standings again after, since the trend arrows only become correct here.
-409 "already scored" means it's done; picks must be locked first.
+extra-vote plays never get auto-unplayed (#157). Do this **before** the bot week
+(step 11) — verify standings again after, since the trend arrows only become
+correct here. 409 "already scored" means it's done; picks must be locked first.
 
-## 10. Bot week (practice seasons only)
+## 10. Commissioner insight pass — the recap story (after scoring)
 
-If the season is bot-driven, take the commissioner's read for episode N+1 —
-`likely_boots`, `confidence`, `double_targets` — append it to
+Now that the episode is scored, the standings deltas are final and the reveal
+renders — bring Danny the **story**. This is a required interactive checkpoint
+in a production season: **never auto-decide the manual note.**
+
+- **Compute the candidates** from the events applied in step 5 + the standings
+  deltas: advantage usage this week and its *trend* across recent episodes,
+  boot-catch rate vs last week, how many who doubled their ballot actually caught
+  the boot, roster ownership of the boot(s), the biggest point swing. A bare
+  number isn't an insight — the built-in `weekly_play_usage` renders flat
+  ("Double Ballot Points usage: 9 of 21") and can't say it *tripled* or that four
+  of the nine whiffed. Trends and whiff-rates only land as a written `manual_note`.
+- **STOP and present the candidates to Danny.** He picks or writes the
+  `manual_note` (`label` + `value` + optional `detail`), or decides none is worth
+  it. Don't skip this by choosing for him.
+- **PUT the final set** (baseline cards from step 8 + his note), then re-open the
+  reveal (`?recap={episode_id}` on My Season, or
+  `GET /seasons/{season_id}/episode-results/{episode_id}`) to eyeball it.
+
+## 11. Bot week (practice/bot seasons only)
+
+If the season is bot-driven (a `bot_reads/season_<n>.json` exists), take the
+commissioner's read for episode N+1 — `likely_boots`, `confidence`,
+`double_targets` — append it as the `"<N+1>"` entry to
 `backend/scripts/bot_reads/season_<n>.json`, then:
 
 ```
 uv run python scripts/run_bots.py week {N+1}
 ```
+
+Turning the read into fields:
+- **`likely_boots`** as `[name, weight]` pairs controls the **ballot vote split**.
+  Weights are *relative shares*, apportioned across `max_picks × non-contrarian
+  bots` slots — so make them sum near that total and each weight reads roughly as
+  a vote count (e.g. Christian 14 / Angelina 8 / six others 2 → ~15 / ~8 / ~2
+  each). Use full names (`"Christian Hubicki"`); list only living castaways.
+- **`double_targets`** steers the **roster-point double** (Double Castaway
+  Points): bots prefer to double a held roster member named here. List *all*
+  living castaways to make that choice random/unsteered.
+- **`confidence`** (`high`/`medium`/`low`) is stated, not inferred — `high` nudges
+  the contrarians to double their ballot.
+- Ballot-doubling isn't targeted: it emerges — the more ballots a boot draws, the
+  more vote-doublers land on it ("some double him, fewer double her").
+- After running, spot-check the split: count `elimination_picks` for episode N+1
+  grouped by contestant, and confirm it matches the read before moving on.
+- The file is committed alongside the earlier weeks — open a PR (main is
+  protected), the DB already has the picks.
 
 Bots pick BEFORE the episode airs, so this runs after scoring N and before
 N+1 locks. Never run it after the fact: the whole point is that nothing in
@@ -204,6 +243,10 @@ the pipeline knows the result before the commissioner does.
 
 - **survivoR lag** gates everything: data lands a day+ after air. If it's
   behind, this ritual waits or falls back to manual admin-UI entry.
+- **Never apply before picks lock (#559).** Standings and the cast page count
+  scoring events / eliminations with no lock or scored-status gate, so a
+  pre-lock apply spoils the boots and point changes live. Check the lock first
+  (step 5); if you must go early, lock the episode first with Danny's OK.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, or steals.
 - **Tokens are retired (#307).** Players get one free advantage play per
