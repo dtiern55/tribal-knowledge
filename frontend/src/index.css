@@ -646,48 +646,27 @@ html.locked-night .tribal-border {
    clip-path on the element would also cut off the ×2 seal that hangs over
    the top edge. `isolation` keeps the z-index:-1 layer above the lane's own
    white background instead of behind it. */
+/* ── The ballot as a sheet of paper ────────────────────────────────────────
+   The Ballot beat was another rounded card on a page already full of them,
+   which is the wrong shape for the one place in the app where you write a
+   name down. So the card becomes the paper: a white sheet laid on the warm
+   drawer behind it, square-cornered, with the week set in the brand face and
+   the ask in handwriting.
+
+   An earlier pass tried to draw the paper itself — deckled edges, a fibre
+   tile, gradients for raking light. It read as wavy lines on a shade barely
+   off the page ground. The separation has to come from value, not texture:
+   white on warm, with a shadow to sit it on the surface. */
 .ballot-sheet {
   position: relative;
-  isolation: isolate;
-  /* Bleeds out of the beat panel's 16px side padding. A white gutter around
-     the sheet framed it like a mat and made the paper read as a swatch pasted
-     into a white box — the sheet has to be the drawer's surface, not an object
-     sitting on a different one. Vertical padding stays so the torn edges and
-     their shadow have somewhere to fall.
-     ponytail: coupled to the px-4 on PicksSection's wrapper. */
-  margin-inline: -16px;
+  /* Paper is square. Just enough radius to not read as a hard-edged div. */
+  border-radius: 2px;
+  background: #fff;
   padding: 28px 20px 26px;
   text-align: center;
-}
-.ballot-sheet::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  /* Paper is a material, not a background colour. Three things sell it and
-     each was missing: fibre (the noise tile), a sheet catching light across
-     its face (the gradients), and the fact that it is lying ON something
-     (the shadow). The shadow has to be a filter rather than a box-shadow —
-     box-shadow is drawn on the border box and the clip-path would cut it
-     off, while drop-shadow traces the torn edge, which is the whole point
-     of having one. */
-  background-color: var(--color-ground-lift);
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23f)' opacity='0.09'/%3E%3C/svg%3E"),
-    radial-gradient(135% 95% at 20% -10%, rgb(255 253 246 / 38%), transparent 55%),
-    radial-gradient(120% 80% at 90% 108%, rgb(197 176 148 / 13%), transparent 52%);
-  filter:
-    drop-shadow(0 1px 0.5px rgb(28 25 23 / 12%))
-    drop-shadow(0 7px 16px rgb(28 25 23 / 11%));
-  clip-path: polygon(
-    0 4px, 4% 0, 9% 5px, 15% 1px, 22% 6px, 30% 1px, 38% 5px, 46% 0, 55% 5px,
-    63% 1px, 71% 6px, 79% 1px, 87% 5px, 94% 0, 100% 4px,
-    100% calc(100% - 4px), 95% 100%, 88% calc(100% - 5px), 80% calc(100% - 1px),
-    72% calc(100% - 6px), 64% calc(100% - 1px), 56% calc(100% - 5px), 47% 100%,
-    39% calc(100% - 5px), 31% calc(100% - 1px), 23% calc(100% - 6px),
-    16% calc(100% - 1px), 10% calc(100% - 5px), 5% 100%, 0 calc(100% - 4px)
-  );
+  box-shadow:
+    0 1px 2px rgb(28 25 23 / 10%),
+    0 10px 24px rgb(28 25 23 / 11%);
 }
 
 .ballot-sheet__eyebrow {
