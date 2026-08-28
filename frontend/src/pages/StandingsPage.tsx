@@ -200,29 +200,34 @@ export function StandingsPage() {
                   <Link
                     to={`/seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 ${
+                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_auto_3.75rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
                     {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="max-w-[8.5em] truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
                         {entry.display_name}
                       </span>
                       {isMe && (
                         <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                       )}
+                    </div>
+                    {/* Portraits get their own column so they line up row to
+                        row instead of trailing each name — the fixed rank and
+                        score columns keep this cell at the same x every row. */}
+                    <div className="flex justify-end">
                       <SurvivorCluster active={entry.active_survivors} eliminated={entry.recently_eliminated_survivors} />
                     </div>
                     <div className="text-right">
                       <p className="font-display text-lg font-bold leading-tight text-forest-800 tabular-nums">{entry.total_points}</p>
                       {entry.last_episode_points !== 0 ? (
                         <p className={`text-[11px] font-medium tabular-nums ${entry.last_episode_points > 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
-                          {entry.last_episode_points > 0 ? '+' : ''}{entry.last_episode_points} last ep
+                          {entry.last_episode_points > 0 ? '+' : ''}{entry.last_episode_points}
                         </p>
                       ) : (
-                        <p className="text-[11px] text-paper-ink-faded">{hasScoring ? 'No change' : 'Not scored yet'}</p>
+                        <p className="text-[11px] text-paper-ink-faded">{hasScoring ? 'even' : '—'}</p>
                       )}
                     </div>
                   </Link>
