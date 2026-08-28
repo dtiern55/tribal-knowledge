@@ -7,8 +7,19 @@ from tests.helpers import (
     insert_contestant,
     insert_elimination,
     insert_episode,
+    insert_roster_pick,
     insert_season,
+    insert_user,
 )
+
+
+def _locked_episode(conn, season_id, episode_number):
+    return insert_episode(
+        conn,
+        season_id,
+        episode_number=episode_number,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
 
 
 def _make_season_with_roster(conn, roster_size=3, lock_episode=2, **season_kwargs):
@@ -183,6 +194,40 @@ def test_swap_roster_pick(client, db_conn, current_user):
         f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
     ).json()
     assert plays == []
+
+
+@pytest.mark.integration
+def test_other_players_locked_swaps_visible_pending_hidden(client, db_conn):
+    """Another player's already-locked swap history is public; a swap into a
+    still-open episode stays hidden and its outgoing pick reads as rostered
+    (#164 follow-up regression: historical swaps had been filtered out)."""
+    season = insert_season(db_conn, roster_lock_episode=1, roster_size=2)
+    other = insert_user(db_conn, display_name="Other Player")
+    a_old = insert_contestant(db_conn, season["id"], "A out")
+    a_new = insert_contestant(db_conn, season["id"], "A in")
+    b_old = insert_contestant(db_conn, season["id"], "B out")
+    b_new = insert_contestant(db_conn, season["id"], "B in")
+    # Episodes 1-3 locked, 4 still open → latest_locked_episode == 3.
+    for n in (1, 2, 3):
+        _locked_episode(db_conn, season["id"], n)
+    insert_episode(db_conn, season["id"], episode_number=4)
+
+    # Slot A: swapped out at ep3 (locked) — public history.
+    insert_roster_pick(db_conn, other["id"], season["id"], a_old["id"], 1, 2)
+    insert_roster_pick(db_conn, other["id"], season["id"], a_new["id"], 3, None)
+    # Slot B: swapped out at ep4 (still open) — pending, must stay hidden.
+    insert_roster_pick(db_conn, other["id"], season["id"], b_old["id"], 1, 3)
+    insert_roster_pick(db_conn, other["id"], season["id"], b_new["id"], 4, None)
+
+    roster = client.get(f"/seasons/{season['id']}/roster/{other['id']}").json()
+    by_contestant = {p["contestant_id"]: p for p in roster}
+
+    # The locked swap is visible on both sides.
+    assert by_contestant[str(a_old["id"])]["active_until_episode"] == 2
+    assert str(a_new["id"]) in by_contestant
+    # The pending swap is concealed: outgoing pick reads active, incoming absent.
+    assert by_contestant[str(b_old["id"])]["active_until_episode"] is None
+    assert str(b_new["id"]) not in by_contestant
 
 
 @pytest.mark.integration
@@ -583,8 +628,9 @@ def test_other_players_pending_swap_hidden_until_episode_locks(
     client, db_conn, current_user
 ):
     """A swap into the still-open episode is undoable strategy — another player
-    sees the roster as it stood at the latest LOCKED episode, not the pending
-    swap-in, until that episode locks (#164 follow-up)."""
+    doesn't see the pending swap-in, and the pick it replaces still reads as
+    rostered, until that episode locks. Once it locks the swap is public: the
+    swap-in appears and the swap-out stays visible as history (#164)."""
     from tests.helpers import insert_roster_pick, insert_user
 
     season, contestants = _make_season_with_roster(db_conn, roster_size=3)
@@ -623,16 +669,19 @@ def test_other_players_pending_swap_hidden_until_episode_locks(
     assert str(dropped["id"]) in while_open
     assert str(kept["id"]) in while_open
 
-    # ep3 locks: swap-in appears, the dropped pick drops off.
+    # ep3 locks: swap-in appears, and the swap-out stays on as visible history.
     with db_conn.cursor() as cur:
         cur.execute(
             "update episodes set picks_lock_at = now() - interval '1 hour'"
             " where id = %s",
             [str(open_ep["id"])],
         )
-    after_lock = seen()
-    assert str(swap_in["id"]) in after_lock
-    assert str(dropped["id"]) not in after_lock
+    after = client.get(f"/seasons/{season['id']}/roster/{other['id']}").json()
+    after_ids = {row["contestant_id"] for row in after}
+    assert str(swap_in["id"]) in after_ids
+    assert str(dropped["id"]) in after_ids
+    dropped_row = next(r for r in after if r["contestant_id"] == str(dropped["id"]))
+    assert dropped_row["active_until_episode"] == 2
 
 
 @pytest.mark.integration
