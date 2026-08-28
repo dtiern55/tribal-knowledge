@@ -359,10 +359,15 @@ html.locked-night .braid-rule { opacity: 0.55; }
   pointer-events: auto;
 }
 
-/* The ballot's light is a room state, not a modal: a lamp over the table
-   rather than a flat tint over the page. The dark deepens with distance from
-   the ballot instead of sitting at one value everywhere, and a little warmth
-   spills onto the surface just outside it.
+/* ── The ballot's room light ───────────────────────────────────────────────
+   A lamp over the table rather than a flat tint over the page: the dark
+   deepens with distance from the ballot instead of sitting at one value
+   everywhere, and a little warmth spills onto the surface just outside it.
+
+   It hangs off <html> rather than the page, the way locked-night does, for
+   one reason: leaving My Season for Standings or Cast unmounts the page, and
+   a scrim that lives in the page would be cut off mid-dark. On <html> the
+   room simply comes back up on the way out.
 
    `--stage-light-y` tracks the visible centre of the ballot panel, so
    scrolling moves the page under a fixed lamp rather than dragging the lamp
@@ -371,10 +376,14 @@ html.locked-night .braid-rule { opacity: 0.55; }
    It stays under the bottom nav (z-30). Taking the nav down with the room
    looked right and read terribly: an alpha wash this heavy compresses the
    nav's cream-on-forest to roughly 1.5:1, so the tab labels stop being
-   legible at all. The room goes dark; the way out of it does not. Pointer
-   events pass through regardless, so nothing under the light is stranded.
-   Must follow the [data-on] rule to win the pointer-events tie. */
-.stage-scrim[data-room] {
+   legible at all. The room goes dark; the way out of it does not. */
+html::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  min-height: 100vh;
+  z-index: 20;
+  opacity: 0;
   pointer-events: none;
   background:
     radial-gradient(
@@ -389,6 +398,10 @@ html.locked-night .braid-rule { opacity: 0.55; }
       rgb(9 20 16 / 66%) 72%,
       rgb(5 12 10 / 88%) 100%
     );
+}
+
+html.ballot-room::after {
+  opacity: 1;
 }
 
 /* The transitions live on the element, not on the state class. Defined on
@@ -475,6 +488,7 @@ html.locked-night .braid-rule { opacity: 0.55; }
 @media (prefers-reduced-motion: no-preference) {
   /* One curve, both directions — leaving is arriving reversed, not a cut. */
   .stage-scrim { transition: opacity 520ms cubic-bezier(0.4, 0, 0.2, 1); }
+  html::after { transition: opacity 1400ms cubic-bezier(0.4, 0, 0.2, 1); }
   .stage-stage {
     transition:
       box-shadow 520ms cubic-bezier(0.4, 0, 0.2, 1),

@@ -390,6 +390,14 @@ export function MySeasonPage() {
   // and this is the only thing that needs the box. Tracks the panel's VISIBLE
   // centre, so a long field of castaways stays lit as you scroll it instead of
   // the light drifting off the top.
+  // On <html>, not in the page: leaving for Standings or Cast unmounts this
+  // page, and a room light that lived here would be cut off mid-dark instead
+  // of coming back up behind you.
+  useEffect(() => {
+    document.documentElement.classList.toggle('ballot-room', ballotLit)
+    return () => document.documentElement.classList.remove('ballot-room')
+  }, [ballotLit])
+
   useEffect(() => {
     if (!ballotLit) return
     const panel = document.getElementById('panel-ballot')
@@ -675,11 +683,10 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || picking === 'swap' || ballotLit) && (
+      {state.kind === 'open' && (stageOpen || picking === 'swap') && (
         <div
           className="stage-scrim"
-          data-on={picking === 'swap' || ballotLit}
-          data-room={ballotLit || undefined}
+          data-on={picking === 'swap'}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
