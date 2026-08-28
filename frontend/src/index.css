@@ -404,6 +404,12 @@ html.ballot-room::after {
   opacity: 1;
 }
 
+/* Leaving My Season entirely, rather than just leaving the beat: see the
+   shorter duration in the motion query below. The slow swell is right for a
+   beat switch, where the lane is lit and in front of you the whole time — but
+   on a route change the page you asked for arrives underneath the light and
+   spends the fade invisible. */
+
 /* The transitions live on the element, not on the state class. Defined on
    .stage-lit they only existed while lit, so leaving the mode snapped — the
    browser had nothing to animate once the class was gone. */
@@ -489,6 +495,10 @@ html.ballot-room::after {
   /* One curve, both directions — leaving is arriving reversed, not a cut. */
   .stage-scrim { transition: opacity 520ms cubic-bezier(0.4, 0, 0.2, 1); }
   html::after { transition: opacity 1400ms cubic-bezier(0.4, 0, 0.2, 1); }
+  /* Inside the motion query with the rest: a bare transition-duration outside
+     it would default transition-property to `all` and animate under
+     prefers-reduced-motion. */
+  html.ballot-room--leaving::after { transition-duration: 400ms; }
   .stage-stage {
     transition:
       box-shadow 520ms cubic-bezier(0.4, 0, 0.2, 1),

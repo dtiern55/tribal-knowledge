@@ -395,8 +395,21 @@ export function MySeasonPage() {
   // of coming back up behind you.
   useEffect(() => {
     document.documentElement.classList.toggle('ballot-room', ballotLit)
-    return () => document.documentElement.classList.remove('ballot-room')
   }, [ballotLit])
+
+  // Leaving the page is not the same as leaving the beat. Empty deps, so this
+  // cleanup runs on unmount only: it marks the room as lifting fast, because
+  // the page you navigated to arrives *under* the light and stays invisible
+  // for as long as the fade takes. A beat switch keeps the slow swell — the
+  // lane is lit and in front of you the whole time.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.remove('ballot-room--leaving')
+    return () => {
+      root.classList.add('ballot-room--leaving')
+      root.classList.remove('ballot-room')
+    }
+  }, [])
 
   useEffect(() => {
     if (!ballotLit) return
