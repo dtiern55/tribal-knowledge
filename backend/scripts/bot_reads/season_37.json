@@ -315,6 +315,49 @@
    ],
    "confidence": "medium",
    "note": "Christian is the read \u2014 should draw the most ballots (~14), with the vote-doublers piling on him. Angelina a clear second (~8), fewer doubling her. The other six split about evenly and low. Roster-point doubles are unsteered: whoever holds a roster member backs one at random."
+  },
+  "12": {
+   "likely_boots": [
+    [
+     "Christian Hubicki",
+     8
+    ],
+    [
+     "Alison Raybould",
+     7
+    ],
+    [
+     "Angelina Keeley",
+     4
+    ],
+    [
+     "Davie Rickenbacker",
+     4
+    ],
+    [
+     "Kara Kay",
+     4
+    ],
+    [
+     "Mike White",
+     4
+    ],
+    [
+     "Nick Wilson",
+     4
+    ]
+   ],
+   "double_targets": [
+    "Christian Hubicki",
+    "Alison Raybould",
+    "Angelina Keeley",
+    "Davie Rickenbacker",
+    "Kara Kay",
+    "Mike White",
+    "Nick Wilson"
+   ],
+   "confidence": "low",
+   "note": "Christian and Alison the leans again, but lighter and less confident than ep11 after the blindsides \u2014 a flatter split, the pack (Angelina/Davie/Kara/Mike/Nick) close behind at even weight. Roster-point doubles spread evenly across all seven (engine can't finely de-weight Christian/Alison; even spread is the closest to 'a couple fewer on them')."
   }
  }
 }
