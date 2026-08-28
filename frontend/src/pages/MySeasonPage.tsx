@@ -54,6 +54,12 @@ import type {
 // carved ×2 idol is stamped onto the ballot once, like a seal pressed on the
 // paper (#484) — not repeated per vote, not a banner. Corner press: the host
 // container must be `relative`.
+// Bumped on every MySeasonPage mount so a curtain poll left running by a
+// previous unmount can tell it has been superseded. Module scope rather than a
+// ref: a genuine remount gets a fresh ref, which is the very case that has to
+// cancel the old poll.
+let roomGeneration = 0
+
 function BallotStamp({
   size = 54,
   onPointerDown,
@@ -405,8 +411,12 @@ export function MySeasonPage() {
   // and sits there invisible while the fade plays out.
   useEffect(() => {
     const root = document.documentElement
+    const generation = ++roomGeneration
     root.classList.remove('ballot-room--leaving')
     return () => {
+      // Leaving from any other beat never turned the light on, so there is
+      // nothing to put away and no reason to strand a class on <html>.
+      if (!root.classList.contains('ballot-room')) return
       root.classList.add('ballot-room--leaving')
       // The destination mounts in this same commit, so its PageLoader has not
       // flagged <html> yet — start looking on the next frame. Held no longer
@@ -416,11 +426,22 @@ export function MySeasonPage() {
       // ponytail: a 100ms poll rather than a MutationObserver — this is a
       // curtain, not a scrubber, and the cap means it cannot hang.
       let waited = 0
+      // This chain outlives the component — it holds <html>, not the page — so
+      // every step checks it has not been superseded. Without that, coming
+      // back inside the hold window (or StrictMode's mount/unmount/mount in
+      // dev, which is not a race but the normal path) leaves a poll that
+      // strips `ballot-room` out from under a light that is legitimately on
+      // again, with nothing left to turn it back.
+      const superseded = () => generation !== roomGeneration
       const lift = () => {
+        if (superseded()) return
         root.classList.remove('ballot-room')
-        window.setTimeout(() => root.classList.remove('ballot-room--leaving'), 600)
+        window.setTimeout(() => {
+          if (!superseded()) root.classList.remove('ballot-room--leaving')
+        }, 600)
       }
       const tick = () => {
+        if (superseded()) return
         if (waited < LOADER_DELAY_MS && root.classList.contains('page-loading')) {
           waited += 100
           window.setTimeout(tick, 100)
@@ -451,10 +472,21 @@ export function MySeasonPage() {
       if (!frame) frame = requestAnimationFrame(aim)
     }
     aim()
+    // Scrolling moves the panel without resizing it; "Edit ballot" swaps three
+    // slips for a grid of eighteen castaways, resizing it by hundreds of
+    // pixels without scrolling. Both have to re-aim the lamp, so both are
+    // watched.
+    // `--stage-light-y` is deliberately NOT cleared on the way out: the fade
+    // runs for up to 1400ms after this effect tears down, and removing the
+    // property mid-fade snaps the lamp to the middle of the screen as it dims.
+    // It is inert once the room is off.
+    const observer = new ResizeObserver(queue)
+    observer.observe(panel)
     window.addEventListener('scroll', queue, { passive: true })
     window.addEventListener('resize', queue)
     return () => {
       cancelAnimationFrame(frame)
+      observer.disconnect()
       window.removeEventListener('scroll', queue)
       window.removeEventListener('resize', queue)
     }
@@ -2201,6 +2233,17 @@ function RosterSection({
   // lock episode was > 1).
   const rosterBaseEp = Math.min(...roster.map((r) => r.active_from_episode))
   const swappedRoster = roster.filter((r) => r.active_until_episode !== null)
+  // A swap's penalty is not booked until its episode locks (#164 follow-up) —
+  // backend/app/scoring.py withholds it from the totals until then, because
+  // the swap is undoable up to that point. As detached metadata beside the
+  // name an unbooked penalty read as a heads-up; itemised inside the
+  // breakdown it is an assertion that it sums to the total above it, so it
+  // has to observe the same gate or it charges you for something you have not
+  // been charged for.
+  const penaltyBooked = (pick: RosterPick) =>
+    episodes.some(
+      (e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e),
+    )
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
 
   // Light gold SS outline while the designation window is open, solid once
@@ -2794,7 +2837,7 @@ function RosterSection({
                     activeUntil={pick.active_until_episode}
                     doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
                     episodeTitles={episodeTitles}
-                    swapPenalty={pick.swap_penalty_points}
+                    swapPenalty={penaltyBooked(pick) ? pick.swap_penalty_points : 0}
                   />
                 </RosterCard>
               ))}
@@ -2921,7 +2964,15 @@ function BallotRecord({
         {ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`}
       </span>
       {ballotDoubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
-      <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+      {/* Overflows with two or three chips on a narrow phone, so it is a
+          scroll container and has to be focusable — otherwise the votes past
+          the fold are unreachable by keyboard or switch (WCAG 2.1.1). */}
+      <span
+        role="group"
+        aria-label="Votes"
+        tabIndex={0}
+        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+      >
         {picks.length === 0 ? (
           <span className="text-sm text-gray-500">No votes</span>
         ) : (

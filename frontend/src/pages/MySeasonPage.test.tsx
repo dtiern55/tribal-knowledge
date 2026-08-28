@@ -341,6 +341,52 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
   })
 
+  it('lights the room on the Ballot beat and puts it out on the way off the page', async () => {
+    // The room light is DOM side effects on <html>, so nothing else would
+    // catch it breaking. Covers the two exits that behave differently: leaving
+    // the beat, and leaving the page.
+    arrange([
+      episode(1, 'scored', '2026-08-20T00:00:00Z'),
+      episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    const { unmount } = renderWithApp(<MySeasonPage />, { auth })
+
+    await openBeat('Ballot')
+    expect(document.documentElement).toHaveClass('ballot-room')
+
+    // Leaving the beat puts it out; the lane is still in front of you, so this
+    // is the slow lift and nothing marks it as leaving the page.
+    await openBeat('Tribe')
+    expect(document.documentElement).not.toHaveClass('ballot-room')
+    expect(document.documentElement).not.toHaveClass('ballot-room--leaving')
+
+    await openBeat('Ballot')
+    expect(document.documentElement).toHaveClass('ballot-room')
+
+    // Leaving the page holds the dark and flags the fast lift.
+    unmount()
+    expect(document.documentElement).toHaveClass('ballot-room')
+    expect(document.documentElement).toHaveClass('ballot-room--leaving')
+
+    await waitFor(() =>
+      expect(document.documentElement).not.toHaveClass('ballot-room'),
+    )
+  })
+
+  it('leaves the room light alone when you were never on the Ballot beat', async () => {
+    arrange([
+      episode(1, 'scored', '2026-08-20T00:00:00Z'),
+      episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    const { unmount } = renderWithApp(<MySeasonPage />, { auth })
+    await screen.findAllByRole('tab')
+
+    unmount()
+    // Nothing to put away, so nothing is stranded on <html>.
+    expect(document.documentElement).not.toHaveClass('ballot-room')
+    expect(document.documentElement).not.toHaveClass('ballot-room--leaving')
+  })
+
   it('keeps the weekly play to the two doubles, with swaps living on the roster', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
