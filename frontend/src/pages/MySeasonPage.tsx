@@ -385,6 +385,38 @@ export function MySeasonPage() {
   // down, the lane keeps the torch. Leaving the beat — or the page — brings it
   // back up, since the scrim only exists while this beat is showing.
   const ballotLit = beat === 'ballot' && picking == null
+  // Aim the lamp at the ballot. Reads the panel by id rather than threading a
+  // ref through LaneStack and RecordPanel — the id is already there for aria,
+  // and this is the only thing that needs the box. Tracks the panel's VISIBLE
+  // centre, so a long field of castaways stays lit as you scroll it instead of
+  // the light drifting off the top.
+  useEffect(() => {
+    if (!ballotLit) return
+    const panel = document.getElementById('panel-ballot')
+    if (!panel) return
+    let frame = 0
+    const aim = () => {
+      frame = 0
+      const box = panel.getBoundingClientRect()
+      const top = Math.max(box.top, 0)
+      const bottom = Math.min(box.bottom, window.innerHeight)
+      document.documentElement.style.setProperty(
+        '--stage-light-y',
+        `${(top + bottom) / 2}px`,
+      )
+    }
+    const queue = () => {
+      if (!frame) frame = requestAnimationFrame(aim)
+    }
+    aim()
+    window.addEventListener('scroll', queue, { passive: true })
+    window.addEventListener('resize', queue)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', queue)
+      window.removeEventListener('resize', queue)
+    }
+  }, [ballotLit])
   // The recap overlay is driven by a `recap=<episode_id>` URL param (#479) so
   // Back closes it instead of leaving the page, and a refresh restores it.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -647,7 +679,7 @@ export function MySeasonPage() {
         <div
           className="stage-scrim"
           data-on={picking === 'swap' || ballotLit}
-          data-passthrough={ballotLit || undefined}
+          data-room={ballotLit || undefined}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
