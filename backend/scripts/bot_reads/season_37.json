@@ -267,6 +267,54 @@
    ],
    "confidence": "low",
    "note": "No real read. Spread the vote about evenly across the eleven, with a nudge toward Christian and Angelina. Doubles are unsteered \u2014 whoever backs their roster picks at random."
+  },
+  "11": {
+   "likely_boots": [
+    [
+     "Christian Hubicki",
+     14
+    ],
+    [
+     "Angelina Keeley",
+     8
+    ],
+    [
+     "Alison Raybould",
+     2
+    ],
+    [
+     "Davie Rickenbacker",
+     2
+    ],
+    [
+     "Gabby Pascuzzi",
+     2
+    ],
+    [
+     "Kara Kay",
+     2
+    ],
+    [
+     "Mike White",
+     2
+    ],
+    [
+     "Nick Wilson",
+     2
+    ]
+   ],
+   "double_targets": [
+    "Christian Hubicki",
+    "Angelina Keeley",
+    "Alison Raybould",
+    "Davie Rickenbacker",
+    "Gabby Pascuzzi",
+    "Kara Kay",
+    "Mike White",
+    "Nick Wilson"
+   ],
+   "confidence": "medium",
+   "note": "Christian is the read \u2014 should draw the most ballots (~14), with the vote-doublers piling on him. Angelina a clear second (~8), fewer doubling her. The other six split about evenly and low. Roster-point doubles are unsteered: whoever holds a roster member backs one at random."
   }
  }
 }
