@@ -214,4 +214,14 @@ export const QUOTES: Quote[] = [
     who: 'Sue Hawk',
     season: 'Season 1: Borneo',
   },
+  {
+    text: 'No, Robb, you were not in the attack zone when you grabbed Clay by the throat.',
+    who: 'Jeff Probst',
+    season: 'Season 5: Thailand',
+  },
+  {
+    text: "A kiss is nice. Maybe if it was love, he'd have given you the Immunity Necklace.",
+    who: 'Jeff Probst',
+    season: 'Season 13: Cook Islands',
+  },
 ]
