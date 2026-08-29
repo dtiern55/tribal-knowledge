@@ -143,7 +143,10 @@ export function TeamPage() {
   const episodeTitles = new Map(episodes.map((episode) => [episode.episode_number, episode.title]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((pick) => pick.active_until_episode === null)
-  const swappedOut = roster.filter((pick) => pick.active_until_episode !== null)
+  // Most recent swap on top, the first swap at the bottom.
+  const swappedOut = roster
+    .filter((pick) => pick.active_until_episode !== null)
+    .sort((a, b) => (b.active_until_episode ?? 0) - (a.active_until_episode ?? 0))
   const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
   // A swap's penalty books only once the episode it happened in has closed
   // (matches My Season; penalties are 0 under the token-cost model).
