@@ -205,8 +205,10 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
     )
     ours = insert_contestant(db_conn, season["id"], "Ours")
     theirs = insert_contestant(db_conn, season["id"], "Theirs")
-    early = insert_contestant(db_conn, season["id"], "Early", placement=4)
-    fire = insert_contestant(db_conn, season["id"], "Fire", placement=3)
+    early = insert_contestant(db_conn, season["id"], "Early", placement=5)
+    fire = insert_contestant(db_conn, season["id"], "Fire", placement=4)
+    third = insert_contestant(db_conn, season["id"], "Third", placement=3)
+    runner = insert_contestant(db_conn, season["id"], "Runner", placement=2)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_roster_pick(db_conn, current_user["id"], season["id"], ours["id"])
     insert_roster_pick(db_conn, other["id"], season["id"], theirs["id"])
@@ -215,8 +217,8 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         db_conn,
         current_user["id"],
         season["id"],
-        early_boot=early["id"],
-        fire_loss=fire["id"],
+        final_four=[winner["id"], runner["id"], third["id"], fire["id"]],
+        final_three=[winner["id"], runner["id"], third["id"]],
         winner=winner["id"],
     )
     insert_elimination(db_conn, finale["id"], early["id"], "voted_out")
@@ -224,12 +226,20 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
 
     result = client.get(f"/seasons/{season['id']}/reveal").json()
     assert [pick["prediction_type"] for pick in result["ballot"]] == [
-        "early_boot",
-        "fire_loss",
+        "final_four",
+        "final_four",
+        "final_four",
+        "final_four",
+        "final_three",
+        "final_three",
+        "final_three",
         "winner",
+        "perfect_final_three",
     ]
-    assert result["ballot_points"] == 88
-    assert result["total_points"] == 88
+    # 4*6 + 3*8 + 40 + 12 (perfect Final 3) — the perfect bonus rides the first
+    # Final 3 pick's line so the ballot lane still sums to the total.
+    assert result["ballot_points"] == 100
+    assert result["total_points"] == 100
     assert result["current_rank"] == 1
     assert result["prior_rank"] == 2
     assert result["rank_delta"] == 1

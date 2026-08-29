@@ -33,7 +33,7 @@ The read file (scripts/bot_reads/season_<n>.json) is the commissioner's input:
           "note":            "Goliath looks like a powerhouse"
         }
       },
-      "finale": { "winner": [...], "early_boot": [...], "fire_loss": [...] }
+      "finale": { "final_four": [...], "final_three": [...], "winner": [...] }
     }
 
 likely_boots is either a plain name list (rank order — bots cluster on the
@@ -750,7 +750,16 @@ def week(cur, episode_n: int):
 # ── finale ballot ──────────────────────────────────────────────────────────
 
 
-FINALE_KEYS = ("winner", "early_boot", "fire_loss")
+# Each finale slate and how many names a bot commits to it (#534). The read
+# gives a candidate pool per slate (commissioner's lean, ranked); each bot takes
+# the top few after its own biased shuffle. Slates score independently against
+# the actual bracket, so a bot needn't keep them nested.
+FINALE_SLATES = (
+    ("final_four", 4),
+    ("final_three", 3),
+    ("winner", 1),
+)
+FINALE_KEYS = tuple(key for key, _ in FINALE_SLATES)
 
 
 def finale_preflight(cur, season):
@@ -785,7 +794,7 @@ def finale_preflight(cur, season):
 
     alive = alive_ids(cur, sid)
     if fin_read:
-        for key in FINALE_KEYS:
+        for key, count in FINALE_SLATES:
             named = fin_read.get(key, [])
             # resolve() exits on a name that isn't in the cast at all; that is
             # a typo, and staying loud about it is the existing behaviour.
@@ -816,6 +825,13 @@ def finale_preflight(cur, season):
                 print(
                     f"  ok  finale.{key}: {n} name{'' if n == 1 else 's'}, all still in"
                 )
+            # A slate needs at least as many live candidates as seats, or bots
+            # can't fill it (a Final 4 read of only 3 live names).
+            if len(fields[key]) < count:
+                warnings.append(
+                    f"finale.{key}: only {len(fields[key])} live candidate(s)"
+                    f" for {count} seat(s) - bots will fill what they can"
+                )
 
     for w in warnings:
         print(f"  !   {w}")
@@ -825,10 +841,11 @@ def finale_preflight(cur, season):
 
 
 def ballot(cur, check_only=False):
-    """Every bot files a three-part finale ballot from the read's finale block.
+    """Every bot files a finale bracket ballot from the read's finale block.
 
     Forward-looking like everything else: the read is who the ROOM would back,
-    not who actually won.
+    not who actually won. Each slate (Final 4, Final 3, winner) is filled from
+    its own read pool by the bot's biased order.
     """
     season = active_season(cur)
     sid = season["id"]
@@ -854,20 +871,20 @@ def ballot(cur, check_only=False):
         if cur.fetchone():
             continue
         chosen = {
-            k: biased_order(v, a["spread"], uid, "finale", k)[0]
-            for k, v in fields.items()
+            key: biased_order(fields[key], a["spread"], uid, "finale", key)[:count]
+            for key, count in FINALE_SLATES
         }
         cur.execute(
             """insert into finale_predictions
-            (user_id, season_id, winner_contestant_id,
-             early_boot_contestant_id, fire_loss_contestant_id)
-            values (%s,%s,%s,%s,%s)""",
+            (user_id, season_id, final_four_contestant_ids,
+             final_three_contestant_ids, winner_contestant_id)
+            values (%s,%s,%s::uuid[],%s::uuid[],%s)""",
             [
                 uid,
                 sid,
-                chosen["winner"],
-                chosen["early_boot"],
-                chosen["fire_loss"],
+                chosen["final_four"],
+                chosen["final_three"],
+                chosen["winner"][0] if chosen["winner"] else None,
             ],
         )
         n += 1

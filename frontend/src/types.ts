@@ -136,8 +136,8 @@ export interface FinalePrediction {
   id: string
   user_id: string
   season_id: string
-  early_boot_contestant_id: string | null
-  fire_loss_contestant_id: string | null
+  final_four_contestant_ids: string[]
+  final_three_contestant_ids: string[]
   winner_contestant_id: string | null
   created_at: string
 }
@@ -174,7 +174,12 @@ export interface EpisodeResultElimination extends EpisodeResultContestant {
 }
 
 export interface EpisodeResultBallotPick extends EpisodeResultContestant {
-  prediction_type: 'elimination' | 'early_boot' | 'fire_loss' | 'winner'
+  prediction_type:
+    | 'elimination'
+    | 'final_four'
+    | 'final_three'
+    | 'perfect_final_three'
+    | 'winner'
   correct: boolean
   points: number
 }

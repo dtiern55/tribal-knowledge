@@ -19,9 +19,9 @@ run against a season nobody has watched yet.
     }
   },
   "finale": {
-    "winner":     ["Who the room would back"],
-    "early_boot": ["..."],
-    "fire_loss":  ["..."]
+    "final_four":  ["Who reaches fire-making", "...ranked pool"],
+    "final_three": ["Who reaches the final tribal", "..."],
+    "winner":      ["Who the room would back"]
   }
 }
 ```
@@ -29,6 +29,11 @@ run against a season nobody has watched yet.
 The `finale` block is the one part you write late: names that have been voted
 out by finale night are dropped, so a read written at the merge is mostly
 wasted. Write it once the final few are set.
+
+Each slate is a ranked candidate pool; bots take the top few after their own
+biased shuffle — 4 for `final_four`, 3 for `final_three`, 1 for `winner`. The
+slates score independently against the real bracket, so they needn't be nested;
+the same names can appear in several pools.
 
 Check a read without filing anything:
 

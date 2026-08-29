@@ -429,7 +429,13 @@ class EpisodeResultElimination(EpisodeResultContestant):
 
 
 class EpisodeResultBallotPick(EpisodeResultContestant):
-    prediction_type: Literal["elimination", "early_boot", "fire_loss", "winner"]
+    prediction_type: Literal[
+        "elimination",
+        "final_four",
+        "final_three",
+        "perfect_final_three",
+        "winner",
+    ]
     correct: bool
     points: int
 
@@ -589,15 +595,15 @@ class FinalePrediction(BaseModel):
     id: UUID
     user_id: UUID
     season_id: UUID
-    early_boot_contestant_id: Optional[UUID]
-    fire_loss_contestant_id: Optional[UUID]
+    final_four_contestant_ids: list[UUID] = Field(default_factory=list)
+    final_three_contestant_ids: list[UUID] = Field(default_factory=list)
     winner_contestant_id: Optional[UUID]
     created_at: datetime
 
 
 class FinalePredictionRequest(BaseModel):
-    early_boot_contestant_id: Optional[UUID] = None
-    fire_loss_contestant_id: Optional[UUID] = None
+    final_four_contestant_ids: list[UUID] = Field(default_factory=list, max_length=4)
+    final_three_contestant_ids: list[UUID] = Field(default_factory=list, max_length=3)
     winner_contestant_id: Optional[UUID] = None
 
 

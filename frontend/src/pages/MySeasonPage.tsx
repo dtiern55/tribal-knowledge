@@ -374,6 +374,13 @@ export function MySeasonPage() {
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
   const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
+  // Live finale-ballot progress, reported up from the FinaleBallot as you build
+  // the bracket, so the hero reflects picks the instant you make or remove them
+  // — the saved ballot on its own can't (#86 follow-on).
+  const [finaleProgress, setFinaleProgress] = useState<{
+    filled: number
+    saved: boolean
+  } | null>(null)
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
   const [beat, setBeat] = useState<BeatKey>(() => {
@@ -632,8 +639,16 @@ export function MySeasonPage() {
     const stillIn = d.contestants.filter(
       (c) => c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number,
     ).length
-    const maxPicks = Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
-    const saved = d.openPicks.length
+    // The finale ballot is the full bracket — Final 4 (4) + Final 3 (3) +
+    // winner (1) = 8 picks — not weekly votes, so at the finale the ballot beat
+    // tracks the live bracket instead (#86 follow-on). The count follows every
+    // pick; "done" still waits on a locked-in ballot, like the weekly one.
+    const isFinale = openEp.is_finale
+    const finaleFilled = finaleProgress?.filled ?? 0
+    const maxPicks = isFinale
+      ? 8
+      : Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
+    const saved = isFinale ? finaleFilled : d.openPicks.length
 
     // Holding a dead slot is a position, not a chore: sitting on an eliminated
     // castaway for a week — to spend the weekly play on a x2 instead, or to
@@ -645,7 +660,11 @@ export function MySeasonPage() {
     const canSwap = !swapsLocked(d.season!, d.episodes) && !swappedThisEpisode
     const heldDead = deadSlots > 0 && canSwap
     const rosterDone = held.length > 0 && (deadSlots === 0 || !canSwap)
-    const ballotDone = maxPicks > 0 && saved === maxPicks
+    // A finale ballot is only "done" when a full bracket has been locked in —
+    // a complete-but-unsaved draft still owes a submit, same as the weekly one.
+    const ballotDone = isFinale
+      ? finaleFilled === maxPicks && Boolean(finaleProgress?.saved)
+      : maxPicks > 0 && saved === maxPicks
 
     const beats: Beat[] = [
       {
@@ -688,8 +707,12 @@ export function MySeasonPage() {
           ? 'Your ballot and tribe both need you'
           : !ballotDone
             ? saved === 0
-              ? 'Your ballot is empty'
-              : `${saved} of ${maxPicks} votes cast`
+              ? isFinale
+                ? 'Your finale ballot is empty'
+                : 'Your ballot is empty'
+              : isFinale
+                ? `${saved} of ${maxPicks} finale picks made`
+                : `${saved} of ${maxPicks} votes cast`
             : noRoster
               ? 'Pick your tribe'
               : heldDead
@@ -698,7 +721,9 @@ export function MySeasonPage() {
                   : `${deadSlots} castaways in your tribe are out`
                 : advantageUnplayed
                   ? 'Your ×2 is still unplayed'
-                  : `You're all set for Ep ${openEp.episode_number}`,
+                  : isFinale
+                    ? "You're all set for the finale"
+                    : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
@@ -855,6 +880,7 @@ export function MySeasonPage() {
                 setPlays={d.setPlays}
                 pickResults={pickResults}
                 onBallotSaved={d.bumpBallot}
+                onFinaleProgress={setFinaleProgress}
                 onDragToRoster={() => {
                   // Open the double-pick sheet (as the Advantage → Roster ×2 tap
                   // does) and land you on the Roster beat afterwards (#487).
@@ -3043,6 +3069,7 @@ function PicksSection({
   setPlays,
   pickResults,
   onBallotSaved,
+  onFinaleProgress,
   onDragToRoster,
 }: {
   season: Season
@@ -3053,6 +3080,8 @@ function PicksSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
   onBallotSaved?: () => void
+  /** Live finale-bracket progress for the hero, forwarded to FinaleBallot. */
+  onFinaleProgress?: (p: { filled: number; saved: boolean }) => void
   /** Drag the ballot ×2 seal onto the Roster tab to move the play there (#487). */
   onDragToRoster?: () => void
 }) {
@@ -3179,30 +3208,35 @@ function PicksSection({
     weekly.find(isOpen) ??
     weekly.find((ep) => episodeClosed(ep) && ep.status !== 'scored')
 
+  // The finale replaces the weekly vote with the bracket (#86); it stays visible
+  // after lock as the stamped ballot (#189). Computed up here so the empty-state
+  // notice knows the finale counts as a current episode — otherwise it fired at
+  // the finale, when every weekly episode is already scored.
+  const finaleEp = episodes.find((e) => e.is_finale)
+  const showFinale = Boolean(
+    finaleEp && (nextOpen?.id === finaleEp.id || episodeClosed(finaleEp)),
+  )
+
   const content = (
     <>
       <SealGhost drag={ballotDrag} />
-      {!currentEp && (
+      {!currentEp && !showFinale && (
         <Notice title="The season hasn’t started yet">
           Once the commissioner schedules the first episode, your tribe and the weekly play show up here.
         </Notice>
       )}
 
-      {/* Final week: the weekly vote becomes the 3-part finale ballot (#86);
-          it stays visible after lock as the stamped ballot (#189). */}
-      {(() => {
-        const fin = episodes.find((e) => e.is_finale)
-        const show = fin && (nextOpen?.id === fin.id || episodeClosed(fin))
-        return show ? (
-          <FinaleBallot
-            season={season}
-            contestants={contestants}
-            episodes={episodes}
-            finaleEp={fin}
-            userId={userId}
-          />
-        ) : null
-      })()}
+      {showFinale && finaleEp && (
+        <FinaleBallot
+          season={season}
+          contestants={contestants}
+          episodes={episodes}
+          finaleEp={finaleEp}
+          userId={userId}
+          onBallotSaved={onBallotSaved}
+          onProgress={onFinaleProgress}
+        />
+      )}
 
       {nextOpen &&
         !nextOpen.is_finale &&
@@ -3432,15 +3466,21 @@ function FinaleBallot({
   episodes,
   finaleEp,
   userId,
+  onBallotSaved,
+  onProgress,
 }: {
   season: Season
   contestants: Contestant[]
   episodes: Episode[]
   finaleEp: Episode
   userId: string
+  onBallotSaved?: () => void
+  /** Report bracket progress up so the hero tracks picks live. `saved` is true
+   *  only while showing a locked-in ballot (not a live draft). */
+  onProgress?: (p: { filled: number; saved: boolean }) => void
 }) {
-  const [earlyBoot, setEarlyBoot] = useState('')
-  const [fireLoss, setFireLoss] = useState('')
+  const [finalFour, setFinalFour] = useState<string[]>([])
+  const [finalThree, setFinalThree] = useState<string[]>([])
   const [winner, setWinner] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -3455,15 +3495,13 @@ function FinaleBallot({
     api
       .get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`)
       .then((pred) => {
-        setEarlyBoot(pred.early_boot_contestant_id ?? '')
-        setFireLoss(pred.fire_loss_contestant_id ?? '')
+        setFinalFour(pred.final_four_contestant_ids ?? [])
+        setFinalThree(pred.final_three_contestant_ids ?? [])
         setWinner(pred.winner_contestant_id ?? '')
         setHasSaved(
-          Boolean(
-            pred.early_boot_contestant_id ??
-              pred.fire_loss_contestant_id ??
-              pred.winner_contestant_id,
-          ),
+          (pred.final_four_contestant_ids?.length ?? 0) > 0 ||
+            (pred.final_three_contestant_ids?.length ?? 0) > 0 ||
+            Boolean(pred.winner_contestant_id),
         )
       })
       .catch(() => {
@@ -3471,37 +3509,48 @@ function FinaleBallot({
       })
   }, [season.id, userId])
 
-  // Alive at the finale: never-eliminated OR eliminated in the finale
-  // itself — the ballot predicts the finale's boots, so they stay listed
-  // even when results land before the window closes (matches the server).
+  // Report bracket progress to the hero on every pick change. `saved` is true
+  // only while showing a committed ballot, so the hero's "all set" waits on a
+  // lock-in even though its count follows the live draft.
+  useEffect(() => {
+    onProgress?.({
+      filled: finalFour.length + finalThree.length + (winner ? 1 : 0),
+      saved: locked || (hasSaved && !editing),
+    })
+  }, [finalFour, finalThree, winner, locked, hasSaved, editing, onProgress])
+
+  // Alive at the finale: never-eliminated OR eliminated in the finale itself —
+  // the ballot predicts the finale's bracket, so they stay listed even when
+  // results land before the window closes (matches the server).
   const alive = contestants.filter(
     (c) =>
       c.eliminated_in_episode == null ||
       c.eliminated_in_episode === finaleEp.episode_number,
   )
-  const picks = [
-    {
-      id: 'early-boot',
-      label: 'First Boot',
-      description: 'First person eliminated on finale night',
-      value: earlyBoot,
-      onChange: setEarlyBoot,
-    },
-    {
-      id: 'fire-loss',
-      label: 'Fire-Making Loser',
-      description: 'Loses the fire-making challenge',
-      value: fireLoss,
-      onChange: setFireLoss,
-    },
-    {
-      id: 'winner',
-      label: 'Sole Survivor',
-      description: 'Wins the game',
-      value: winner,
-      onChange: setWinner,
-    },
-  ]
+  const byId = new Map(contestants.map((c) => [c.id, c]))
+  // The bracket narrows: your Final 3 comes from your Final 4, the winner and
+  // the immunity winner from within those. Toggling someone out of the wider
+  // round drops them from the narrower ones too, so a ballot can't contradict
+  // itself.
+  function toggleFinalFour(id: string) {
+    setSaved(false)
+    if (finalFour.includes(id)) {
+      setFinalFour(finalFour.filter((x) => x !== id))
+      setFinalThree(finalThree.filter((x) => x !== id))
+      if (winner === id) setWinner('')
+    } else if (finalFour.length < 4) {
+      setFinalFour([...finalFour, id])
+    }
+  }
+  function toggleFinalThree(id: string) {
+    setSaved(false)
+    if (finalThree.includes(id)) {
+      setFinalThree(finalThree.filter((x) => x !== id))
+      if (winner === id) setWinner('')
+    } else if (finalThree.length < 3) {
+      setFinalThree([...finalThree, id])
+    }
+  }
 
   async function submitBallot() {
     setSubmitting(true)
@@ -3509,23 +3558,19 @@ function FinaleBallot({
     setSaved(false)
     try {
       await api.post<FinalePrediction>(`/seasons/${season.id}/finale-predictions`, {
-        early_boot_contestant_id: earlyBoot || null,
-        fire_loss_contestant_id: fireLoss || null,
+        final_four_contestant_ids: finalFour,
+        final_three_contestant_ids: finalThree,
         winner_contestant_id: winner || null,
       })
       setSaved(true)
-      setHasSaved(Boolean(earlyBoot || fireLoss || winner))
+      setHasSaved(finalFour.length > 0 || finalThree.length > 0 || Boolean(winner))
       setEditing(false)
+      onBallotSaved?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
     } finally {
       setSubmitting(false)
     }
-  }
-
-  const nameOf = (id: string) => {
-    const c = contestants.find((c) => c.id === id)
-    return c ? displayName(c) : '—'
   }
 
   return (
@@ -3545,66 +3590,64 @@ function FinaleBallot({
           No ballot submitted — the window has closed.
         </p>
       ) : locked || (hasSaved && !editing) ? (
-        <div className="mt-2 p-5 bg-jade-50 border-2 border-jade-500 rounded-xl text-center">
-          <div className="flex justify-center mb-1"><VoteMark className="w-10 h-10" /></div>
-          <p className="font-semibold text-jade-800 mb-3">
-            {locked ? 'Finale ballot locked' : 'Finale ballot in'}
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {picks.map(({ id, label, value }) => (
-              <span
-                key={id}
-                className="text-sm px-3 py-1.5 bg-white border border-jade-200 rounded-lg text-left"
-              >
-                <span className="block text-[11px] uppercase tracking-wide text-gray-500 font-semibold">
-                  {label}
-                </span>
-                <span className="font-medium text-gray-800">
-                  {value ? nameOf(value) : 'No prediction'}
-                </span>
-              </span>
-            ))}
+        <div className="mt-2 p-5 bg-jade-50 border-2 border-jade-500 rounded-xl">
+          <div className="flex flex-col items-center">
+            <VoteMark className="w-10 h-10" />
+            <p className="font-semibold text-jade-800 mt-1 mb-3">
+              {locked ? 'Finale ballot locked' : 'Finale ballot in'}
+            </p>
           </div>
+          <FinaleBracket
+            finalFour={finalFour}
+            finalThree={finalThree}
+            winner={winner}
+            byId={byId}
+          />
           {!locked && (
-            <button
-              onClick={() => {
-                setEditing(true)
-                setSaved(false)
-              }}
-              className="ruled-action mt-4"
-            >
-              Edit ballot
-            </button>
+            <div className="text-center">
+              <button
+                onClick={() => {
+                  setEditing(true)
+                  setSaved(false)
+                }}
+                className="ruled-action mt-4"
+              >
+                Edit ballot
+              </button>
+            </div>
           )}
         </div>
       ) : (
         <>
-          <p className="text-xs text-gray-500 mb-4">Make your three finale predictions.</p>
-
-          <div className="space-y-4 mb-4">
-            {picks.map(({ id, label, description, value, onChange }) => (
-              <div key={id}>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-terracotta-500 pl-2 mb-0.5">
-                  {label}
-                </label>
-                <p className="text-xs text-gray-500 mb-1.5">{description}</p>
-                <select
-                  value={value}
-                  onChange={(e) => {
-                    onChange(e.target.value)
-                    setSaved(false)
-                  }}
-                  className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">No prediction</option>
-                  {alive.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {displayName(c)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+          <div className="space-y-5 mb-4 mt-4">
+            <BracketRound
+              label="Final 4"
+              hint={`Who reaches the fire-making round · ${finalFour.length}/4`}
+              options={alive}
+              selected={finalFour}
+              onToggle={toggleFinalFour}
+            />
+            <BracketRound
+              label="Final 3"
+              hint={
+                finalFour.length === 0
+                  ? 'Pick your Final 4 first'
+                  : `Who survives to the final tribal · ${finalThree.length}/3`
+              }
+              options={finalFour.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
+              selected={finalThree}
+              onToggle={toggleFinalThree}
+            />
+            <BracketPick
+              label="Winner"
+              hint={finalThree.length === 0 ? 'Pick your Final 3 first' : ''}
+              options={finalThree.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
+              value={winner}
+              onChange={(id) => {
+                setWinner(id)
+                setSaved(false)
+              }}
+            />
           </div>
 
           {error && <p className="text-terracotta-600 text-sm mb-3">{error}</p>}
@@ -3624,6 +3667,202 @@ function FinaleBallot({
             )}
           </button>
         </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The locked finale ballot as a torch podium (#534): your full slates stacked
+ * and narrowing — the winner crowned at the apex, your Final 3 below, your
+ * Final 4 at the base. The winner keeps a gold ring wherever they appear, so
+ * you can trace who you called to advance all the way down.
+ */
+function FinaleBracket({
+  finalFour,
+  finalThree,
+  winner,
+  byId,
+}: {
+  finalFour: string[]
+  finalThree: string[]
+  winner: string
+  byId: Map<string, Contestant>
+}) {
+  const winnerId = winner || null
+
+  const member = (id: string, apex = false) => {
+    const c = byId.get(id)
+    const name = c ? displayName(c) : '—'
+    const isWin = id === winnerId
+    return (
+      <div key={id} className="flex w-14 flex-col items-center gap-1 text-center">
+        <span
+          className={`relative inline-flex rounded-full ${
+            isWin ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50' : ''
+          }`}
+        >
+          <ContestantAvatar
+            name={name}
+            imageUrl={c?.image_url ?? null}
+            tribeColor={c?.tribe_color ?? null}
+            tribeName={c?.tribe_name ?? null}
+            size={apex ? 'lg' : 'md'}
+          />
+        </span>
+        <span
+          className={`max-w-full truncate text-xs font-medium ${
+            isWin ? 'text-gold-800' : 'text-forest-800'
+          }`}
+        >
+          {name}
+        </span>
+      </div>
+    )
+  }
+
+  const rule = <div className="mx-auto h-px w-4/5 bg-jade-200" />
+  const tierLabel = (text: string, gold = false) => (
+    <span
+      className={`font-display text-[10px] font-bold uppercase tracking-[0.16em] ${
+        gold ? 'text-gold-800' : 'text-gray-500'
+      }`}
+    >
+      {text}
+    </span>
+  )
+  const tier = (label: string, ids: string[], gold = false) =>
+    ids.length > 0 && (
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
+          {ids.map((id) => member(id))}
+        </div>
+        {tierLabel(label, gold)}
+      </div>
+    )
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-1">
+      {winnerId && (
+        <div className="flex flex-col items-center gap-2 pt-1">
+          {tierLabel('Winner', true)}
+          {member(winnerId, true)}
+        </div>
+      )}
+      {winnerId && finalThree.length > 0 && rule}
+      {tier('Final 3', finalThree)}
+      {(winnerId || finalThree.length > 0) && finalFour.length > 0 && rule}
+      {tier('Final 4', finalFour)}
+    </div>
+  )
+}
+
+/** A multi-select bracket round: tap castaways to add them to the slate, tap
+ *  again to remove. Caps are enforced by the caller's toggle. */
+function BracketRound({
+  label,
+  hint,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string
+  hint: string
+  options: Contestant[]
+  selected: string[]
+  onToggle: (id: string) => void
+}) {
+  return (
+    <div>
+      <div className="border-l-2 border-terracotta-500 pl-2 mb-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+        <p className="text-xs text-gray-500">{hint}</p>
+      </div>
+      {options.length === 0 ? (
+        <p className="text-sm text-gray-400 pl-2">—</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {options.map((c) => {
+            const on = selected.includes(c.id)
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onToggle(c.id)}
+                aria-pressed={on}
+                className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm font-medium transition-colors ${
+                  on
+                    ? 'border-jade-500 bg-jade-50 text-jade-900'
+                    : 'border-cream-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <ContestantAvatar
+                  name={displayName(c)}
+                  imageUrl={c.image_url}
+                  size="sm"
+                  tribeColor={c.tribe_color}
+                  tribeName={c.tribe_name}
+                />
+                <span className="min-w-0 truncate">{displayName(c)}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A single-select bracket pick (winner, final immunity). */
+function BracketPick({
+  label,
+  hint,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  hint: string
+  options: Contestant[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  return (
+    <div>
+      <div className="border-l-2 border-gold-500 pl-2 mb-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+        {hint && <p className="text-xs text-gray-500">{hint}</p>}
+      </div>
+      {options.length === 0 ? (
+        <p className="text-sm text-gray-400 pl-2">—</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {options.map((c) => {
+            const on = value === c.id
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onChange(on ? '' : c.id)}
+                aria-pressed={on}
+                className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm font-medium transition-colors ${
+                  on
+                    ? 'border-gold-500 bg-gold-50 text-forest-900'
+                    : 'border-cream-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <ContestantAvatar
+                  name={displayName(c)}
+                  imageUrl={c.image_url}
+                  size="sm"
+                  tribeColor={c.tribe_color}
+                  tribeName={c.tribe_name}
+                />
+                <span className="min-w-0 truncate">{displayName(c)}</span>
+              </button>
+            )
+          })}
+        </div>
       )}
     </div>
   )

@@ -159,55 +159,91 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
         return {row["user_id"]: row["points"] for row in cur.fetchall()}
 
 
-def finale_points(conn, season_id: UUID) -> dict[str, int]:
-    """Points from each user's three-part finale ballot.
+def finale_actuals(cur, season_id: UUID):
+    """The recorded finale outcome the bracket ballot resolves against (#534).
 
-    Values come from the season's scoring snapshot. The current live-season
-    template awards 24 for the early boot, 24 for the fire loss, and 40 for
-    the winner.
+    Returns (final_three, final_four, winner_id): the Final 3 are placements
+    1-3, the Final 4 is the Final 3 plus whoever lost fire-making, and the
+    winner is placement 1. All are None/empty until the finale is scored, so
+    finale points stay 0 until then.
+    """
+    cur.execute(
+        "select id::text as id, placement from contestants"
+        " where season_id = %s and placement in (1, 2, 3)",
+        [str(season_id)],
+    )
+    rows = cur.fetchall()
+    final_three = {r["id"] for r in rows}
+    winner = next((r["id"] for r in rows if r["placement"] == 1), None)
+
+    cur.execute(
+        "select id from episodes where season_id = %s and is_finale = true",
+        [str(season_id)],
+    )
+    fin = cur.fetchone()
+    fire_loss = None
+    if fin:
+        cur.execute(
+            "select contestant_id::text as id from eliminations"
+            " where episode_id = %s and elimination_type = 'fire_making_loss'",
+            [str(fin["id"])],
+        )
+        row = cur.fetchone()
+        fire_loss = row["id"] if row else None
+
+    final_four = set(final_three)
+    if fire_loss:
+        final_four.add(fire_loss)
+    return final_three, final_four, winner
+
+
+def finale_points(conn, season_id: UUID) -> dict[str, int]:
+    """Points from each user's finale bracket ballot (#534).
+
+    Survivor-centric: your Final 4 (partial credit per correct name), your
+    Final 3 (partial credit, plus a bonus for nailing all three), and the
+    winner. Values come from the season's scoring snapshot — the live template
+    is 6 / 8 / 12 bonus / 40 winner.
     """
     with conn.cursor() as cur:
         cur.execute(
             """
             select key, point_value from season_prediction_score_types
             where season_id = %s
-              and key in ('correct_early_boot', 'correct_fire_loss',
-                          'correct_winner_vote')
+              and key in ('correct_final_four', 'correct_final_three',
+                          'perfect_final_three', 'correct_winner_vote')
             """,
             [str(season_id)],
         )
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
+        if not v:
+            return {}
+        final_three, final_four, winner = finale_actuals(cur, season_id)
 
         cur.execute(
             """
-            select fp.user_id::text as user_id,
-                   (case when eb.contestant_id is not null then %(boot)s else 0 end
-                    + case when fl.contestant_id is not null then %(fire)s else 0 end
-                    + case when wc.placement = 1 then %(win)s else 0 end) as points
-            from finale_predictions fp
-            left join episodes fin
-              on fin.season_id = fp.season_id and fin.is_finale = true
-            left join eliminations eb
-              on eb.episode_id = fin.id
-             and eb.contestant_id = fp.early_boot_contestant_id
-             and eb.elimination_type = 'voted_out'
-            left join eliminations fl
-              on fl.episode_id = fin.id
-             and fl.contestant_id = fp.fire_loss_contestant_id
-             and fl.elimination_type = 'fire_making_loss'
-            left join contestants wc on wc.id = fp.winner_contestant_id
-            where fp.season_id = %(season)s
+            select user_id::text as user_id,
+                   final_four_contestant_ids::text[] as final_four,
+                   final_three_contestant_ids::text[] as final_three,
+                   winner_contestant_id::text as winner
+            from finale_predictions where season_id = %s
             """,
-            {
-                "boot": v["correct_early_boot"],
-                "fire": v["correct_fire_loss"],
-                "win": v["correct_winner_vote"],
-                "season": str(season_id),
-            },
+            [str(season_id)],
         )
-        return {
-            row["user_id"]: row["points"] for row in cur.fetchall() if row["points"]
-        }
+        points: dict[str, int] = {}
+        for row in cur.fetchall():
+            f4 = {str(c) for c in (row["final_four"] or [])}
+            f3 = {str(c) for c in (row["final_three"] or [])}
+            pts = v.get("correct_final_four", 0) * len(f4 & final_four)
+            pts += v.get("correct_final_three", 0) * len(f3 & final_three)
+            # Bonus only for an exact Final 3 — all three, no extras.
+            if len(f3) == 3 and f3 == final_three:
+                pts += v.get("perfect_final_three", 0)
+            if winner and row["winner"] == winner:
+                pts += v.get("correct_winner_vote", 0)
+            if pts:
+                points[row["user_id"]] = pts
+        return points
 
 
 def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[str, int]:

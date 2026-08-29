@@ -226,23 +226,23 @@ def insert_finale_prediction(
     conn,
     user_id,
     season_id,
-    early_boot=None,
-    fire_loss=None,
+    final_four=None,
+    final_three=None,
     winner=None,
 ):
     with conn.cursor() as cur:
         cur.execute(
             """
             insert into finale_predictions
-                (user_id, season_id, early_boot_contestant_id,
-                 fire_loss_contestant_id, winner_contestant_id)
-            values (%s, %s, %s, %s, %s) returning *
+                (user_id, season_id, final_four_contestant_ids,
+                 final_three_contestant_ids, winner_contestant_id)
+            values (%s, %s, %s::uuid[], %s::uuid[], %s) returning *
             """,
             [
                 str(user_id),
                 str(season_id),
-                str(early_boot) if early_boot else None,
-                str(fire_loss) if fire_loss else None,
+                [str(c) for c in (final_four or [])],
+                [str(c) for c in (final_three or [])],
                 str(winner) if winner else None,
             ],
         )

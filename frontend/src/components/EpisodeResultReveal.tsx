@@ -22,8 +22,9 @@ function snuffedHeadline(eliminated: EpisodeResult['eliminated']) {
 /** Finale ballots predict different things (winner, fire, first boot); a plain
  *  weekly elimination vote needs no label — the points already say it. */
 function ballotTypeLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
-  if (kind === 'early_boot') return 'First boot'
-  if (kind === 'fire_loss') return 'Fire-making loser'
+  if (kind === 'final_four') return 'Final 4'
+  if (kind === 'final_three') return 'Final 3'
+  if (kind === 'perfect_final_three') return 'Perfect Final 3'
   if (kind === 'winner') return 'Sole Survivor'
   return null
 }
