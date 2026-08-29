@@ -186,8 +186,10 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
 
         cur.execute(
             """
-            select early_boot_contestant_id, fire_loss_contestant_id,
-                   winner_contestant_id
+            select final_four_contestant_ids::text[] as final_four,
+                   final_three_contestant_ids::text[] as final_three,
+                   winner_contestant_id::text as winner,
+                   final_immunity_contestant_id::text as immunity
             from finale_predictions where season_id = %s and user_id = %s
             """,
             [str(season_id), str(user_id)],
@@ -197,53 +199,85 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             return []
         cur.execute(
             "select key, point_value from season_prediction_score_types"
-            " where season_id = %s and key in"
-            " ('correct_early_boot', 'correct_fire_loss', 'correct_winner_vote')",
+            " where season_id = %s and key in ('correct_final_four',"
+            " 'correct_final_three', 'perfect_final_three',"
+            " 'correct_winner_vote', 'correct_final_immunity')",
             [str(season_id)],
         )
         values = {row["key"]: row["point_value"] for row in cur.fetchall()}
         cur.execute(
             "select id::text as contestant_id,"
-            " coalesce(nickname, name) as name, image_url, placement"
+            " coalesce(nickname, name) as name, image_url"
             " from contestants where season_id = %s",
             [str(season_id)],
         )
         contestants = {row["contestant_id"]: row for row in cur.fetchall()}
-        cur.execute(
-            "select contestant_id::text as contestant_id, elimination_type"
-            " from eliminations where episode_id = %s",
-            [str(episode["id"])],
+        final_three, final_four, winner, immunity = scoring.finale_actuals(
+            cur, season_id
         )
-        eliminations = {
-            row["contestant_id"]: row["elimination_type"] for row in cur.fetchall()
+
+    def line(cid, prediction_type, correct, points):
+        c = contestants[str(cid)]
+        return {
+            "contestant_id": cid,
+            "name": c["name"],
+            "image_url": c["image_url"],
+            "prediction_type": prediction_type,
+            "correct": correct,
+            "points": points if correct else 0,
         }
 
     ballot = []
-    definitions = (
-        ("early_boot", "early_boot_contestant_id", "correct_early_boot"),
-        ("fire_loss", "fire_loss_contestant_id", "correct_fire_loss"),
-        ("winner", "winner_contestant_id", "correct_winner_vote"),
-    )
-    for prediction_type, column, score_key in definitions:
-        contestant_id = prediction[column]
-        if contestant_id is None:
-            continue
-        contestant = contestants[str(contestant_id)]
-        if prediction_type == "early_boot":
-            correct = eliminations.get(str(contestant_id)) == "voted_out"
-        elif prediction_type == "fire_loss":
-            correct = eliminations.get(str(contestant_id)) == "fire_making_loss"
-        else:
-            correct = contestant["placement"] == 1
+    # Each Final 4 / Final 3 pick is its own line, correct when it landed in the
+    # actual bracket. Winner and final-immunity are single calls.
+    f3_picks = [str(c) for c in (prediction["final_three"] or [])]
+    for cid in prediction["final_four"] or []:
         ballot.append(
-            {
-                "contestant_id": contestant_id,
-                "name": contestant["name"],
-                "image_url": contestant["image_url"],
-                "prediction_type": prediction_type,
-                "correct": correct,
-                "points": values[score_key] if correct else 0,
-            }
+            line(
+                cid,
+                "final_four",
+                str(cid) in final_four,
+                values.get("correct_final_four", 0),
+            )
+        )
+    for cid in f3_picks:
+        ballot.append(
+            line(
+                cid,
+                "final_three",
+                str(cid) in final_three,
+                values.get("correct_final_three", 0),
+            )
+        )
+    if prediction["winner"]:
+        ballot.append(
+            line(
+                prediction["winner"],
+                "winner",
+                prediction["winner"] == winner,
+                values.get("correct_winner_vote", 0),
+            )
+        )
+    if prediction["immunity"]:
+        ballot.append(
+            line(
+                prediction["immunity"],
+                "final_immunity",
+                prediction["immunity"] == immunity,
+                values.get("correct_final_immunity", 0),
+            )
+        )
+    # The all-three bonus rides on the first Final 3 pick's face — it has no
+    # contestant of its own, and summing these lines must still equal the
+    # finale total (the reveal derives the advantage lane from the remainder).
+    if len(f3_picks) == 3 and set(f3_picks) == final_three and final_three:
+        ballot.append(
+            line(
+                f3_picks[0],
+                "perfect_final_three",
+                True,
+                values.get("perfect_final_three", 0),
+            )
         )
     return ballot
 

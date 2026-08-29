@@ -9,6 +9,16 @@ from app.schemas import FinalePrediction, FinalePredictionRequest
 
 router = APIRouter(tags=["finale_predictions"])
 
+# psycopg2 hands back a uuid[] column as the raw Postgres array string, so the
+# array slates are cast to text[] to come back as real lists for the response
+# model.
+_COLS = (
+    "id, user_id, season_id,"
+    " final_four_contestant_ids::text[] as final_four_contestant_ids,"
+    " final_three_contestant_ids::text[] as final_three_contestant_ids,"
+    " winner_contestant_id, final_immunity_contestant_id, created_at"
+)
+
 
 @router.get(
     "/seasons/{season_id}/finale-predictions/{user_id}",
@@ -39,7 +49,7 @@ def get_finale_prediction(
                         detail="Finale predictions are hidden until they lock",
                     )
             cur.execute(
-                "select * from finale_predictions"
+                f"select {_COLS} from finale_predictions"
                 " where season_id = %s and user_id = %s",
                 [str(season_id), str(user_id)],
             )
@@ -81,35 +91,50 @@ def submit_finale_prediction(
                     status_code=400, detail="Finale prediction window has closed"
                 )
 
-            # Validate all provided contestant IDs belong to this season
-            provided = {
-                k: v
-                for k, v in {
-                    "early_boot": body.early_boot_contestant_id,
-                    "fire_loss": body.fire_loss_contestant_id,
-                    "winner": body.winner_contestant_id,
-                }.items()
-                if v is not None
-            }
-            if provided:
-                ids = list({str(v) for v in provided.values()})
+            # Dedupe each slate, preserving order (a repeated name would double
+            # a bracket seat). Every provided id is validated together below.
+            def dedupe(seq):
+                seen: dict[str, None] = {}
+                for x in seq:
+                    seen.setdefault(str(x), None)
+                return list(seen)
+
+            final_four = dedupe(body.final_four_contestant_ids)
+            final_three = dedupe(body.final_three_contestant_ids)
+            winner = (
+                str(body.winner_contestant_id) if body.winner_contestant_id else None
+            )
+            immunity = (
+                str(body.final_immunity_contestant_id)
+                if body.final_immunity_contestant_id
+                else None
+            )
+
+            # Validate every provided contestant id belongs to this season and
+            # is alive AT the finale (#158): pre-finale boots are invalid, but
+            # the finale episode's own eliminations are what the ballot predicts,
+            # so they stay pickable even if results were entered early.
+            ids = list(
+                {
+                    *final_four,
+                    *final_three,
+                    *([winner] if winner else []),
+                    *([immunity] if immunity else []),
+                }
+            )
+            if ids:
                 cur.execute(
                     "select id::text as id from contestants"
                     " where season_id = %s and id::text = any(%s)",
                     [str(season_id), ids],
                 )
                 valid = {row["id"] for row in cur.fetchall()}
-                invalid = [str(v) for v in provided.values() if str(v) not in valid]
+                invalid = [i for i in ids if i not in valid]
                 if invalid:
                     raise HTTPException(
                         status_code=400,
                         detail=f"Contestants not in this season: {invalid}",
                     )
-
-                # Ballot fields must name someone alive AT the finale (#158):
-                # pre-finale boots are invalid, but the finale episode's own
-                # eliminations are exactly what the ballot predicts — those
-                # stay pickable even if results were entered early.
                 cur.execute(
                     """
                     select distinct e.contestant_id::text as id
@@ -121,7 +146,7 @@ def submit_finale_prediction(
                     [str(season_id), ids],
                 )
                 gone = {row["id"] for row in cur.fetchall()}
-                dead = [str(v) for v in provided.values() if str(v) in gone]
+                dead = [i for i in ids if i in gone]
                 if dead:
                     raise HTTPException(
                         status_code=400,
@@ -131,33 +156,23 @@ def submit_finale_prediction(
             cur.execute(
                 """
                 insert into finale_predictions
-                    (user_id, season_id, early_boot_contestant_id,
-                     fire_loss_contestant_id, winner_contestant_id)
-                values (%s, %s, %s, %s, %s)
+                    (user_id, season_id, final_four_contestant_ids,
+                     final_three_contestant_ids, winner_contestant_id,
+                     final_immunity_contestant_id)
+                values (%s, %s, %s::uuid[], %s::uuid[], %s, %s)
                 on conflict (user_id, season_id) do update set
-                    early_boot_contestant_id = excluded.early_boot_contestant_id,
-                    fire_loss_contestant_id  = excluded.fire_loss_contestant_id,
-                    winner_contestant_id     = excluded.winner_contestant_id
-                returning *
-                """,
+                    final_four_contestant_ids    = excluded.final_four_contestant_ids,
+                    final_three_contestant_ids   = excluded.final_three_contestant_ids,
+                    winner_contestant_id         = excluded.winner_contestant_id,
+                    final_immunity_contestant_id = excluded.final_immunity_contestant_id
+                returning """ + _COLS,
                 [
                     str(user_id),
                     str(season_id),
-                    (
-                        str(body.early_boot_contestant_id)
-                        if body.early_boot_contestant_id
-                        else None
-                    ),
-                    (
-                        str(body.fire_loss_contestant_id)
-                        if body.fire_loss_contestant_id
-                        else None
-                    ),
-                    (
-                        str(body.winner_contestant_id)
-                        if body.winner_contestant_id
-                        else None
-                    ),
+                    final_four,
+                    final_three,
+                    winner,
+                    immunity,
                 ],
             )
             return cur.fetchone()

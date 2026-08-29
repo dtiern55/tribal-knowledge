@@ -3439,9 +3439,10 @@ function FinaleBallot({
   finaleEp: Episode
   userId: string
 }) {
-  const [earlyBoot, setEarlyBoot] = useState('')
-  const [fireLoss, setFireLoss] = useState('')
+  const [finalFour, setFinalFour] = useState<string[]>([])
+  const [finalThree, setFinalThree] = useState<string[]>([])
   const [winner, setWinner] = useState('')
+  const [finalImmunity, setFinalImmunity] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -3455,15 +3456,14 @@ function FinaleBallot({
     api
       .get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`)
       .then((pred) => {
-        setEarlyBoot(pred.early_boot_contestant_id ?? '')
-        setFireLoss(pred.fire_loss_contestant_id ?? '')
+        setFinalFour(pred.final_four_contestant_ids ?? [])
+        setFinalThree(pred.final_three_contestant_ids ?? [])
         setWinner(pred.winner_contestant_id ?? '')
+        setFinalImmunity(pred.final_immunity_contestant_id ?? '')
         setHasSaved(
-          Boolean(
-            pred.early_boot_contestant_id ??
-              pred.fire_loss_contestant_id ??
-              pred.winner_contestant_id,
-          ),
+          (pred.final_four_contestant_ids?.length ?? 0) > 0 ||
+            (pred.final_three_contestant_ids?.length ?? 0) > 0 ||
+            Boolean(pred.winner_contestant_id ?? pred.final_immunity_contestant_id),
         )
       })
       .catch(() => {
@@ -3471,37 +3471,43 @@ function FinaleBallot({
       })
   }, [season.id, userId])
 
-  // Alive at the finale: never-eliminated OR eliminated in the finale
-  // itself — the ballot predicts the finale's boots, so they stay listed
-  // even when results land before the window closes (matches the server).
+  // Alive at the finale: never-eliminated OR eliminated in the finale itself —
+  // the ballot predicts the finale's bracket, so they stay listed even when
+  // results land before the window closes (matches the server).
   const alive = contestants.filter(
     (c) =>
       c.eliminated_in_episode == null ||
       c.eliminated_in_episode === finaleEp.episode_number,
   )
-  const picks = [
-    {
-      id: 'early-boot',
-      label: 'First Boot',
-      description: 'First person eliminated on finale night',
-      value: earlyBoot,
-      onChange: setEarlyBoot,
-    },
-    {
-      id: 'fire-loss',
-      label: 'Fire-Making Loser',
-      description: 'Loses the fire-making challenge',
-      value: fireLoss,
-      onChange: setFireLoss,
-    },
-    {
-      id: 'winner',
-      label: 'Sole Survivor',
-      description: 'Wins the game',
-      value: winner,
-      onChange: setWinner,
-    },
-  ]
+  const byId = new Map(contestants.map((c) => [c.id, c]))
+  const nameOf = (id: string) => {
+    const c = byId.get(id)
+    return c ? displayName(c) : '—'
+  }
+  // The bracket narrows: your Final 3 comes from your Final 4, the winner and
+  // the immunity winner from within those. Toggling someone out of the wider
+  // round drops them from the narrower ones too, so a ballot can't contradict
+  // itself.
+  function toggleFinalFour(id: string) {
+    setSaved(false)
+    if (finalFour.includes(id)) {
+      setFinalFour(finalFour.filter((x) => x !== id))
+      setFinalThree(finalThree.filter((x) => x !== id))
+      if (winner === id) setWinner('')
+      if (finalImmunity === id) setFinalImmunity('')
+    } else if (finalFour.length < 4) {
+      setFinalFour([...finalFour, id])
+    }
+  }
+  function toggleFinalThree(id: string) {
+    setSaved(false)
+    if (finalThree.includes(id)) {
+      setFinalThree(finalThree.filter((x) => x !== id))
+      if (winner === id) setWinner('')
+    } else if (finalThree.length < 3) {
+      setFinalThree([...finalThree, id])
+    }
+  }
 
   async function submitBallot() {
     setSubmitting(true)
@@ -3509,12 +3515,17 @@ function FinaleBallot({
     setSaved(false)
     try {
       await api.post<FinalePrediction>(`/seasons/${season.id}/finale-predictions`, {
-        early_boot_contestant_id: earlyBoot || null,
-        fire_loss_contestant_id: fireLoss || null,
+        final_four_contestant_ids: finalFour,
+        final_three_contestant_ids: finalThree,
         winner_contestant_id: winner || null,
+        final_immunity_contestant_id: finalImmunity || null,
       })
       setSaved(true)
-      setHasSaved(Boolean(earlyBoot || fireLoss || winner))
+      setHasSaved(
+        finalFour.length > 0 ||
+          finalThree.length > 0 ||
+          Boolean(winner || finalImmunity),
+      )
       setEditing(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
@@ -3523,10 +3534,13 @@ function FinaleBallot({
     }
   }
 
-  const nameOf = (id: string) => {
-    const c = contestants.find((c) => c.id === id)
-    return c ? displayName(c) : '—'
-  }
+  // Read-only summary rows for the saved / locked state.
+  const summary: { label: string; names: string }[] = [
+    { label: 'Final 4', names: finalFour.map(nameOf).join(', ') || 'No picks' },
+    { label: 'Final 3', names: finalThree.map(nameOf).join(', ') || 'No picks' },
+    { label: 'Winner', names: winner ? nameOf(winner) : 'No pick' },
+    { label: 'Final immunity', names: finalImmunity ? nameOf(finalImmunity) : 'No pick' },
+  ]
 
   return (
     <div className="mb-6 p-4 bg-white border border-cream-200 rounded-xl">
@@ -3545,66 +3559,86 @@ function FinaleBallot({
           No ballot submitted — the window has closed.
         </p>
       ) : locked || (hasSaved && !editing) ? (
-        <div className="mt-2 p-5 bg-jade-50 border-2 border-jade-500 rounded-xl text-center">
-          <div className="flex justify-center mb-1"><VoteMark className="w-10 h-10" /></div>
-          <p className="font-semibold text-jade-800 mb-3">
-            {locked ? 'Finale ballot locked' : 'Finale ballot in'}
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {picks.map(({ id, label, value }) => (
-              <span
-                key={id}
-                className="text-sm px-3 py-1.5 bg-white border border-jade-200 rounded-lg text-left"
-              >
-                <span className="block text-[11px] uppercase tracking-wide text-gray-500 font-semibold">
-                  {label}
-                </span>
-                <span className="font-medium text-gray-800">
-                  {value ? nameOf(value) : 'No prediction'}
-                </span>
-              </span>
-            ))}
+        <div className="mt-2 p-5 bg-jade-50 border-2 border-jade-500 rounded-xl">
+          <div className="flex flex-col items-center">
+            <VoteMark className="w-10 h-10" />
+            <p className="font-semibold text-jade-800 mt-1 mb-3">
+              {locked ? 'Finale ballot locked' : 'Finale ballot in'}
+            </p>
           </div>
+          <dl className="space-y-2">
+            {summary.map(({ label, names }) => (
+              <div
+                key={label}
+                className="flex items-baseline gap-3 rounded-lg border border-jade-200 bg-white px-3 py-2"
+              >
+                <dt className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  {label}
+                </dt>
+                <dd className="font-medium text-gray-800">{names}</dd>
+              </div>
+            ))}
+          </dl>
           {!locked && (
-            <button
-              onClick={() => {
-                setEditing(true)
-                setSaved(false)
-              }}
-              className="ruled-action mt-4"
-            >
-              Edit ballot
-            </button>
+            <div className="text-center">
+              <button
+                onClick={() => {
+                  setEditing(true)
+                  setSaved(false)
+                }}
+                className="ruled-action mt-4"
+              >
+                Edit ballot
+              </button>
+            </div>
           )}
         </div>
       ) : (
         <>
-          <p className="text-xs text-gray-500 mb-4">Make your three finale predictions.</p>
+          <p className="text-xs text-gray-500 mb-4">
+            Read the endgame: your Final 4, your Final 3, the winner, and who
+            wins the final immunity.
+          </p>
 
-          <div className="space-y-4 mb-4">
-            {picks.map(({ id, label, description, value, onChange }) => (
-              <div key={id}>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 border-l-2 border-terracotta-500 pl-2 mb-0.5">
-                  {label}
-                </label>
-                <p className="text-xs text-gray-500 mb-1.5">{description}</p>
-                <select
-                  value={value}
-                  onChange={(e) => {
-                    onChange(e.target.value)
-                    setSaved(false)
-                  }}
-                  className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">No prediction</option>
-                  {alive.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {displayName(c)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+          <div className="space-y-5 mb-4">
+            <BracketRound
+              label="Final 4"
+              hint={`Who reaches the fire-making round · ${finalFour.length}/4`}
+              options={alive}
+              selected={finalFour}
+              onToggle={toggleFinalFour}
+            />
+            <BracketRound
+              label="Final 3"
+              hint={
+                finalFour.length === 0
+                  ? 'Pick your Final 4 first'
+                  : `Who survives to the final tribal · ${finalThree.length}/3`
+              }
+              options={finalFour.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
+              selected={finalThree}
+              onToggle={toggleFinalThree}
+            />
+            <BracketPick
+              label="Winner"
+              hint={finalThree.length === 0 ? 'Pick your Final 3 first' : 'Sole Survivor'}
+              options={finalThree.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
+              value={winner}
+              onChange={(id) => {
+                setWinner(id)
+                setSaved(false)
+              }}
+            />
+            <BracketPick
+              label="Final immunity"
+              hint={finalFour.length === 0 ? 'Pick your Final 4 first' : 'Wins the last immunity challenge'}
+              options={finalFour.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
+              value={finalImmunity}
+              onChange={(id) => {
+                setFinalImmunity(id)
+                setSaved(false)
+              }}
+            />
           </div>
 
           {error && <p className="text-terracotta-600 text-sm mb-3">{error}</p>}
@@ -3624,6 +3658,117 @@ function FinaleBallot({
             )}
           </button>
         </>
+      )}
+    </div>
+  )
+}
+
+/** A multi-select bracket round: tap castaways to add them to the slate, tap
+ *  again to remove. Caps are enforced by the caller's toggle. */
+function BracketRound({
+  label,
+  hint,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string
+  hint: string
+  options: Contestant[]
+  selected: string[]
+  onToggle: (id: string) => void
+}) {
+  return (
+    <div>
+      <div className="border-l-2 border-terracotta-500 pl-2 mb-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+        <p className="text-xs text-gray-500">{hint}</p>
+      </div>
+      {options.length === 0 ? (
+        <p className="text-sm text-gray-400 pl-2">—</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {options.map((c) => {
+            const on = selected.includes(c.id)
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onToggle(c.id)}
+                aria-pressed={on}
+                className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm font-medium transition-colors ${
+                  on
+                    ? 'border-jade-500 bg-jade-50 text-jade-900'
+                    : 'border-cream-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <ContestantAvatar
+                  name={displayName(c)}
+                  imageUrl={c.image_url}
+                  size="sm"
+                  tribeColor={c.tribe_color}
+                  tribeName={c.tribe_name}
+                />
+                <span className="min-w-0 truncate">{displayName(c)}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A single-select bracket pick (winner, final immunity). */
+function BracketPick({
+  label,
+  hint,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  hint: string
+  options: Contestant[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  return (
+    <div>
+      <div className="border-l-2 border-gold-500 pl-2 mb-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+        <p className="text-xs text-gray-500">{hint}</p>
+      </div>
+      {options.length === 0 ? (
+        <p className="text-sm text-gray-400 pl-2">—</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {options.map((c) => {
+            const on = value === c.id
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onChange(on ? '' : c.id)}
+                aria-pressed={on}
+                className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm font-medium transition-colors ${
+                  on
+                    ? 'border-gold-500 bg-gold-50 text-forest-900'
+                    : 'border-cream-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <ContestantAvatar
+                  name={displayName(c)}
+                  imageUrl={c.image_url}
+                  size="sm"
+                  tribeColor={c.tribe_color}
+                  tribeName={c.tribe_name}
+                />
+                <span className="min-w-0 truncate">{displayName(c)}</span>
+              </button>
+            )
+          })}
+        </div>
       )}
     </div>
   )

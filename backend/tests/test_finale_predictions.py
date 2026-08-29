@@ -34,28 +34,46 @@ def _locked_finale_episode(conn, season_id):
 @pytest.mark.integration
 def test_submit_and_get_finale_prediction(client, db_conn, current_user):
     season = insert_season(db_conn, status="active")
-    c1 = insert_contestant(db_conn, season["id"], "Player 1")
-    c2 = insert_contestant(db_conn, season["id"], "Player 2")
-    c3 = insert_contestant(db_conn, season["id"], "Player 3")
+    cs = [insert_contestant(db_conn, season["id"], f"Player {i}") for i in range(5)]
     _open_finale_episode(db_conn, season["id"])
 
     r = client.post(
         f"/seasons/{season['id']}/finale-predictions",
         json={
-            "early_boot_contestant_id": str(c1["id"]),
-            "fire_loss_contestant_id": str(c2["id"]),
-            "winner_contestant_id": str(c3["id"]),
+            "final_four_contestant_ids": [
+                str(cs[0]["id"]),
+                str(cs[1]["id"]),
+                str(cs[2]["id"]),
+                str(cs[3]["id"]),
+            ],
+            "final_three_contestant_ids": [
+                str(cs[0]["id"]),
+                str(cs[1]["id"]),
+                str(cs[2]["id"]),
+            ],
+            "winner_contestant_id": str(cs[0]["id"]),
+            "final_immunity_contestant_id": str(cs[1]["id"]),
         },
     )
     assert r.status_code == 200
     data = r.json()
-    assert data["early_boot_contestant_id"] == str(c1["id"])
-    assert data["fire_loss_contestant_id"] == str(c2["id"])
-    assert data["winner_contestant_id"] == str(c3["id"])
+    assert data["final_four_contestant_ids"] == [
+        str(cs[0]["id"]),
+        str(cs[1]["id"]),
+        str(cs[2]["id"]),
+        str(cs[3]["id"]),
+    ]
+    assert data["final_three_contestant_ids"] == [
+        str(cs[0]["id"]),
+        str(cs[1]["id"]),
+        str(cs[2]["id"]),
+    ]
+    assert data["winner_contestant_id"] == str(cs[0]["id"])
+    assert data["final_immunity_contestant_id"] == str(cs[1]["id"])
 
     r2 = client.get(f"/seasons/{season['id']}/finale-predictions/{current_user['id']}")
     assert r2.status_code == 200
-    assert r2.json()["winner_contestant_id"] == str(c3["id"])
+    assert r2.json()["winner_contestant_id"] == str(cs[0]["id"])
 
 
 @pytest.mark.integration
@@ -71,8 +89,26 @@ def test_partial_ballot_allowed(client, db_conn):
     assert r.status_code == 200
     data = r.json()
     assert data["winner_contestant_id"] == str(c1["id"])
-    assert data["early_boot_contestant_id"] is None
-    assert data["fire_loss_contestant_id"] is None
+    assert data["final_four_contestant_ids"] == []
+    assert data["final_three_contestant_ids"] == []
+    assert data["final_immunity_contestant_id"] is None
+
+
+@pytest.mark.integration
+def test_dedupes_repeated_pick(client, db_conn):
+    season = insert_season(db_conn, status="active")
+    c1 = insert_contestant(db_conn, season["id"], "Player 1")
+    c2 = insert_contestant(db_conn, season["id"], "Player 2")
+    _open_finale_episode(db_conn, season["id"])
+
+    r = client.post(
+        f"/seasons/{season['id']}/finale-predictions",
+        json={
+            "final_four_contestant_ids": [str(c1["id"]), str(c1["id"]), str(c2["id"])]
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["final_four_contestant_ids"] == [str(c1["id"]), str(c2["id"])]
 
 
 @pytest.mark.integration
@@ -188,7 +224,7 @@ def test_ballot_rejects_eliminated_contestant(client, db_conn, current_user):
 
     r = client.post(
         f"/seasons/{season['id']}/finale-predictions",
-        json={"winner_contestant_id": str(gone["id"])},
+        json={"final_four_contestant_ids": [str(gone["id"])]},
     )
     assert r.status_code == 400
     assert "eliminated" in r.json()["detail"]
@@ -211,6 +247,6 @@ def test_ballot_allows_finale_episode_boots(client, db_conn, current_user):
 
     r = client.post(
         f"/seasons/{season['id']}/finale-predictions",
-        json={"early_boot_contestant_id": str(finalist["id"])},
+        json={"final_four_contestant_ids": [str(finalist["id"])]},
     )
     assert r.status_code == 200
