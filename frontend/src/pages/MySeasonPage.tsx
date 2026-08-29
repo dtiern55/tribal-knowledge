@@ -160,9 +160,6 @@ function useMySeasonData() {
   // roster and this episode's ballot even though the sections fetch their own.
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [openPicks, setOpenPicks] = useState<EliminationPick[]>([])
-  // The finale replaces the weekly ballot with the bracket, so the hero reads
-  // its completeness from the finale prediction rather than weekly picks (#86).
-  const [finalePrediction, setFinalePrediction] = useState<FinalePrediction | null>(null)
   // Bumped by the ballot when it saves, so the Ballot beat's count follows.
   const [ballotVersion, setBallotVersion] = useState(0)
   // The two fetches below are not part of `loading`, but the hero's headline
@@ -240,22 +237,11 @@ function useMySeasonData() {
       .catch(() => setOpenPicks([]))
       .finally(() => setPicksFor(episodeId))
   }, [openEp?.id, userId, ballotVersion])
-  useEffect(() => {
-    if (!season || !userId || !openEp?.is_finale) {
-      setFinalePrediction(null)
-      return
-    }
-    api
-      .get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`)
-      .then(setFinalePrediction)
-      .catch(() => setFinalePrediction(null))
-  }, [season?.id, openEp?.id, openEp?.is_finale, userId, ballotVersion])
 
   return {
     userId,
     roster,
     openPicks,
-    finalePrediction,
     bumpBallot: () => setBallotVersion((v) => v + 1),
     season,
     contestants,
@@ -388,6 +374,13 @@ export function MySeasonPage() {
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
   const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
+  // Live finale-ballot progress, reported up from the FinaleBallot as you build
+  // the bracket, so the hero reflects picks the instant you make or remove them
+  // — the saved ballot on its own can't (#86 follow-on).
+  const [finaleProgress, setFinaleProgress] = useState<{
+    filled: number
+    saved: boolean
+  } | null>(null)
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
   const [beat, setBeat] = useState<BeatKey>(() => {
@@ -648,15 +641,10 @@ export function MySeasonPage() {
     ).length
     // The finale ballot is the full bracket — Final 4 (4) + Final 3 (3) +
     // winner (1) = 8 picks — not weekly votes, so at the finale the ballot beat
-    // tracks the bracket's completeness instead (#86 follow-on).
+    // tracks the live bracket instead (#86 follow-on). The count follows every
+    // pick; "done" still waits on a locked-in ballot, like the weekly one.
     const isFinale = openEp.is_finale
-    const fp = d.finalePrediction
-    // Null-safe on every field: before the finale-bracket backend ships, this
-    // can be an older-shaped prediction with no Final 4 / Final 3 arrays.
-    const finaleFilled =
-      (fp?.final_four_contestant_ids?.length ?? 0) +
-      (fp?.final_three_contestant_ids?.length ?? 0) +
-      (fp?.winner_contestant_id ? 1 : 0)
+    const finaleFilled = finaleProgress?.filled ?? 0
     const maxPicks = isFinale
       ? 8
       : Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
@@ -672,7 +660,11 @@ export function MySeasonPage() {
     const canSwap = !swapsLocked(d.season!, d.episodes) && !swappedThisEpisode
     const heldDead = deadSlots > 0 && canSwap
     const rosterDone = held.length > 0 && (deadSlots === 0 || !canSwap)
-    const ballotDone = maxPicks > 0 && saved === maxPicks
+    // A finale ballot is only "done" when a full bracket has been locked in —
+    // a complete-but-unsaved draft still owes a submit, same as the weekly one.
+    const ballotDone = isFinale
+      ? finaleFilled === maxPicks && Boolean(finaleProgress?.saved)
+      : maxPicks > 0 && saved === maxPicks
 
     const beats: Beat[] = [
       {
@@ -888,6 +880,7 @@ export function MySeasonPage() {
                 setPlays={d.setPlays}
                 pickResults={pickResults}
                 onBallotSaved={d.bumpBallot}
+                onFinaleProgress={setFinaleProgress}
                 onDragToRoster={() => {
                   // Open the double-pick sheet (as the Advantage → Roster ×2 tap
                   // does) and land you on the Roster beat afterwards (#487).
@@ -3076,6 +3069,7 @@ function PicksSection({
   setPlays,
   pickResults,
   onBallotSaved,
+  onFinaleProgress,
   onDragToRoster,
 }: {
   season: Season
@@ -3086,6 +3080,8 @@ function PicksSection({
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
   onBallotSaved?: () => void
+  /** Live finale-bracket progress for the hero, forwarded to FinaleBallot. */
+  onFinaleProgress?: (p: { filled: number; saved: boolean }) => void
   /** Drag the ballot ×2 seal onto the Roster tab to move the play there (#487). */
   onDragToRoster?: () => void
 }) {
@@ -3234,6 +3230,7 @@ function PicksSection({
             finaleEp={fin}
             userId={userId}
             onBallotSaved={onBallotSaved}
+            onProgress={onFinaleProgress}
           />
         ) : null
       })()}
@@ -3467,6 +3464,7 @@ function FinaleBallot({
   finaleEp,
   userId,
   onBallotSaved,
+  onProgress,
 }: {
   season: Season
   contestants: Contestant[]
@@ -3474,6 +3472,9 @@ function FinaleBallot({
   finaleEp: Episode
   userId: string
   onBallotSaved?: () => void
+  /** Report bracket progress up so the hero tracks picks live. `saved` is true
+   *  only while showing a locked-in ballot (not a live draft). */
+  onProgress?: (p: { filled: number; saved: boolean }) => void
 }) {
   const [finalFour, setFinalFour] = useState<string[]>([])
   const [finalThree, setFinalThree] = useState<string[]>([])
@@ -3504,6 +3505,16 @@ function FinaleBallot({
         // No prediction yet — form starts empty
       })
   }, [season.id, userId])
+
+  // Report bracket progress to the hero on every pick change. `saved` is true
+  // only while showing a committed ballot, so the hero's "all set" waits on a
+  // lock-in even though its count follows the live draft.
+  useEffect(() => {
+    onProgress?.({
+      filled: finalFour.length + finalThree.length + (winner ? 1 : 0),
+      saved: locked || (hasSaved && !editing),
+    })
+  }, [finalFour, finalThree, winner, locked, hasSaved, editing, onProgress])
 
   // Alive at the finale: never-eliminated OR eliminated in the finale itself —
   // the ballot predicts the finale's bracket, so they stay listed even when
