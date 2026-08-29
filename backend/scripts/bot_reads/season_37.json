@@ -358,6 +358,44 @@
    ],
    "confidence": "low",
    "note": "Christian and Alison the leans again, but lighter and less confident than ep11 after the blindsides \u2014 a flatter split, the pack (Angelina/Davie/Kara/Mike/Nick) close behind at even weight. Roster-point doubles spread evenly across all seven (engine can't finely de-weight Christian/Alison; even spread is the closest to 'a couple fewer on them')."
+  },
+  "13": {
+   "likely_boots": [
+    [
+     "Nick Wilson",
+     5
+    ],
+    [
+     "Alison Raybould",
+     4
+    ],
+    [
+     "Angelina Keeley",
+     3
+    ],
+    [
+     "Davie Rickenbacker",
+     3
+    ],
+    [
+     "Kara Kay",
+     3
+    ],
+    [
+     "Mike White",
+     3
+    ]
+   ],
+   "double_targets": [
+    "Alison Raybould",
+    "Angelina Keeley",
+    "Davie Rickenbacker",
+    "Kara Kay",
+    "Mike White",
+    "Nick Wilson"
+   ],
+   "confidence": "low",
+   "note": "Final 6, ballots very tight (1 vote each) \u2014 Nick a hair ahead (by 1-2), Alison right there, the other four bunched. Doubles unsteered (random across all six)."
   }
  }
 }
