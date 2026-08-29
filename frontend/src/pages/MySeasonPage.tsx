@@ -1088,7 +1088,7 @@ function LockedState({
                     />
                     <span className="truncate font-medium">{name}</span>
                     {pick.is_sole_survivor && (
-                      <span className="shrink-0 rounded-full bg-gold-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold-900">
+                      <span className="shrink-0 rounded-full bg-forest-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold-200">
                         Sole Survivor
                       </span>
                     )}
