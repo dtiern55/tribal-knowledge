@@ -1139,7 +1139,7 @@ function LockedState({
               <div className="mt-3 rounded-xl border-2 border-jade-500 bg-jade-50 p-5">
                 <div className="flex flex-col items-center">
                   <VoteMark className="h-10 w-10" />
-                  <p className="mb-3 mt-1 font-semibold text-jade-800">Finale ballot locked</p>
+                  <p className={`mb-3 mt-1 font-semibold ${broadcast ? 'text-jade-100' : 'text-jade-800'}`}>Finale ballot locked</p>
                 </div>
                 <FinaleBracket
                   finalFour={finale.final_four_contestant_ids}
