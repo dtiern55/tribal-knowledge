@@ -82,6 +82,7 @@ export const QUOTES: Quote[] = [
   {
     text: 'I got up this morning, and I had a premonition that I was going to find my shorts.',
     who: 'Philip',
+    season: 'Season 22: Redemption Island',
   },
   {
     text: "Stop rapping. You're trash at rapping. You're garbage at rapping. You can't rap. You have no bars.",
