@@ -3226,21 +3226,17 @@ function PicksSection({
         </Notice>
       )}
 
-      {(() => {
-        const fin = finaleEp
-        const show = showFinale
-        return show ? (
-          <FinaleBallot
-            season={season}
-            contestants={contestants}
-            episodes={episodes}
-            finaleEp={fin}
-            userId={userId}
-            onBallotSaved={onBallotSaved}
-            onProgress={onFinaleProgress}
-          />
-        ) : null
-      })()}
+      {showFinale && finaleEp && (
+        <FinaleBallot
+          season={season}
+          contestants={contestants}
+          episodes={episodes}
+          finaleEp={finaleEp}
+          userId={userId}
+          onBallotSaved={onBallotSaved}
+          onProgress={onFinaleProgress}
+        />
+      )}
 
       {nextOpen &&
         !nextOpen.is_finale &&
