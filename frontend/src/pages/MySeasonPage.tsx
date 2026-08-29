@@ -3528,10 +3528,6 @@ function FinaleBallot({
       c.eliminated_in_episode === finaleEp.episode_number,
   )
   const byId = new Map(contestants.map((c) => [c.id, c]))
-  const nameOf = (id: string) => {
-    const c = byId.get(id)
-    return c ? displayName(c) : '—'
-  }
   // The bracket narrows: your Final 3 comes from your Final 4, the winner and
   // the immunity winner from within those. Toggling someone out of the wider
   // round drops them from the narrower ones too, so a ballot can't contradict
@@ -3577,13 +3573,6 @@ function FinaleBallot({
     }
   }
 
-  // Read-only summary rows for the saved / locked state.
-  const summary: { label: string; names: string }[] = [
-    { label: 'Final 4', names: finalFour.map(nameOf).join(', ') || 'No picks' },
-    { label: 'Final 3', names: finalThree.map(nameOf).join(', ') || 'No picks' },
-    { label: 'Winner', names: winner ? nameOf(winner) : 'No pick' },
-  ]
-
   return (
     <div className="mb-6 p-4 bg-white border border-cream-200 rounded-xl">
       <div className="flex items-center justify-between mb-1">
@@ -3608,19 +3597,12 @@ function FinaleBallot({
               {locked ? 'Finale ballot locked' : 'Finale ballot in'}
             </p>
           </div>
-          <dl className="space-y-2">
-            {summary.map(({ label, names }) => (
-              <div
-                key={label}
-                className="flex items-baseline gap-3 rounded-lg border border-jade-200 bg-white px-3 py-2"
-              >
-                <dt className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  {label}
-                </dt>
-                <dd className="font-medium text-gray-800">{names}</dd>
-              </div>
-            ))}
-          </dl>
+          <FinaleBracket
+            finalFour={finalFour}
+            finalThree={finalThree}
+            winner={winner}
+            byId={byId}
+          />
           {!locked && (
             <div className="text-center">
               <button
@@ -3685,6 +3667,111 @@ function FinaleBallot({
             )}
           </button>
         </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The locked finale ballot as a torch podium (#534): each castaway shown once,
+ * at how far you called them — the winner crowned at the apex, the two other
+ * Final 3 below, and whoever rounds out your Final 4 at the base. The narrowing
+ * reads top-down, the winner carrying the gold.
+ */
+function FinaleBracket({
+  finalFour,
+  finalThree,
+  winner,
+  byId,
+}: {
+  finalFour: string[]
+  finalThree: string[]
+  winner: string
+  byId: Map<string, Contestant>
+}) {
+  const winnerId = winner || null
+  // Each castaway at their ceiling: winner alone, the rest of the Final 3, then
+  // the Final 4 members who didn't make your Final 3.
+  const runnersUp = finalThree.filter((id) => id !== winnerId)
+  const base = finalFour.filter((id) => !finalThree.includes(id))
+
+  const member = (id: string, variant: 'winner' | 'three' | 'four') => {
+    const c = byId.get(id)
+    const name = c ? displayName(c) : '—'
+    return (
+      <div key={id} className="flex w-16 flex-col items-center gap-1 text-center">
+        <span
+          className={`relative inline-flex rounded-full ${
+            variant === 'winner'
+              ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50'
+              : ''
+          } ${variant === 'four' ? 'opacity-80' : ''}`}
+        >
+          {variant === 'winner' && (
+            <svg
+              viewBox="0 0 24 24"
+              className="absolute -top-3 left-1/2 h-4 w-4 -translate-x-1/2 text-gold-500"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M2 8l4.5 3.5L12 4l5.5 7.5L22 8l-1.6 10H3.6L2 8z" />
+            </svg>
+          )}
+          <ContestantAvatar
+            name={name}
+            imageUrl={c?.image_url ?? null}
+            tribeColor={c?.tribe_color ?? null}
+            tribeName={c?.tribe_name ?? null}
+            size={variant === 'winner' ? 'lg' : 'md'}
+          />
+        </span>
+        <span
+          className={`max-w-full truncate text-xs font-medium ${
+            variant === 'winner' ? 'text-gold-800' : 'text-forest-800'
+          }`}
+        >
+          {name}
+        </span>
+      </div>
+    )
+  }
+
+  const rule = <div className="mx-auto h-px w-4/5 bg-jade-200" />
+  const tierLabel = (text: string, gold = false) => (
+    <span
+      className={`font-display text-[10px] font-bold uppercase tracking-[0.16em] ${
+        gold ? 'text-gold-800' : 'text-gray-500'
+      }`}
+    >
+      {text}
+    </span>
+  )
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-1">
+      {winnerId && (
+        <div className="flex flex-col items-center gap-3.5 pt-1">
+          {tierLabel('Winner', true)}
+          {member(winnerId, 'winner')}
+        </div>
+      )}
+      {winnerId && runnersUp.length > 0 && rule}
+      {runnersUp.length > 0 && (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex justify-center gap-5">
+            {runnersUp.map((id) => member(id, 'three'))}
+          </div>
+          {tierLabel('Final 3')}
+        </div>
+      )}
+      {(winnerId || runnersUp.length > 0) && base.length > 0 && rule}
+      {base.length > 0 && (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex justify-center gap-5">
+            {base.map((id) => member(id, 'four'))}
+          </div>
+          {tierLabel('Final 4')}
+        </div>
       )}
     </div>
   )
