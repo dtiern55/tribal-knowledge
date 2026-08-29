@@ -3673,10 +3673,10 @@ function FinaleBallot({
 }
 
 /**
- * The locked finale ballot as a torch podium (#534): each castaway shown once,
- * at how far you called them — the winner crowned at the apex, the two other
- * Final 3 below, and whoever rounds out your Final 4 at the base. The narrowing
- * reads top-down, the winner carrying the gold.
+ * The locked finale ballot as a torch podium (#534): your full slates stacked
+ * and narrowing — the winner crowned at the apex, your Final 3 below, your
+ * Final 4 at the base. The winner keeps a gold ring wherever they appear, so
+ * you can trace who you called to advance all the way down.
  */
 function FinaleBracket({
   finalFour,
@@ -3690,24 +3690,19 @@ function FinaleBracket({
   byId: Map<string, Contestant>
 }) {
   const winnerId = winner || null
-  // Each castaway at their ceiling: winner alone, the rest of the Final 3, then
-  // the Final 4 members who didn't make your Final 3.
-  const runnersUp = finalThree.filter((id) => id !== winnerId)
-  const base = finalFour.filter((id) => !finalThree.includes(id))
 
-  const member = (id: string, variant: 'winner' | 'three' | 'four') => {
+  const member = (id: string, apex = false) => {
     const c = byId.get(id)
     const name = c ? displayName(c) : '—'
+    const isWin = id === winnerId
     return (
-      <div key={id} className="flex w-16 flex-col items-center gap-1 text-center">
+      <div key={id} className="flex w-14 flex-col items-center gap-1 text-center">
         <span
           className={`relative inline-flex rounded-full ${
-            variant === 'winner'
-              ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50'
-              : ''
-          } ${variant === 'four' ? 'opacity-80' : ''}`}
+            isWin ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50' : ''
+          }`}
         >
-          {variant === 'winner' && (
+          {apex && (
             <svg
               viewBox="0 0 24 24"
               className="absolute -top-3 left-1/2 h-4 w-4 -translate-x-1/2 text-gold-500"
@@ -3722,12 +3717,12 @@ function FinaleBracket({
             imageUrl={c?.image_url ?? null}
             tribeColor={c?.tribe_color ?? null}
             tribeName={c?.tribe_name ?? null}
-            size={variant === 'winner' ? 'lg' : 'md'}
+            size={apex ? 'lg' : 'md'}
           />
         </span>
         <span
           className={`max-w-full truncate text-xs font-medium ${
-            variant === 'winner' ? 'text-gold-800' : 'text-forest-800'
+            isWin ? 'text-gold-800' : 'text-forest-800'
           }`}
         >
           {name}
@@ -3746,33 +3741,28 @@ function FinaleBracket({
       {text}
     </span>
   )
+  const tier = (label: string, ids: string[], gold = false) =>
+    ids.length > 0 && (
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
+          {ids.map((id) => member(id))}
+        </div>
+        {tierLabel(label, gold)}
+      </div>
+    )
 
   return (
     <div className="flex flex-col items-center gap-3 py-1">
       {winnerId && (
         <div className="flex flex-col items-center gap-3.5 pt-1">
           {tierLabel('Winner', true)}
-          {member(winnerId, 'winner')}
+          {member(winnerId, true)}
         </div>
       )}
-      {winnerId && runnersUp.length > 0 && rule}
-      {runnersUp.length > 0 && (
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex justify-center gap-5">
-            {runnersUp.map((id) => member(id, 'three'))}
-          </div>
-          {tierLabel('Final 3')}
-        </div>
-      )}
-      {(winnerId || runnersUp.length > 0) && base.length > 0 && rule}
-      {base.length > 0 && (
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex justify-center gap-5">
-            {base.map((id) => member(id, 'four'))}
-          </div>
-          {tierLabel('Final 4')}
-        </div>
-      )}
+      {winnerId && finalThree.length > 0 && rule}
+      {tier('Final 3', finalThree)}
+      {(winnerId || finalThree.length > 0) && finalFour.length > 0 && rule}
+      {tier('Final 4', finalFour)}
     </div>
   )
 }
