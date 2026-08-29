@@ -107,8 +107,19 @@ function SurvivorCluster({ active, eliminated }: { active: StandingSurvivor[]; e
         </span>
       ))}
       {eliminated.map((s) => (
-        <span key={s.contestant_id} className={`rounded-full ${ELIMINATED_DIM}`} title={`Eliminated ep ${s.eliminated_episode}`}>
-          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
+        // Dimmed portraits are translucent (opacity-70), so an opaque paper
+        // backdrop + ring is what keeps the active neighbor beneath from
+        // bleeding through the overlap. The ring rides the -space gap as a
+        // clean crescent; the dim goes on an inner span so the backdrop stays
+        // opaque.
+        <span
+          key={s.contestant_id}
+          className="rounded-full bg-[var(--color-paper)] ring-2 ring-[var(--color-paper)]"
+          title={`Eliminated ep ${s.eliminated_episode}`}
+        >
+          <span className={`block rounded-full ${ELIMINATED_DIM}`}>
+            <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
+          </span>
         </span>
       ))}
     </span>

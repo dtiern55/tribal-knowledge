@@ -104,6 +104,7 @@ describe('StandingsPage', () => {
 
     const eliminated = await screen.findByTitle('Eliminated ep 4')
     expect(eliminated).toBeVisible()
-    expect(eliminated).toHaveClass('grayscale', 'opacity-70')
+    // The dim rides an inner span so the outer backdrop stays opaque.
+    expect(eliminated.querySelector('.grayscale.opacity-70')).not.toBeNull()
   })
 })
