@@ -155,7 +155,7 @@ export function ContestantPage() {
         </div>
         <div className="min-w-0">
           {showStatus && (
-            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-stone-200 text-stone-700' : 'bg-jade-100 text-jade-800'}`}>
+            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${eliminated ? 'bg-cream-200 text-paper-ink-faded' : 'bg-forest-50 text-forest-800'}`}>
               {castStatus(perf)}
             </span>
           )}
@@ -261,7 +261,7 @@ export function ContestantPage() {
                             </ul>
                           ) : <p className="text-sm text-paper-ink-faded">No point-scoring events this episode.</p>}
                           {episode.eliminated_type && (
-                            <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-700">
+                            <p className="mt-3 rounded-lg bg-cream-200 px-3 py-2 text-sm text-paper-ink-faded">
                               Eliminated · {episode.eliminated_type.replace(/_/g, ' ')}
                             </p>
                           )}
