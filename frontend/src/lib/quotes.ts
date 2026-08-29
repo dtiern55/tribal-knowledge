@@ -35,7 +35,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 16: Micronesia',
   },
   {
-    text: 'Don’t wear feathers in your hair at Tribal… And do your Tai Chi in private where nobody can see you.',
+    text: 'Don’t wear feathers in your hair at Tribal. Don’t tell your stories. People don’t believe your stories. They mock you. There’s no reason to tell them. And do your Tai Chi in private where nobody can see you.',
     who: 'Tyson (to Coach)',
     season: 'Season 20: Heroes vs. Villains',
   },
@@ -158,5 +158,60 @@ export const QUOTES: Quote[] = [
     text: "It's just immaculate, all in my mouth.",
     who: 'Woo',
     season: 'Season 28: Cagayan',
+  },
+  {
+    text: 'Like I’m going to keep anyone warm? I weigh 7 pounds… get off of me.',
+    who: 'Courtney Yates',
+    season: 'Season 15: China',
+  },
+  {
+    text: "I am voting for you because when you snore at nighttime it sounds like someone's choking a walrus.",
+    who: 'Courtney Yates',
+    season: 'Season 15: China',
+  },
+  {
+    text: 'I dislike everyone else more than I dislike Todd and Amanda. And I think they mistake that for friendship.',
+    who: 'Courtney Yates',
+    season: 'Season 15: China',
+  },
+  {
+    text: "At least our guys know they're useless. Except for Coach. He seems to think he's amazing… don't know where he got that idea.",
+    who: 'Courtney Yates',
+    season: 'Season 20: Heroes vs. Villains',
+  },
+  {
+    text: "I smoked three packs of cigarettes a day for 20 years, and I haven't had a cigarette in like… 31 hours.",
+    who: 'Shane (day 1)',
+    season: 'Season 12: Exile Island',
+  },
+  {
+    text: "I will. I'll drive up and I'll kill you in your shitty little apartment, and then I'll drive to my club and that will be it.",
+    who: 'Shane',
+    season: 'Season 12: Exile Island',
+  },
+  {
+    text: 'I’ve been through a hurricane, I’ve been attacked by a shark, had a run-in with a crocodile, got captured by the Indian tribe, I mean, they were some very defining moments of my life.',
+    who: 'Coach Benjamin Wade',
+    season: 'Season 18: Tocantins',
+  },
+  {
+    text: "We're like chicken parm and tuna fish. It just don't taste good.",
+    who: 'Rodney',
+    season: 'Season 30: Worlds Apart',
+  },
+  {
+    text: 'I am your friend, but if you fuck with me, you’re dead.',
+    who: 'Abi-Maria',
+    season: 'Season 25: Philippines',
+  },
+  {
+    text: "I don't need no clues. I find 'em anyway.",
+    who: 'Russell Hantz',
+    season: 'Season 19: Samoa',
+  },
+  {
+    text: 'This island is full of pretty much only two things: snakes and rats.',
+    who: 'Sue Hawk',
+    season: 'Season 1: Borneo',
   },
 ]
