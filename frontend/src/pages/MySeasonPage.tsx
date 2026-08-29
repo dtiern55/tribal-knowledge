@@ -981,17 +981,29 @@ function LockedState({
 }) {
   const [picks, setPicks] = useState<EliminationPick[] | null>(null)
   const [roster, setRoster] = useState<RosterPick[] | null>(null)
+  // Finale only: the bracket ballot replaces the weekly boot vote. null once
+  // loaded means nothing was submitted.
+  const [finale, setFinale] = useState<FinalePrediction | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true
-    void Promise.all([
-      api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`),
-      api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
-    ])
-      .then(([savedPicks, savedRoster]) => {
+    // At the finale there is no weekly boot vote — the locked ballot is the
+    // Final 4/3/winner bracket. Fetch the prediction instead of the picks;
+    // a 404 (no ballot yet) resolves to null rather than erroring the page.
+    const rosterReq = api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+    const ballotReq = episode.is_finale
+      ? api.get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`).catch(() => null)
+      : api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`)
+    void Promise.all([ballotReq, rosterReq])
+      .then(([ballot, savedRoster]) => {
         if (!live) return
-        setPicks(savedPicks)
+        if (episode.is_finale) {
+          setFinale(ballot as FinalePrediction | null)
+          setPicks([]) // no weekly ballot at the finale; satisfies the load gate
+        } else {
+          setPicks(ballot as EliminationPick[])
+        }
         setRoster(savedRoster.filter((pick) => pick.active_until_episode === null))
       })
       .catch((error) => {
@@ -1000,7 +1012,7 @@ function LockedState({
     return () => {
       live = false
     }
-  }, [episode.id, season.id, userId])
+  }, [episode.id, episode.is_finale, season.id, userId])
 
   if (loadError) return <p className="text-terracotta-600">{loadError}</p>
   if (picks == null || roster == null) return <PageLoader />
@@ -1092,6 +1104,32 @@ function LockedState({
         </div>
 
         <div className="tribal-border tribal-border--dim" aria-hidden="true" />
+        {episode.is_finale ? (
+          <div>
+            <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
+              Finale ballot
+            </h3>
+            {finale &&
+            (finale.final_four_contestant_ids.length > 0 ||
+              finale.final_three_contestant_ids.length > 0 ||
+              finale.winner_contestant_id) ? (
+              <div className="mt-3 rounded-xl border-2 border-jade-500 bg-jade-50 p-5">
+                <div className="flex flex-col items-center">
+                  <VoteMark className="h-10 w-10" />
+                  <p className="mb-3 mt-1 font-semibold text-jade-800">Finale ballot locked</p>
+                </div>
+                <FinaleBracket
+                  finalFour={finale.final_four_contestant_ids}
+                  finalThree={finale.final_three_contestant_ids}
+                  winner={finale.winner_contestant_id ?? ''}
+                  byId={contestantMap}
+                />
+              </div>
+            ) : (
+              <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No finale ballot was submitted.</p>
+            )}
+          </div>
+        ) : (
         <div>
           <div className="flex items-center gap-2">
             <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
@@ -1129,6 +1167,7 @@ function LockedState({
             <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No ballot was submitted.</p>
           )}
         </div>
+        )}
 
         <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-forest-50 ring-1 ring-forest-100'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>

@@ -855,6 +855,48 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByTitle('Double Ballot Points this episode')).toBeVisible()
   })
 
+  it('shows the locked finale bracket instead of a weekly boot vote', async () => {
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      { ...episode(2, 'upcoming', '2026-08-02T00:00:00Z'), is_finale: true },
+    ]
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu' },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_color: '#abcdef', tribe_name: 'Siga' },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      if (path.includes('/advantage-plays/')) return []
+      if (path.includes('/finale-predictions/')) {
+        return {
+          id: 'pred-1',
+          user_id: auth.session.user.id,
+          season_id: season.id,
+          final_four_contestant_ids: ['cast-1', 'cast-2'],
+          final_three_contestant_ids: ['cast-1'],
+          winner_contestant_id: 'cast-1',
+          created_at: '2026-08-02T00:00:00Z',
+        }
+      }
+      if (path.includes('/roster/')) return [{ id: 'roster-1', contestant_id: 'cast-2', active_until_episode: null }]
+      // A weekly boot-vote fetch would land here; the finale must not make one.
+      if (path.includes('/picks/')) throw new Error('finale should not fetch weekly picks')
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByText('Finale ballot locked')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Finale ballot' })).toBeVisible()
+    // The stale weekly "Ballot" section is gone at the finale.
+    expect(screen.queryByRole('heading', { name: 'Ballot' })).not.toBeInTheDocument()
+  })
+
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {
     const user = userEvent.setup()
     arrange(
