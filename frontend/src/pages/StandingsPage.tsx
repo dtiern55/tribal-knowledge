@@ -200,12 +200,15 @@ export function StandingsPage() {
                   <Link
                     to={`/seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_auto_3.75rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 ${
+                    className={`group relative grid grid-cols-[2.25rem_7rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_10rem_minmax(0,1fr)_auto] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
                     {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
+                    {/* Name is a fixed column so the portraits beside it start
+                        at the same x every row — left-anchored, not trailing
+                        the name (short names just leave a gap before them). */}
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
                         {entry.display_name}
@@ -214,10 +217,7 @@ export function StandingsPage() {
                         <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                       )}
                     </div>
-                    {/* Portraits get their own column so they line up row to
-                        row instead of trailing each name — the fixed rank and
-                        score columns keep this cell at the same x every row. */}
-                    <div className="flex justify-end">
+                    <div className="flex min-w-0 justify-start overflow-hidden">
                       <SurvivorCluster active={entry.active_survivors} eliminated={entry.recently_eliminated_survivors} />
                     </div>
                     <div className="text-right">
