@@ -6,3 +6,4 @@ supabase/.temp/
 .claude/*
 !.claude/skills/
 *.Zone.Identifier
+node_modules/
