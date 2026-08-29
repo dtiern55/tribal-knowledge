@@ -1065,7 +1065,16 @@ function LockedState({
               const contestant = contestantMap.get(pick.contestant_id)
               const name = contestant ? displayName(contestant) : '—'
               return (
-                <li key={pick.id} className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'}`}>
+                <li
+                  key={pick.id}
+                  className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${
+                    pick.is_sole_survivor
+                      ? `border-2 border-gold-500 ${broadcast ? 'bg-gold-500/10' : 'bg-gold-50'}`
+                      : broadcast
+                        ? 'border-white/15 bg-black/10'
+                        : 'border-cream-200 bg-cream-50'
+                  }`}
+                >
                   {/* My Roster behaves the same locked as unlocked (#451): it
                       shows your scores in place, it does not send you to the Cast
                       page. */}
@@ -1077,7 +1086,14 @@ function LockedState({
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    <span className="truncate font-medium">{name}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{name}</span>
+                      {pick.is_sole_survivor && (
+                        <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${broadcast ? 'bg-gold-500/25 text-gold-200' : 'bg-gold-100 text-gold-800'}`}>
+                          Sole Survivor
+                        </span>
+                      )}
+                    </span>
                   </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (

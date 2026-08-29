@@ -917,7 +917,7 @@ describe('MySeasonPage state shell', () => {
       if (path.includes('/picks/')) return []
       if (path.includes('/roster/')) {
         return [
-          { id: 'roster-1', contestant_id: 'cast-1', active_until_episode: null },
+          { id: 'roster-1', contestant_id: 'cast-1', active_until_episode: null, is_sole_survivor: true },
           { id: 'roster-2', contestant_id: 'cast-2', active_until_episode: null },
         ]
       }
@@ -930,6 +930,8 @@ describe('MySeasonPage state shell', () => {
     // locked roster drops him.
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument()
+    // Kenzie is the designated Sole Survivor — the locked roster tags her.
+    expect(screen.getByText('Sole Survivor')).toBeVisible()
   })
 
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {
