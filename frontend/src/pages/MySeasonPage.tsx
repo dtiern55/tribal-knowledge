@@ -3208,20 +3208,27 @@ function PicksSection({
     weekly.find(isOpen) ??
     weekly.find((ep) => episodeClosed(ep) && ep.status !== 'scored')
 
+  // The finale replaces the weekly vote with the bracket (#86); it stays visible
+  // after lock as the stamped ballot (#189). Computed up here so the empty-state
+  // notice knows the finale counts as a current episode — otherwise it fired at
+  // the finale, when every weekly episode is already scored.
+  const finaleEp = episodes.find((e) => e.is_finale)
+  const showFinale = Boolean(
+    finaleEp && (nextOpen?.id === finaleEp.id || episodeClosed(finaleEp)),
+  )
+
   const content = (
     <>
       <SealGhost drag={ballotDrag} />
-      {!currentEp && (
+      {!currentEp && !showFinale && (
         <Notice title="The season hasn’t started yet">
           Once the commissioner schedules the first episode, your tribe and the weekly play show up here.
         </Notice>
       )}
 
-      {/* Final week: the weekly vote becomes the 3-part finale ballot (#86);
-          it stays visible after lock as the stamped ballot (#189). */}
       {(() => {
-        const fin = episodes.find((e) => e.is_finale)
-        const show = fin && (nextOpen?.id === fin.id || episodeClosed(fin))
+        const fin = finaleEp
+        const show = showFinale
         return show ? (
           <FinaleBallot
             season={season}
@@ -3634,11 +3641,7 @@ function FinaleBallot({
         </div>
       ) : (
         <>
-          <p className="text-xs text-gray-500 mb-4">
-            Read the endgame: your Final 4, your Final 3, and the winner.
-          </p>
-
-          <div className="space-y-5 mb-4">
+          <div className="space-y-5 mb-4 mt-4">
             <BracketRound
               label="Final 4"
               hint={`Who reaches the fire-making round · ${finalFour.length}/4`}
@@ -3659,7 +3662,7 @@ function FinaleBallot({
             />
             <BracketPick
               label="Winner"
-              hint={finalThree.length === 0 ? 'Pick your Final 3 first' : 'Sole Survivor'}
+              hint={finalThree.length === 0 ? 'Pick your Final 3 first' : ''}
               options={finalThree.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
               value={winner}
               onChange={(id) => {
@@ -3765,7 +3768,7 @@ function BracketPick({
     <div>
       <div className="border-l-2 border-gold-500 pl-2 mb-1.5">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-        <p className="text-xs text-gray-500">{hint}</p>
+        {hint && <p className="text-xs text-gray-500">{hint}</p>}
       </div>
       {options.length === 0 ? (
         <p className="text-sm text-gray-400 pl-2">—</p>
