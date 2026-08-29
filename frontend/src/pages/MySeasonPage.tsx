@@ -2258,6 +2258,20 @@ function RosterSection({
   // and draw on the same single weekly play as the vote double and paid
   // swaps (#307).
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+
+  // A voted-out castaway lingers on the board — greyed — for the episode after
+  // their boot, then sinks into the eliminated bin below with the swapped-out
+  // picks (they're still held, active_until null; this is display only). Kept
+  // one episode so "your castaway just went out" is visible before it's tucked
+  // away.
+  const openEpNum = weekly.openEpisode?.episode_number
+  const isStaleBoot = (pick: RosterPick) => {
+    const elim = contestantMap.get(pick.contestant_id)?.eliminated_in_episode
+    return elim != null && openEpNum != null && elim < openEpNum - 1
+  }
+  const boardRoster = activeRoster.filter((p) => !isStaleBoot(p))
+  const retiredRoster = [...swappedRoster, ...activeRoster.filter(isStaleBoot)]
+
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
   // On a successful drop, show the seal on its destination immediately while
@@ -2599,7 +2613,7 @@ function RosterSection({
                 Each card's points are what that castaway earned *you*: the
                 breakdown folds in Double Castaway Points and the Sole Survivor
                 finale bonus, so it can differ from their raw cast-page total. */}
-            {[...activeRoster]
+            {[...boardRoster]
               .sort(
                 (a, b) =>
                   Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
@@ -2788,14 +2802,14 @@ function RosterSection({
             : 'Tribe selection has closed.'}
         </p>
       )}
-      {swappedRoster.length > 0 && (
+      {retiredRoster.length > 0 && (
         <button
           type="button"
           onClick={() => setSwappedOpen((o) => !o)}
           aria-expanded={swappedOpen}
           className="lane-card__foot justify-center gap-1.5 text-sm font-semibold text-jade-700"
         >
-          Swapped-out castaways
+          Snuffed
           <svg
             viewBox="0 0 24 24"
             className={`h-3.5 w-3.5 transition-transform ${swappedOpen ? 'rotate-180' : ''}`}
@@ -2810,12 +2824,12 @@ function RosterSection({
       )}
       {swappedOpen && (
         <ul className="border-t border-paper-line bg-black/[.03]">
-              {swappedRoster.map((pick) => (
-                // A castaway you swapped away still earned you points while you
-                // held them, so their row opens onto the same per-episode
-                // breakdown an active one does — scoped to the episodes they
-                // were actually yours for. Not struck through: the strike means
-                // voted out (#457), and a swapped-out castaway may still be in.
+              {retiredRoster.map((pick) => (
+                // Two kinds land here: castaways you swapped away (still earned
+                // you points while held; may even still be in — RosterCard only
+                // strikes an actual boot), and castaways voted out that have
+                // aged off the board. Either way the row opens onto the same
+                // per-episode breakdown, scoped to the episodes they were yours.
                 <RosterCard
                   key={pick.id}
                   contestantId={pick.contestant_id}
@@ -2825,10 +2839,14 @@ function RosterSection({
                       <Points value={rosterPoints.get(pick.contestant_id)} />
                       {/* The penalty is itemised inside the breakdown, not
                           hung off the name (#556 follow-on) — the total on the
-                          left already includes it. */}
-                      <span className="text-paper-ink-faded">
-                        ep {pick.active_from_episode}–{pick.active_until_episode}
-                      </span>
+                          left already includes it. Only a swap has an ep range;
+                          a voted-out pick you still hold shows "Out · ep N" in
+                          the row's own note instead. */}
+                      {pick.active_until_episode !== null && (
+                        <span className="text-paper-ink-faded">
+                          ep {pick.active_from_episode}–{pick.active_until_episode}
+                        </span>
+                      )}
                     </span>
                   }
                   bioLink={false}
@@ -2841,7 +2859,11 @@ function RosterSection({
                     activeUntil={pick.active_until_episode}
                     doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
                     episodeTitles={episodeTitles}
-                    swapPenalty={penaltyBooked(pick) ? pick.swap_penalty_points : 0}
+                    swapPenalty={
+                      pick.active_until_episode !== null && penaltyBooked(pick)
+                        ? pick.swap_penalty_points
+                        : 0
+                    }
                   />
                 </RosterCard>
               ))}
