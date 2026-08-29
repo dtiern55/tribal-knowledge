@@ -1086,14 +1086,12 @@ function LockedState({
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{name}</span>
-                      {pick.is_sole_survivor && (
-                        <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${broadcast ? 'bg-gold-500/25 text-gold-200' : 'bg-gold-100 text-gold-800'}`}>
-                          Sole Survivor
-                        </span>
-                      )}
-                    </span>
+                    <span className="truncate font-medium">{name}</span>
+                    {pick.is_sole_survivor && (
+                      <span className="shrink-0 rounded-full bg-gold-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold-900">
+                        Sole Survivor
+                      </span>
+                    )}
                   </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
