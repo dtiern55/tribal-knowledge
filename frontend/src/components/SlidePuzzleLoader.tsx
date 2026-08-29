@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { QUOTES } from '../lib/quotes'
 
 /**
  * Loading screen: a Survivor 8-tile sliding puzzle built from the fire-ring
@@ -81,6 +82,8 @@ export function SlidePuzzleLoader({
 }) {
   const [grid, setGrid] = useState<(number | null)[]>(INITIAL)
   const [movingId, setMovingId] = useState<number | null>(null)
+  // Pick once per mount so grid re-renders don't reshuffle the quote.
+  const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)])
 
   useEffect(() => {
     if (prefersReducedMotion()) return // leave the board in its scramble
@@ -234,23 +237,42 @@ export function SlidePuzzleLoader({
       </div>
 
       {showLabel && (
-        <div
+        <figure
           style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: '3px',
-            fontWeight: 600,
-            fontSize: '19px',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
+            margin: 0,
+            maxWidth: 'min(90vw, 480px)',
+            textAlign: 'center',
             color: TH.label,
           }}
         >
-          <span>{label}</span>
-          <span className="tk-dot" style={{ color: '#c45432' }}>.</span>
-          <span className="tk-dot" style={{ color: '#c45432', animationDelay: '0.2s' }}>.</span>
-          <span className="tk-dot" style={{ color: '#c45432', animationDelay: '0.4s' }}>.</span>
-        </div>
+          <blockquote
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-body, system-ui, sans-serif)',
+              fontStyle: 'italic',
+              fontSize: '19px',
+              lineHeight: 1.5,
+              fontWeight: 500,
+            }}
+          >
+            {quote.text}
+          </blockquote>
+          <figcaption
+            style={{
+              marginTop: '14px',
+              fontSize: '13px',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span style={{ color: '#c45432' }}>— </span>
+            <span style={{ fontWeight: 600 }}>{quote.who}</span>
+            {quote.season && <span style={{ opacity: 0.65 }}> · {quote.season}</span>}
+            <span className="tk-dot" style={{ color: '#c45432', marginLeft: '2px' }}>.</span>
+            <span className="tk-dot" style={{ color: '#c45432', animationDelay: '0.2s' }}>.</span>
+            <span className="tk-dot" style={{ color: '#c45432', animationDelay: '0.4s' }}>.</span>
+          </figcaption>
+        </figure>
       )}
     </div>
   )
