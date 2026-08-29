@@ -897,6 +897,41 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Ballot' })).not.toBeInTheDocument()
   })
 
+  it('hides roster members eliminated in an earlier episode from the locked roster', async () => {
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
+    ]
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_color: '#abcdef', tribe_name: 'Siga', eliminated_in_episode: 1 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      if (path.includes('/advantage-plays/')) return []
+      if (path.includes('/picks/')) return []
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_until_episode: null },
+          { id: 'roster-2', contestant_id: 'cast-2', active_until_episode: null },
+        ]
+      }
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    // Kenzie is still in; Charlie was voted out in ep 1 and can't score, so the
+    // locked roster drops him.
+    expect(await screen.findByText('Kenzie')).toBeVisible()
+    expect(screen.queryByText('Charlie')).not.toBeInTheDocument()
+  })
+
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {
     const user = userEvent.setup()
     arrange(

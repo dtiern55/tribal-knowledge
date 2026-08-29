@@ -1021,6 +1021,15 @@ function LockedState({
   const played = plays.find((play) => play.episode_id === episode.id)
   const broadcast = isBroadcastWindow(episode)
 
+  // Only the roster members still in the game — a castaway voted out in an
+  // earlier episode can't earn points, so listing them here is misleading.
+  // Eliminations from the airing (not-yet-scored) episode aren't recorded yet,
+  // so this keeps this-episode boots and finalists (never eliminated) in view.
+  const activeRoster = roster.filter((pick) => {
+    const elim = contestantMap.get(pick.contestant_id)?.eliminated_in_episode
+    return elim == null || elim >= episode.episode_number
+  })
+
   return (
     <>
     <section
@@ -1051,8 +1060,8 @@ function LockedState({
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
             Roster
           </h3>
-          {roster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {roster.map((pick) => {
+          {activeRoster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {activeRoster.map((pick) => {
               const contestant = contestantMap.get(pick.contestant_id)
               const name = contestant ? displayName(contestant) : '—'
               return (
