@@ -651,11 +651,12 @@ export function MySeasonPage() {
     // tracks the bracket's completeness instead (#86 follow-on).
     const isFinale = openEp.is_finale
     const fp = d.finalePrediction
-    const finaleFilled = fp
-      ? fp.final_four_contestant_ids.length +
-        fp.final_three_contestant_ids.length +
-        (fp.winner_contestant_id ? 1 : 0)
-      : 0
+    // Null-safe on every field: before the finale-bracket backend ships, this
+    // can be an older-shaped prediction with no Final 4 / Final 3 arrays.
+    const finaleFilled =
+      (fp?.final_four_contestant_ids?.length ?? 0) +
+      (fp?.final_three_contestant_ids?.length ?? 0) +
+      (fp?.winner_contestant_id ? 1 : 0)
     const maxPicks = isFinale
       ? 8
       : Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
