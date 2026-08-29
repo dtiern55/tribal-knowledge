@@ -3702,16 +3702,6 @@ function FinaleBracket({
             isWin ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50' : ''
           }`}
         >
-          {apex && (
-            <svg
-              viewBox="0 0 24 24"
-              className="absolute -top-3 left-1/2 h-4 w-4 -translate-x-1/2 text-gold-500"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M2 8l4.5 3.5L12 4l5.5 7.5L22 8l-1.6 10H3.6L2 8z" />
-            </svg>
-          )}
           <ContestantAvatar
             name={name}
             imageUrl={c?.image_url ?? null}
@@ -3754,7 +3744,7 @@ function FinaleBracket({
   return (
     <div className="flex flex-col items-center gap-3 py-1">
       {winnerId && (
-        <div className="flex flex-col items-center gap-3.5 pt-1">
+        <div className="flex flex-col items-center gap-2 pt-1">
           {tierLabel('Winner', true)}
           {member(winnerId, true)}
         </div>
