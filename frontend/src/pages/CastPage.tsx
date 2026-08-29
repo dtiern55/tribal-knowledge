@@ -50,7 +50,7 @@ export function CastPage() {
               <li key={member.id}>
                 <Link
                   to={`/contestants/${member.id}`}
-                  className={`flex items-center justify-between gap-3 px-1 py-3.5 transition-colors hover:bg-cream-50/70 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 ${
+                  className={`flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-cream-50/70 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 ${
                     eliminated ? 'text-gray-500' : 'text-gray-900'
                   }`}
                 >
@@ -63,38 +63,40 @@ export function CastPage() {
                         tribeName={member.tribe_name}
                       />
                     </span>
-                    <span className="min-w-0">
-                      {/* No tribe dot here: the avatar's tribe-color ring already
-                          carries the color, and the tribe name is printed below.
-                          The dot is reserved for labeling a tribe by name (#369). */}
-                      <span className={`block truncate font-display text-lg font-semibold ${eliminated ? ELIMINATED_STRIKE : ''}`}>
+                    {/* Name and tribe on one line — the avatar's tribe-color
+                        ring already carries the colour, so the tribe reads as a
+                        quiet label beside the name rather than a second row. */}
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span className={`truncate font-display text-lg font-semibold ${eliminated ? ELIMINATED_STRIKE : ''}`}>
                         {member.name}
                       </span>
-                      <span className="block text-[11px] uppercase tracking-wide text-stone-400">
+                      <span className="shrink-0 text-[11px] uppercase tracking-wide text-stone-400">
                         {member.tribe_name ?? 'No tribe'}
                       </span>
                     </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2.5">
                     {member.placement != null ? (
-                      <span className="shrink-0 rounded bg-gold-50 px-2 py-1 text-[11px] uppercase tracking-wide text-gold-700">
+                      <span className="rounded bg-gold-50 px-2 py-1 text-[11px] uppercase tracking-wide text-gold-700">
                         #{member.placement}
                         {member.final_episode != null && ` · ep ${member.final_episode}`}
                       </span>
                     ) : eliminated ? (
-                      <span className="shrink-0 text-[11px] uppercase tracking-wide text-stone-400">
+                      <span className="text-[11px] uppercase tracking-wide text-stone-400">
                         ep {member.eliminated_in_episode}
                       </span>
                     ) : null}
-                  </span>
-                  <span
-                    className={`w-20 shrink-0 text-right font-display text-lg font-bold ${
-                      member.total_points > 0
-                        ? 'text-jade-700'
-                        : member.total_points < 0
-                          ? 'text-terracotta-500'
-                          : 'text-gray-500'
-                    }`}
-                  >
-                    {member.total_points > 0 ? '+' : ''}{member.total_points} pts
+                    <span
+                      className={`w-16 text-right font-display text-lg font-bold ${
+                        member.total_points > 0
+                          ? 'text-jade-700'
+                          : member.total_points < 0
+                            ? 'text-terracotta-500'
+                            : 'text-gray-500'
+                      }`}
+                    >
+                      {member.total_points > 0 ? '+' : ''}{member.total_points} pts
+                    </span>
                   </span>
                 </Link>
               </li>
