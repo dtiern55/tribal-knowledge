@@ -160,6 +160,9 @@ function useMySeasonData() {
   // roster and this episode's ballot even though the sections fetch their own.
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [openPicks, setOpenPicks] = useState<EliminationPick[]>([])
+  // The finale replaces the weekly ballot with the bracket, so the hero reads
+  // its completeness from the finale prediction rather than weekly picks (#86).
+  const [finalePrediction, setFinalePrediction] = useState<FinalePrediction | null>(null)
   // Bumped by the ballot when it saves, so the Ballot beat's count follows.
   const [ballotVersion, setBallotVersion] = useState(0)
   // The two fetches below are not part of `loading`, but the hero's headline
@@ -237,11 +240,22 @@ function useMySeasonData() {
       .catch(() => setOpenPicks([]))
       .finally(() => setPicksFor(episodeId))
   }, [openEp?.id, userId, ballotVersion])
+  useEffect(() => {
+    if (!season || !userId || !openEp?.is_finale) {
+      setFinalePrediction(null)
+      return
+    }
+    api
+      .get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`)
+      .then(setFinalePrediction)
+      .catch(() => setFinalePrediction(null))
+  }, [season?.id, openEp?.id, openEp?.is_finale, userId, ballotVersion])
 
   return {
     userId,
     roster,
     openPicks,
+    finalePrediction,
     bumpBallot: () => setBallotVersion((v) => v + 1),
     season,
     contestants,
@@ -632,8 +646,20 @@ export function MySeasonPage() {
     const stillIn = d.contestants.filter(
       (c) => c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number,
     ).length
-    const maxPicks = Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
-    const saved = d.openPicks.length
+    // The finale ballot is the full bracket — Final 4 (4) + Final 3 (3) +
+    // winner (1) = 8 picks — not weekly votes, so at the finale the ballot beat
+    // tracks the bracket's completeness instead (#86 follow-on).
+    const isFinale = openEp.is_finale
+    const fp = d.finalePrediction
+    const finaleFilled = fp
+      ? fp.final_four_contestant_ids.length +
+        fp.final_three_contestant_ids.length +
+        (fp.winner_contestant_id ? 1 : 0)
+      : 0
+    const maxPicks = isFinale
+      ? 8
+      : Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
+    const saved = isFinale ? finaleFilled : d.openPicks.length
 
     // Holding a dead slot is a position, not a chore: sitting on an eliminated
     // castaway for a week — to spend the weekly play on a x2 instead, or to
@@ -688,8 +714,12 @@ export function MySeasonPage() {
           ? 'Your ballot and tribe both need you'
           : !ballotDone
             ? saved === 0
-              ? 'Your ballot is empty'
-              : `${saved} of ${maxPicks} votes cast`
+              ? isFinale
+                ? 'Your finale ballot is empty'
+                : 'Your ballot is empty'
+              : isFinale
+                ? `${saved} of ${maxPicks} finale picks made`
+                : `${saved} of ${maxPicks} votes cast`
             : noRoster
               ? 'Pick your tribe'
               : heldDead
@@ -698,7 +728,9 @@ export function MySeasonPage() {
                   : `${deadSlots} castaways in your tribe are out`
                 : advantageUnplayed
                   ? 'Your ×2 is still unplayed'
-                  : `You're all set for Ep ${openEp.episode_number}`,
+                  : isFinale
+                    ? "You're all set for the finale"
+                    : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
@@ -3200,6 +3232,7 @@ function PicksSection({
             episodes={episodes}
             finaleEp={fin}
             userId={userId}
+            onBallotSaved={onBallotSaved}
           />
         ) : null
       })()}
@@ -3432,17 +3465,18 @@ function FinaleBallot({
   episodes,
   finaleEp,
   userId,
+  onBallotSaved,
 }: {
   season: Season
   contestants: Contestant[]
   episodes: Episode[]
   finaleEp: Episode
   userId: string
+  onBallotSaved?: () => void
 }) {
   const [finalFour, setFinalFour] = useState<string[]>([])
   const [finalThree, setFinalThree] = useState<string[]>([])
   const [winner, setWinner] = useState('')
-  const [finalImmunity, setFinalImmunity] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -3459,11 +3493,10 @@ function FinaleBallot({
         setFinalFour(pred.final_four_contestant_ids ?? [])
         setFinalThree(pred.final_three_contestant_ids ?? [])
         setWinner(pred.winner_contestant_id ?? '')
-        setFinalImmunity(pred.final_immunity_contestant_id ?? '')
         setHasSaved(
           (pred.final_four_contestant_ids?.length ?? 0) > 0 ||
             (pred.final_three_contestant_ids?.length ?? 0) > 0 ||
-            Boolean(pred.winner_contestant_id ?? pred.final_immunity_contestant_id),
+            Boolean(pred.winner_contestant_id),
         )
       })
       .catch(() => {
@@ -3494,7 +3527,6 @@ function FinaleBallot({
       setFinalFour(finalFour.filter((x) => x !== id))
       setFinalThree(finalThree.filter((x) => x !== id))
       if (winner === id) setWinner('')
-      if (finalImmunity === id) setFinalImmunity('')
     } else if (finalFour.length < 4) {
       setFinalFour([...finalFour, id])
     }
@@ -3518,15 +3550,11 @@ function FinaleBallot({
         final_four_contestant_ids: finalFour,
         final_three_contestant_ids: finalThree,
         winner_contestant_id: winner || null,
-        final_immunity_contestant_id: finalImmunity || null,
       })
       setSaved(true)
-      setHasSaved(
-        finalFour.length > 0 ||
-          finalThree.length > 0 ||
-          Boolean(winner || finalImmunity),
-      )
+      setHasSaved(finalFour.length > 0 || finalThree.length > 0 || Boolean(winner))
       setEditing(false)
+      onBallotSaved?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
     } finally {
@@ -3539,7 +3567,6 @@ function FinaleBallot({
     { label: 'Final 4', names: finalFour.map(nameOf).join(', ') || 'No picks' },
     { label: 'Final 3', names: finalThree.map(nameOf).join(', ') || 'No picks' },
     { label: 'Winner', names: winner ? nameOf(winner) : 'No pick' },
-    { label: 'Final immunity', names: finalImmunity ? nameOf(finalImmunity) : 'No pick' },
   ]
 
   return (
@@ -3596,8 +3623,7 @@ function FinaleBallot({
       ) : (
         <>
           <p className="text-xs text-gray-500 mb-4">
-            Read the endgame: your Final 4, your Final 3, the winner, and who
-            wins the final immunity.
+            Read the endgame: your Final 4, your Final 3, and the winner.
           </p>
 
           <div className="space-y-5 mb-4">
@@ -3626,16 +3652,6 @@ function FinaleBallot({
               value={winner}
               onChange={(id) => {
                 setWinner(id)
-                setSaved(false)
-              }}
-            />
-            <BracketPick
-              label="Final immunity"
-              hint={finalFour.length === 0 ? 'Pick your Final 4 first' : 'Wins the last immunity challenge'}
-              options={finalFour.map((id) => byId.get(id)).filter(Boolean) as Contestant[]}
-              value={finalImmunity}
-              onChange={(id) => {
-                setFinalImmunity(id)
                 setSaved(false)
               }}
             />

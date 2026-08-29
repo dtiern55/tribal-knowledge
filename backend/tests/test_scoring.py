@@ -428,8 +428,8 @@ def test_ballot_double_bonus_is_zero_when_no_pick_lands(db_conn):
 
 def _finale_setup(db_conn):
     """Season with a scored finale (#534): a Final 3 by placement, a fire-making
-    loss to complete the Final 4, two early boots, and a recorded final-immunity
-    winner. Returns the pieces a bracket ballot resolves against."""
+    loss to complete the Final 4, and two early boots. Returns the pieces a
+    bracket ballot resolves against."""
     season = insert_season(db_conn)
     finale = insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
@@ -441,9 +441,6 @@ def _finale_setup(db_conn):
     insert_elimination(
         db_conn, finale["id"], fire["id"], elimination_type="fire_making_loss"
     )
-    # The final-4 immunity winner (locks a Final 3 seat) — the ballot's immunity
-    # slot resolves against this, not the generic individual-immunity events.
-    insert_scoring_event(db_conn, finale["id"], winner["id"], "win_final_immunity")
     return season, winner, runner_up, third, fire, boot
 
 
@@ -458,11 +455,10 @@ def test_finale_points_perfect_ballot(db_conn):
         final_four=[winner["id"], runner_up["id"], third["id"], fire["id"]],
         final_three=[winner["id"], runner_up["id"], third["id"]],
         winner=winner["id"],
-        final_immunity=winner["id"],
     )
 
-    # 4*6 (final four) + 3*8 (final three) + 12 (perfect) + 40 (winner) + 12 (immunity)
-    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 112}
+    # 4*6 (final four) + 3*8 (final three) + 12 (perfect) + 40 (winner)
+    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 100}
 
 
 @pytest.mark.integration
@@ -470,7 +466,7 @@ def test_finale_points_partial_credit(db_conn):
     season, winner, runner_up, third, fire, boot = _finale_setup(db_conn)
     user = insert_user(db_conn)
     # 3 of 4 final-four right (boot is wrong), 2 of 3 final-three right (no
-    # perfect bonus), winner right, immunity wrong.
+    # perfect bonus), winner right.
     insert_finale_prediction(
         db_conn,
         user["id"],
@@ -478,10 +474,9 @@ def test_finale_points_partial_credit(db_conn):
         final_four=[winner["id"], runner_up["id"], third["id"], boot["id"]],
         final_three=[winner["id"], runner_up["id"], boot["id"]],
         winner=winner["id"],
-        final_immunity=runner_up["id"],
     )
 
-    # 3*6 + 2*8 + 0 + 40 + 0
+    # 3*6 + 2*8 + 0 + 40
     assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 74}
 
 
@@ -496,7 +491,6 @@ def test_finale_points_all_wrong_scores_nothing(db_conn):
         final_four=[boot["id"]],
         final_three=[boot["id"]],
         winner=boot["id"],
-        final_immunity=boot["id"],
     )
 
     assert scoring.finale_points(db_conn, season["id"]) == {}

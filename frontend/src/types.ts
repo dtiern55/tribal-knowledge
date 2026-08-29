@@ -139,7 +139,6 @@ export interface FinalePrediction {
   final_four_contestant_ids: string[]
   final_three_contestant_ids: string[]
   winner_contestant_id: string | null
-  final_immunity_contestant_id: string | null
   created_at: string
 }
 
@@ -181,7 +180,6 @@ export interface EpisodeResultBallotPick extends EpisodeResultContestant {
     | 'final_three'
     | 'perfect_final_three'
     | 'winner'
-    | 'final_immunity'
   correct: boolean
   points: number
 }

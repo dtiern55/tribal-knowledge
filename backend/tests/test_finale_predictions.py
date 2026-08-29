@@ -52,7 +52,6 @@ def test_submit_and_get_finale_prediction(client, db_conn, current_user):
                 str(cs[2]["id"]),
             ],
             "winner_contestant_id": str(cs[0]["id"]),
-            "final_immunity_contestant_id": str(cs[1]["id"]),
         },
     )
     assert r.status_code == 200
@@ -69,7 +68,6 @@ def test_submit_and_get_finale_prediction(client, db_conn, current_user):
         str(cs[2]["id"]),
     ]
     assert data["winner_contestant_id"] == str(cs[0]["id"])
-    assert data["final_immunity_contestant_id"] == str(cs[1]["id"])
 
     r2 = client.get(f"/seasons/{season['id']}/finale-predictions/{current_user['id']}")
     assert r2.status_code == 200
@@ -91,7 +89,6 @@ def test_partial_ballot_allowed(client, db_conn):
     assert data["winner_contestant_id"] == str(c1["id"])
     assert data["final_four_contestant_ids"] == []
     assert data["final_three_contestant_ids"] == []
-    assert data["final_immunity_contestant_id"] is None
 
 
 @pytest.mark.integration

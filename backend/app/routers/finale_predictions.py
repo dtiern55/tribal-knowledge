@@ -16,7 +16,7 @@ _COLS = (
     "id, user_id, season_id,"
     " final_four_contestant_ids::text[] as final_four_contestant_ids,"
     " final_three_contestant_ids::text[] as final_three_contestant_ids,"
-    " winner_contestant_id, final_immunity_contestant_id, created_at"
+    " winner_contestant_id, created_at"
 )
 
 
@@ -104,24 +104,12 @@ def submit_finale_prediction(
             winner = (
                 str(body.winner_contestant_id) if body.winner_contestant_id else None
             )
-            immunity = (
-                str(body.final_immunity_contestant_id)
-                if body.final_immunity_contestant_id
-                else None
-            )
 
             # Validate every provided contestant id belongs to this season and
             # is alive AT the finale (#158): pre-finale boots are invalid, but
             # the finale episode's own eliminations are what the ballot predicts,
             # so they stay pickable even if results were entered early.
-            ids = list(
-                {
-                    *final_four,
-                    *final_three,
-                    *([winner] if winner else []),
-                    *([immunity] if immunity else []),
-                }
-            )
+            ids = list({*final_four, *final_three, *([winner] if winner else [])})
             if ids:
                 cur.execute(
                     "select id::text as id from contestants"
@@ -157,14 +145,12 @@ def submit_finale_prediction(
                 """
                 insert into finale_predictions
                     (user_id, season_id, final_four_contestant_ids,
-                     final_three_contestant_ids, winner_contestant_id,
-                     final_immunity_contestant_id)
-                values (%s, %s, %s::uuid[], %s::uuid[], %s, %s)
+                     final_three_contestant_ids, winner_contestant_id)
+                values (%s, %s, %s::uuid[], %s::uuid[], %s)
                 on conflict (user_id, season_id) do update set
-                    final_four_contestant_ids    = excluded.final_four_contestant_ids,
-                    final_three_contestant_ids   = excluded.final_three_contestant_ids,
-                    winner_contestant_id         = excluded.winner_contestant_id,
-                    final_immunity_contestant_id = excluded.final_immunity_contestant_id
+                    final_four_contestant_ids  = excluded.final_four_contestant_ids,
+                    final_three_contestant_ids = excluded.final_three_contestant_ids,
+                    winner_contestant_id       = excluded.winner_contestant_id
                 returning """ + _COLS,
                 [
                     str(user_id),
@@ -172,7 +158,6 @@ def submit_finale_prediction(
                     final_four,
                     final_three,
                     winner,
-                    immunity,
                 ],
             )
             return cur.fetchone()

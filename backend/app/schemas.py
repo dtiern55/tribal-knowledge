@@ -435,7 +435,6 @@ class EpisodeResultBallotPick(EpisodeResultContestant):
         "final_three",
         "perfect_final_three",
         "winner",
-        "final_immunity",
     ]
     correct: bool
     points: int
@@ -599,7 +598,6 @@ class FinalePrediction(BaseModel):
     final_four_contestant_ids: list[UUID] = Field(default_factory=list)
     final_three_contestant_ids: list[UUID] = Field(default_factory=list)
     winner_contestant_id: Optional[UUID]
-    final_immunity_contestant_id: Optional[UUID]
     created_at: datetime
 
 
@@ -607,7 +605,6 @@ class FinalePredictionRequest(BaseModel):
     final_four_contestant_ids: list[UUID] = Field(default_factory=list, max_length=4)
     final_three_contestant_ids: list[UUID] = Field(default_factory=list, max_length=3)
     winner_contestant_id: Optional[UUID] = None
-    final_immunity_contestant_id: Optional[UUID] = None
 
 
 class EliminationEntry(BaseModel):

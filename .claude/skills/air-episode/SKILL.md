@@ -114,13 +114,6 @@ Skip anything already recorded (same contestant + type), then:
   **1st = 80, 2nd = 50, 3rd = 30**. The Sole-Survivor designee bonus is **+50%**
   now (not ×2), applied for free by the finale multiplier. `import-proposal` still
   returns `placements`; apply them via PATCH, nothing more.
-- **Final immunity (finale only, #534):** the finale has several individual
-  immunities (final 6 / 5 / 4). Record the **last** one — the final-4 immunity
-  that locks a Final 3 seat — as `win_final_immunity` instead of the generic
-  `win_individual_immunity`, so the finale bracket ballot can resolve its
-  "final immunity" pick. Same 15 roster points; still just one immunity event
-  for that castaway, only under the more specific type. Earlier finale
-  immunities stay `win_individual_immunity`.
 
 Use a traceable `notes` like `import: {source}` on applied events.
 

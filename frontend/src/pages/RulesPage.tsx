@@ -130,7 +130,7 @@ export function RulesPage() {
   const rosterEvents = scoring_events.filter((event) => event.point_value !== 0)
   const tokenEvents = scoring_events.filter((event) => event.point_value === 0 && event.token_value !== 0)
   const ballotScores = prediction_scores.filter((score) => score.key === 'correct_elimination')
-  const finaleScores = prediction_scores.filter((score) => ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote', 'correct_final_immunity'].includes(score.key))
+  const finaleScores = prediction_scores.filter((score) => ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote'].includes(score.key))
   const swapLock = season.swap_lock_episode ?? (season.merge_episode == null ? null : season.merge_episode + 2)
   const soleSurvivorLock = season.ss_lock_episode ?? season.advantage_lock_episode
 

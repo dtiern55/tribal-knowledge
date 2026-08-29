@@ -229,16 +229,14 @@ def insert_finale_prediction(
     final_four=None,
     final_three=None,
     winner=None,
-    final_immunity=None,
 ):
     with conn.cursor() as cur:
         cur.execute(
             """
             insert into finale_predictions
                 (user_id, season_id, final_four_contestant_ids,
-                 final_three_contestant_ids, winner_contestant_id,
-                 final_immunity_contestant_id)
-            values (%s, %s, %s::uuid[], %s::uuid[], %s, %s) returning *
+                 final_three_contestant_ids, winner_contestant_id)
+            values (%s, %s, %s::uuid[], %s::uuid[], %s) returning *
             """,
             [
                 str(user_id),
@@ -246,7 +244,6 @@ def insert_finale_prediction(
                 [str(c) for c in (final_four or [])],
                 [str(c) for c in (final_three or [])],
                 str(winner) if winner else None,
-                str(final_immunity) if final_immunity else None,
             ],
         )
         return cur.fetchone()

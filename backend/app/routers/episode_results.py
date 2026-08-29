@@ -188,8 +188,7 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             """
             select final_four_contestant_ids::text[] as final_four,
                    final_three_contestant_ids::text[] as final_three,
-                   winner_contestant_id::text as winner,
-                   final_immunity_contestant_id::text as immunity
+                   winner_contestant_id::text as winner
             from finale_predictions where season_id = %s and user_id = %s
             """,
             [str(season_id), str(user_id)],
@@ -201,7 +200,7 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             "select key, point_value from season_prediction_score_types"
             " where season_id = %s and key in ('correct_final_four',"
             " 'correct_final_three', 'perfect_final_three',"
-            " 'correct_winner_vote', 'correct_final_immunity')",
+            " 'correct_winner_vote')",
             [str(season_id)],
         )
         values = {row["key"]: row["point_value"] for row in cur.fetchall()}
@@ -212,9 +211,7 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             [str(season_id)],
         )
         contestants = {row["contestant_id"]: row for row in cur.fetchall()}
-        final_three, final_four, winner, immunity = scoring.finale_actuals(
-            cur, season_id
-        )
+        final_three, final_four, winner = scoring.finale_actuals(cur, season_id)
 
     def line(cid, prediction_type, correct, points):
         c = contestants[str(cid)]
@@ -229,7 +226,7 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
 
     ballot = []
     # Each Final 4 / Final 3 pick is its own line, correct when it landed in the
-    # actual bracket. Winner and final-immunity are single calls.
+    # actual bracket. The winner is a single call.
     f3_picks = [str(c) for c in (prediction["final_three"] or [])]
     for cid in prediction["final_four"] or []:
         ballot.append(
@@ -256,15 +253,6 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
                 "winner",
                 prediction["winner"] == winner,
                 values.get("correct_winner_vote", 0),
-            )
-        )
-    if prediction["immunity"]:
-        ballot.append(
-            line(
-                prediction["immunity"],
-                "final_immunity",
-                prediction["immunity"] == immunity,
-                values.get("correct_final_immunity", 0),
             )
         )
     # The all-three bonus rides on the first Final 3 pick's face — it has no

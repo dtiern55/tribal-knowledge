@@ -26,7 +26,6 @@ function ballotTypeLabel(kind: EpisodeResult['ballot'][number]['prediction_type'
   if (kind === 'final_three') return 'Final 3'
   if (kind === 'perfect_final_three') return 'Perfect Final 3'
   if (kind === 'winner') return 'Sole Survivor'
-  if (kind === 'final_immunity') return 'Final immunity'
   return null
 }
 

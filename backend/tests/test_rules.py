@@ -42,7 +42,6 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     assert pred["correct_final_four"]["point_value"] == 6
     assert pred["correct_final_three"]["point_value"] == 8
     assert pred["perfect_final_three"]["point_value"] == 12
-    assert pred["correct_final_immunity"]["point_value"] == 12
     assert "sole_survivor_win" not in pred
 
     adv = {a["advantage_type"] for a in data["advantages"]}

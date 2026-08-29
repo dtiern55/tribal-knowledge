@@ -220,11 +220,9 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         final_four=[winner["id"], runner["id"], third["id"], fire["id"]],
         final_three=[winner["id"], runner["id"], third["id"]],
         winner=winner["id"],
-        final_immunity=winner["id"],
     )
     insert_elimination(db_conn, finale["id"], early["id"], "voted_out")
     insert_elimination(db_conn, finale["id"], fire["id"], "fire_making_loss")
-    insert_scoring_event(db_conn, finale["id"], winner["id"], "win_final_immunity")
 
     result = client.get(f"/seasons/{season['id']}/reveal").json()
     assert [pick["prediction_type"] for pick in result["ballot"]] == [
@@ -236,13 +234,12 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         "final_three",
         "final_three",
         "winner",
-        "final_immunity",
         "perfect_final_three",
     ]
-    # 4*6 + 3*8 + 40 + 12 + 12 (perfect Final 3) — the perfect bonus rides the
-    # first Final 3 pick's line so the ballot lane still sums to the total.
-    assert result["ballot_points"] == 112
-    assert result["total_points"] == 112
+    # 4*6 + 3*8 + 40 + 12 (perfect Final 3) — the perfect bonus rides the first
+    # Final 3 pick's line so the ballot lane still sums to the total.
+    assert result["ballot_points"] == 100
+    assert result["total_points"] == 100
     assert result["current_rank"] == 1
     assert result["prior_rank"] == 2
     assert result["rank_delta"] == 1

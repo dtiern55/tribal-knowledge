@@ -33,8 +33,7 @@ The read file (scripts/bot_reads/season_<n>.json) is the commissioner's input:
           "note":            "Goliath looks like a powerhouse"
         }
       },
-      "finale": { "final_four": [...], "final_three": [...],
-                  "winner": [...], "final_immunity": [...] }
+      "finale": { "final_four": [...], "final_three": [...], "winner": [...] }
     }
 
 likely_boots is either a plain name list (rank order — bots cluster on the
@@ -759,7 +758,6 @@ FINALE_SLATES = (
     ("final_four", 4),
     ("final_three", 3),
     ("winner", 1),
-    ("final_immunity", 1),
 )
 FINALE_KEYS = tuple(key for key, _ in FINALE_SLATES)
 
@@ -846,8 +844,8 @@ def ballot(cur, check_only=False):
     """Every bot files a finale bracket ballot from the read's finale block.
 
     Forward-looking like everything else: the read is who the ROOM would back,
-    not who actually won. Each slate (Final 4, Final 3, winner, final immunity)
-    is filled from its own read pool by the bot's biased order.
+    not who actually won. Each slate (Final 4, Final 3, winner) is filled from
+    its own read pool by the bot's biased order.
     """
     season = active_season(cur)
     sid = season["id"]
@@ -879,16 +877,14 @@ def ballot(cur, check_only=False):
         cur.execute(
             """insert into finale_predictions
             (user_id, season_id, final_four_contestant_ids,
-             final_three_contestant_ids, winner_contestant_id,
-             final_immunity_contestant_id)
-            values (%s,%s,%s::uuid[],%s::uuid[],%s,%s)""",
+             final_three_contestant_ids, winner_contestant_id)
+            values (%s,%s,%s::uuid[],%s::uuid[],%s)""",
             [
                 uid,
                 sid,
                 chosen["final_four"],
                 chosen["final_three"],
                 chosen["winner"][0] if chosen["winner"] else None,
-                chosen["final_immunity"][0] if chosen["final_immunity"] else None,
             ],
         )
         n += 1

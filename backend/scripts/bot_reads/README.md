@@ -19,10 +19,9 @@ run against a season nobody has watched yet.
     }
   },
   "finale": {
-    "final_four":     ["Who reaches fire-making", "...ranked pool"],
-    "final_three":    ["Who reaches the final tribal", "..."],
-    "winner":         ["Who the room would back"],
-    "final_immunity": ["Who wins the last immunity"]
+    "final_four":  ["Who reaches fire-making", "...ranked pool"],
+    "final_three": ["Who reaches the final tribal", "..."],
+    "winner":      ["Who the room would back"]
   }
 }
 ```
@@ -32,9 +31,9 @@ out by finale night are dropped, so a read written at the merge is mostly
 wasted. Write it once the final few are set.
 
 Each slate is a ranked candidate pool; bots take the top few after their own
-biased shuffle — 4 for `final_four`, 3 for `final_three`, 1 each for `winner`
-and `final_immunity`. The slates score independently against the real bracket,
-so they needn't be nested; the same names can appear in several pools.
+biased shuffle — 4 for `final_four`, 3 for `final_three`, 1 for `winner`. The
+slates score independently against the real bracket, so they needn't be nested;
+the same names can appear in several pools.
 
 Check a read without filing anything:
 

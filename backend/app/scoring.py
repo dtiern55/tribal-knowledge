@@ -162,11 +162,10 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
 def finale_actuals(cur, season_id: UUID):
     """The recorded finale outcome the bracket ballot resolves against (#534).
 
-    Returns (final_three, final_four, winner_id, immunity_id): the Final 3 are
-    placements 1-3, the Final 4 is the Final 3 plus whoever lost fire-making,
-    the winner is placement 1, and the immunity winner is whoever the finale
-    recorded a `win_final_immunity` event for. All are None/empty until the
-    finale is scored, so finale points stay 0 until then.
+    Returns (final_three, final_four, winner_id): the Final 3 are placements
+    1-3, the Final 4 is the Final 3 plus whoever lost fire-making, and the
+    winner is placement 1. All are None/empty until the finale is scored, so
+    finale points stay 0 until then.
     """
     cur.execute(
         "select id::text as id, placement from contestants"
@@ -182,7 +181,7 @@ def finale_actuals(cur, season_id: UUID):
         [str(season_id)],
     )
     fin = cur.fetchone()
-    fire_loss = immunity = None
+    fire_loss = None
     if fin:
         cur.execute(
             "select contestant_id::text as id from eliminations"
@@ -191,27 +190,20 @@ def finale_actuals(cur, season_id: UUID):
         )
         row = cur.fetchone()
         fire_loss = row["id"] if row else None
-        cur.execute(
-            "select contestant_id::text as id from scoring_events"
-            " where episode_id = %s and event_type = 'win_final_immunity' limit 1",
-            [str(fin["id"])],
-        )
-        row = cur.fetchone()
-        immunity = row["id"] if row else None
 
     final_four = set(final_three)
     if fire_loss:
         final_four.add(fire_loss)
-    return final_three, final_four, winner, immunity
+    return final_three, final_four, winner
 
 
 def finale_points(conn, season_id: UUID) -> dict[str, int]:
     """Points from each user's finale bracket ballot (#534).
 
     Survivor-centric: your Final 4 (partial credit per correct name), your
-    Final 3 (partial credit, plus a bonus for nailing all three), the winner,
-    and the final-immunity winner. Values come from the season's scoring
-    snapshot — the live template is 6 / 8 / 12 bonus / 40 winner / 12 immunity.
+    Final 3 (partial credit, plus a bonus for nailing all three), and the
+    winner. Values come from the season's scoring snapshot — the live template
+    is 6 / 8 / 12 bonus / 40 winner.
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -219,23 +211,21 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
             select key, point_value from season_prediction_score_types
             where season_id = %s
               and key in ('correct_final_four', 'correct_final_three',
-                          'perfect_final_three', 'correct_winner_vote',
-                          'correct_final_immunity')
+                          'perfect_final_three', 'correct_winner_vote')
             """,
             [str(season_id)],
         )
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
         if not v:
             return {}
-        final_three, final_four, winner, immunity = finale_actuals(cur, season_id)
+        final_three, final_four, winner = finale_actuals(cur, season_id)
 
         cur.execute(
             """
             select user_id::text as user_id,
                    final_four_contestant_ids::text[] as final_four,
                    final_three_contestant_ids::text[] as final_three,
-                   winner_contestant_id::text as winner,
-                   final_immunity_contestant_id::text as immunity
+                   winner_contestant_id::text as winner
             from finale_predictions where season_id = %s
             """,
             [str(season_id)],
@@ -251,8 +241,6 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
                 pts += v.get("perfect_final_three", 0)
             if winner and row["winner"] == winner:
                 pts += v.get("correct_winner_vote", 0)
-            if immunity and row["immunity"] == immunity:
-                pts += v.get("correct_final_immunity", 0)
             if pts:
                 points[row["user_id"]] = pts
         return points
