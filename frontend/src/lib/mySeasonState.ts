@@ -22,6 +22,12 @@ export function resolveMySeasonState(
 ): MySeasonState {
   if (season.status === 'completed') return { kind: 'complete' }
 
+  // A scored finale ends the season even if the status flip was missed: the
+  // banner reads "Season complete" rather than falling through to intermission.
+  if (episodes.some((episode) => episode.is_finale && episode.status === 'scored')) {
+    return { kind: 'complete' }
+  }
+
   const rosterStarts = season.roster_lock_episode ?? 1
   const watchOnly = episodes
     .filter((episode) => episode.episode_number < rosterStarts && episode.status !== 'scored')

@@ -145,7 +145,12 @@ function useMySeasonData() {
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [standing, setStanding] = useState<StandingEntry | null>(null)
-  const [breakdown, setBreakdown] = useState<ScoringBreakdown>({ roster: [], picks: [] })
+  const [breakdown, setBreakdown] = useState<ScoringBreakdown>({
+    roster: [],
+    picks: [],
+    sole_survivor_contestant_id: null,
+    sole_survivor_bonus: 0,
+  })
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
   const [rank, setRank] = useState<number | null>(null)
   const [playerCount, setPlayerCount] = useState(0)
@@ -852,6 +857,7 @@ export function MySeasonPage() {
                 episodes={d.episodes}
                 userId={d.userId}
                 rosterPoints={rosterPoints}
+                soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
                 seasonPoints={d.standing?.roster_points ?? null}
                 plays={d.plays}
                 setPlays={d.setPlays}
@@ -2237,6 +2243,7 @@ function RosterSection({
   episodes,
   userId,
   rosterPoints,
+  soleSurvivorBonus = 0,
   seasonPoints = null,
   plays,
   setPlays,
@@ -2252,6 +2259,8 @@ function RosterSection({
   episodes: Episode[]
   userId: string
   rosterPoints: Map<string, number>
+  /** The +50% Sole Survivor finale bonus, named on the designated card. */
+  soleSurvivorBonus?: number
   /** The season roster total for the card's band. */
   seasonPoints?: number | null
   plays: AdvantagePlay[]
@@ -2711,6 +2720,7 @@ function RosterSection({
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
+                soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                 isDoubled={displayedDoubleTarget === pick.contestant_id}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={

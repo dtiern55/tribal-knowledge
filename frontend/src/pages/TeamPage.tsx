@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
@@ -22,6 +22,7 @@ import type {
   Elimination,
   EliminationPick,
   Episode,
+  FinalePrediction,
   RosterPick,
   ScoringBreakdown,
   StandingEntry,
@@ -74,6 +75,8 @@ export function TeamPage() {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
+  const [ssBonus, setSsBonus] = useState(0)
+  const [bracket, setBracket] = useState<FinalePrediction | null>(null)
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [votes, setVotes] = useState<EpisodeVotes[]>([])
@@ -91,6 +94,8 @@ export function TeamPage() {
       setRoster([])
       setPlays([])
       setVotes([])
+      setSsBonus(0)
+      setBracket(null)
       try {
         const [cs, standings, episodeRows] = await Promise.all([
           api.get<Contestant[]>(`/seasons/${seasonId}/contestants`),
@@ -105,6 +110,7 @@ export function TeamPage() {
           setRoster(await api.get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`))
           const breakdown = await api.get<ScoringBreakdown>(`/seasons/${seasonId}/scoring-breakdown/${userId}`)
           setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
+          setSsBonus(breakdown.sole_survivor_bonus)
           setPlays(await api.get<AdvantagePlay[]>(`/seasons/${seasonId}/advantage-plays/${userId}`).catch(() => []))
         } catch {
           setHidden(true)
@@ -118,6 +124,11 @@ export function TeamPage() {
           ])
           return { episode, picks, eliminatedIds: new Set(eliminations.map((row) => row.contestant_id)) }
         })))
+
+        // The finale ballot is a separate bracket (Final 4/3/winner), not
+        // elimination picks; 404 when the player never filed one (they may only
+        // have the Sole Survivor designation), 403 until the finale locks.
+        setBracket(await api.get<FinalePrediction>(`/seasons/${seasonId}/finale-predictions/${userId}`).catch(() => null))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load team')
       } finally {
@@ -158,6 +169,45 @@ export function TeamPage() {
   const ranked = rankStandings(siblings).find(({ entry }) => entry.user_id === userId)
   const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
 
+  // Finale-ballot cells. The finale isn't an elimination vote — a player's call
+  // is their Final 4/3/winner bracket if they filed one, otherwise their Sole
+  // Survivor winner designation. Correctness comes straight off placement.
+  const placementOf = (cid: string) => contestantMap.get(cid)?.placement ?? null
+  const finalePill = (cid: string, correct: boolean, key: string) => {
+    const c = contestantMap.get(cid)
+    const name = c ? displayName(c) : '—'
+    return correct ? (
+      <span key={key} className="shrink-0"><CorrectVote name={name} /></span>
+    ) : (
+      <span key={key} className="shrink-0 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">{name}</span>
+    )
+  }
+  const finaleGroup = (label: string, cells: ReactNode) => (
+    // Keyed by label — the three groups (Winner / Final 3 / Final 4) are unique
+    // per row, so they satisfy React's list-key requirement on their own.
+    <span key={label} className="flex shrink-0 items-center gap-1.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-paper-ink-faded">{label}</span>
+      {cells}
+    </span>
+  )
+  const crown = active.find((pick) => pick.is_sole_survivor)
+  const finaleBallotCells = (() => {
+    if (bracket) {
+      const cells = [
+        bracket.winner_contestant_id &&
+          finaleGroup('Winner', finalePill(bracket.winner_contestant_id, placementOf(bracket.winner_contestant_id) === 1, 'w')),
+        bracket.final_three_contestant_ids.length > 0 &&
+          finaleGroup('Final 3', bracket.final_three_contestant_ids.map((cid, i) => finalePill(cid, (placementOf(cid) ?? 99) <= 3, `f3-${i}`))),
+        bracket.final_four_contestant_ids.length > 0 &&
+          finaleGroup('Final 4', bracket.final_four_contestant_ids.map((cid, i) => finalePill(cid, (placementOf(cid) ?? 99) <= 4, `f4-${i}`))),
+      ].filter(Boolean)
+      return cells.length > 0 ? cells : null
+    }
+    // No bracket: the Sole Survivor designation is the player's winner call.
+    if (crown) return [finaleGroup('Winner', finalePill(crown.contestant_id, placementOf(crown.contestant_id) === 1, 'ss'))]
+    return null
+  })()
+
   return (
     <div aria-busy={loading} className={`transition-opacity duration-150 ${loading ? 'opacity-60' : ''}`}>
       <PageHeader
@@ -194,6 +244,7 @@ export function TeamPage() {
                       contestantId={pick.contestant_id}
                       contestant={contestantMap.get(pick.contestant_id)}
                       isSoleSurvivor={pick.is_sole_survivor}
+                      soleSurvivorBonus={pick.is_sole_survivor ? ssBonus : 0}
                       swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
                       right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                       bioLink={false}
@@ -263,11 +314,17 @@ export function TeamPage() {
                       {ballotDoubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
                       <span
                         role="group"
-                        aria-label="Votes"
+                        aria-label={episode.is_finale ? 'Finale ballot' : 'Votes'}
                         tabIndex={0}
-                        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+                        className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto"
                       >
-                        {picks.length === 0 ? (
+                        {episode.is_finale ? (
+                          finaleBallotCells === null ? (
+                            <span className="text-sm text-paper-ink-faded">No finale ballot</span>
+                          ) : (
+                            finaleBallotCells
+                          )
+                        ) : picks.length === 0 ? (
                           <span className="text-sm text-paper-ink-faded">No votes</span>
                         ) : (
                           picks.map((pick) => {

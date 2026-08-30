@@ -226,9 +226,14 @@ def get_scoring_breakdown(
             if is_owner
             else []
         )
+        ss_contestant_id, ss_bonus = scoring.sole_survivor_bonus(
+            conn, season_id, user_id
+        )
     return {
         "roster": [
             {"contestant_id": cid, "points": pts} for cid, pts in roster.items()
         ],
         "picks": picks,
+        "sole_survivor_contestant_id": ss_contestant_id,
+        "sole_survivor_bonus": ss_bonus,
     }

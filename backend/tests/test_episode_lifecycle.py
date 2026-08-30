@@ -38,6 +38,23 @@ def test_score_episode(client, db_conn):
 
 
 @pytest.mark.integration
+def test_scoring_the_finale_completes_the_season(client, db_conn):
+    """Scoring the finale ends the season (#559 follow-on): status -> completed."""
+    season = insert_season(db_conn)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        is_finale=True,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    assert client.post(f"/episodes/{ep['id']}/score").status_code == 200
+    with db_conn.cursor() as cur:
+        cur.execute("select status from seasons where id = %s", [str(season["id"])])
+        assert cur.fetchone()["status"] == "completed"
+
+
+@pytest.mark.integration
 def test_score_episode_not_found(client):
     r = client.post(f"/episodes/{uuid.uuid4()}/score")
     assert r.status_code == 404

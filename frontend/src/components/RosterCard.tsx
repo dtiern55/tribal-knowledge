@@ -23,6 +23,7 @@ export function RosterCard({
   contestantId,
   contestant,
   isSoleSurvivor = false,
+  soleSurvivorBonus = 0,
   isDoubled = false,
   ssWindowOpen = false,
   swappedInEpisode = null,
@@ -48,6 +49,9 @@ export function RosterCard({
   contestantId: string
   contestant: Contestant | undefined
   isSoleSurvivor?: boolean
+  // The +50% finale bonus this designation earned, named on the badge so the
+  // points land somewhere visible. 0 shows just the badge (no bonus yet).
+  soleSurvivorBonus?: number
   isDoubled?: boolean
   ssWindowOpen?: boolean
   swappedInEpisode?: number | null
@@ -245,7 +249,7 @@ export function RosterCard({
               }`}
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
-              Sole Survivor
+              Sole Survivor{soleSurvivorBonus > 0 && ` · +${soleSurvivorBonus}`}
             </span>
           )}
         </span>

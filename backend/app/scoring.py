@@ -22,6 +22,7 @@ seasons keep scoring exactly as they did — completed seasons are time capsules
 (#170).
 """
 
+from typing import Optional
 from uuid import UUID
 
 from app.locking import EPISODE_LOCKED_SQL, episode_locked_sql
@@ -332,6 +333,59 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
             points[cid] = points.get(cid, 0) + row["penalty"]
 
     return points
+
+
+def sole_survivor_bonus(
+    conn, season_id: UUID, user_id: UUID
+) -> tuple[Optional[str], int]:
+    """The +50% Sole Survivor finale bonus for one user: (contestant_id, points).
+
+    Mirrors the `ss` term folded into roster_points_by_contestant (#52) — half
+    of the designated finalist's finale scoring, rounded once — but pulled out
+    on its own so a player page can name where those points came from instead of
+    burying them in the finalist's total. (None, 0) when no bonus applies yet.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            select se.contestant_id::text as contestant_id,
+                   round(sum(
+                     (case
+                        when s.merge_episode is not null
+                         and ep.episode_number >= s.merge_episode
+                         and et.postmerge_point_value is not null
+                        then et.postmerge_point_value
+                        else et.point_value
+                      end)
+                     * (case when et.is_per_unit then se.quantity else 1 end)
+                     * (case when dbl.id is not null then 2 else 1 end)
+                   ) * 0.5)::int as bonus
+            from scoring_events se
+            join episodes ep on se.episode_id = ep.id and ep.is_finale
+            join seasons s on ep.season_id = s.id
+            join season_scoring_event_types et
+              on se.event_type = et.event_type and et.season_id = s.id
+            join roster_picks rp
+              on rp.contestant_id = se.contestant_id
+             and rp.season_id = s.id
+             and rp.is_sole_survivor
+             and rp.active_from_episode <= ep.episode_number
+             and (rp.active_until_episode is null
+                  or rp.active_until_episode >= ep.episode_number)
+            left join advantage_plays dbl
+              on dbl.advantage_type = 'double_roster_points'
+             and dbl.user_id = rp.user_id
+             and dbl.episode_id = se.episode_id
+             and dbl.target_contestant_id = se.contestant_id
+            where s.id = %s and rp.user_id = %s and {episode_locked_sql("ep")}
+            group by se.contestant_id
+            """,
+            [str(season_id), str(user_id)],
+        )
+        row = cur.fetchone()
+        if not row or not row["bonus"]:
+            return None, 0
+        return row["contestant_id"], row["bonus"]
 
 
 def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, int]:

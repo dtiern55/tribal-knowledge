@@ -83,12 +83,21 @@ describe('resolveMySeasonState', () => {
     ).toEqual({ kind: 'intermission' })
   })
 
-  it('uses intermission after a scored finale until the season is completed', () => {
+  it('treats a scored finale as complete even before the season status flips', () => {
     expect(
       resolveMySeasonState(season(), [
         episode(1, { status: 'scored' }),
         episode(2, { status: 'scored', finale: true }),
       ]),
-    ).toEqual({ kind: 'intermission' })
+    ).toEqual({ kind: 'complete' })
+  })
+
+  it('stays in intermission when the finale is locked but not yet scored', () => {
+    expect(
+      resolveMySeasonState(season(), [
+        episode(1, { status: 'scored' }),
+        episode(2, { status: 'upcoming', finale: true, lock: '2026-08-01T00:00:00Z' }),
+      ]),
+    ).toMatchObject({ kind: 'locked', episode: { episode_number: 2 } })
   })
 })

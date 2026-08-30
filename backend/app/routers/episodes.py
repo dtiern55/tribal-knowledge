@@ -239,7 +239,18 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
                 "update episodes set status = 'scored' where id = %s returning *",
                 [str(episode_id)],
             )
-            return cur.fetchone()
+            scored = cur.fetchone()
+
+            # Scoring the finale ends the season: mark it completed so the app
+            # shows "Season complete" and the final standings drop to who
+            # actually played. Reversible via PATCH if scored in error.
+            if scored["is_finale"]:
+                cur.execute(
+                    "update seasons set status = 'completed'"
+                    " where id = %s and status <> 'completed'",
+                    [str(scored["season_id"])],
+                )
+            return scored
 
 
 @router.get("/episodes/{episode_id}/hub", response_model=list[HubEntry])

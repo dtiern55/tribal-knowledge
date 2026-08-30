@@ -310,6 +310,10 @@ export interface PickResult {
 export interface ScoringBreakdown {
   roster: ContestantPoints[]
   picks: PickResult[]
+  // The +50% Sole Survivor finale bonus, already inside the finalist's roster
+  // points — surfaced separately so a page can name where it came from.
+  sole_survivor_contestant_id: string | null
+  sole_survivor_bonus: number
 }
 
 export interface CastMember {
