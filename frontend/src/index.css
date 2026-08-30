@@ -112,6 +112,23 @@ body {
   font-family: var(--font-body);
 }
 
+/* Android edge-to-edge PWAs (Chrome 135+) draw under a TRANSPARENT bottom
+   system navigation bar, so the light --color-ground shows through it and the
+   bar reads white — even though the manifest background_color is forest. That
+   #464 fix (bottom bar = manifest background_color) predates edge-to-edge and
+   no longer holds; under edge-to-edge the bar shows page content, so paint the
+   bottom safe-area inset forest to match the themed top bar. Covers every
+   screen (login has no bottom nav) and is a no-op where the inset is 0 (#589). */
+body::after {
+  content: "";
+  position: fixed;
+  inset: auto 0 0 0;
+  height: env(safe-area-inset-bottom, 0px);
+  background: #1e3a2f;
+  z-index: 40;
+  pointer-events: none;
+}
+
 /* Rajdhani is a display face here, not body copy. Give every display heading
    the approved semibold baseline while allowing explicit weight utilities to
    override it. */
@@ -154,6 +171,10 @@ html.locked-night {
 }
 
 html.locked-night body {
+  background: #0e1f19;
+}
+
+html.locked-night body::after {
   background: #0e1f19;
 }
 
