@@ -969,6 +969,14 @@ html.locked-night .contestant-avatar {
   box-shadow: 0 6px 22px rgb(10 22 19 / 35%);
 }
 
+/* The My-pts breakdown drops out of the hero, but the hero's own `isolate`
+   traps its z-index below the lane tabs (and the ballot-room scrim at z-20 /
+   lit lane at z-30) that follow it in the DOM — so the ballot tab icon covered
+   the open panel. While the panel is mounted, lift the whole hero above them. */
+.week-hero:has(#header-points-breakdown) {
+  z-index: 40;
+}
+
 .week-hero::before,
 .week-hero::after {
   content: '';
