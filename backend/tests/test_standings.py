@@ -74,6 +74,38 @@ def test_standings_survivors_include_tribe_treatment_data(
 
 
 @pytest.mark.integration
+def test_active_survivors_keep_a_boot_until_its_episode_locks(
+    client, db_conn, current_user
+):
+    """#559: an elimination applied before the episode's picks_lock_at must not
+    drop the contestant from the active roster (revealing the boot early)."""
+    season = insert_season(db_conn, roster_lock_episode=1)
+    insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)  # unlocked
+    booted = insert_contestant(db_conn, season["id"], "Booted")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], booted["id"])
+    insert_elimination(db_conn, ep2["id"], booted["id"])  # applied early
+
+    def survivor_names():
+        entry = client.get(f"/seasons/{season['id']}/standings").json()[0]
+        return {s["name"] for s in entry["active_survivors"]}
+
+    assert "Booted" in survivor_names()  # boot hidden pre-lock
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set picks_lock_at = %s where id = %s",
+            [datetime.now(timezone.utc) - timedelta(hours=1), str(ep2["id"])],
+        )
+    assert "Booted" not in survivor_names()  # drops once the episode locks
+
+
+@pytest.mark.integration
 def test_completed_season_lists_only_participants(client, db_conn, current_user):
     """A past season shows only members who actually played it (#235)."""
     season = insert_season(db_conn, status="completed")
@@ -151,7 +183,7 @@ def test_scoring_breakdown_hidden_until_roster_lock(client, db_conn, current_use
 @pytest.mark.integration
 def test_scoring_breakdown_shape(client, db_conn, current_user):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     c = insert_contestant(db_conn, season["id"], "Rostered")
     insert_roster_pick(db_conn, current_user["id"], season["id"], c["id"])
     insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
@@ -175,7 +207,7 @@ def test_scoring_breakdown_shape(client, db_conn, current_user):
 @pytest.mark.integration
 def test_standings_aggregates_components(client, db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
     user = insert_user(db_conn, display_name="Player")
 
@@ -206,7 +238,7 @@ def test_standings_aggregates_components(client, db_conn):
 @pytest.mark.integration
 def test_standings_sorted_by_total_desc(client, db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     high = insert_user(db_conn, display_name="High")
     insert_user(db_conn, display_name="Low")
     c = insert_contestant(db_conn, season["id"])

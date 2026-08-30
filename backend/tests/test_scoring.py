@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app import scoring
@@ -20,7 +22,7 @@ from tests.helpers import (
 @pytest.mark.integration
 def test_roster_points_basic(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     user = insert_user(db_conn)
     contestant = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], contestant["id"])
@@ -35,8 +37,8 @@ def test_votes_received_scores_zero(db_conn):
     and post-merge alike. Still recorded (per-unit) for castaway-page context.
     """
     season = insert_season(db_conn, merge_episode=7)
-    pre = insert_episode(db_conn, season["id"], episode_number=3)
-    post = insert_episode(db_conn, season["id"], episode_number=8)
+    pre = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
+    post = insert_episode(db_conn, season["id"], episode_number=8, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
@@ -54,7 +56,7 @@ def test_retired_event_types_still_score(db_conn):
     retiring television moments would silently rewrite finished seasons (#170).
     """
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
@@ -78,8 +80,8 @@ def test_scoring_event_uses_postmerge_value(db_conn):
     identical values prove nothing.
     """
     season = insert_season(db_conn, merge_episode=7)
-    pre = insert_episode(db_conn, season["id"], episode_number=6)
-    post = insert_episode(db_conn, season["id"], episode_number=7)
+    pre = insert_episode(db_conn, season["id"], episode_number=6, status="scored")
+    post = insert_episode(db_conn, season["id"], episode_number=7, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
@@ -95,11 +97,11 @@ def test_scoring_event_uses_postmerge_value(db_conn):
 @pytest.mark.integration
 def test_roster_points_respects_active_range(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     # The swap happened at episode 4 (active_until 3); its penalty books only
     # once that episode locks, so give it a scored episode 4.
     insert_episode(db_conn, season["id"], episode_number=4, status="scored")
-    ep5 = insert_episode(db_conn, season["id"], episode_number=5)
+    ep5 = insert_episode(db_conn, season["id"], episode_number=5, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     # rostered only for episodes 2-3, then swapped out (penalty -20)
@@ -155,7 +157,7 @@ def test_swap_penalty_books_only_when_its_episode_locks(db_conn):
 @pytest.mark.integration
 def test_roster_points_same_contestant_two_users(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     u1 = insert_user(db_conn, display_name="A")
     u2 = insert_user(db_conn, display_name="B")
     c = insert_contestant(db_conn, season["id"])
@@ -170,7 +172,7 @@ def test_roster_points_same_contestant_two_users(db_conn):
 @pytest.mark.integration
 def test_roster_points_doubled_by_advantage(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
@@ -185,8 +187,8 @@ def test_roster_points_doubled_by_advantage(db_conn):
 @pytest.mark.integration
 def test_roster_points_double_only_matching_episode(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
-    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
@@ -204,7 +206,9 @@ def test_roster_points_double_only_matching_episode(db_conn):
 @pytest.mark.integration
 def test_roster_points_includes_placement(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
+    insert_episode(
+        db_conn, season["id"], episode_number=13, is_finale=True, status="scored"
+    )
     user = insert_user(db_conn)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
@@ -216,7 +220,9 @@ def test_roster_points_includes_placement(db_conn):
 @pytest.mark.integration
 def test_placement_points_only_if_active_at_finale(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
+    insert_episode(
+        db_conn, season["id"], episode_number=13, is_finale=True, status="scored"
+    )
     user = insert_user(db_conn)
     runner = insert_contestant(db_conn, season["id"], "RunnerUp", placement=2)
     # Swapped this contestant off the roster before the finale -> no placement pts.
@@ -236,8 +242,8 @@ def test_episode_points_reconciles_with_standings(db_conn):
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     other = insert_contestant(db_conn, season["id"], "Other")
-    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
-    ep3 = insert_episode(db_conn, season["id"], episode_number=3)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
     insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")  # +15
     insert_scoring_event(db_conn, ep3["id"], c["id"], "win_individual_reward")  # +12
@@ -260,7 +266,9 @@ def test_episode_points_finale_includes_outcomes(db_conn):
     season = insert_season(db_conn, merge_episode=3)
     user = insert_user(db_conn)
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
-    insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
+    insert_episode(
+        db_conn, season["id"], episode_number=6, is_finale=True, status="scored"
+    )
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
 
     # Rostering the placement-1 finisher pays made_final_tribal 30 and
@@ -274,7 +282,7 @@ def test_episode_points_finale_includes_outcomes(db_conn):
 @pytest.mark.integration
 def test_elimination_points_correct_premerge(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
@@ -286,7 +294,7 @@ def test_elimination_points_correct_premerge(db_conn):
 @pytest.mark.integration
 def test_elimination_points_correct_postmerge(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=9)
+    ep = insert_episode(db_conn, season["id"], episode_number=9, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
@@ -298,7 +306,7 @@ def test_elimination_points_correct_postmerge(db_conn):
 @pytest.mark.integration
 def test_elimination_points_wrong_pick_scores_nothing(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     picked = insert_contestant(db_conn, season["id"], "Picked")
     eliminated = insert_contestant(db_conn, season["id"], "Eliminated")
@@ -311,7 +319,9 @@ def test_elimination_points_wrong_pick_scores_nothing(db_conn):
 @pytest.mark.integration
 def test_elimination_points_excludes_finale(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    finale = insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
+    finale = insert_episode(
+        db_conn, season["id"], episode_number=13, is_finale=True, status="scored"
+    )
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     # Even a "correct" finale pick (contestant in eliminations) scores nothing
@@ -328,7 +338,7 @@ def test_elimination_points_excludes_finale(db_conn):
 def test_elimination_points_legacy_targeted_double(db_conn):
     """Pre-#303 plays named one pick and must keep doubling only that one."""
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     c = insert_contestant(db_conn, season["id"])
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
@@ -342,7 +352,7 @@ def test_elimination_points_legacy_targeted_double(db_conn):
 @pytest.mark.integration
 def test_elimination_points_legacy_double_wrong_target_no_effect(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     picked = insert_contestant(db_conn, season["id"], "Picked")
     other = insert_contestant(db_conn, season["id"], "Other")
@@ -360,7 +370,7 @@ def test_elimination_points_legacy_double_wrong_target_no_effect(db_conn):
 def test_elimination_points_ballot_double_covers_every_pick(db_conn):
     """#303: a target-less Double Vote Points doubles the whole ballot."""
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     hit_a = insert_contestant(db_conn, season["id"], "HitA")
     hit_b = insert_contestant(db_conn, season["id"], "HitB")
@@ -378,7 +388,7 @@ def test_elimination_points_ballot_double_covers_every_pick(db_conn):
 @pytest.mark.integration
 def test_elimination_points_ballot_double_pays_nothing_on_a_whiff(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     picked = insert_contestant(db_conn, season["id"], "Picked")
     booted = insert_contestant(db_conn, season["id"], "Booted")
@@ -393,7 +403,7 @@ def test_elimination_points_ballot_double_pays_nothing_on_a_whiff(db_conn):
 def test_ballot_double_bonus_sums_every_correct_pick(db_conn):
     """Play History must report the whole ballot's bonus, not one pick (#303)."""
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     hit_a = insert_contestant(db_conn, season["id"], "HitA")
     hit_b = insert_contestant(db_conn, season["id"], "HitB")
@@ -411,7 +421,7 @@ def test_ballot_double_bonus_sums_every_correct_pick(db_conn):
 @pytest.mark.integration
 def test_ballot_double_bonus_is_zero_when_no_pick_lands(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     picked = insert_contestant(db_conn, season["id"], "Picked")
     booted = insert_contestant(db_conn, season["id"], "Booted")
@@ -431,7 +441,9 @@ def _finale_setup(db_conn):
     loss to complete the Final 4, and two early boots. Returns the pieces a
     bracket ballot resolves against."""
     season = insert_season(db_conn)
-    finale = insert_episode(db_conn, season["id"], episode_number=13, is_finale=True)
+    finale = insert_episode(
+        db_conn, season["id"], episode_number=13, is_finale=True, status="scored"
+    )
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     runner_up = insert_contestant(db_conn, season["id"], "RunnerUp", placement=2)
     third = insert_contestant(db_conn, season["id"], "Third", placement=3)
@@ -547,7 +559,7 @@ def test_roster_points_by_contestant_splits_and_sums(db_conn):
 @pytest.mark.integration
 def test_elimination_pick_results_hit_and_miss(db_conn):
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
     user = insert_user(db_conn)
     hit = insert_contestant(db_conn, season["id"], "Hit")
     miss = insert_contestant(db_conn, season["id"], "Miss")
@@ -578,11 +590,49 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
 
 
 @pytest.mark.integration
+def test_scoring_stays_hidden_until_the_episode_locks(db_conn):
+    """#559: applying an episode's results before its picks_lock_at (and before
+    it's scored) must not leak the boot or point changes — players can still
+    change their picks. Everything appears the moment the episode locks."""
+    season = insert_season(db_conn, merge_episode=7)
+    # Unlocked: picks_lock_at in the future, status still upcoming.
+    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    user = insert_user(db_conn)
+    rostered = insert_contestant(db_conn, season["id"], "Rostered")
+    boot = insert_contestant(db_conn, season["id"], "Boot")
+    insert_roster_pick(db_conn, user["id"], season["id"], rostered["id"])
+    insert_scoring_event(db_conn, ep["id"], rostered["id"], "win_individual_immunity")
+    insert_elimination_pick(db_conn, user["id"], ep["id"], boot["id"])
+    insert_elimination(db_conn, ep["id"], boot["id"])
+
+    uid = str(user["id"])
+    # Pre-lock: no points anywhere, and the pending pick shows but not its result.
+    assert scoring.roster_points(db_conn, season["id"]).get(uid, 0) == 0
+    assert scoring.elimination_points(db_conn, season["id"]).get(uid, 0) == 0
+    assert scoring.episode_points(db_conn, season["id"], 3).get(uid, 0) == 0
+    pick = scoring.elimination_pick_results(db_conn, season["id"], user["id"])[0]
+    assert pick["correct"] is False and pick["points"] == 0
+
+    # Lock the episode by moving picks_lock_at into the past (no scoring yet).
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set picks_lock_at = %s where id = %s",
+            [datetime.now(timezone.utc) - timedelta(hours=1), str(ep["id"])],
+        )
+
+    assert scoring.roster_points(db_conn, season["id"])[uid] == 15
+    assert scoring.elimination_points(db_conn, season["id"])[uid] == 16
+    assert scoring.episode_points(db_conn, season["id"], 3)[uid] == 31
+    pick = scoring.elimination_pick_results(db_conn, season["id"], user["id"])[0]
+    assert pick["correct"] is True and pick["points"] == 16
+
+
+@pytest.mark.integration
 def test_scoring_ignores_global_template_changes(db_conn):
     """#170: completed seasons are time capsules — tuning the global template
     after a season exists must not change what that season scores."""
     season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)
+    ep = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     user = insert_user(db_conn)
     contestant = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, user["id"], season["id"], contestant["id"])
