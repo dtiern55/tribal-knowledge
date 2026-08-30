@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
-from app.locking import advantages_locked
+from app.locking import advantages_locked, episode_locked_sql
 from app.schemas import (
     CastMember,
     Contestant,
@@ -39,13 +39,17 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
             cur.execute(
-                """
+                f"""
                 select c.id, coalesce(c.nickname, c.name) as name,
                        c.image_url, c.placement,
+                       -- Boot and points stay hidden until the episode locks:
+                       -- scoring applied before picks_lock_at must not leak to
+                       -- players who can still change their picks (#559).
                        (select min(ep2.episode_number)
                         from eliminations el
                         join episodes ep2 on ep2.id = el.episode_id
-                        where el.contestant_id = c.id) as eliminated_in_episode,
+                        where el.contestant_id = c.id
+                          and {episode_locked_sql("ep2")}) as eliminated_in_episode,
                        (select t.name from contestant_tribes ct
                         join tribes t on t.id = ct.tribe_id
                         where ct.contestant_id = c.id
@@ -55,22 +59,30 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                         where ct.contestant_id = c.id
                         order by ct.from_episode desc limit 1) as tribe_color,
                        coalesce(sum(
-                         (case
-                            when s.merge_episode is not null
-                             and ep.episode_number >= s.merge_episode
-                             and et.postmerge_point_value is not null
-                            then et.postmerge_point_value else et.point_value
-                          end)
-                         * (case when et.is_per_unit then se.quantity else 1 end)
+                         case when ep.id is null then 0 else
+                           (case
+                              when s.merge_episode is not null
+                               and ep.episode_number >= s.merge_episode
+                               and et.postmerge_point_value is not null
+                              then et.postmerge_point_value else et.point_value
+                            end)
+                           * (case when et.is_per_unit then se.quantity else 1 end)
+                         end
                        ), 0) as total_points,
                        coalesce(sum(
-                         et.token_value
-                         * (case when et.is_per_unit then se.quantity else 1 end)
+                         case when ep.id is null then 0 else
+                           et.token_value
+                           * (case when et.is_per_unit then se.quantity else 1 end)
+                         end
                        ), 0) as total_tokens
                 from contestants c
                 join seasons s on s.id = c.season_id
                 left join scoring_events se on se.contestant_id = c.id
+                -- Gate in the join, not the WHERE: unlocked-episode events must
+                -- score 0 (via the ep.id-null guard above) without dropping a
+                -- contestant whose only events are still unlocked (#559).
                 left join episodes ep on ep.id = se.episode_id
+                  and {episode_locked_sql("ep")}
                 left join season_scoring_event_types et
                   on et.event_type = se.event_type and et.season_id = s.id
                 where c.season_id = %s
@@ -133,7 +145,7 @@ def get_contestant_performance(
 
             # Per-episode scoring events with their point value (pre/post-merge)
             cur.execute(
-                """
+                f"""
                 select ep.episode_number, ep.is_finale, et.label,
                        (case
                           when s.merge_episode is not null
@@ -153,7 +165,8 @@ def get_contestant_performance(
                 join seasons s on s.id = ep.season_id
                 join season_scoring_event_types et
                   on et.event_type = se.event_type and et.season_id = s.id
-                where se.contestant_id = %s
+                -- Hidden until the episode locks (#559).
+                where se.contestant_id = %s and {episode_locked_sql("ep")}
                 order by ep.episode_number
                 """,
                 [str(contestant_id)],
@@ -161,11 +174,11 @@ def get_contestant_performance(
             events = cur.fetchall()
 
             cur.execute(
-                """
+                f"""
                 select ep.episode_number, ep.is_finale, el.elimination_type
                 from eliminations el
                 join episodes ep on ep.id = el.episode_id
-                where el.contestant_id = %s
+                where el.contestant_id = %s and {episode_locked_sql("ep")}
                 """,
                 [str(contestant_id)],
             )
