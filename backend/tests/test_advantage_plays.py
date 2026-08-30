@@ -280,6 +280,12 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
     # The double pays only on picks the user actually made (#115).
     insert_elimination_pick(db_conn, current_user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
+    # The bonus is only reported once the episode locks (#559).
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set picks_lock_at = %s where id = %s",
+            [datetime.now(timezone.utc) - timedelta(hours=1), str(ep["id"])],
+        )
 
     plays = client.get(
         f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
@@ -296,6 +302,11 @@ def test_double_vote_earns_zero_without_a_matching_pick(client, db_conn, current
     c = insert_contestant(db_conn, season["id"])
     play = _play(client, season["id"], "double_vote_points")
     insert_elimination(db_conn, ep["id"], c["id"])  # eliminated, but never picked
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set picks_lock_at = %s where id = %s",
+            [datetime.now(timezone.utc) - timedelta(hours=1), str(ep["id"])],
+        )
 
     plays = client.get(
         f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
