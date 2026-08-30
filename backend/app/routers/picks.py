@@ -5,10 +5,45 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import episode_locked, next_open_episode
+from app.locking import EPISODE_LOCKED_SQL, episode_locked, next_open_episode
 from app.schemas import EliminationPick, EliminationPickSubmitRequest
 
 router = APIRouter(tags=["picks"])
+
+
+@router.get(
+    "/seasons/{season_id}/picks/{user_id}",
+    response_model=dict[str, list[EliminationPick]],
+)
+def get_season_picks(
+    season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
+    """Every episode's picks for one player, keyed by episode id.
+
+    Batches what History used to fetch one episode at a time (#558). Same
+    visibility rule as the per-episode endpoint: another player's picks for an
+    episode stay hidden until that episode locks, so for someone else we only
+    return locked episodes — no unlocked picks leak through the batch.
+    """
+    own = str(user_id) == str(current_user)
+    lock_filter = "" if own else f" and {EPISODE_LOCKED_SQL}"
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                select p.* from elimination_picks p
+                join episodes e on e.id = p.episode_id
+                where e.season_id = %s and p.user_id = %s{lock_filter}
+                order by p.episode_id, p.created_at
+                """,
+                [str(season_id), str(user_id)],
+            )
+            by_episode: dict[str, list] = {}
+            for row in cur.fetchall():
+                by_episode.setdefault(str(row["episode_id"]), []).append(row)
+            return by_episode
 
 
 @router.get(

@@ -1567,18 +1567,16 @@ function HistorySection({
   useEffect(() => {
     if (!open || !closedBallotIds) return
     let live = true
-    void Promise.all(
-      closedBallotIds.split(',').map((id) =>
-        api
-          .get<EliminationPick[]>(`/episodes/${id}/picks/${userId}`)
-          .then((picks): [string, EliminationPick[]] => [id, picks])
-          .catch((): [string, EliminationPick[]] => [id, []]),
-      ),
-    ).then((entries) => live && setPastBallots(new Map(entries)))
+    // One batched request for every closed episode's picks (#558), instead of
+    // fanning out one round-trip per ballot and blocking the tab on Promise.all.
+    api
+      .get<Record<string, EliminationPick[]>>(`/seasons/${season.id}/picks/${userId}`)
+      .then((byEpisode) => live && setPastBallots(new Map(Object.entries(byEpisode))))
+      .catch(() => live && setPastBallots(new Map()))
     return () => {
       live = false
     }
-  }, [open, closedBallotIds, userId])
+  }, [open, closedBallotIds, userId, season.id])
 
   const scoredEpisodes = episodes
     .filter(
