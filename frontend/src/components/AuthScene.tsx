@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { SUE_HAWK_QUOTE } from '../lib/quotes'
 
 // Camp-at-night front door (#508): the full-bleed dark canvas scene borrowed
 // from the loader, the embroidered mark glowing over it, and a floating cream
@@ -18,7 +19,7 @@ const CAMP: CSSProperties = {
 
 export function AuthScene({
   children,
-  eyebrow = 'Private Survivor league',
+  eyebrow,
 }: {
   children: ReactNode
   eyebrow?: string
@@ -28,23 +29,35 @@ export function AuthScene({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <img
-            src="/icon-512.webp"
+            src="/icon-512.webp?v=20260830"
             alt=""
             width={92}
             height={92}
             className="size-[92px] rounded-2xl shadow-[0_0_54px_-10px_rgba(196,84,50,0.55)] ring-1 ring-white/10"
           />
           <h1 className="mt-5 font-brand text-2xl font-bold leading-none tracking-wide">
-            <span className="text-cream-50">TRIBAL</span>{' '}
-            <span className="text-terracotta-500">KNOWLEDGE</span>
+            <span className="text-cream-50">SNAKES</span>{' '}
+            <span className="text-terracotta-500">AND RATS</span>
           </h1>
-          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">
-            {eyebrow}
-          </p>
+          {eyebrow && (
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">
+              {eyebrow}
+            </p>
+          )}
         </div>
         <div className="mt-7 rounded-2xl bg-cream-50/95 p-5 shadow-2xl ring-1 ring-black/10 backdrop-blur-sm sm:p-6">
           {children}
         </div>
+        {/* The app's namesake, under the form. */}
+        <figure className="mx-auto mt-6 max-w-[19rem] text-center">
+          <blockquote className="text-pretty text-sm italic leading-snug text-cream-100/85">
+            &ldquo;{SUE_HAWK_QUOTE.text}&rdquo;
+          </blockquote>
+          <figcaption className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta-200/75">
+            {SUE_HAWK_QUOTE.who}
+            {SUE_HAWK_QUOTE.season ? ` · ${SUE_HAWK_QUOTE.season}` : ''}
+          </figcaption>
+        </figure>
       </div>
     </div>
   )

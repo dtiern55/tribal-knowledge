@@ -3,8 +3,8 @@ import type { CSSProperties } from 'react'
 import { QUOTES } from '../lib/quotes'
 
 /**
- * Loading screen: a Survivor 8-tile sliding puzzle built from the fire-ring
- * logo. Tiles clack around a beveled tray forever and never solve. Ported
+ * Loading screen: a Survivor 8-tile sliding puzzle built from the Snakes and
+ * Rats mark. Tiles clack around a beveled tray forever and never solve. Ported
  * faithfully from the design handoff — geometry, timing, and easing are final.
  *
  * `theme` follows the app's open/locked state (PageLoader reads `locked-night`
@@ -34,14 +34,14 @@ const THEMES: Record<Theme, { scene: string; tileImg: string; label: string; fra
     // Match the .app-shell ground gradient (index.css) so the loader blends
     // into the sand page instead of reading as a white panel over it.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
-    tileImg: 'url("/puzzle-flat-dark.webp")',
+    tileImg: 'url("/puzzle-flat-dark.webp?v=20260830")',
     label: '#1e3a2f',
     frame: 'linear-gradient(158deg, #23503d, #122318)',
     frameShadow: 'inset 0 3px 0 rgba(255,255,255,0.06), inset 0 -8px 16px rgba(0,0,0,0.5), 0 34px 44px -12px rgba(20,40,30,0.55)',
   },
   locked: {
     scene: 'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px), linear-gradient(180deg, #132e25, #0e1f19)',
-    tileImg: 'url("/puzzle-flat-light.webp")',
+    tileImg: 'url("/puzzle-flat-light.webp?v=20260830")',
     label: '#f2e9db',
     frame: 'linear-gradient(158deg, #ecdfc5, #d7c6a4)',
     frameShadow: 'inset 0 3px 0 rgba(255,248,232,0.35), inset 0 -8px 16px rgba(120,95,60,0.30), 0 34px 48px -12px rgba(0,0,0,0.55)',
@@ -72,6 +72,7 @@ export function SlidePuzzleLoader({
   liftTiles = true,
   showLabel = true,
   label = 'Loading',
+  tileSrc,
 }: {
   theme?: Theme
   tempo?: number
@@ -79,6 +80,9 @@ export function SlidePuzzleLoader({
   liftTiles?: boolean
   showLabel?: boolean
   label?: string
+  // Override the theme's puzzle art (admin preview compares the old mark against
+  // the new one). A bare public path; falls back to the theme default.
+  tileSrc?: string
 }) {
   const [grid, setGrid] = useState<(number | null)[]>(INITIAL)
   const [movingId, setMovingId] = useState<number | null>(null)
@@ -219,7 +223,7 @@ export function SlidePuzzleLoader({
                   height: '112px',
                   borderRadius: '11px',
                   overflow: 'hidden',
-                  backgroundImage: TH.tileImg,
+                  backgroundImage: tileSrc ? `url("${tileSrc}")` : TH.tileImg,
                   backgroundSize: '384px 384px',
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: `${-((hc + 0.5) * 128 - 56)}px ${-((hr + 0.5) * 128 - 56)}px`,

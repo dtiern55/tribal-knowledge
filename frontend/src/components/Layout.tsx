@@ -123,11 +123,11 @@ export function Layout() {
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
           <NavLink
             to="/"
-            aria-label="Tribal Knowledge home"
+            aria-label="Snakes and Rats home"
             className="inline-flex min-h-11 shrink-0 items-center font-brand text-xl font-bold leading-none tracking-wide md:text-2xl"
           >
-            <span className="app-brand-primary text-cream-50">TRIBAL</span>{' '}
-            <span className="app-brand-secondary text-terracotta-600">KNOWLEDGE</span>
+            <span className="app-brand-primary mr-1.5 text-cream-50">SNAKES</span>
+            <span className="app-brand-secondary text-terracotta-600">AND RATS</span>
           </NavLink>
 
           {authed && (

@@ -46,3 +46,11 @@ terracotta flame, and a gold inner ember. The ring is slightly larger and the
 flame is nudged right for better optical centering. This keeps the established
 Final Tribal meaning and small-size silhouette while bringing the icon into the
 same visual world as the application.
+
+## 2026-08-30 Snakes and Rats identity
+
+The app is now named **Snakes and Rats**, with a new mark inspired by Sue Hawk's
+season-one Tribal Council speech. A cream rat and terracotta snake frame a gold
+hidden flame on the established forest-green textured canvas. The final source
+art is `snakes-and-rats-final.png`; production favicon, app-icon, maskable-icon,
+and sliding-puzzle exports live under `frontend/public`.

@@ -1,5 +1,5 @@
 """
-Test infrastructure for Tribal Knowledge backend.
+Test infrastructure for the Snakes and Rats backend.
 
 Integration tests require a running local Supabase instance (`supabase start`).
 Mark them with @pytest.mark.integration.

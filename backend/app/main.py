@@ -27,7 +27,7 @@ from app.routers import (
     tvmaze,
 )
 
-app = FastAPI(title="Tribal Knowledge")
+app = FastAPI(title="Snakes and Rats")
 
 _origins = [
     o.strip()

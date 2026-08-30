@@ -8,6 +8,14 @@
  */
 export type Quote = { text: string; who: string; season?: string }
 
+// The app's namesake — Sue Hawk's Borneo speech. Pulled out so the auth pages
+// can show it on purpose (it's also in QUOTES for the loader's random pick).
+export const SUE_HAWK_QUOTE: Quote = {
+  text: 'This island is full of pretty much only two things: snakes and rats.',
+  who: 'Sue Hawk',
+  season: 'Season 1: Borneo',
+}
+
 export const QUOTES: Quote[] = [
   {
     text: "I really wanna get back with you guys. Except I don't fucking wanna get back with you guys at all.",
@@ -209,11 +217,7 @@ export const QUOTES: Quote[] = [
     who: 'Russell Hantz',
     season: 'Season 19: Samoa',
   },
-  {
-    text: 'This island is full of pretty much only two things: snakes and rats.',
-    who: 'Sue Hawk',
-    season: 'Season 1: Borneo',
-  },
+  SUE_HAWK_QUOTE,
   {
     text: 'No, Robb, you were not in the attack zone when you grabbed Clay by the throat.',
     who: 'Jeff Probst',
