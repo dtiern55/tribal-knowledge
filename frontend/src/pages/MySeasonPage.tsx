@@ -9,6 +9,7 @@ import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.webp'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
+import { FinaleBracket } from '../components/FinaleBracket'
 import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge, LockLine } from '../components/LockBadge'
@@ -22,7 +23,7 @@ import {
   EMPTY_EP_MAP,
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
-import { RosterCard } from '../components/RosterCard'
+import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
@@ -917,7 +918,18 @@ export function MySeasonPage() {
       })()}
 
       {state.kind === 'intermission' && <IntermissionState />}
-      {state.kind === 'complete' && <CompleteState />}
+      {state.kind === 'complete' && (
+        <CompleteState
+          season={d.season}
+          contestants={d.contestants}
+          episodes={d.episodes}
+          userId={d.userId}
+          roster={d.roster}
+          rosterPoints={rosterPoints}
+          plays={d.plays}
+          soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
+        />
+      )}
 
       </div>
       {visibleResult && (
@@ -959,14 +971,112 @@ function IntermissionState() {
   )
 }
 
-function CompleteState() {
+// The finished season stays a season, not a banner (#583 follow-on): your final
+// tribe and finale ballot keep showing, read-only, the way they did all year —
+// the roster cards (with tap-to-expand breakdowns) and the locked finale bracket
+// the season left you with. Weekly ballots live in the History sheet below.
+function CompleteState({
+  season,
+  contestants,
+  episodes,
+  userId,
+  roster,
+  rosterPoints,
+  plays,
+  soleSurvivorBonus,
+}: {
+  season: Season
+  contestants: Contestant[]
+  episodes: Episode[]
+  userId: string
+  roster: RosterPick[]
+  rosterPoints: Map<string, number>
+  plays: AdvantagePlay[]
+  soleSurvivorBonus: number
+}) {
+  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
+  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
+  const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
+  const active = roster.filter((pick) => pick.active_until_episode === null)
+  const swappedOut = roster
+    .filter((pick) => pick.active_until_episode !== null)
+    .sort((a, b) => (b.active_until_episode ?? 0) - (a.active_until_episode ?? 0))
+  const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
+  const penaltyBooked = (pick: RosterPick) =>
+    episodes.some((e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e))
+  const finaleEp = episodes.find((e) => e.is_finale)
+
   return (
-    <section className="p-5 bg-white border border-cream-200 rounded-xl">
-      <h2 className="font-display text-xl tracking-wide text-forest-800">Season complete</h2>
-      <p className="text-sm text-gray-600 mt-1">
-        Final standings are settled. Your episode scores and play history remain below.
-      </p>
-    </section>
+    <div className="space-y-8">
+      <section className="p-5 bg-white border border-cream-200 rounded-xl">
+        <h2 className="font-display text-xl tracking-wide text-forest-800">Season complete</h2>
+        <p className="mt-1 text-sm text-gray-600">
+          Final standings are settled. Here's how your season finished — your tribe and
+          finale ballot below, and your full episode history under it.
+        </p>
+      </section>
+
+      <section>
+        <h3 className="mb-3 font-display text-lg tracking-wide text-forest-800">Your tribe</h3>
+        {active.length === 0 ? (
+          <p className="text-sm text-gray-500">No tribe on record.</p>
+        ) : (
+          <RosterManifest>
+            {[...active]
+              .sort((a, b) => Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) - Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null))
+              .map((pick) => (
+                <RosterCard
+                  key={pick.id}
+                  contestantId={pick.contestant_id}
+                  contestant={contestantMap.get(pick.contestant_id)}
+                  isSoleSurvivor={pick.is_sole_survivor}
+                  soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
+                  swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
+                  right={<TeamPoints value={rosterPoints.get(pick.contestant_id)} />}
+                  bioLink={false}
+                  expanded={expandedId === pick.contestant_id}
+                  onToggle={() => toggleExpand(pick.contestant_id)}
+                >
+                  <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} />
+                </RosterCard>
+              ))}
+          </RosterManifest>
+        )}
+        {swappedOut.length > 0 && (
+          <div className="mt-6">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Swapped-out castaways</h4>
+            <RosterManifest>
+              {swappedOut.map((pick) => (
+                <RosterCard
+                  key={pick.id}
+                  contestantId={pick.contestant_id}
+                  contestant={contestantMap.get(pick.contestant_id)}
+                  right={
+                    <span className="flex items-center gap-2 text-xs">
+                      <Points value={rosterPoints.get(pick.contestant_id)} />
+                      <span className="text-paper-ink-faded">ep {pick.active_from_episode}–{pick.active_until_episode}</span>
+                    </span>
+                  }
+                  bioLink={false}
+                  expanded={expandedId === pick.contestant_id}
+                  onToggle={() => toggleExpand(pick.contestant_id)}
+                >
+                  <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} swapPenalty={penaltyBooked(pick) ? pick.swap_penalty_points : 0} />
+                </RosterCard>
+              ))}
+            </RosterManifest>
+          </div>
+        )}
+      </section>
+
+      {finaleEp && (
+        <section>
+          <h3 className="mb-3 font-display text-lg tracking-wide text-forest-800">Your finale ballot</h3>
+          <FinaleBallot season={season} contestants={contestants} episodes={episodes} finaleEp={finaleEp} userId={userId} />
+        </section>
+      )}
+    </div>
   )
 }
 
@@ -3738,91 +3848,6 @@ function FinaleBallot({
           </button>
         </>
       )}
-    </div>
-  )
-}
-
-/**
- * The locked finale ballot as a torch podium (#534): your full slates stacked
- * and narrowing — the winner crowned at the apex, your Final 3 below, your
- * Final 4 at the base. The winner keeps a gold ring wherever they appear, so
- * you can trace who you called to advance all the way down.
- */
-function FinaleBracket({
-  finalFour,
-  finalThree,
-  winner,
-  byId,
-}: {
-  finalFour: string[]
-  finalThree: string[]
-  winner: string
-  byId: Map<string, Contestant>
-}) {
-  const winnerId = winner || null
-
-  const member = (id: string, apex = false) => {
-    const c = byId.get(id)
-    const name = c ? displayName(c) : '—'
-    const isWin = id === winnerId
-    return (
-      <div key={id} className="flex w-14 flex-col items-center gap-1 text-center">
-        <span
-          className={`relative inline-flex rounded-full ${
-            isWin ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50' : ''
-          }`}
-        >
-          <ContestantAvatar
-            name={name}
-            imageUrl={c?.image_url ?? null}
-            tribeColor={c?.tribe_color ?? null}
-            tribeName={c?.tribe_name ?? null}
-            size={apex ? 'lg' : 'md'}
-          />
-        </span>
-        <span
-          className={`max-w-full truncate text-xs font-medium ${
-            isWin ? 'text-gold-800' : 'text-forest-800'
-          }`}
-        >
-          {name}
-        </span>
-      </div>
-    )
-  }
-
-  const rule = <div className="mx-auto h-px w-4/5 bg-jade-200" />
-  const tierLabel = (text: string, gold = false) => (
-    <span
-      className={`font-display text-[10px] font-bold uppercase tracking-[0.16em] ${
-        gold ? 'text-gold-800' : 'text-gray-500'
-      }`}
-    >
-      {text}
-    </span>
-  )
-  const tier = (label: string, ids: string[], gold = false) =>
-    ids.length > 0 && (
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex flex-wrap justify-center gap-2">
-          {ids.map((id) => member(id))}
-        </div>
-        {tierLabel(label, gold)}
-      </div>
-    )
-
-  return (
-    <div className="flex flex-col items-center gap-3 py-1">
-      {winnerId && (
-        <div className="flex flex-col items-center gap-2 pt-1">
-          {tierLabel('Winner', true)}
-          {member(winnerId, true)}
-        </div>
-      )}
-      {winnerId && finalThree.length > 0 && rule}
-      {tier('Final 3', finalThree)}
-      {(winnerId || finalThree.length > 0) && finalFour.length > 0 && rule}
-      {tier('Final 4', finalFour)}
     </div>
   )
 }
