@@ -1281,66 +1281,6 @@ html.locked-night .lane-tab:not([aria-selected='true']) {
   background: #fbf1ec;
 }
 
-/* The team lane keeps its paper at night — the one page you can still read by
-   the fire, same conceit the roster ledger has always had. Warm-lit cream and
-   an ember glow instead of the daylight drop shadow; the ballot lane and the
-   rest of the chrome go dark around it. */
-html.locked-night .app-shell .lane-stack[data-lane='jade'] {
-  border-color: #cbbfa6;
-  background: #f5efe3;
-  box-shadow:
-    0 0 46px rgb(212 145 58 / 22%),
-    0 6px 22px rgb(5 12 9 / 50%);
-}
-html.locked-night .app-shell .lane-stack[data-lane='jade'] .lane-card__foot {
-  border-top-color: #e6ddcb;
-  background: rgb(28 25 23 / 4%);
-}
-/* ...which means the whole daylight palette has to survive inside it. The
-   shell's night overrides repaint ink cream for a dark ground; on the one lane
-   that stays lit that is cream on cream, so put the paper's own ink back. */
-html.locked-night .app-shell .lane-stack[data-lane='jade'] {
-  color: var(--color-paper-ink);
-}
-html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
-  .text-paper-ink, .text-gray-900, .text-gray-800, .text-forest-900, .text-forest-800
-) {
-  color: var(--color-paper-ink);
-}
-html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
-  .text-paper-ink-faded, .text-gray-700, .text-gray-600, .text-gray-500, .text-gray-400,
-  .text-forest-700
-) {
-  color: var(--color-paper-ink-faded);
-}
-html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
-  .text-gold-700, .text-gold-800, .text-gold-900
-) {
-  color: var(--color-gold-800);
-}
-html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
-  .bg-white, .bg-cream-50, .bg-gray-50, .bg-forest-50, .bg-jade-50
-) {
-  background-color: #fbf7ef;
-}
-html.locked-night .app-shell .lane-stack[data-lane='jade'] :is(
-  .border-paper-line, .border-paper-edge, .border-cream-100, .border-cream-200,
-  .border-gray-100, .border-forest-100
-) {
-  border-color: #e6ddcb;
-}
-
-/* Everything that isn't the team lane goes dark around it. */
-html.locked-night .app-shell .lane-stack[data-lane='terracotta'] {
-  border-color: rgb(242 233 219 / 12%);
-  background: #132e25;
-  box-shadow: 0 6px 22px rgb(5 12 9 / 50%);
-}
-html.locked-night .app-shell .lane-stack[data-lane='terracotta'] .lane-card__foot {
-  border-top-color: rgb(242 233 219 / 12%);
-  background: rgb(242 233 219 / 4%);
-}
-
 /* Season history, promoted out of the record into its own jade-tinted card. */
 .history-card {
   display: flex;
