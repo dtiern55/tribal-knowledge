@@ -24,7 +24,7 @@ seasons keep scoring exactly as they did — completed seasons are time capsules
 
 from uuid import UUID
 
-from app.locking import EPISODE_LOCKED_SQL
+from app.locking import EPISODE_LOCKED_SQL, episode_locked_sql
 
 
 def roster_points(conn, season_id: UUID) -> dict[str, int]:
@@ -38,7 +38,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
     points: dict[str, int] = {}
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             select user_id,
                    -- Sole Survivor adds half the designee's FINALE total,
                    -- once, rounded once. Multiplying each event row by 1.5
@@ -75,7 +75,10 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
              and dbl.user_id = rp.user_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
-            where s.id = %s
+            -- An episode's results stay hidden until it locks: applying
+            -- scoring_events before picks_lock_at must not leak the boot or
+            -- point changes to players who can still change their picks (#559).
+            where s.id = %s and {episode_locked_sql("ep")}
             ) x
             group by user_id
             """,
@@ -130,7 +133,7 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
 
         cur.execute(
-            """
+            f"""
             select pick.user_id::text as user_id,
                    sum(
                      (case
@@ -151,7 +154,9 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
              and dbl.episode_id = pick.episode_id
              and (dbl.target_contestant_id is null
                   or dbl.target_contestant_id = pick.contestant_id)
+            -- Hidden until the episode locks, same as roster_points (#559).
             where s.id = %s and ep.is_finale = false
+              and {episode_locked_sql("ep")}
             group by pick.user_id
             """,
             [post, pre, str(season_id)],
@@ -259,7 +264,7 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
     points: dict[str, int] = {}
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             select contestant_id,
                    sum(pts)
                      + round(sum(case when ss then pts else 0 end) * 0.5)::int
@@ -293,7 +298,9 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
              and dbl.user_id = rp.user_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
-            where s.id = %s and rp.user_id = %s
+            -- Hidden until the episode locks (#559): this breakdown is visible
+            -- to other players once rosters lock, so it must gate too.
+            where s.id = %s and rp.user_id = %s and {episode_locked_sql("ep")}
             ) x
             group by contestant_id
             """,
@@ -344,7 +351,7 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
     bonus: dict[str, int] = {}
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             select ap.id::text as play_id, coalesce(sum(
                 (case
                    when s.merge_episode is not null
@@ -372,6 +379,7 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
             where ap.season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_roster_points'
               and ap.episode_id is not null
+              and {episode_locked_sql("ep")}
             group by ap.id
             """,
             [str(season_id), str(user_id)],
@@ -389,7 +397,7 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
 
         cur.execute(
-            """
+            f"""
             select ap.id::text as play_id, coalesce(sum(
                 (case when el.contestant_id is null then 0
                    when s.merge_episode is not null
@@ -410,6 +418,7 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
             where ap.season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_vote_points'
               and ap.episode_id is not null
+              and {episode_locked_sql("ep")}
             group by ap.id
             """,
             [post, pre, str(season_id), str(user_id)],
@@ -441,7 +450,7 @@ def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
 
         cur.execute(
-            """
+            f"""
             select pick.episode_id::text as episode_id,
                    pick.contestant_id::text as contestant_id,
                    (el.contestant_id is not null) as correct,
@@ -455,8 +464,13 @@ def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]
             from elimination_picks pick
             join episodes ep on pick.episode_id = ep.id
             join seasons s on ep.season_id = s.id
+            -- Show the pending pick, but keep its result (correct/points)
+            -- hidden until the episode locks (#559): matching an elimination
+            -- applied before picks_lock_at would leak the boot to the owner,
+            -- who can still change the pick.
             left join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
+             and {episode_locked_sql("ep")}
             where s.id = %s and pick.user_id = %s and ep.is_finale = false
             order by ep.episode_number
             """,
@@ -484,7 +498,7 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
 
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             select user_id,
                    sum(pts)
                      + round(sum(case when ss then pts else 0 end) * 0.5)::int
@@ -516,7 +530,9 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
              and dbl.user_id = rp.user_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
-            where s.id = %s and ep.episode_number = %s
+            -- Consistent with roster_points: an episode's points don't count
+            -- until it locks, so this delta reconciles with the total (#559).
+            where s.id = %s and ep.episode_number = %s and {episode_locked_sql("ep")}
             ) x
             group by user_id
             """,
@@ -544,7 +560,7 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
         cfg = cur.fetchone()
         pre, post = cfg["point_value"], cfg["postmerge_point_value"]
         cur.execute(
-            """
+            f"""
             select pick.user_id::text as user_id, sum(
                 (case when s.merge_episode is not null
                        and ep.episode_number >= s.merge_episode
@@ -563,6 +579,7 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
              and (dbl.target_contestant_id is null
                   or dbl.target_contestant_id = pick.contestant_id)
             where s.id = %s and ep.episode_number = %s and ep.is_finale = false
+              and {episode_locked_sql("ep")}
             group by pick.user_id
             """,
             [post, pre, str(season_id), episode_number],

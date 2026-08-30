@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app import database, scoring
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL
+from app.locking import EPISODE_LOCKED_SQL, episode_locked_sql
 from app.schemas import ScoringBreakdown, StandingEntry
 
 router = APIRouter(tags=["standings"])
@@ -79,7 +79,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                 rosters_visible = cur.fetchone() is not None
             if rosters_visible:
                 cur.execute(
-                    """
+                    f"""
                     select rp.user_id::text as user_id,
                            c.id::text as contestant_id,
                            coalesce(c.nickname, c.name) as name, c.image_url,
@@ -98,7 +98,9 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                       and rp.active_until_episode is null
                       and not exists (
                         select 1 from eliminations e
-                        where e.contestant_id = c.id)
+                        join episodes ep on ep.id = e.episode_id
+                        where e.contestant_id = c.id
+                          and {episode_locked_sql("ep")})
                     order by c.name
                     """,
                     [str(season_id)],
