@@ -6,8 +6,19 @@ has scored it. Both forms below encode the same rule; keep them in sync.
 
 from datetime import datetime, timezone
 
+
+def episode_locked_sql(alias: str = "") -> str:
+    """The episode-locked predicate for a WHERE clause, column-qualified.
+
+    Pass the episodes-table alias (e.g. "ep") when the query also joins a table
+    with a `status` column — seasons has one — so the reference isn't ambiguous.
+    """
+    p = f"{alias}." if alias else ""
+    return f"({p}picks_lock_at <= now() or {p}status = 'scored')"
+
+
 # SQL predicate on an episodes row, for use inside a WHERE clause.
-EPISODE_LOCKED_SQL = "(picks_lock_at <= now() or status = 'scored')"
+EPISODE_LOCKED_SQL = episode_locked_sql()
 
 
 def advantages_locked(
