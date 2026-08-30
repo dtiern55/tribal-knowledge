@@ -1996,43 +1996,75 @@ export function AdminPage() {
   )
 }
 
+// The four marks a preview can show: the new Snakes and Rats puzzle and the old
+// fire-ring one, each in the light (unlocked) and dark (locked) theme. `tileSrc`
+// undefined falls back to the theme's current art (the new mark).
+const LOADER_VARIANTS = [
+  { key: 'new-unlocked', label: 'New · Unlocked', theme: 'unlocked', tileSrc: undefined },
+  { key: 'new-locked', label: 'New · Locked', theme: 'locked', tileSrc: undefined },
+  { key: 'old-unlocked', label: 'Old · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-firering-dark.webp' },
+  { key: 'old-locked', label: 'Old · Locked', theme: 'locked', tileSrc: '/puzzle-firering-light.webp' },
+] as const
+
 function LoaderPreviewSection() {
-  const [theme, setTheme] = useState<'unlocked' | 'locked' | null>(null)
+  const [open, setOpen] = useState(false)
   return (
     <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3 max-w-sm">
-      <div className="flex flex-wrap gap-2">
-        <ActionBtn onClick={() => setTheme('unlocked')}>Preview (unlocked)</ActionBtn>
-        <ActionBtn variant="secondary" onClick={() => setTheme('locked')}>Preview (locked)</ActionBtn>
-      </div>
-      {theme && <LoaderPreviewOverlay theme={theme} onClose={() => setTheme(null)} />}
+      <ActionBtn onClick={() => setOpen(true)}>Preview loading screen</ActionBtn>
+      {open && <LoaderPreviewOverlay onClose={() => setOpen(false)} />}
     </div>
   )
 }
 
 // Mirrors PageLoader: the 700ms hold + fade-in, so the preview shows exactly
-// what a real cold-start load looks like.
-function LoaderPreviewOverlay({
-  theme,
-  onClose,
-}: {
-  theme: 'unlocked' | 'locked'
-  onClose: () => void
-}) {
+// what a real cold-start load looks like. Once up, switch mark/theme and pull a
+// fresh quote inline — no need to close back to the admin page.
+function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
   const [show, setShow] = useState(false)
+  const [variantKey, setVariantKey] = useState<(typeof LOADER_VARIANTS)[number]['key']>('new-unlocked')
+  // Bumped to remount the loader, which re-picks its random quote (the loader
+  // freezes the quote at mount).
+  const [quoteNonce, setQuoteNonce] = useState(0)
   useEffect(() => {
     const t = setTimeout(() => setShow(true), LOADER_DELAY_MS)
     return () => clearTimeout(t)
   }, [])
+  const variant = LOADER_VARIANTS.find((v) => v.key === variantKey) ?? LOADER_VARIANTS[0]
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-auto">
-      <button onClick={onClose} className="fixed top-4 right-4 z-10 rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white hover:bg-forest-800">
-        Close
-      </button>
       {show && (
         <div className="tk-loader-fade flex flex-1 flex-col [&>div]:flex-1">
-          <SlidePuzzleLoader theme={theme} />
+          <SlidePuzzleLoader key={quoteNonce} theme={variant.theme} tileSrc={variant.tileSrc} />
         </div>
       )}
+      <div className="fixed inset-x-0 bottom-0 z-10 flex flex-wrap items-center justify-center gap-2 bg-black/60 p-3 backdrop-blur">
+        {LOADER_VARIANTS.map((v) => (
+          <button
+            key={v.key}
+            onClick={() => setVariantKey(v.key)}
+            aria-pressed={v.key === variantKey}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              v.key === variantKey
+                ? 'bg-terracotta-500 text-white'
+                : 'bg-white/15 text-white hover:bg-white/25'
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setQuoteNonce((n) => n + 1)}
+          className="rounded-lg bg-forest-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-forest-700"
+        >
+          New quote
+        </button>
+        <button
+          onClick={onClose}
+          className="rounded-lg bg-white/90 px-3 py-1.5 text-xs font-semibold text-forest-900 hover:bg-white"
+        >
+          Close
+        </button>
+      </div>
     </div>
   )
 }
