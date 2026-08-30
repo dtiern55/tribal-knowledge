@@ -308,6 +308,51 @@ def test_other_users_picks_open_at_lock(client, db_conn):
 
 
 @pytest.mark.integration
+def test_season_picks_batches_own_ballots(client, db_conn, current_user):
+    """One request returns every episode's picks, keyed by episode id (#558)."""
+    from tests.helpers import insert_elimination_pick
+
+    season = insert_season(db_conn)
+    ep1 = _open_episode(db_conn, season["id"], episode_number=1)
+    ep2 = _open_episode(db_conn, season["id"], episode_number=2)
+    _open_episode(db_conn, season["id"], episode_number=3)  # no picks -> omitted
+    c1 = insert_contestant(db_conn, season["id"], "A")
+    c2 = insert_contestant(db_conn, season["id"], "B")
+    insert_elimination_pick(db_conn, current_user["id"], ep1["id"], c1["id"])
+    insert_elimination_pick(db_conn, current_user["id"], ep2["id"], c2["id"])
+
+    r = client.get(f"/seasons/{season['id']}/picks/{current_user['id']}")
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body) == {str(ep1["id"]), str(ep2["id"])}
+    assert body[str(ep1["id"])][0]["contestant_id"] == str(c1["id"])
+    assert body[str(ep2["id"])][0]["contestant_id"] == str(c2["id"])
+
+
+@pytest.mark.integration
+def test_season_picks_hide_other_users_unlocked_episodes(client, db_conn):
+    """Batch respects the per-episode rule: another player's picks appear only
+    for episodes that have locked — unlocked ones must not leak (#558/#36)."""
+    from tests.helpers import insert_elimination_pick, insert_user
+
+    season = insert_season(db_conn)
+    locked = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    open_ep = _open_episode(db_conn, season["id"], episode_number=2)
+    contestant = insert_contestant(db_conn, season["id"])
+    other = insert_user(db_conn, display_name="Other")
+    insert_elimination_pick(db_conn, other["id"], locked["id"], contestant["id"])
+    insert_elimination_pick(db_conn, other["id"], open_ep["id"], contestant["id"])
+
+    body = client.get(f"/seasons/{season['id']}/picks/{other['id']}").json()
+    assert set(body) == {str(locked["id"])}  # open episode's pick is hidden
+
+
+@pytest.mark.integration
 def test_picks_only_open_for_next_episode(client, db_conn):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"], episode_number=1)
