@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { SUE_HAWK_QUOTE } from '../lib/quotes'
 
 // Camp-at-night front door (#508): the full-bleed dark canvas scene borrowed
 // from the loader, the embroidered mark glowing over it, and a floating cream
@@ -41,6 +42,16 @@ export function AuthScene({
           <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">
             {eyebrow}
           </p>
+          {/* The app's namesake, on its own front door. */}
+          <figure className="mx-auto mt-5 max-w-[19rem]">
+            <blockquote className="text-pretty text-sm italic leading-snug text-cream-100/85">
+              &ldquo;{SUE_HAWK_QUOTE.text}&rdquo;
+            </blockquote>
+            <figcaption className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta-200/75">
+              {SUE_HAWK_QUOTE.who}
+              {SUE_HAWK_QUOTE.season ? ` · ${SUE_HAWK_QUOTE.season}` : ''}
+            </figcaption>
+          </figure>
         </div>
         <div className="mt-7 rounded-2xl bg-cream-50/95 p-5 shadow-2xl ring-1 ring-black/10 backdrop-blur-sm sm:p-6">
           {children}
