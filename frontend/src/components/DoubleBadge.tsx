@@ -1,4 +1,4 @@
-import idolImg from '../assets/weekly-advantage-idol-dimensional.png'
+import idolImg from '../assets/weekly-advantage-idol-dimensional.webp'
 
 /** The carved skull idol for the weekly ×2 advantage. On the roster it's also
  *  the drag handle for moving the play. Sized in px via `size`; the ×2 seal is
