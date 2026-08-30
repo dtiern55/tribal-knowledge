@@ -19,7 +19,7 @@ const CAMP: CSSProperties = {
 
 export function AuthScene({
   children,
-  eyebrow = 'Private Survivor league',
+  eyebrow,
 }: {
   children: ReactNode
   eyebrow?: string
@@ -39,23 +39,25 @@ export function AuthScene({
             <span className="text-cream-50">SNAKES</span>{' '}
             <span className="text-terracotta-500">AND RATS</span>
           </h1>
-          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">
-            {eyebrow}
-          </p>
-          {/* The app's namesake, on its own front door. */}
-          <figure className="mx-auto mt-5 max-w-[19rem]">
-            <blockquote className="text-pretty text-sm italic leading-snug text-cream-100/85">
-              &ldquo;{SUE_HAWK_QUOTE.text}&rdquo;
-            </blockquote>
-            <figcaption className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta-200/75">
-              {SUE_HAWK_QUOTE.who}
-              {SUE_HAWK_QUOTE.season ? ` · ${SUE_HAWK_QUOTE.season}` : ''}
-            </figcaption>
-          </figure>
+          {eyebrow && (
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">
+              {eyebrow}
+            </p>
+          )}
         </div>
         <div className="mt-7 rounded-2xl bg-cream-50/95 p-5 shadow-2xl ring-1 ring-black/10 backdrop-blur-sm sm:p-6">
           {children}
         </div>
+        {/* The app's namesake, under the form. */}
+        <figure className="mx-auto mt-6 max-w-[19rem] text-center">
+          <blockquote className="text-pretty text-sm italic leading-snug text-cream-100/85">
+            &ldquo;{SUE_HAWK_QUOTE.text}&rdquo;
+          </blockquote>
+          <figcaption className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta-200/75">
+            {SUE_HAWK_QUOTE.who}
+            {SUE_HAWK_QUOTE.season ? ` · ${SUE_HAWK_QUOTE.season}` : ''}
+          </figcaption>
+        </figure>
       </div>
     </div>
   )
