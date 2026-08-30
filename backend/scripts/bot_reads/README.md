@@ -17,32 +17,22 @@ run against a season nobody has watched yet.
       "double_targets": ["Who the room would double"],
       "note":           "free text, echoed back when the week runs"
     }
-  },
-  "finale": {
-    "final_four":  ["Who reaches fire-making", "...ranked pool"],
-    "final_three": ["Who reaches the final tribal", "..."],
-    "winner":      ["Who the room would back"]
   }
 }
 ```
 
-The `finale` block is the one part you write late: names that have been voted
-out by finale night are dropped, so a read written at the merge is mostly
-wasted. Write it once the final few are set.
-
-Each slate is a ranked candidate pool; bots take the top few after their own
-biased shuffle — 4 for `final_four`, 3 for `final_three`, 1 for `winner`. The
-slates score independently against the real bracket, so they needn't be nested;
-the same names can appear in several pools.
-
-Check a read without filing anything:
+The finale bracket needs no read (#582). Each bot crowns its own **Sole
+Survivor** designation as the winner — when that castaway actually reached the
+finale — and fills the rest of the Final 4 / Final 3 at random from the
+finalists; a bot whose designee was voted out earlier, and a quarter of the
+rest, back another finalist. Run it against the active season pre-finale, or
+`--season <n>` to backfill one whose finale is already scored:
 
 ```
-uv run python scripts/run_bots.py ballot --check
+uv run python scripts/run_bots.py ballot            # active season
+uv run python scripts/run_bots.py ballot --check    # names the season, writes nothing
+uv run python scripts/run_bots.py ballot --season 37
 ```
-
-It names the season it would write to, reports every problem at once rather
-than stopping at the first, and warns when a `finale` list has gone stale.
 
 Notes from building it:
 
@@ -72,7 +62,3 @@ Notes from building it:
   stops the run rather than being silently dropped. Matching strips digits
   too, so placeholder casts numbered `Castaway 01`/`Castaway 02` collide —
   real names don't, but test fixtures should use distinct words.
-- **A `finale` list whose names are all out falls back to the whole field**,
-  which spreads every bot at random. So does an empty or missing list. Both
-  are warnings on `ballot --check` (#534) — the ballot still files, it just
-  files a worse one.

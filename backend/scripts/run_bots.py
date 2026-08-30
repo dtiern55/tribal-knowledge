@@ -16,8 +16,9 @@ Usage (from backend/):
     uv run python scripts/run_bots.py setup            # accounts + persona labels
     uv run python scripts/run_bots.py draft            # opening rosters (needs read)
     uv run python scripts/run_bots.py week 2           # picks + plays for ep 2
-    uv run python scripts/run_bots.py ballot           # finale ballot
+    uv run python scripts/run_bots.py ballot           # finale bracket (active season)
     uv run python scripts/run_bots.py ballot --check   # preflight, writes nothing
+    uv run python scripts/run_bots.py ballot --season 37   # backfill a scored season
 
 `week N` runs BEFORE episode N airs. Import and score the episode afterwards
 with scripts/import_episode.py, then run `week N+1`.
@@ -32,9 +33,12 @@ The read file (scripts/bot_reads/season_<n>.json) is the commissioner's input:
           "double_targets":  ["Mike White"],
           "note":            "Goliath looks like a powerhouse"
         }
-      },
-      "finale": { "final_four": [...], "final_three": [...], "winner": [...] }
+      }
     }
+
+The finale bracket needs no read: each bot crowns its own Sole Survivor (when
+that castaway reached the finale) and fills the rest at random from the
+finalists — `ballot` (#582).
 
 likely_boots is either a plain name list (rank order — bots cluster on the
 front) or a weighted list of [name, weight] pairs when you want to pin the
@@ -750,111 +754,86 @@ def week(cur, episode_n: int):
 # ── finale ballot ──────────────────────────────────────────────────────────
 
 
-# Each finale slate and how many names a bot commits to it (#534). The read
-# gives a candidate pool per slate (commissioner's lean, ranked); each bot takes
-# the top few after its own biased shuffle. Slates score independently against
-# the actual bracket, so a bot needn't keep them nested.
-FINALE_SLATES = (
-    ("final_four", 4),
-    ("final_three", 3),
-    ("winner", 1),
-)
-FINALE_KEYS = tuple(key for key, _ in FINALE_SLATES)
+# Most bots crown their Sole Survivor as the winner — when that castaway
+# actually reached the finale. The rest, and bots whose designee was voted out
+# earlier, call another finalist. The other seats are a biased-random fill
+# (#534/#582): the read no longer leans the finale, the roster's own Sole
+# Survivor pick does. "Most, but not everyone" — a clear majority still crown a
+# living designee, one in six or so backs another finalist.
+WINNER_FROM_SS = 0.85
 
 
-def finale_preflight(cur, season):
-    """Everything that can stop or quietly spoil a finale ballot, checked at
-    once (#534).
-
-    The point is to be runnable on any ordinary evening, not discovered on
-    finale night: `ballot --check` reports and writes nothing. Problems are
-    fatal, warnings are not - a stale read still files a ballot, it just files
-    a worse one, and you should be told which.
-    """
-    sid = season["id"]
-    problems, warnings, fields = [], [], {}
-
-    read = load_read(season)
-    fin_read = read.get("finale")
-    if not fin_read:
-        problems.append(
-            f"no 'finale' block in season_{season['season_number']}.json"
-            " - see bot_reads/README.md for the shape"
-        )
-
+def finalists(cur, sid) -> list[str]:
+    """Everyone alive going into the finale — not voted out in any EARLIER
+    episode. Robust to the finale already being scored: its own boots stay in
+    the pool, since the bracket predicts exactly among those finalists."""
     cur.execute(
-        "select episode_number from episodes where season_id=%s and is_finale",
+        """select c.id::text cid from contestants c
+           where c.season_id=%s and not exists (
+             select 1 from eliminations e
+             join episodes ep on ep.id = e.episode_id
+             where e.contestant_id = c.id and ep.is_finale = false)""",
         [sid],
     )
-    fin = cur.fetchone()
-    if fin:
-        print(f"  ok  finale episode flagged (ep {fin['episode_number']})")
+    return [r["cid"] for r in cur.fetchall()]
+
+
+def sole_survivor_id(cur, uid, sid):
+    cur.execute(
+        "select contestant_id::text cid from roster_picks"
+        " where user_id=%s and season_id=%s and is_sole_survivor limit 1",
+        [uid, sid],
+    )
+    r = cur.fetchone()
+    return r["cid"] if r else None
+
+
+def finale_slate(pool: list[str], ss, spread: float, uid: str):
+    """One bot's (final_four, final_three, winner) from the finalist pool.
+
+    Winner is mostly the bot's Sole Survivor when it made the finale, else
+    another finalist. The remaining seats are a biased-random fill, and the
+    winner is nested into the Final 3/4 — a called winner also made those."""
+    if ss in pool and rng(uid, "finale", "winner") < WINNER_FROM_SS:
+        winner = ss
     else:
-        problems.append("no episode in this season is flagged is_finale")
-
-    alive = alive_ids(cur, sid)
-    if fin_read:
-        for key, count in FINALE_SLATES:
-            named = fin_read.get(key, [])
-            # resolve() exits on a name that isn't in the cast at all; that is
-            # a typo, and staying loud about it is the existing behaviour.
-            ids = resolve(cur, sid, named, f"finale.{key}")
-            live = [c for c in ids if c in alive]
-            fields[key] = live or alive
-            if not named:
-                warnings.append(
-                    f"finale.{key}: no names read - every bot picks from the"
-                    f" whole field of {len(alive)}"
-                )
-            elif not live:
-                # The silent half of the old `or alive`: a read overtaken by
-                # events looks like a read right up until it spreads the bots
-                # at random.
-                warnings.append(
-                    f"finale.{key}: all {len(named)} names are already out"
-                    f" - falls back to the whole field of {len(alive)}"
-                )
-            elif len(live) < len(ids):
-                out = len(ids) - len(live)
-                warnings.append(
-                    f"finale.{key}: {out} of {len(ids)} names"
-                    f" {'is' if out == 1 else 'are'} already out"
-                )
-            else:
-                n = len(live)
-                print(
-                    f"  ok  finale.{key}: {n} name{'' if n == 1 else 's'}, all still in"
-                )
-            # A slate needs at least as many live candidates as seats, or bots
-            # can't fill it (a Final 4 read of only 3 live names).
-            if len(fields[key]) < count:
-                warnings.append(
-                    f"finale.{key}: only {len(fields[key])} live candidate(s)"
-                    f" for {count} seat(s) - bots will fill what they can"
-                )
-
-    for w in warnings:
-        print(f"  !   {w}")
-    for pb in problems:
-        print(f"  X   {pb}")
-    return problems, fields
+        candidates = [c for c in pool if c != ss] or list(pool)
+        winner = biased_order(candidates, spread, uid, "finale", "winner")[0]
+    rest = biased_order([c for c in pool if c != winner], spread, uid, "finale", "rest")
+    final_three = [winner, *rest[:2]]
+    final_four = [*final_three, *rest[2:3]]
+    return final_four, final_three, winner
 
 
-def ballot(cur, check_only=False):
-    """Every bot files a finale bracket ballot from the read's finale block.
+def season_by_number(cur, number: int) -> dict:
+    cur.execute("select * from seasons where season_number=%s", [number])
+    s = cur.fetchone()
+    if not s:
+        sys.exit(f"No season with season_number {number}")
+    return s
 
-    Forward-looking like everything else: the read is who the ROOM would back,
-    not who actually won. Each slate (Final 4, Final 3, winner) is filled from
-    its own read pool by the bot's biased order.
-    """
-    season = active_season(cur)
+
+def ballot(cur, season_number=None, check_only=False):
+    """Every bot files a finale bracket: the winner from its Sole Survivor
+    designation (mostly), the Final 4/3 a biased-random fill of the finalists.
+
+    Forward-looking by default (the active season, pre-finale); pass a season
+    number to backfill one whose finale is already scored — the finalist pool
+    computes the same way either way (#582)."""
+    season = (
+        season_by_number(cur, season_number) if season_number else active_season(cur)
+    )
     sid = season["id"]
-    print(f"finale ballot preflight for {season['name']}:")
-    problems, fields = finale_preflight(cur, season)
-    if problems:
-        sys.exit(f"\n{len(problems)} problem(s) - no ballots filed.")
+
+    cur.execute("select 1 from episodes where season_id=%s and is_finale", [sid])
+    if not cur.fetchone():
+        sys.exit("no episode in this season is flagged is_finale")
+    pool = finalists(cur, sid)
+    print(f"finale ballot for {season['name']}: {len(pool)} finalists in the pool")
+    if len(pool) < 3:
+        sys.exit(f"only {len(pool)} finalist(s) — not enough to fill a bracket")
     if check_only:
-        print("\ncheck only - nothing written.")
+        print("check only - nothing written.")
         return
 
     by_name = {a["name"]: a for a in archetypes()}
@@ -870,22 +849,14 @@ def ballot(cur, check_only=False):
         )
         if cur.fetchone():
             continue
-        chosen = {
-            key: biased_order(fields[key], a["spread"], uid, "finale", key)[:count]
-            for key, count in FINALE_SLATES
-        }
+        ss = sole_survivor_id(cur, uid, sid)
+        final_four, final_three, winner = finale_slate(pool, ss, a["spread"], uid)
         cur.execute(
             """insert into finale_predictions
             (user_id, season_id, final_four_contestant_ids,
              final_three_contestant_ids, winner_contestant_id)
             values (%s,%s,%s::uuid[],%s::uuid[],%s)""",
-            [
-                uid,
-                sid,
-                chosen["final_four"],
-                chosen["final_three"],
-                chosen["winner"][0] if chosen["winner"] else None,
-            ],
+            [uid, sid, final_four, final_three, winner],
         )
         n += 1
     print(f"ballot: {n} bots filed for {season['name']}")
@@ -907,7 +878,13 @@ def main():
             elif sys.argv[1] == "draft":
                 draft(cur)
             elif sys.argv[1] == "ballot":
-                ballot(cur, check_only="--check" in sys.argv[2:])
+                rest = sys.argv[2:]
+                season_number = (
+                    int(rest[rest.index("--season") + 1])
+                    if "--season" in rest
+                    else None
+                )
+                ballot(cur, season_number=season_number, check_only="--check" in rest)
             else:
                 if len(sys.argv) < 3:
                     sys.exit("usage: run_bots.py week <episode_number>")

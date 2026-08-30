@@ -1,7 +1,8 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
+import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -116,7 +117,9 @@ export function TeamPage() {
           setHidden(true)
         }
 
-        const visible = episodeRows.filter(episodeClosed).sort((a, b) => b.episode_number - a.episode_number)
+        // The finale is a bracket, not elimination votes — it gets its own
+        // Finale section, so keep it out of the weekly Ballot ledger.
+        const visible = episodeRows.filter((e) => episodeClosed(e) && !e.is_finale).sort((a, b) => b.episode_number - a.episode_number)
         setVotes(await Promise.all(visible.map(async (episode) => {
           const [picks, eliminations] = await Promise.all([
             api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`).catch(() => []),
@@ -169,44 +172,25 @@ export function TeamPage() {
   const ranked = rankStandings(siblings).find(({ entry }) => entry.user_id === userId)
   const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
 
-  // Finale-ballot cells. The finale isn't an elimination vote — a player's call
-  // is their Final 4/3/winner bracket if they filed one, otherwise their Sole
-  // Survivor winner designation. Correctness comes straight off placement.
-  const placementOf = (cid: string) => contestantMap.get(cid)?.placement ?? null
-  const finalePill = (cid: string, correct: boolean, key: string) => {
-    const c = contestantMap.get(cid)
-    const name = c ? displayName(c) : '—'
-    return correct ? (
-      <span key={key} className="shrink-0"><CorrectVote name={name} /></span>
-    ) : (
-      <span key={key} className="shrink-0 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">{name}</span>
-    )
-  }
-  const finaleGroup = (label: string, cells: ReactNode) => (
-    // Keyed by label — the three groups (Winner / Final 3 / Final 4) are unique
-    // per row, so they satisfy React's list-key requirement on their own.
-    <span key={label} className="flex shrink-0 items-center gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-paper-ink-faded">{label}</span>
-      {cells}
-    </span>
-  )
+  // The finale isn't an elimination vote — a player's call is their Final 4/3/
+  // winner bracket if they filed one, otherwise their Sole Survivor winner
+  // designation (which shows as a lone winner apex). It renders as a pyramid in
+  // its own Finale section, marked correct/incorrect off the actual placements.
   const crown = active.find((pick) => pick.is_sole_survivor)
-  const finaleBallotCells = (() => {
-    if (bracket) {
-      const cells = [
-        bracket.winner_contestant_id &&
-          finaleGroup('Winner', finalePill(bracket.winner_contestant_id, placementOf(bracket.winner_contestant_id) === 1, 'w')),
-        bracket.final_three_contestant_ids.length > 0 &&
-          finaleGroup('Final 3', bracket.final_three_contestant_ids.map((cid, i) => finalePill(cid, (placementOf(cid) ?? 99) <= 3, `f3-${i}`))),
-        bracket.final_four_contestant_ids.length > 0 &&
-          finaleGroup('Final 4', bracket.final_four_contestant_ids.map((cid, i) => finalePill(cid, (placementOf(cid) ?? 99) <= 4, `f4-${i}`))),
-      ].filter(Boolean)
-      return cells.length > 0 ? cells : null
-    }
-    // No bracket: the Sole Survivor designation is the player's winner call.
-    if (crown) return [finaleGroup('Winner', finalePill(crown.contestant_id, placementOf(crown.contestant_id) === 1, 'ss'))]
-    return null
-  })()
+  const finaleActuals: FinaleActuals = {
+    finalFour: new Set(contestants.filter((c) => c.placement != null && c.placement <= 4).map((c) => c.id)),
+    finalThree: new Set(contestants.filter((c) => c.placement != null && c.placement <= 3).map((c) => c.id)),
+    winner: contestants.find((c) => c.placement === 1)?.id ?? null,
+  }
+  const finaleBallot = bracket
+    ? {
+        finalFour: bracket.final_four_contestant_ids,
+        finalThree: bracket.final_three_contestant_ids,
+        winner: bracket.winner_contestant_id ?? '',
+      }
+    : crown
+      ? { finalFour: [] as string[], finalThree: [] as string[], winner: crown.contestant_id }
+      : null
 
   return (
     <div aria-busy={loading} className={`transition-opacity duration-150 ${loading ? 'opacity-60' : ''}`}>
@@ -226,6 +210,26 @@ export function TeamPage() {
         description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
         actions={<HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
       />
+
+      {finaleScored && (
+        <div className="mt-8">
+          <SectionShell title="Finale" prominent>
+            {finaleBallot ? (
+              <div className="flex justify-center py-2">
+                <FinaleBracket
+                  finalFour={finaleBallot.finalFour}
+                  finalThree={finaleBallot.finalThree}
+                  winner={finaleBallot.winner}
+                  byId={contestantMap}
+                  actuals={finaleActuals}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No finale ballot submitted.</p>
+            )}
+          </SectionShell>
+        </div>
+      )}
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
         <section>
@@ -309,22 +313,16 @@ export function TeamPage() {
                   return (
                     <div key={episode.id} className="flex items-center gap-2 border-b border-paper-line px-3.5 py-2 last:border-b-0">
                       <span className="shrink-0 text-sm font-medium text-paper-ink">
-                        {episode.is_finale ? 'Finale' : `Ep ${episode.episode_number}`}
+                        Ep {episode.episode_number}
                       </span>
                       {ballotDoubled && <DoubleBadge size={18} title="Double Ballot Points this episode" />}
                       <span
                         role="group"
-                        aria-label={episode.is_finale ? 'Finale ballot' : 'Votes'}
+                        aria-label="Votes"
                         tabIndex={0}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto"
+                        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
                       >
-                        {episode.is_finale ? (
-                          finaleBallotCells === null ? (
-                            <span className="text-sm text-paper-ink-faded">No finale ballot</span>
-                          ) : (
-                            finaleBallotCells
-                          )
-                        ) : picks.length === 0 ? (
+                        {picks.length === 0 ? (
                           <span className="text-sm text-paper-ink-faded">No votes</span>
                         ) : (
                           picks.map((pick) => {
