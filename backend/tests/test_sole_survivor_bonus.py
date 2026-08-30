@@ -42,6 +42,32 @@ def test_bonus_is_half_the_finale_total_rounded_half_up(db_conn):
     assert scoring.roster_points(db_conn, season["id"])[str(user["id"])] == 14
 
 
+def test_bonus_helper_names_the_designee_and_amount(db_conn):
+    """scoring.sole_survivor_bonus pulls the bonus out for display (contestant, pts)."""
+    season, ep = _season_with_finale(db_conn)
+    user = helpers.insert_user(db_conn)
+    c = helpers.insert_contestant(db_conn, season["id"], name="Winner")
+    helpers.insert_roster_pick(db_conn, user["id"], season["id"], c["id"])
+    for _ in range(3):
+        helpers.insert_scoring_event(
+            db_conn, ep["id"], c["id"], "vote_correctly_at_tribal"
+        )
+    # On the roster but not designated -> no bonus.
+    assert scoring.sole_survivor_bonus(db_conn, season["id"], user["id"]) == (None, 0)
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update roster_picks set is_sole_survivor = true"
+            " where user_id = %s and contestant_id = %s",
+            [str(user["id"]), str(c["id"])],
+        )
+    # 9 finale points -> +4.5 -> +5, named on the designee.
+    assert scoring.sole_survivor_bonus(db_conn, season["id"], user["id"]) == (
+        str(c["id"]),
+        5,
+    )
+
+
 def test_only_the_designee_and_only_the_finale(db_conn):
     season = helpers.insert_season(db_conn, roster_lock_episode=1, status="active")
     early = helpers.insert_episode(

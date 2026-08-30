@@ -160,6 +160,11 @@ class PickResult(BaseModel):
 class ScoringBreakdown(BaseModel):
     roster: list[ContestantPoints]
     picks: list[PickResult]
+    # The +50% Sole Survivor finale bonus, pulled out of the finalist's roster
+    # total so a page can name it. Bonus is already inside that contestant's
+    # `roster` points — this is for display, not a number to add on top.
+    sole_survivor_contestant_id: Optional[UUID] = None
+    sole_survivor_bonus: int = 0
 
 
 # --- Request bodies ---
