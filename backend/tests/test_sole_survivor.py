@@ -101,6 +101,37 @@ def test_designation_rules(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_designation_opens_at_merge(client, db_conn, current_user):
+    """Designation is unavailable until the merge episode is the open one (#587)."""
+    season = insert_season(
+        db_conn, roster_lock_episode=1, merge_episode=4, ss_lock_episode=8
+    )
+    insert_episode(
+        db_conn, season["id"], episode_number=1, status="scored", picks_lock_at=PAST
+    )
+    insert_episode(db_conn, season["id"], episode_number=2)  # open, pre-merge
+    insert_episode(db_conn, season["id"], episode_number=4)  # the merge, still ahead
+    insert_episode(db_conn, season["id"], episode_number=8)  # ss lock
+    a = insert_contestant(db_conn, season["id"], "A")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
+    url = f"/seasons/{season['id']}/sole-survivor"
+
+    # Pre-merge: ep2 is the open one, the merge is in the future — not yet.
+    r = client.post(url, json={"contestant_id": str(a["id"])})
+    assert r.status_code == 400
+    assert "merge" in r.json()["detail"].lower()
+
+    # Reach the merge: score ep2 so ep4 becomes the open episode.
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update episodes set status = 'scored'"
+            " where season_id = %s and episode_number = 2",
+            [str(season["id"])],
+        )
+    assert client.post(url, json={"contestant_id": str(a["id"])}).status_code == 200
+
+
+@pytest.mark.integration
 def test_designation_hidden_from_others_until_lock(client, db_conn, current_user):
     """The flag is strategy until the designation locks — the roster may be
     visible while the flag is masked."""

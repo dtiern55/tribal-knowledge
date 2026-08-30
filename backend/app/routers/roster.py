@@ -45,6 +45,25 @@ def _episode_locked(cur, season_id, episode_number) -> bool:
     return cur.fetchone() is not None
 
 
+def _ss_window_open_yet(cur, season) -> bool:
+    """Whether Sole Survivor designation has opened yet (#587).
+
+    Designation opens at the merge — it's unavailable until the merge episode is
+    the open one or later, so nobody crowns a winner while two tribes still
+    stand. A season with no merge set opens from the start, unchanged."""
+    merge = season["merge_episode"]
+    if merge is None:
+        return True
+    nxt = next_open_episode(cur, str(season["id"]))
+    if nxt is not None:
+        return nxt["episode_number"] >= merge
+    # Nothing is open (an episode is airing, or play is over): fall back to how
+    # far the season has locked, so a window that has since CLOSED past the
+    # merge still reads as opened rather than not-yet.
+    latest = latest_locked_episode(cur, season["id"])
+    return latest is not None and latest >= merge
+
+
 @router.get("/seasons/{season_id}/roster/{user_id}", response_model=list[RosterPick])
 def get_roster(
     season_id: UUID,
@@ -470,6 +489,11 @@ def designate_sole_survivor(
                 raise HTTPException(
                     status_code=400,
                     detail="Sole survivor lock not configured for this season",
+                )
+            if not _ss_window_open_yet(cur, season):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Sole Survivor designation opens at the merge",
                 )
             if _episode_locked(cur, season_id, ss_lock):
                 raise HTTPException(

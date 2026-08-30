@@ -245,7 +245,8 @@ export function RulesPage() {
         <RuleSection id="finale" title="Finale">
           <h3 className="font-semibold text-gray-900">Sole Survivor</h3>
           <RuleList>
-            <li>Choose one castaway who is still in the game and on your active roster before {configuredEpisode(soleSurvivorLock)} locks.</li>
+            <li>Choose one castaway who is still in the game and on your active roster.</li>
+            <li>Available from the merge until {configuredEpisode(soleSurvivorLock)} locks — not while two tribes still stand.</li>
             <li>The choice adds 50% of that castaway's finale tribe points, rounded once.</li>
             <li>If the castaway earns no finale tribe points, the bonus is zero.</li>
           </RuleList>

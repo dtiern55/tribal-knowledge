@@ -761,7 +761,7 @@ describe('MySeasonPage state shell', () => {
   // `compact={false}` that no call site ever passed. It is the only way to
   // designate, so it gets a test of its own. #529 moved it from a select above
   // the roster onto the roster card's own ring; the guarantee is unchanged.
-  it('lets you designate a Sole Survivor once the merge episode is set', async () => {
+  it('lets you designate a Sole Survivor once the merge is reached', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({
       ...season,
       merge_episode: 5,
@@ -769,9 +769,11 @@ describe('MySeasonPage state shell', () => {
     })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
+        // Designation opens at the merge (#587): the merge episode (5) is the
+        // open one, so the ring is live.
         return [
-          episode(2, 'scored', '2026-08-08T00:00:00Z'),
-          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+          episode(4, 'scored', '2026-08-08T00:00:00Z'),
+          episode(5, 'upcoming', '2099-08-27T00:00:00Z'),
         ]
       }
       if (path.endsWith('/contestants')) {
