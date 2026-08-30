@@ -292,7 +292,7 @@ function InstallSection() {
       {canPrompt ? (
         <>
           <p className="text-xs text-gray-500 mb-3">
-            Install Tribal Knowledge as an app — fullscreen, with its own icon.
+            Install Snakes and Rats as an app — fullscreen, with its own icon.
           </p>
           <button onClick={() => void promptInstall()} className={buttonCls}>
             Install app
@@ -302,7 +302,7 @@ function InstallSection() {
         <p className="text-xs text-gray-500">
           In Safari, tap <span className="font-medium">Share</span> →{' '}
           <span className="font-medium">Add to Home Screen</span> to install
-          Tribal Knowledge as an app.
+          Snakes and Rats as an app.
         </p>
       )}
     </section>

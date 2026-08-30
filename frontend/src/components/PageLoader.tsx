@@ -3,7 +3,7 @@ import { SlidePuzzleLoader } from './SlidePuzzleLoader'
 
 /**
  * Full-page loading state (#56/#439): a Survivor sliding-puzzle of the
- * fire-ring logo, themed to the app's open/locked state.
+ * Snakes and Rats mark, themed to the app's open/locked state.
  *
  * Held back for `delayMs` so a fast load never flashes the loader — pages
  * return `<PageLoader />` while loading, so if the data lands first the

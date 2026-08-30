@@ -28,15 +28,15 @@ export function AuthScene({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <img
-            src="/icon-512.webp"
+            src="/icon-512.webp?v=20260830"
             alt=""
             width={92}
             height={92}
             className="size-[92px] rounded-2xl shadow-[0_0_54px_-10px_rgba(196,84,50,0.55)] ring-1 ring-white/10"
           />
           <h1 className="mt-5 font-brand text-2xl font-bold leading-none tracking-wide">
-            <span className="text-cream-50">TRIBAL</span>{' '}
-            <span className="text-terracotta-500">KNOWLEDGE</span>
+            <span className="text-cream-50">SNAKES</span>{' '}
+            <span className="text-terracotta-500">AND RATS</span>
           </h1>
           <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">
             {eyebrow}
