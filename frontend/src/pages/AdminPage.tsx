@@ -1992,6 +1992,36 @@ export function AdminPage() {
       <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
         <LoaderPreviewSection />
       </Section>
+
+      <Section id="branding-compare" title="Branding" description="The rebrand at a glance — old identity next to new.">
+        <BrandingCompareSection />
+      </Section>
+    </div>
+  )
+}
+
+function BrandingCompareSection() {
+  const marks = [
+    { src: '/icon-tribalknowledge.webp', caption: 'Before', word: <span className="text-forest-800">TRIBAL KNOWLEDGE</span> },
+    {
+      src: '/icon-512.webp?v=20260830',
+      caption: 'After',
+      word: (
+        <>
+          <span className="text-forest-800">SNAKES</span> <span className="text-terracotta-500">AND RATS</span>
+        </>
+      ),
+    },
+  ]
+  return (
+    <div className="grid max-w-md grid-cols-2 gap-3">
+      {marks.map((m) => (
+        <figure key={m.src} className="flex flex-col items-center gap-2 rounded-xl border border-cream-200 bg-white p-4 text-center">
+          <img src={m.src} alt="" width={72} height={72} className="size-[72px] rounded-2xl ring-1 ring-black/10" />
+          <figcaption className="font-brand text-base font-bold leading-none tracking-wide">{m.word}</figcaption>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">{m.caption}</span>
+        </figure>
+      ))}
     </div>
   )
 }
