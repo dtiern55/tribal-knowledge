@@ -228,4 +228,34 @@ export const QUOTES: Quote[] = [
     who: 'Jeff Probst',
     season: 'Season 13: Cook Islands',
   },
+  {
+    text: 'Wh- what… Are you saying people are lying?',
+    who: 'Mike White',
+    season: 'Season 37: David vs. Goliath',
+  },
+  {
+    text: 'Bitch.',
+    who: 'Mike White (to a branch)',
+    season: 'Season 37: David vs. Goliath',
+  },
+  {
+    text: 'Tomorrow we make our apologies, tonight we make our move.',
+    who: 'Tom Westman',
+    season: 'Season 20: Heroes vs. Villains',
+  },
+  {
+    text: 'I don’t know how I necessarily became the junior deputy firewood bitch.',
+    who: 'Rob Cesternino',
+    season: 'Season 6: The Amazon',
+  },
+  {
+    text: "You know how some people forgive but don't forget? Well, I don't forgive and I don't forget.",
+    who: 'Sandra',
+    season: 'Season 20: Heroes vs. Villains',
+  },
+  {
+    text: 'I’m a gangster in an Oprah suit.',
+    who: 'Cirie',
+    season: 'Season 20: Heroes vs. Villains',
+  },
 ]
