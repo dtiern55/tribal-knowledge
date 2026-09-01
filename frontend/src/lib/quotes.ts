@@ -63,7 +63,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 7: Pearl Islands',
   },
   {
-    text: "Me and him got along, of course, but not in a homosexual way, that's for sure.",
+    text: "Me and Richard got to be pretty good friends. Not in a homosexual way, that's for sure.",
     who: 'Rudy',
     season: 'Season 1: Borneo',
   },
@@ -257,5 +257,50 @@ export const QUOTES: Quote[] = [
     text: 'I’m a gangster in an Oprah suit.',
     who: 'Cirie',
     season: 'Season 20: Heroes vs. Villains',
+  },
+  {
+    text: "If these people were smart, they'd get rid of me right away… but they won't. They never do.",
+    who: 'Boston Rob',
+    season: 'Season 20: Heroes vs. Villains',
+  },
+  {
+    text: "Just spinning them and spinning them until they don't know which way is up. And then we're devouring them one at a time.",
+    who: 'Parvati',
+    season: 'Season 16: Micronesia',
+  },
+  {
+    text: "I've got the million-dollar check written already. I mean, I'm the winner.",
+    who: 'Richard Hatch',
+    season: 'Season 1: Borneo',
+  },
+  {
+    text: "Fear keeps people loyal. That's straight out of The Godfather. It's true.",
+    who: 'Boston Rob',
+    season: 'Season 4: Marquesas',
+  },
+  {
+    text: "Digging into the sand is the dumbest idea I've ever had in my life.",
+    who: 'Rupert',
+    season: 'Season 8: All-Stars',
+  },
+  {
+    text: "You question a woman's character, you question a woman's ability — she'll snap your neck.",
+    who: 'Chris Daugherty',
+    season: 'Season 9: Vanuatu',
+  },
+  {
+    text: 'Chaos is my friend.',
+    who: 'Chaos Kass',
+    season: 'Season 28: Cagayan',
+  },
+  {
+    text: 'Stick to the plan!',
+    who: 'Keith Nale',
+    season: 'Season 29: San Juan del Sur',
+  },
+  {
+    text: 'I truly believe that butterflies are dead relatives saying hi.',
+    who: 'Xander',
+    season: 'Season 41',
   },
 ]
