@@ -10,8 +10,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_SOURCE = HERE / "snakes-and-rats-final-v2.png"
-DEFAULT_LIGHT_SOURCE = HERE / "snakes-and-rats-final-v2-light.png"
+DEFAULT_SOURCE = HERE / "snakes-and-rats-final-v3-coil.png"
+DEFAULT_LIGHT_SOURCE = HERE / "snakes-and-rats-final-v3-coil-light.png"
 DEFAULT_OUTPUT = HERE.parent.parent / "frontend" / "public"
 
 

@@ -29,7 +29,7 @@ export function AuthScene({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <img
-            src="/icon-512.webp?v=20260831-tail"
+            src="/icon-512.webp?v=20260831-coil"
             alt=""
             width={92}
             height={92}
