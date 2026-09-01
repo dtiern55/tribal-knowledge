@@ -7,8 +7,8 @@
   "background_color": "#1e3a2f",
   "theme_color": "#1e3a2f",
   "icons": [
-    { "src": "/icon-192.webp?v=20260831-coil", "sizes": "192x192", "type": "image/webp", "purpose": "any" },
-    { "src": "/icon-512.webp?v=20260831-coil", "sizes": "512x512", "type": "image/webp", "purpose": "any" },
-    { "src": "/icon-512-maskable.webp?v=20260831-coil", "sizes": "512x512", "type": "image/webp", "purpose": "maskable" }
+    { "src": "/icon-192.webp?v=20260830", "sizes": "192x192", "type": "image/webp", "purpose": "any" },
+    { "src": "/icon-512.webp?v=20260830", "sizes": "512x512", "type": "image/webp", "purpose": "any" },
+    { "src": "/icon-512-maskable.webp?v=20260830", "sizes": "512x512", "type": "image/webp", "purpose": "maskable" }
   ]
 }

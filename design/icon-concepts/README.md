@@ -54,22 +54,3 @@ season-one Tribal Council speech. A cream rat and terracotta snake frame a gold
 hidden flame on the established forest-green textured canvas. The final source
 art is `snakes-and-rats-final.png`; production favicon, app-icon, maskable-icon,
 and sliding-puzzle exports live under `frontend/public`.
-
-## 2026-08-31 lower-snake refinement
-
-The lower terracotta coil read as a detached backwards-C at app-icon size.
-`snakes-and-rats-final-v2.png` replaces it with one continuous snake body that
-rises from behind the flame and tapers to a simple tail. The rat, flame,
-face-to-face composition, woven texture, and Jungle Earth palette stay intact.
-`snakes-and-rats-final-v2-light.png` is the cream-field/forest-rat counterpart
-used by the locked-theme puzzle. Run `export_snakes_and_rats.py` to rebuild all
-production icon and puzzle sizes from the two source files.
-
-## 2026-08-31 connected-coil refinement
-
-The uncoiled v2 corrected the detached shape but left the snake too light
-against the rat. `snakes-and-rats-final-v3-coil.png` restores one broad lower
-coil with a visible, continuous junction to the upright body. Its inward tail
-and the flame remain separated by negative space, so the coil reads as anatomy
-rather than a second C-shaped piece. `snakes-and-rats-final-v3-coil-light.png`
-is the locked-theme puzzle counterpart and the export script now uses v3.
