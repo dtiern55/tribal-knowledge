@@ -127,7 +127,8 @@ export function Layout() {
             className="inline-flex min-h-11 shrink-0 items-center font-brand text-xl font-bold leading-none tracking-wide md:text-2xl"
           >
             <span className="app-brand-primary mr-1.5 text-cream-50">SNAKES</span>
-            <span className="app-brand-secondary text-terracotta-600">AND RATS</span>
+            <span className="mr-1.5 text-gold-300">AND</span>
+            <span className="app-brand-secondary text-terracotta-500">RATS</span>
           </NavLink>
 
           {authed && (

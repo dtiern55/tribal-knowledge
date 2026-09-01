@@ -29,7 +29,7 @@ export function AuthScene({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <img
-            src="/icon-512.webp?v=20260830"
+            src="/icon-512.webp?v=20260831-tail"
             alt=""
             width={92}
             height={92}
@@ -37,7 +37,8 @@ export function AuthScene({
           />
           <h1 className="mt-5 font-brand text-2xl font-bold leading-none tracking-wide">
             <span className="text-cream-50">SNAKES</span>{' '}
-            <span className="text-terracotta-500">AND RATS</span>
+            <span className="text-gold-300">AND</span>{' '}
+            <span className="text-terracotta-500">RATS</span>
           </h1>
           {eyebrow && (
             <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">

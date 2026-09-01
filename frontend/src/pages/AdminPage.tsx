@@ -2004,11 +2004,13 @@ function BrandingCompareSection() {
   const marks = [
     { src: '/icon-tribalknowledge.webp', caption: 'Before', word: <span className="text-forest-800">TRIBAL KNOWLEDGE</span> },
     {
-      src: '/icon-512.webp?v=20260830',
+      src: '/icon-512.webp?v=20260831-tail',
       caption: 'After',
       word: (
         <>
-          <span className="text-forest-800">SNAKES</span> <span className="text-terracotta-500">AND RATS</span>
+          <span className="text-forest-800">SNAKES</span>{' '}
+          <span className="text-gold-700">AND</span>{' '}
+          <span className="text-terracotta-500">RATS</span>
         </>
       ),
     },
