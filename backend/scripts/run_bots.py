@@ -179,16 +179,19 @@ def league_by_name(cur, name: str) -> dict:
 
 def league_season(cur, league_name: str, season_number: int) -> dict:
     """The league-season the bots play: `id` is the league-season, `season_id`
-    the show. Refuses a league that has any non-bot member — bots only ever
-    play among themselves."""
+    the show. Refuses a league with any real (non-bot, non-admin) member —
+    bots only ever play among themselves and the commissioner."""
     league = league_by_name(cur, league_name)
     cur.execute(
-        "select 1 from league_members m join auth.users u on u.id = m.user_id"
-        " where m.league_id = %s and u.email not like 'bot-%%@tribal.local' limit 1",
+        "select 1 from league_members m"
+        " join auth.users u on u.id = m.user_id"
+        " join profiles p on p.id = m.user_id"
+        " where m.league_id = %s and not p.is_admin"
+        "   and u.email not like 'bot-%%@tribal.local' limit 1",
         [league["id"]],
     )
     if cur.fetchone():
-        sys.exit(f"{league_name!r} has real members — bots only play bot leagues")
+        sys.exit(f"{league_name!r} has real players — bots only play bot leagues")
     cur.execute(
         "select ls.*, s.name, s.season_number, s.merge_episode, s.status"
         " from league_seasons ls join seasons s on s.id = ls.season_id"
