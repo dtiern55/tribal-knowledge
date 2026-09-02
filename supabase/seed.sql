@@ -22,11 +22,13 @@ begin
   -- ----------------------------------------------------------------
   -- Season
   -- ----------------------------------------------------------------
-  insert into seasons
-    (id, name, season_number, roster_size, roster_lock_episode,
-     merge_episode, status)
-  values
-    (v_season_id, 'Survivor: Practice Island', 99, 5, 2, 9, 'active');
+  insert into seasons (id, name, season_number, merge_episode, status)
+  values (v_season_id, 'Survivor: Practice Island', 99, 9, 'active');
+
+  -- The first league (created by the leagues migration) plays it (#595):
+  -- rule knobs live on the league-season, not the season.
+  insert into league_seasons (league_id, season_id, roster_size, roster_lock_episode)
+  select id, v_season_id, 5, 2 from leagues order by created_at limit 1;
 
   -- Season scoring snapshot (#170): seed runs after migrations, so the
   -- backfill has already passed — copy the templates for this season.
