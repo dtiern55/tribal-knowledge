@@ -1,4 +1,4 @@
-"""Export the approved solid-wood mark to the frontend's icon assets."""
+"""Export the approved wood marks to the frontend's icon assets."""
 
 from pathlib import Path
 
@@ -60,7 +60,10 @@ def main() -> None:
     save_webp(resized(puzzle_light, 640), "puzzle-wood-light.webp")
 
     resized(dark, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
-    dark.save(
+    # Browser tabs render this mark at just 16px. The locked puzzle's pale
+    # field keeps the rat, snake, and flame distinct at that size, while the
+    # dark treatment remains the better fit for larger installed-app icons.
+    puzzle_light.save(
         PUBLIC / "favicon.ico",
         "ICO",
         sizes=[(16, 16), (32, 32), (48, 48)],
