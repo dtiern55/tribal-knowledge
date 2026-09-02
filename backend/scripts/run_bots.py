@@ -13,12 +13,15 @@ just echoing it back. Now the commissioner supplies the BEHAVIOUR and survivoR
 supplies the OUTCOME, and the interaction is what we learn from.
 
 Usage (from backend/):
-    uv run python scripts/run_bots.py setup            # accounts + persona labels
-    uv run python scripts/run_bots.py draft            # opening rosters (needs read)
-    uv run python scripts/run_bots.py week 2           # picks + plays for ep 2
-    uv run python scripts/run_bots.py ballot           # finale bracket (active season)
-    uv run python scripts/run_bots.py ballot --check   # preflight, writes nothing
-    uv run python scripts/run_bots.py ballot --season 37   # backfill a scored season
+    uv run python scripts/run_bots.py setup                  # accounts + labels
+    uv run python scripts/run_bots.py draft --season 101     # rosters (needs read)
+    uv run python scripts/run_bots.py week 2 --season 101    # picks + plays, ep 2
+    uv run python scripts/run_bots.py ballot --season 101    # finale bracket
+    uv run python scripts/run_bots.py ballot --season 101 --check   # writes nothing
+
+Every writing command names its season, and only a season flagged `practice`
+is accepted (#265): a live league season is never a valid target, so a stray
+run can't file picks on real players' behalf.
 
 `week N` runs BEFORE episode N airs. Import and score the episode afterwards
 with scripts/import_episode.py, then run `week N+1`.
@@ -166,13 +169,13 @@ def db():
     )
 
 
-def active_season(cur) -> dict:
-    cur.execute(
-        "select * from seasons where status = 'active' order by created_at desc limit 1"
-    )
+def practice_season(cur, number: int) -> dict:
+    cur.execute("select * from seasons where season_number=%s", [number])
     s = cur.fetchone()
     if not s:
-        sys.exit("No active season")
+        sys.exit(f"No season with season_number {number}")
+    if not s["practice"]:
+        sys.exit(f"{s['name']} is not a practice season — bots only play practice")
     return s
 
 
@@ -232,10 +235,13 @@ def create_bot_account(cur, http) -> str:
 
 
 def load_bots(cur) -> list[dict]:
+    # Bots are the accounts setup minted, identified by their auth email.
+    # Anything looser (e.g. "every non-admin") would pick up real players.
     cur.execute(
-        "select id, display_name from profiles"
-        " where not is_admin and display_name <> 'Danny Fairplay'"
-        " order by created_at"
+        "select p.id, p.display_name from profiles p"
+        " join auth.users u on u.id = p.id"
+        " where u.email like 'bot-%@tribal.local'"
+        " order by p.created_at"
     )
     return cur.fetchall()
 
@@ -261,10 +267,9 @@ def setup(cur, http):
         bots = load_bots(cur)
     if len(bots) > len(arche):
         # zip() would quietly pair only the first len(arche) and leave the
-        # rest carrying a previous season's name with no roster — and an
-        # active season's standings lists every profile, so they'd sit there
-        # at zero all season. Surplus bots can't just be deleted either:
-        # their history is what completed seasons still score (#170).
+        # rest carrying a previous season's name with no roster. Surplus bots
+        # can't just be deleted either: their history is what completed
+        # seasons still score (#170).
         surplus = [b["display_name"] for b in bots[len(arche) :]]
         sys.exit(
             f"{len(bots)} bot accounts but {len(arche)} personas.\n"
@@ -282,14 +287,14 @@ def setup(cur, http):
     print(f"setup: {len(arche)} bots labelled")
 
 
-def draft(cur):
+def draft(cur, season_number: int):
     """Draft every bot's opening roster from the read's desirability order.
 
     Run after the premiere, before the roster lock. Popular castaways get
     over-rostered and the unpopular ones barely owned, which is what makes a
     mid-season boot actually hurt the league.
     """
-    season = active_season(cur)
+    season = practice_season(cur, season_number)
     read = load_read(season)
     arche = archetypes()
     bots = load_bots(cur)
@@ -466,14 +471,14 @@ def do_swap(cur, uid, sid, ep, old_pick, new_cid, penalty):
     )
 
 
-def week(cur, episode_n: int):
+def week(cur, episode_n: int, season_number: int):
     """Make every bot's picks, swaps and advantage play for one episode.
 
     Runs BEFORE the episode airs. Order matters: a swap can consume the
     week's play, so swaps resolve first and the advantage choice sees what's
     left — the same trade-off a human faces on the page.
     """
-    season = active_season(cur)
+    season = practice_season(cur, season_number)
     sid = season["id"]
     read = load_read(season)
     ep_read = (read.get("episodes") or {}).get(str(episode_n))
@@ -805,24 +810,13 @@ def finale_slate(pool: list[str], ss, spread: float, uid: str):
     return final_four, final_three, winner
 
 
-def season_by_number(cur, number: int) -> dict:
-    cur.execute("select * from seasons where season_number=%s", [number])
-    s = cur.fetchone()
-    if not s:
-        sys.exit(f"No season with season_number {number}")
-    return s
-
-
-def ballot(cur, season_number=None, check_only=False):
+def ballot(cur, season_number: int, check_only=False):
     """Every bot files a finale bracket: the winner from its Sole Survivor
     designation (mostly), the Final 4/3 a biased-random fill of the finalists.
 
-    Forward-looking by default (the active season, pre-finale); pass a season
-    number to backfill one whose finale is already scored — the finalist pool
-    computes the same way either way (#582)."""
-    season = (
-        season_by_number(cur, season_number) if season_number else active_season(cur)
-    )
+    Works pre-finale or as a backfill once the finale is scored — the finalist
+    pool computes the same way either way (#582)."""
+    season = practice_season(cur, season_number)
     sid = season["id"]
 
     cur.execute("select 1 from episodes where season_id=%s and is_finale", [sid])
@@ -864,31 +858,35 @@ def ballot(cur, season_number=None, check_only=False):
 
 def main():
     cmds = ("setup", "draft", "week", "ballot")
-    if len(sys.argv) < 2 or sys.argv[1] not in cmds:
-        sys.exit(
-            f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]\n"
-            "       run_bots.py ballot --check   (preflight only, writes nothing)"
-        )
+    usage = (
+        f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode] --season <number>\n"
+        "       run_bots.py ballot --season <number> --check   (writes nothing)"
+    )
+    args = sys.argv[1:]
+    if not args or args[0] not in cmds:
+        sys.exit(usage)
+    cmd = args[0]
+    season_number = None
+    if "--season" in args:
+        season_number = int(args[args.index("--season") + 1])
+    elif cmd != "setup":
+        sys.exit(usage)
     conn = db()
     try:
         with conn.cursor() as cur:
-            if sys.argv[1] == "setup":
+            if cmd == "setup":
                 with httpx.Client(timeout=30) as http:
                     setup(cur, http)
-            elif sys.argv[1] == "draft":
-                draft(cur)
-            elif sys.argv[1] == "ballot":
-                rest = sys.argv[2:]
-                season_number = (
-                    int(rest[rest.index("--season") + 1])
-                    if "--season" in rest
-                    else None
-                )
-                ballot(cur, season_number=season_number, check_only="--check" in rest)
+            elif cmd == "draft":
+                draft(cur, season_number)
+            elif cmd == "ballot":
+                ballot(cur, season_number, check_only="--check" in args)
             else:
-                if len(sys.argv) < 3:
-                    sys.exit("usage: run_bots.py week <episode_number>")
-                week(cur, int(sys.argv[2]))
+                if len(args) < 2 or not args[1].isdigit():
+                    sys.exit(
+                        "usage: run_bots.py week <episode_number> --season <number>"
+                    )
+                week(cur, int(args[1]), season_number)
         conn.commit()
     finally:
         conn.close()

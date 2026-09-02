@@ -31,6 +31,8 @@ class Season(BaseModel):
     token_economy_enabled: bool
     elimination_pick_schedule: list[EliminationPickTier]
     status: str
+    # Sandbox season for bots/testing (#265): admin-only, never a player default.
+    practice: bool
     created_at: datetime
 
 
@@ -246,6 +248,7 @@ class SeasonCreateRequest(BaseModel):
     token_economy_enabled: bool = False
     ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
+    practice: bool = False
 
 
 class SeasonUpdateRequest(BaseModel):
@@ -265,6 +268,7 @@ class SeasonUpdateRequest(BaseModel):
     token_economy_enabled: Optional[bool] = None
     elimination_pick_schedule: Optional[list[EliminationPickTier]] = None
     status: Optional[Literal["upcoming", "active", "completed"]] = None
+    practice: Optional[bool] = None
 
 
 class ImportElimination(BaseModel):

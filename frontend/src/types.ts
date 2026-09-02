@@ -32,6 +32,8 @@ export interface Season {
   // episode until the next one starts. Empty = 3 unless set per episode.
   elimination_pick_schedule: EliminationPickTier[]
   status: 'upcoming' | 'active' | 'completed'
+  // Sandbox season for bots/testing (#265). Only admins ever receive these.
+  practice: boolean
   created_at: string
 }
 

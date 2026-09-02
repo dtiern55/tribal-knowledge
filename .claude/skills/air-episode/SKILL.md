@@ -214,7 +214,7 @@ commissioner's read for episode N+1 — `likely_boots`, `confidence`,
 `backend/scripts/bot_reads/season_<n>.json`, then:
 
 ```
-uv run python scripts/run_bots.py week {N+1}
+uv run python scripts/run_bots.py week {N+1} --season {season_number}
 ```
 
 Turning the read into fields:

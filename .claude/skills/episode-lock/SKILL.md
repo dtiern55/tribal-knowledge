@@ -36,7 +36,7 @@ episode_locked(ep) = ep.picks_lock_at <= now()  OR  ep.status == 'scored'
 ## 1. Pick the environment first (this writes real data)
 
 - **Prod = the real league.** `backend/.env` points at the production Supabase.
-  The active season is whichever has `status = 'active'`. A prod lock affects
+  Active seasons have `status = 'active'`; a live season and a `practice` season may both be active, so check the name. A prod lock affects
   **every player league-wide.** Confirm with Danny before writing.
 - **Local dev** is a separate stack (bring it up with the `verify` skill); use it
   to preview the locked-state UI without touching the league.
@@ -70,7 +70,7 @@ with get_db() as conn, conn.cursor() as cur:
 PY
 ```
 
-(Or via the API: `GET {API}/seasons` → the `active` one → `GET {API}/seasons/{id}/episodes`.)
+(Or via the API: `GET {API}/seasons` → the `active` one that isn't `practice` → `GET {API}/seasons/{id}/episodes`.)
 
 ## 4. The operations — each just sets `picks_lock_at`
 

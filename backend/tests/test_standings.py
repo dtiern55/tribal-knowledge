@@ -23,15 +23,25 @@ def test_standings_season_not_found(client):
 
 
 @pytest.mark.integration
-def test_standings_lists_members_at_zero(client, db_conn, current_user):
+def test_standings_lists_only_this_seasons_participants(client, db_conn, current_user):
+    """The field is whoever has a roster in *this* season (#265): a player in
+    a concurrent season stays out, and the board is empty before the draft."""
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/standings")
-    assert r.status_code == 200
-    data = r.json()
-    assert len(data) == 1
-    assert data[0]["display_name"] == current_user["display_name"]
+    other_season = insert_season(db_conn, name="Practice", practice=True)
+    elsewhere = insert_user(db_conn, display_name="Elsewhere")
+    insert_roster_pick(
+        db_conn,
+        elsewhere["id"],
+        other_season["id"],
+        insert_contestant(db_conn, other_season["id"])["id"],
+    )
+    assert client.get(f"/seasons/{season['id']}/standings").json() == []
+
+    c = insert_contestant(db_conn, season["id"])
+    insert_roster_pick(db_conn, current_user["id"], season["id"], c["id"])
+    data = client.get(f"/seasons/{season['id']}/standings").json()
+    assert [e["display_name"] for e in data] == [current_user["display_name"]]
     assert data[0]["total_points"] == 0
-    assert data[0]["roster_points"] == 0
 
 
 @pytest.mark.integration
@@ -149,8 +159,13 @@ def test_standings_excludes_service_accounts(client, db_conn, current_user):
     """Service accounts (is_player=false) stay out of the leaderboard (#50),
     but a commissioner who also plays (admin + is_player) is included (#471)."""
     season = insert_season(db_conn)
-    insert_user(db_conn, display_name="Producer", is_admin=True, is_player=False)
+    producer = insert_user(
+        db_conn, display_name="Producer", is_admin=True, is_player=False
+    )
     commish = insert_user(db_conn, display_name="Commish", is_admin=True)
+    c = insert_contestant(db_conn, season["id"])
+    for u in (producer, commish, current_user):
+        insert_roster_pick(db_conn, u["id"], season["id"], c["id"])
     r = client.get(f"/seasons/{season['id']}/standings")
     assert r.status_code == 200
     names = [row["display_name"] for row in r.json()]

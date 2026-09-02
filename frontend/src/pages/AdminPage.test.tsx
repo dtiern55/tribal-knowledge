@@ -16,6 +16,7 @@ const season = {
   name: 'Survivor 51',
   season_number: 51,
   status: 'active',
+  practice: false,
   roster_size: 5,
   roster_lock_episode: 2,
   merge_episode: 7,

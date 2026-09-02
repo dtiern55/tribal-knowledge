@@ -44,6 +44,7 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "weekly_token_allocation": kwargs.pop("weekly_token_allocation", 10),
         "token_economy_enabled": kwargs.pop("token_economy_enabled", False),
         "ss_lock_episode": kwargs.pop("ss_lock_episode", None),
+        "practice": kwargs.pop("practice", False),
     }
     with conn.cursor() as cur:
         cur.execute(
@@ -55,7 +56,7 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
                  swap_penalty_floor, swap_lock_episode,
                  advantage_lock_episode, weekly_token_allocation,
                  token_economy_enabled,
-                 ss_lock_episode)
+                 ss_lock_episode, practice)
             values
                 (%(name)s, %(season_number)s, %(roster_size)s, %(status)s,
                  %(roster_lock_episode)s, %(merge_episode)s,
@@ -64,7 +65,7 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
                  %(swap_lock_episode)s,
                  %(advantage_lock_episode)s, %(weekly_token_allocation)s,
                  %(token_economy_enabled)s,
-                 %(ss_lock_episode)s)
+                 %(ss_lock_episode)s, %(practice)s)
             returning *
             """,
             params,

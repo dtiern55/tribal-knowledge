@@ -25,13 +25,12 @@ The finale bracket needs no read (#582). Each bot crowns its own **Sole
 Survivor** designation as the winner — when that castaway actually reached the
 finale — and fills the rest of the Final 4 / Final 3 at random from the
 finalists; a bot whose designee was voted out earlier, and a quarter of the
-rest, back another finalist. Run it against the active season pre-finale, or
-`--season <n>` to backfill one whose finale is already scored:
+rest, back another finalist. Run it pre-finale, or after the finale is
+scored to backfill; either way only a `practice` season is accepted (#265):
 
 ```
-uv run python scripts/run_bots.py ballot            # active season
-uv run python scripts/run_bots.py ballot --check    # names the season, writes nothing
-uv run python scripts/run_bots.py ballot --season 37
+uv run python scripts/run_bots.py ballot --season 101           # practice seasons only
+uv run python scripts/run_bots.py ballot --season 101 --check   # names the season, writes nothing
 ```
 
 Notes from building it:

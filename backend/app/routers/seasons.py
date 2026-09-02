@@ -11,10 +11,18 @@ router = APIRouter(prefix="/seasons", tags=["seasons"])
 
 
 @router.get("", response_model=list[Season])
-def list_seasons(_: UUID = Depends(get_current_user)):
+def list_seasons(user_id: UUID = Depends(get_current_user)):
+    """Every season for admins; players never see practice seasons (#265)."""
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("select * from seasons order by season_number")
+            cur.execute(
+                "select s.* from seasons s"
+                " where not s.practice"
+                "    or exists (select 1 from profiles p"
+                "              where p.id = %s and p.is_admin)"
+                " order by s.season_number",
+                [str(user_id)],
+            )
             return cur.fetchall()
 
 
@@ -64,14 +72,14 @@ def create_season(body: SeasonCreateRequest, _: UUID = Depends(get_current_admin
                      merge_episode, swap_token_cost,
                      free_swaps, weekly_token_allocation,
                      token_economy_enabled,
-                     ss_lock_episode, status)
+                     ss_lock_episode, status, practice)
                 values
                     (%(name)s, %(season_number)s, %(roster_size)s,
                      %(roster_lock_episode)s, %(merge_episode)s,
                      %(swap_token_cost)s,
                      %(free_swaps)s, %(weekly_token_allocation)s,
                      %(token_economy_enabled)s,
-                     %(ss_lock_episode)s, %(status)s)
+                     %(ss_lock_episode)s, %(status)s, %(practice)s)
                 returning *
                 """,
                 body.model_dump(),

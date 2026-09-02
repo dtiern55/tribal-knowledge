@@ -50,7 +50,7 @@ the diagram to keep the central relationships readable.
 | Area | Tables | Role |
 | --- | --- | --- |
 | Membership | `profiles`, `league_settings` | League identity, and the shared join code. `profiles.id` is the matching `auth.users.id`. `is_admin` grants admin tooling; `is_player` (separate, #471) marks league participation, so a commissioner can hold admin access and still be scored. Standings/scoring filter on `is_player`, not `is_admin`. |
-| Season structure | `seasons`, `episodes`, `contestants`, `tribes`, `contestant_tribes` | Per-season rules and schedule, cast, current/effective tribe assignments, lifecycle status, and lock timestamps. |
+| Season structure | `seasons`, `episodes`, `contestants`, `tribes`, `contestant_tribes` | Per-season rules and schedule, cast, current/effective tribe assignments, lifecycle status, and lock timestamps. `seasons.practice` marks a bot/testing sandbox: hidden from non-admin players and the only kind of season the bot driver writes to. |
 | Episode facts | `eliminations`, `scoring_events` | Commissioner-reviewed facts about what happened. Placements on `contestants` synchronize finale placement events through database triggers. |
 | Player decisions | `roster_picks`, `elimination_picks`, `finale_predictions`, `advantage_plays` | Effective-dated rosters, weekly ballots, the finale ballot, Sole Survivor flag, weekly doubles, and paid-swap play records. |
 | Global templates | `scoring_event_types`, `prediction_score_types`, `advantage_types` | Defaults for future seasons and the current advantage menu. They are not the scoring source for an existing season. |

@@ -180,6 +180,7 @@ function SeasonSection({
   const [lockEp, setLockEp] = useState(String(season.roster_lock_episode ?? ''))
   const [swapCost, setSwapCost] = useState(String(season.swap_token_cost))
   const [status, setStatus] = useState(season.status)
+  const [practice, setPractice] = useState(season.practice)
   // Edited as strings so a row can be half-typed; empty rows drop on save.
   const [schedule, setSchedule] = useState(
     season.elimination_pick_schedule.map((t) => ({
@@ -208,6 +209,7 @@ function SeasonSection({
           .map((t) => ({ from_episode: Number(t.from_episode), picks: Number(t.picks) }))
           .sort((a, b) => a.from_episode - b.from_episode),
         status,
+        practice,
       })
       onUpdated(updated)
       setEditing(false)
@@ -267,6 +269,14 @@ function SeasonSection({
             <option value="completed">completed</option>
           </select>
         </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={practice}
+            onChange={(e) => setPractice(e.target.checked)}
+          />
+          Practice season (bots only, hidden from players)
+        </label>
         {season.token_economy_enabled && (
           <div>
             <label className="block text-xs text-gray-500 mb-1">Legacy swap cost (tokens)</label>
@@ -1778,6 +1788,7 @@ function CreateSeasonSection({ onCreated }: { onCreated: (season: Season) => voi
   const [name, setName] = useState('')
   const [seasonNumber, setSeasonNumber] = useState('')
   const [status, setStatus] = useState<Season['status']>('upcoming')
+  const [practice, setPractice] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -1791,6 +1802,7 @@ function CreateSeasonSection({ onCreated }: { onCreated: (season: Season) => voi
           name: name.trim(),
           season_number: Number(seasonNumber),
           status,
+          practice,
         }),
       )
     })
@@ -1843,6 +1855,14 @@ function CreateSeasonSection({ onCreated }: { onCreated: (season: Season) => voi
             <option value="completed">Completed</option>
           </select>
         </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={practice}
+            onChange={(e) => setPractice(e.target.checked)}
+          />
+          Practice season (bots only, hidden from players)
+        </label>
       </div>
       <div className="mt-3">
         <ActionBtn onClick={submit} disabled={busy || !valid}>
@@ -1933,8 +1953,13 @@ export function AdminPage() {
       <PageHeader
         eyebrow="Commissioner"
         title="League operations"
-        description="Schedule, review, score, and correct the active season. Changes here affect the whole league."
-        meta={<span className="rounded-full bg-forest-50 px-3 py-1 font-medium text-forest-800">{season.name}</span>}
+        description="Schedule, review, score, and correct the selected season. Changes here affect the whole league."
+        meta={
+          <span className="rounded-full bg-forest-50 px-3 py-1 font-medium text-forest-800">
+            {season.name}
+            {season.practice ? ' · practice' : ''}
+          </span>
+        }
       />
 
       <section aria-labelledby="current-work-title" className={`rounded-2xl border p-5 sm:p-6 ${context.stage === 'review' ? 'border-gold-300 bg-gold-50' : context.stage === 'complete' ? 'border-jade-200 bg-jade-50' : 'border-forest-200 bg-forest-50'}`}>

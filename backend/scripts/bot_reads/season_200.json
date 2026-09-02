@@ -1,0 +1,363 @@
+{
+ "_note": "Danny's pre-episode reads for Survivor: David vs. Goliath. Written after watching each episode, before the next one airs. Never contains results.",
+ "draft": [
+  "Christian Hubicki",
+  "Mike White",
+  "Gabby Pascuzzi",
+  "Dan Rengering",
+  "Angelina Keeley"
+ ],
+ "avoid": [
+  "Natalie Cole"
+ ],
+ "episodes": {
+  "2": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Carl Boudreaux",
+    "Bi Nguyen",
+    "Davie Rickenbacker",
+    "Nick Wilson",
+    "Elizabeth Olson"
+   ],
+   "double_targets": [
+    "Mike White",
+    "Dan Rengering",
+    "Angelina Keeley",
+    "John Hennigan",
+    "Alec Merlino",
+    "Alison Raybould",
+    "Kara Kay",
+    "Jeremy Crawford",
+    "Natalia Azoqa",
+    "Natalie Cole"
+   ],
+   "note": "Natalie clearly first for Goliath; nobody else there stands out and Mike/Angelina are safe this early. David tribe is an even spread. Doubles favour Goliath on challenge strength.",
+   "confidence": "medium"
+  },
+  "3": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Carl Boudreaux",
+    "Bi Nguyen",
+    "Lyrsa Torres",
+    "Nick Wilson"
+   ],
+   "safe": [
+    "Mike White",
+    "Christian Hubicki"
+   ],
+   "confidence": "low",
+   "double_targets": [
+    "Alec Merlino",
+    "Alison Raybould",
+    "Angelina Keeley",
+    "Dan Rengering",
+    "Jeremy Crawford",
+    "John Hennigan",
+    "Kara Kay",
+    "Mike White",
+    "Natalia Azoqa",
+    "Natalie Cole"
+   ],
+   "note": "No strong read. Nobody votes Mike or Christian; outside those it's pretty split. Doubles still favour Goliath."
+  },
+  "4": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Carl Boudreaux",
+    "Bi Nguyen",
+    "Lyrsa Torres",
+    "Nick Wilson"
+   ],
+   "safe": [
+    "Christian Hubicki",
+    "Mike White",
+    "John Hennigan"
+   ],
+   "confidence": "low",
+   "double_targets": [
+    "John Hennigan",
+    "Mike White",
+    "Christian Hubicki",
+    "Dan Rengering",
+    "Davie Rickenbacker",
+    "Alec Merlino"
+   ],
+   "note": "Merge teased, so the read is weak. Nobody votes Christian, Mike or John. No fresh boot read, so episode 3's names carry forward \u2014 the room's sense of who is exposed rarely resets week to week. Double targets are held very lightly: the names with some standing, not a confident call."
+  },
+  "5": {
+   "likely_boots": [
+    "Natalie Cole",
+    "Lyrsa Torres",
+    "Kara Kay",
+    "Davie Rickenbacker",
+    "Alison Raybould"
+   ],
+   "double_targets": [
+    "Alison Raybould",
+    "Christian Hubicki",
+    "Dan Rengering",
+    "Gabby Pascuzzi",
+    "John Hennigan",
+    "Alec Merlino",
+    "Carl Boudreaux",
+    "Davie Rickenbacker",
+    "Elizabeth Olson",
+    "Kara Kay"
+   ],
+   "confidence": "low",
+   "note": "Natalie Cole the clear #1 (70%+ expect the vote); Lyrsa/Kara/Davie/Alison the next tier. Doubles steer away from Jabeni (purple). A decent share of bots should diverge."
+  },
+  "6": {
+   "likely_boots": [
+    [
+     "Lyrsa Torres",
+     14
+    ],
+    [
+     "Kara Kay",
+     12
+    ],
+    [
+     "Angelina Keeley",
+     6
+    ],
+    [
+     "Gabby Pascuzzi",
+     5
+    ],
+    [
+     "Alison Raybould",
+     5
+    ]
+   ],
+   "double_targets": [
+    "Alison Raybould",
+    "Christian Hubicki",
+    "Dan Rengering",
+    "Gabby Pascuzzi",
+    "John Hennigan",
+    "Mike White"
+   ],
+   "confidence": "medium",
+   "note": "Boot read (in order): Lyrsa, Kara, Angelina, Gabby, Alison. Doubles favour the Tiva tribe (Alison/Christian/Dan/Gabby/John) plus Mike White. Neither list is universal \u2014 a good share of bots should diverge onto castaways not named here."
+  },
+  "8": {
+   "likely_boots": [
+    [
+     "Carl Boudreaux",
+     10
+    ],
+    [
+     "Angelina Keeley",
+     9
+    ],
+    [
+     "Davie Rickenbacker",
+     9
+    ],
+    [
+     "Kara Kay",
+     8
+    ],
+    [
+     "Alec Merlino",
+     8
+    ],
+    [
+     "Christian Hubicki",
+     8
+    ],
+    [
+     "Dan Rengering",
+     8
+    ],
+    [
+     "Alison Raybould",
+     6
+    ],
+    [
+     "Gabby Pascuzzi",
+     6
+    ],
+    [
+     "Nick Wilson",
+     5
+    ],
+    [
+     "Mike White",
+     4
+    ],
+    [
+     "John Hennigan",
+     4
+    ]
+   ],
+   "double_targets": [
+    "Dan Rengering",
+    "Davie Rickenbacker",
+    "Carl Boudreaux",
+    "Nick Wilson",
+    "John Hennigan",
+    "Alison Raybould"
+   ],
+   "confidence": "low",
+   "note": "Wide-open first post-merge vote, no strong read. Slight lean to Carl/Angelina/Davie/Kara/Alec/Christian/Dan; Alison and Gabby next; Nick outside that; Mike and John safest. Bots should diverge widely. Doubles nudge toward advantage-holders (Dan/Davie/Carl/Nick) and challenge threats John/Alison \u2014 but near-even."
+  },
+  "9": {
+   "likely_boots": [
+    [
+     "Dan Rengering",
+     10
+    ],
+    [
+     "Alison Raybould",
+     10
+    ],
+    [
+     "Christian Hubicki",
+     12
+    ],
+    [
+     "Davie Rickenbacker",
+     10
+    ],
+    [
+     "Gabby Pascuzzi",
+     10
+    ],
+    [
+     "Nick Wilson",
+     10
+    ],
+    [
+     "Alec Merlino",
+     10
+    ],
+    [
+     "Mike White",
+     10
+    ],
+    [
+     "Angelina Keeley",
+     12
+    ],
+    [
+     "Carl Boudreaux",
+     10
+    ],
+    [
+     "Kara Kay",
+     10
+    ]
+   ],
+   "double_targets": [
+    "Dan Rengering",
+    "Alison Raybould",
+    "Christian Hubicki",
+    "Davie Rickenbacker",
+    "Gabby Pascuzzi",
+    "Nick Wilson",
+    "Alec Merlino",
+    "Mike White",
+    "Angelina Keeley",
+    "Carl Boudreaux",
+    "Kara Kay"
+   ],
+   "confidence": "low",
+   "note": "No real read. Spread the vote about evenly across the eleven, with a nudge toward Christian and Angelina. Doubles are unsteered \u2014 whoever backs their roster picks at random."
+  },
+  "11": {
+   "likely_boots": [
+    [
+     "Christian Hubicki",
+     14
+    ],
+    [
+     "Angelina Keeley",
+     8
+    ],
+    [
+     "Alison Raybould",
+     2
+    ],
+    [
+     "Davie Rickenbacker",
+     2
+    ],
+    [
+     "Gabby Pascuzzi",
+     2
+    ],
+    [
+     "Kara Kay",
+     2
+    ],
+    [
+     "Mike White",
+     2
+    ],
+    [
+     "Nick Wilson",
+     2
+    ]
+   ],
+   "double_targets": [
+    "Christian Hubicki",
+    "Angelina Keeley",
+    "Alison Raybould",
+    "Davie Rickenbacker",
+    "Gabby Pascuzzi",
+    "Kara Kay",
+    "Mike White",
+    "Nick Wilson"
+   ],
+   "confidence": "medium",
+   "note": "Christian is the read \u2014 should draw the most ballots (~14), with the vote-doublers piling on him. Angelina a clear second (~8), fewer doubling her. The other six split about evenly and low. Roster-point doubles are unsteered: whoever holds a roster member backs one at random."
+  },
+  "12": {
+   "likely_boots": [
+    [
+     "Christian Hubicki",
+     8
+    ],
+    [
+     "Alison Raybould",
+     7
+    ],
+    [
+     "Angelina Keeley",
+     4
+    ],
+    [
+     "Davie Rickenbacker",
+     4
+    ],
+    [
+     "Kara Kay",
+     4
+    ],
+    [
+     "Mike White",
+     4
+    ],
+    [
+     "Nick Wilson",
+     4
+    ]
+   ],
+   "double_targets": [
+    "Christian Hubicki",
+    "Alison Raybould",
+    "Angelina Keeley",
+    "Davie Rickenbacker",
+    "Kara Kay",
+    "Mike White",
+    "Nick Wilson"
+   ],
+   "confidence": "low",
+   "note": "Christian and Alison the leans again, but lighter and less confident than ep11 after the blindsides \u2014 a flatter split, the pack (Angelina/Davie/Kara/Mike/Nick) close behind at even weight. Roster-point doubles spread evenly across all seven (engine can't finely de-weight Christian/Alison; even spread is the closest to 'a couple fewer on them')."
+  }
+ }
+}

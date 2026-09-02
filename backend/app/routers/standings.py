@@ -12,7 +12,7 @@ router = APIRouter(tags=["standings"])
 
 @router.get("/seasons/{season_id}/standings", response_model=list[StandingEntry])
 def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
-    """Live leaderboard: every league member's points for the season.
+    """Live leaderboard: every participant's points for the season.
 
     Sums the three scoring components per user. Computed live, never cached.
     Ordered by total descending, then display name.
@@ -22,22 +22,18 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
             season = database.require_season(cur, season_id)
             # Only league participants compete — service accounts like Producer
             # are is_player = false (#471; formerly filtered as `not is_admin`,
-            # which wrongly dropped a commissioner who also plays). A past
-            # (completed) season shows only who actually played it (had a
-            # roster); an active/upcoming season shows every participant (#235).
-            if season["status"] == "completed":
-                cur.execute(
-                    "select p.id::text as id, p.display_name from profiles p"
-                    " where p.is_player and exists ("
-                    "   select 1 from roster_picks rp"
-                    "   where rp.user_id = p.id and rp.season_id = %s)",
-                    [str(season_id)],
-                )
-            else:
-                cur.execute(
-                    "select id::text as id, display_name from profiles"
-                    " where is_player"
-                )
+            # which wrongly dropped a commissioner who also plays). A season's
+            # field is whoever has a roster in it: with a live season and a
+            # practice season running side by side (#265), "every player"
+            # would put the bots in the live standings and vice versa. Before
+            # the draft the board is simply empty.
+            cur.execute(
+                "select p.id::text as id, p.display_name from profiles p"
+                " where p.is_player and exists ("
+                "   select 1 from roster_picks rp"
+                "   where rp.user_id = p.id and rp.season_id = %s)",
+                [str(season_id)],
+            )
             profiles = cur.fetchall()
 
         roster = scoring.roster_points(conn, season_id)

@@ -51,6 +51,8 @@ export function pinSeason(id: string, seasons: Season[]) {
 }
 
 export function defaultSeason(seasons: Season[]): Season | null {
+  // The live active season wins; a practice season is only ever a deliberate
+  // pin (#265 — players never receive practice seasons, admins see both).
   // Falls back to the most recently *created* season, not the highest number:
   // /seasons is ordered by season_number, and practice seasons are numbered
   // 100+, so `at(-1)` sent everyone to Practice Island V the moment the real
@@ -59,7 +61,11 @@ export function defaultSeason(seasons: Season[]): Season | null {
     (best, s) => (best == null || s.created_at > best.created_at ? s : best),
     null,
   )
-  return seasons.find((s) => s.status === 'active') ?? newest
+  return (
+    seasons.find((s) => s.status === 'active' && !s.practice) ??
+    seasons.find((s) => s.status === 'active') ??
+    newest
+  )
 }
 
 /** The season every page operates on: the pinned Standings pick if it still

@@ -35,6 +35,8 @@ export function Layout() {
   const [themeOverride, setThemeOverride] = useState<'auto' | 'day' | 'night'>(
     () => (localStorage.getItem('tk-theme-override') as 'auto' | 'day' | 'night') || 'auto',
   )
+  // Ambient warning for the commissioner: a practice season is pinned (#265).
+  const [practice, setPractice] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   // Re-derive the shell theme on every navigation, not just on the 30s poll.
   // Pages fetch their own lock state fresh on mount, so without this the shell
@@ -57,6 +59,7 @@ export function Layout() {
       }
       try {
         const season = await getActiveSeason()
+        if (live) setPractice(Boolean(season?.practice))
         if (!season) {
           if (live) setNightMode(false)
           return
@@ -129,6 +132,11 @@ export function Layout() {
             <span className="app-brand-primary mr-1.5 text-cream-50">SNAKES</span>
             <span className="app-brand-secondary text-terracotta-600">AND RATS</span>
           </NavLink>
+          {practice && (
+            <span className="rounded-full bg-gold-300 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-forest-900">
+              Practice
+            </span>
+          )}
 
           {authed && (
             <nav aria-label="Primary navigation" className="hidden items-center gap-1 md:flex">

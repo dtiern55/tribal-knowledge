@@ -27,6 +27,22 @@ def test_list_seasons(client, db_conn):
 
 
 @pytest.mark.integration
+def test_practice_seasons_hidden_from_players(client, db_conn, current_user):
+    """A practice season exists for bots and the commissioner only (#265)."""
+    practice = _insert_season(db_conn, name="Sandbox", practice=True, status="active")
+    ids = {s["id"] for s in client.get("/seasons").json()}
+    assert str(practice["id"]) not in ids
+
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update profiles set is_admin = true where id = %s",
+            [str(current_user["id"])],
+        )
+    ids = {s["id"] for s in client.get("/seasons").json()}
+    assert str(practice["id"]) in ids
+
+
+@pytest.mark.integration
 def test_list_seasons_ordered(client, db_conn):
     _insert_season(db_conn, name="Season B", season_number=2)
     _insert_season(db_conn, name="Season A", season_number=1)

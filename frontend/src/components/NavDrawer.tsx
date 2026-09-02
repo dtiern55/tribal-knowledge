@@ -97,6 +97,10 @@ export function NavDrawer({
     )
   }, [open, seasons.length])
 
+  function seasonRank(s: Season) {
+    return (s.status === 'active' ? 2 : 0) + (s.practice ? 0 : 1)
+  }
+
   function changeSeason(id: string) {
     if (id === activeId) return
     pinSeason(id, seasons)
@@ -159,14 +163,15 @@ export function NavDrawer({
               onChange={(e) => changeSeason(e.target.value)}
               className="w-full rounded-lg border border-forest-200 bg-white px-3 py-2 font-display tracking-wide text-forest-900"
             >
-              {/* Active season first, then past seasons newest→oldest (#236). */}
+              {/* Active season first, then past seasons newest→oldest (#236).
+                  Practice seasons (admin-only, #265) sort below the live ones. */}
               {[...seasons]
                 .reverse()
-                .sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active'))
+                .sort((a, b) => seasonRank(b) - seasonRank(a))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
-                    {s.status === 'active' ? ' (active)' : ''}
+                    {s.practice ? ' (practice)' : s.status === 'active' ? ' (active)' : ''}
                   </option>
                 ))}
             </select>

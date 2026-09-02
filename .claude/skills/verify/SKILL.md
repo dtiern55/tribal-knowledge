@@ -44,8 +44,8 @@ Create a real login (frontend uses password auth) via
 matching `profiles` row. Self-forged JWTs won't pass the ES256 JWKS check.
 
 Gotchas:
-- `getActiveSeason()` picks the first season with status `active` — demote any
-  stray active season in the local DB or your seed won't load:
+- `getActiveSeason()` picks the first non-practice season with status `active` —
+  demote any stray active season in the local DB or your seed won't load:
   `docker exec supabase_db_survivor psql -U postgres -d postgres -c "..."`
   (no psql on the host).
 - Roster card view needs the roster window closed: `roster_lock_episode=1`
