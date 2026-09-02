@@ -210,7 +210,8 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByText('Ep 1 · watch only')).toBeVisible()
-    expect(screen.queryByRole('heading', { name: 'My Roster' })).not.toBeInTheDocument()
+    // The tribe can be drafted during the premiere; ballots still wait.
+    expect(await screen.findByRole('button', { name: 'Lock In Tribe' })).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
