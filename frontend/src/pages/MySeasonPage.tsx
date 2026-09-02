@@ -1064,7 +1064,7 @@ function CompleteState({
                   isSoleSurvivor={pick.is_sole_survivor}
                   soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                   swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
-                  right={<TeamPoints value={rosterPoints.get(pick.contestant_id)} />}
+                  right={<TeamPoints value={rosterPoints.get(pick.contestant_id) ?? 0} />}
                   bioLink={false}
                   expanded={expandedId === pick.contestant_id}
                   onToggle={() => toggleExpand(pick.contestant_id)}
@@ -2841,7 +2841,7 @@ function RosterSection({
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
                 }
-                right={<TeamPoints value={rosterPoints.get(pick.contestant_id)} />}
+                right={<TeamPoints value={rosterPoints.get(pick.contestant_id) ?? 0} />}
                 bioLink={false}
                 prominent
                 onSelect={
