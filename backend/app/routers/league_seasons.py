@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from psycopg2 import errors
 
 from app import database
 from app.auth import get_current_admin, get_current_user
@@ -64,22 +63,24 @@ def add_season_to_league(
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="League not found")
             database.require_season(cur, body.season_id)
-            try:
-                cur.execute(
-                    f"insert into league_seasons (league_id, {cols})"
-                    f" values (%(league_id)s, {vals}) returning id",
-                    {
-                        **{
-                            k: str(v) if k == "season_id" else v
-                            for k, v in fields.items()
-                        },
-                        "league_id": str(league_id),
-                    },
-                )
-            except errors.UniqueViolation:
+            # Checked explicitly rather than caught as a unique violation: a
+            # failed insert aborts the transaction, which the test client shares.
+            cur.execute(
+                "select 1 from league_seasons where league_id = %s and season_id = %s",
+                [str(league_id), str(body.season_id)],
+            )
+            if cur.fetchone():
                 raise HTTPException(
                     status_code=409, detail="League already plays this season"
                 )
+            cur.execute(
+                f"insert into league_seasons (league_id, {cols})"
+                f" values (%(league_id)s, {vals}) returning id",
+                {
+                    **{k: str(v) if k == "season_id" else v for k, v in fields.items()},
+                    "league_id": str(league_id),
+                },
+            )
             return database.require_league_season(cur, cur.fetchone()["id"])
 
 
