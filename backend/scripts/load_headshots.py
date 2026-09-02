@@ -237,6 +237,12 @@ def main() -> None:
         else:
             src = wiki_file_url(args.survivor_season, full)
             label = "wiki fallback"
+            # The wiki files a castaway under the name the show used ("Kass
+            # McQuillen", not "Kassandra McQuillen"): try nickname + surname.
+            if not src and c.get("nickname"):
+                short = f"{c['nickname']} {full.split()[-1]}"
+                src = wiki_file_url(args.survivor_season, short)
+                label = f"wiki fallback ({short})"
         if not src:
             missing.append(c["name"])
             print(f"  {c['name']:<24} NO PHOTO FOUND — upload manually")
