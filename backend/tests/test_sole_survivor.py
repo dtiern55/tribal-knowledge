@@ -19,7 +19,8 @@ PAST = datetime.now(timezone.utc) - timedelta(hours=1)
 
 
 def _ss_season(conn, **kwargs):
-    return insert_season(conn, roster_lock_episode=1, **kwargs)
+    # Designation opens at the merge, so every SS season needs one set.
+    return insert_season(conn, roster_lock_episode=1, merge_episode=1, **kwargs)
 
 
 @pytest.mark.integration
