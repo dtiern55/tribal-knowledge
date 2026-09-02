@@ -43,7 +43,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 16: Micronesia',
   },
   {
-    text: 'Don’t wear feathers in your hair at Tribal. Don’t tell your stories. People don’t believe your stories. They mock you. There’s no reason to tell them. And do your Tai Chi in private where nobody can see you.',
+    text: 'Don’t wear feathers in your hair at Tribal. Don’t tell your stories… And do your Tai Chi in private where nobody can see you.',
     who: 'Tyson (to Coach)',
     season: 'Season 20: Heroes vs. Villains',
   },
@@ -143,12 +143,12 @@ export const QUOTES: Quote[] = [
     season: 'Season 46',
   },
   {
-    text: "My favorite thing to do on Survivor is just pick a person, don't give them any heads up. Run them over with a bus, back up, run them over again.",
+    text: "My favorite thing to do on Survivor is just pick a person… Run them over with a bus, back up, run them over again.",
     who: 'Kamilla',
     season: 'Season 48',
   },
   {
-    text: 'Survivor is like going on The Oregon Trail. You have to ford every river. You have to caulk every wagon. You have to go up the hills and down the hills… and sometimes you get dysentery and die.',
+    text: 'Survivor is like going on The Oregon Trail. You have to ford every river. You have to caulk every wagon… and sometimes you get dysentery and die.',
     who: 'Aubry',
     season: 'Season 32: Kaôh Rōng',
   },
@@ -198,7 +198,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 12: Exile Island',
   },
   {
-    text: 'I’ve been through a hurricane, I’ve been attacked by a shark, had a run-in with a crocodile, got captured by the Indian tribe, I mean, they were some very defining moments of my life.',
+    text: '…I’ve been through a hurricane, I’ve been attacked by a shark, had a run-in with a crocodile, got captured by the Indian tribe…',
     who: 'Coach Benjamin Wade',
     season: 'Season 18: Tocantins',
   },
