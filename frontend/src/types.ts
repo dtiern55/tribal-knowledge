@@ -2,12 +2,15 @@ export interface UserProfile {
   id: string
   display_name: string
   is_admin: boolean
+  leagues: { id: string; name: string }[]
 }
 
-export interface LeagueSettings {
+export interface League {
   id: string
+  name: string
   join_code: string
-  updated_at: string
+  member_count: number
+  created_at: string
 }
 
 export interface Season {

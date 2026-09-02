@@ -23,6 +23,17 @@ def insert_user(conn, display_name="Test User", is_admin=False, is_player=True):
         return cur.fetchone()
 
 
+def insert_league(conn, name="Test League", join_code=None):
+    if join_code is None:
+        join_code = f"code-{uuid.uuid4().hex[:8]}"
+    with conn.cursor() as cur:
+        cur.execute(
+            "insert into leagues (name, join_code) values (%s, %s) returning *",
+            [name, join_code],
+        )
+        return cur.fetchone()
+
+
 def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwargs):
     if season_number is None:
         season_number = random.randint(1000, 9999)

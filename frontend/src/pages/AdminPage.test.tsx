@@ -38,14 +38,14 @@ describe('AdminPage current rules', () => {
   it('does not expose token-era settings or scoring copy', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/league-settings') {
-        return { id: 'settings-1', join_code: 'test-code', updated_at: '2026-01-01' }
+      if (path === '/leagues') {
+        return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
       }
       return []
     })
 
     renderWithApp(<AdminPage />, {
-      auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } },
+      auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
     })
 
     expect(await screen.findByRole('heading', { name: 'League operations' })).toBeVisible()
@@ -61,12 +61,12 @@ describe('AdminPage current rules', () => {
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) return [{ id: 'episode-1', season_id: season.id, episode_number: 2, air_date: '2026-08-01', max_elimination_picks: 3, is_finale: false, picks_lock_at: '2026-08-01T00:00:00Z', status: 'upcoming', created_at: '2026-08-01T00:00:00Z' }]
-      if (path === '/league-settings') return { id: 'settings-1', join_code: 'test-code', updated_at: '2026-01-01' }
+      if (path === '/leagues') return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
       return []
     })
     vi.mocked(api.post).mockResolvedValue({})
 
-    renderWithApp(<AdminPage />, { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } } })
+    renderWithApp(<AdminPage />, { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } } })
 
     expect(await screen.findByRole('heading', { name: 'Episode 2 needs review' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Review and score episode' }))
@@ -100,15 +100,15 @@ describe('AdminPage current rules', () => {
         return [{ id: 'elim-1', contestant_id: 'cast-1', elimination_type: 'voted_out' }]
       }
       if (path.endsWith('/insights') || path.endsWith('/scoring-events')) return []
-      if (path === '/league-settings') {
-        return { id: 'settings-1', join_code: 'test-code', updated_at: '2026-01-01' }
+      if (path === '/leagues') {
+        return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
       }
       return []
     })
     vi.mocked(api.put).mockResolvedValue([])
 
     renderWithApp(<AdminPage />, {
-      auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } },
+      auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
     })
     await user.click(await screen.findByRole('button', { name: 'Manage' }))
 
