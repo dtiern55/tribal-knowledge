@@ -37,15 +37,15 @@ const THEMES: Record<Theme, { scene: string; tileImg: string; label: string; fra
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
     tileImg: 'url("/puzzle-wood-solid.webp?v=20260902-solid")',
     label: '#1e3a2f',
-    frame: 'linear-gradient(158deg, #23503d, #122318)',
-    frameShadow: 'inset 0 3px 0 rgba(255,255,255,0.06), inset 0 -8px 16px rgba(0,0,0,0.5), 0 34px 44px -12px rgba(20,40,30,0.55)',
+    frame: 'linear-gradient(158deg, #69472b, #2e190e)',
+    frameShadow: 'inset 0 3px 0 rgba(255,225,180,0.10), inset 0 -8px 16px rgba(24,10,4,0.58), 0 34px 44px -12px rgba(62,32,15,0.55)',
   },
   locked: {
     scene: 'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px), linear-gradient(180deg, #132e25, #0e1f19)',
-    tileImg: 'url("/puzzle-wood-solid.webp?v=20260902-solid")',
+    tileImg: 'url("/puzzle-wood-light.webp?v=20260902-light")',
     label: '#f2e9db',
-    frame: 'linear-gradient(158deg, #d7c49d, #b89d70)',
-    frameShadow: 'inset 0 3px 0 rgba(255,244,218,0.22), inset 0 -8px 16px rgba(92,65,38,0.34), 0 34px 48px -12px rgba(0,0,0,0.55)',
+    frame: 'linear-gradient(158deg, #e7c892, #a97642)',
+    frameShadow: 'inset 0 3px 0 rgba(255,247,220,0.34), inset 0 -8px 16px rgba(91,52,22,0.38), 0 34px 48px -12px rgba(0,0,0,0.55)',
   },
 }
 

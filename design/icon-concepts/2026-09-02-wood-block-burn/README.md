@@ -33,6 +33,21 @@ remain unchanged.
 > three-part flame exactly, including every color, burned outline, texture,
 > position, proportion, negative space, internal cutout, and silhouette.
 
+## Light loader revision
+
+`wood-block-burn-v3-light-background.png` is the locked-theme companion. It
+keeps the snake, flame, geometry, and pyrography treatment unchanged while
+swapping the other two tonal roles: one continuous pale maple background and a
+smoked-walnut rat.
+
+> Change only the background wood tone and rat wood tone. Replace the
+> continuous dark-walnut background with one uninterrupted pale warm maple or
+> beech surface, and change the rat from pale wood to deep smoked walnut. Keep
+> the rat visibly wood-grained and burned into the surface. Preserve the exact
+> crop, padding, positions, proportions, negative spaces, internal cutouts,
+> burned outlines, and silhouettes. Keep the snake terracotta and the flame
+> amber gold. No seams, tiles, panels, new objects, text, glow, or watermark.
+
 ## Prompt
 
 > Change only the material and surface texture. Reinterpret the entire icon as
