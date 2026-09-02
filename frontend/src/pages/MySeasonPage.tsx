@@ -193,8 +193,8 @@ function useMySeasonData() {
         setSeason(active)
 
         const [cs, eps, standings, bd, ownPlays, unseenResult] = await Promise.all([
-          api.get<Contestant[]>(`/league-seasons/${active.season_id}/contestants`),
-          api.get<Episode[]>(`/league-seasons/${active.season_id}/episodes`),
+          api.get<Contestant[]>(`/seasons/${active.season_id}/contestants`),
+          api.get<Episode[]>(`/seasons/${active.season_id}/episodes`),
           api.get<StandingEntry[]>(`/league-seasons/${active.id}/standings`),
           api.get<ScoringBreakdown>(`/league-seasons/${active.id}/scoring-breakdown/${userId}`),
           api.get<AdvantagePlay[]>(`/league-seasons/${active.id}/advantage-plays/${userId}`),
@@ -232,17 +232,17 @@ function useMySeasonData() {
       .finally(() => setRosterFor(seasonId))
   }, [season, userId, rosterVersion])
   useEffect(() => {
-    if (!openEp || !userId) {
+    if (!openEp || !userId || !season) {
       setOpenPicks([])
       return
     }
     const episodeId = openEp.id
     api
-      .get<EliminationPick[]>(`/episodes/${episodeId}/picks/${userId}`)
+      .get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks/${userId}`)
       .then(setOpenPicks)
       .catch(() => setOpenPicks([]))
       .finally(() => setPicksFor(episodeId))
-  }, [openEp?.id, userId, ballotVersion])
+  }, [openEp?.id, userId, ballotVersion, season?.id])
 
   return {
     userId,
@@ -3279,7 +3279,7 @@ function PicksSection({
       const results = await Promise.all(
         episodes.map((ep) =>
           api
-            .get<EliminationPick[]>(`/episodes/${ep.id}/picks/${userId}`)
+            .get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${ep.id}/picks/${userId}`)
             .then((picks): [string, EliminationPick[]] => [ep.id, picks])
             .catch((): [string, EliminationPick[]] => [ep.id, []]),
         ),
