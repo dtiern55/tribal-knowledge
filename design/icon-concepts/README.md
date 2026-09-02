@@ -61,3 +61,7 @@ textured ground, forest-green rat, terracotta snake, and gold flame. Production
 favicon, app-icon, maskable-icon, and both current sliding-puzzle exports live
 under `frontend/public`; the earlier fire-ring puzzle exports remain there for
 the four-way admin preview.
+
+The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
+terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its
+own flame color prevents it from reading as part of “RATS.”

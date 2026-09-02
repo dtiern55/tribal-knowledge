@@ -4,6 +4,7 @@ import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
 import { resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode } from '../types'
+import { BrandWordmark } from './BrandWordmark'
 import { NavDrawer } from './NavDrawer'
 import {
   BuffPairIcon,
@@ -126,8 +127,7 @@ export function Layout() {
             aria-label="Snakes and Rats home"
             className="inline-flex min-h-11 shrink-0 items-center font-brand text-xl font-bold leading-none tracking-wide md:text-2xl"
           >
-            <span className="app-brand-primary mr-1.5 text-cream-50">SNAKES</span>
-            <span className="app-brand-secondary text-terracotta-600">AND RATS</span>
+            <BrandWordmark />
           </NavLink>
 
           {authed && (

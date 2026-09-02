@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { SUE_HAWK_QUOTE } from '../lib/quotes'
+import { BrandWordmark } from './BrandWordmark'
 
 // Camp-at-night front door (#508): the full-bleed dark canvas scene borrowed
 // from the loader, the embroidered mark glowing over it, and a floating cream
@@ -36,8 +37,7 @@ export function AuthScene({
             className="size-[92px] rounded-2xl shadow-[0_0_54px_-10px_rgba(196,84,50,0.55)] ring-1 ring-white/10"
           />
           <h1 className="mt-5 font-brand text-2xl font-bold leading-none tracking-wide">
-            <span className="text-cream-50">SNAKES</span>{' '}
-            <span className="text-terracotta-500">AND RATS</span>
+            <BrandWordmark />
           </h1>
           {eyebrow && (
             <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta-200">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
+import { BrandWordmark } from '../components/BrandWordmark'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
@@ -2149,20 +2150,24 @@ function BrandingCompareSection() {
     {
       src: '/icon-512.webp?v=20260901-final',
       caption: 'After',
-      word: (
-        <>
-          <span className="text-forest-800">SNAKES</span> <span className="text-terracotta-500">AND RATS</span>
-        </>
-      ),
+      dark: true,
+      word: <BrandWordmark />,
     },
   ]
   return (
     <div className="grid max-w-md grid-cols-2 gap-3">
       {marks.map((m) => (
-        <figure key={m.src} className="flex flex-col items-center gap-2 rounded-xl border border-cream-200 bg-white p-4 text-center">
+        <figure
+          key={m.src}
+          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center ${
+            m.dark ? 'border-forest-700 bg-forest-600' : 'border-cream-200 bg-white'
+          }`}
+        >
           <img src={m.src} alt="" width={72} height={72} className="size-[72px] rounded-2xl ring-1 ring-black/10" />
           <figcaption className="font-brand text-base font-bold leading-none tracking-wide">{m.word}</figcaption>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">{m.caption}</span>
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${m.dark ? 'text-stone-300' : 'text-gray-400'}`}>
+            {m.caption}
+          </span>
         </figure>
       ))}
     </div>
