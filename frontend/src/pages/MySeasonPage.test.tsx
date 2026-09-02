@@ -769,6 +769,33 @@ describe('MySeasonPage state shell', () => {
   // `compact={false}` that no call site ever passed. It is the only way to
   // designate, so it gets a test of its own. #529 moved it from a select above
   // the roster onto the roster card's own ring; the guarantee is unchanged.
+  it('names a Sole Survivor from the select once the merge is reached', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, ss_lock_episode: 9 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T00:00:00Z'), episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+    vi.mocked(api.post).mockResolvedValue({})
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const select = await screen.findByRole('combobox', { name: 'Name your Sole Survivor' })
+    await userEvent.selectOptions(select, 'cast-1')
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
+        contestant_id: 'cast-1',
+      }),
+    )
+  })
+
   it('limits broadcast styling to the short window after lock without changing state', () => {
     const locked = episode(2, 'upcoming', '2026-08-13T18:00:00Z')
     expect(isBroadcastWindow(locked, new Date('2026-08-13T20:00:00Z'))).toBe(true)
