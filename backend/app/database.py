@@ -31,8 +31,8 @@ def get_db():
         conn.close()
 
 
-def lock_user_season(cur, user_id, season_id) -> None:
-    """Serialize one user's writes within a season (issues #110/#113).
+def lock_user_season(cur, user_id, league_season_id) -> None:
+    """Serialize one user's writes within a league-season (issues #110/#113).
 
     The token-balance and swap-cap guards are read-then-act; without this,
     concurrent requests can both pass the check. Transaction-scoped advisory
@@ -42,7 +42,7 @@ def lock_user_season(cur, user_id, season_id) -> None:
     """
     cur.execute(
         "select pg_advisory_xact_lock(hashtext(%s || ':' || %s))",
-        [str(user_id), str(season_id)],
+        [str(user_id), str(league_season_id)],
     )
 
 
@@ -53,6 +53,39 @@ def require_season(cur, season_id) -> dict:
     if not season:
         raise HTTPException(status_code=404, detail="Season not found")
     return season
+
+
+# One league playing one season (#595): the league's rule knobs plus the
+# show fields play code reads (merge, status, schedule). `id` is the
+# league-season id; `season_id` is the show. Every play handler starts here.
+LEAGUE_SEASON_SQL = """
+    select ls.*, l.name as league_name,
+           s.name, s.season_number, s.merge_episode, s.status,
+           s.elimination_pick_schedule, s.created_at as season_created_at
+    from league_seasons ls
+    join leagues l on l.id = ls.league_id
+    join seasons s on s.id = ls.season_id
+"""
+
+
+def require_league_season(cur, league_season_id) -> dict:
+    """Fetch the merged league-season row or raise 404."""
+    cur.execute(f"{LEAGUE_SEASON_SQL} where ls.id = %s", [str(league_season_id)])
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Season not found")
+    return row
+
+
+def require_member(cur, league_id, user_id) -> None:
+    """403 unless the user belongs to the league (admins always pass)."""
+    cur.execute(
+        "select 1 from league_members where league_id = %s and user_id = %s"
+        " union all select 1 from profiles where id = %s and is_admin",
+        [str(league_id), str(user_id), str(user_id)],
+    )
+    if not cur.fetchone():
+        raise HTTPException(status_code=403, detail="Not a member of this league")
 
 
 def snapshot_scoring_config(cur, season_id) -> None:
@@ -83,8 +116,8 @@ def snapshot_scoring_config(cur, season_id) -> None:
     )
 
 
-def require_roster_visible(cur, season, user_id, current_user) -> None:
-    """403 unless requesting own data or the season's roster lock has passed.
+def require_roster_visible(cur, ls, user_id, current_user) -> None:
+    """403 unless requesting own data or the league-season's roster lock passed.
 
     The shared visibility rule for another player's roster-derived data
     (roster rows, per-contestant breakdown — issues #83/#160).
@@ -94,14 +127,14 @@ def require_roster_visible(cur, season, user_id, current_user) -> None:
     if str(user_id) == str(current_user):
         return
     locked = False
-    if season["roster_lock_episode"] is not None:
+    if ls["roster_lock_episode"] is not None:
         cur.execute(
             f"""
             select 1 from episodes
             where season_id = %s and episode_number = %s
               and {EPISODE_LOCKED_SQL}
             """,
-            [str(season["id"]), season["roster_lock_episode"]],
+            [str(ls["season_id"]), ls["roster_lock_episode"]],
         )
         locked = cur.fetchone() is not None
     if not locked:

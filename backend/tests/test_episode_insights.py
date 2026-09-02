@@ -53,7 +53,7 @@ def test_curated_insights_compute_multiple_elimination_aggregates(
     assert configured.status_code == 200
 
     result = client.get(
-        f"/seasons/{season['id']}/episode-results/{episode['id']}"
+        f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
     ).json()
     insights = result["insights"]
     assert [item["label"] for item in insights] == [
@@ -81,7 +81,7 @@ def test_auto_league_call_leads_without_configuration(client, db_conn, current_u
     insert_elimination_pick(db_conn, other["id"], episode["id"], safe["id"])
 
     insights = client.get(
-        f"/seasons/{season['id']}/episode-results/{episode['id']}"
+        f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
     ).json()["insights"]
     assert len(insights) == 1
     assert insights[0]["label"] == "League call: Boot"
@@ -110,7 +110,7 @@ def test_manual_notes_merge_and_validate(client, db_conn):
     assert saved.status_code == 200
 
     insights = client.get(
-        f"/seasons/{season['id']}/episode-results/{episode['id']}"
+        f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
     ).json()["insights"]
     assert [(i["label"], i["value"], i["detail"]) for i in insights] == [
         ("Blindside", "Genevieve", "Flipped on her alliance."),
@@ -136,9 +136,9 @@ def test_weekly_play_usage_and_empty_configuration(client, db_conn, current_user
 
     url = f"/episodes/{episode['id']}/insights"
     assert (
-        client.get(f"/seasons/{season['id']}/episode-results/{episode['id']}").json()[
-            "insights"
-        ]
+        client.get(
+            f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
+        ).json()["insights"]
         == []
     )
     saved = client.put(
@@ -152,16 +152,16 @@ def test_weekly_play_usage_and_empty_configuration(client, db_conn, current_user
     )
     assert saved.status_code == 200
     insight = client.get(
-        f"/seasons/{season['id']}/episode-results/{episode['id']}"
+        f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
     ).json()["insights"][0]
     assert insight["value"] == "1 of 2"
     assert insight["label"] == "Double Ballot Points usage"
 
     assert client.put(url, json=[]).status_code == 200
     assert (
-        client.get(f"/seasons/{season['id']}/episode-results/{episode['id']}").json()[
-            "insights"
-        ]
+        client.get(
+            f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
+        ).json()["insights"]
         == []
     )
 
@@ -197,7 +197,9 @@ def test_insight_configuration_rejects_misleading_selections(client, db_conn):
 def test_insight_aggregates_are_unavailable_before_score(client, db_conn):
     season = insert_season(db_conn, roster_lock_episode=1)
     episode = insert_episode(db_conn, season["id"], status="upcoming")
-    response = client.get(f"/seasons/{season['id']}/episode-results/{episode['id']}")
+    response = client.get(
+        f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
+    )
     assert response.status_code == 409
 
 

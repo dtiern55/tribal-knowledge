@@ -44,7 +44,7 @@ def test_latest_reveal_reconciles_multiple_correct_picks_and_double_vote(
         db_conn, current_user["id"], episode["id"], "double_vote_points"
     )
 
-    response = client.get(f"/seasons/{season['id']}/reveal")
+    response = client.get(f"/league-seasons/{season['league_season_id']}/reveal")
     assert response.status_code == 200
     result = response.json()
     assert result["episode_id"] == str(episode["id"])
@@ -93,7 +93,7 @@ def test_roster_breakdown_lists_base_events_only(client, db_conn, current_user):
         target_contestant_id=rostered["id"],
     )
 
-    result = client.get(f"/seasons/{season['id']}/reveal").json()
+    result = client.get(f"/league-seasons/{season['league_season_id']}/reveal").json()
     member = result["roster"][0]
     assert member["contestant_id"] == str(rostered["id"])
     assert member["points"] == 15
@@ -134,27 +134,37 @@ def test_acknowledgement_is_idempotent_and_replay_does_not_change_it(
     first = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
     latest = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
 
-    replay = client.get(f"/seasons/{season['id']}/episode-results/{first['id']}")
-    assert replay.status_code == 200
-    assert client.get(f"/seasons/{season['id']}/reveal").json()["episode_id"] == str(
-        latest["id"]
+    replay = client.get(
+        f"/league-seasons/{season['league_season_id']}/episode-results/{first['id']}"
     )
+    assert replay.status_code == 200
+    assert client.get(f"/league-seasons/{season['league_season_id']}/reveal").json()[
+        "episode_id"
+    ] == str(latest["id"])
 
-    url = f"/seasons/{season['id']}/reveal-acknowledgement"
+    url = f"/league-seasons/{season['league_season_id']}/reveal-acknowledgement"
     first_ack = client.post(url, json={"episode_id": str(latest["id"])})
     duplicate = client.post(url, json={"episode_id": str(latest["id"])})
     assert first_ack.status_code == duplicate.status_code == 200
     assert first_ack.json() == duplicate.json()
-    assert client.get(f"/seasons/{season['id']}/reveal").status_code == 204
+    assert (
+        client.get(f"/league-seasons/{season['league_season_id']}/reveal").status_code
+        == 204
+    )
 
     # A later history replay and an older acknowledgement cannot rewind state.
     assert (
-        client.get(f"/seasons/{season['id']}/episode-results/{first['id']}").status_code
+        client.get(
+            f"/league-seasons/{season['league_season_id']}/episode-results/{first['id']}"
+        ).status_code
         == 200
     )
     older = client.post(url, json={"episode_id": str(first["id"])})
     assert older.json()["episode_id"] == str(latest["id"])
-    assert client.get(f"/seasons/{season['id']}/reveal").status_code == 204
+    assert (
+        client.get(f"/league-seasons/{season['league_season_id']}/reveal").status_code
+        == 204
+    )
 
 
 @pytest.mark.integration
@@ -164,7 +174,7 @@ def test_only_latest_missed_result_is_offered(client, db_conn):
     insert_episode(db_conn, season["id"], episode_number=1, status="scored")
     insert_episode(db_conn, season["id"], episode_number=2, status="scored")
     latest = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
-    result = client.get(f"/seasons/{season['id']}/reveal").json()
+    result = client.get(f"/league-seasons/{season['league_season_id']}/reveal").json()
     assert result["episode_id"] == str(latest["id"])
 
 
@@ -172,20 +182,28 @@ def test_only_latest_missed_result_is_offered(client, db_conn):
 def test_completed_season_and_watch_only_premiere_do_not_auto_reveal(client, db_conn):
     completed = insert_season(db_conn, status="completed", roster_lock_episode=1)
     old_episode = insert_episode(db_conn, completed["id"], status="scored")
-    assert client.get(f"/seasons/{completed['id']}/reveal").status_code == 204
     assert (
         client.get(
-            f"/seasons/{completed['id']}/episode-results/{old_episode['id']}"
+            f"/league-seasons/{completed['league_season_id']}/reveal"
+        ).status_code
+        == 204
+    )
+    assert (
+        client.get(
+            f"/league-seasons/{completed['league_season_id']}/episode-results/{old_episode['id']}"
         ).status_code
         == 200
     )
 
     active = insert_season(db_conn, status="active", roster_lock_episode=2)
     premiere = insert_episode(db_conn, active["id"], status="scored")
-    assert client.get(f"/seasons/{active['id']}/reveal").status_code == 204
+    assert (
+        client.get(f"/league-seasons/{active['league_season_id']}/reveal").status_code
+        == 204
+    )
     assert (
         client.get(
-            f"/seasons/{active['id']}/episode-results/{premiere['id']}"
+            f"/league-seasons/{active['league_season_id']}/episode-results/{premiere['id']}"
         ).status_code
         == 404
     )
@@ -224,7 +242,7 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
     insert_elimination(db_conn, finale["id"], early["id"], "voted_out")
     insert_elimination(db_conn, finale["id"], fire["id"], "fire_making_loss")
 
-    result = client.get(f"/seasons/{season['id']}/reveal").json()
+    result = client.get(f"/league-seasons/{season['league_season_id']}/reveal").json()
     assert [pick["prediction_type"] for pick in result["ballot"]] == [
         "final_four",
         "final_four",
@@ -249,16 +267,16 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
 def test_reveal_routes_require_authentication(unauth_client):
     season_id = uuid.uuid4()
     episode_id = uuid.uuid4()
-    assert unauth_client.get(f"/seasons/{season_id}/reveal").status_code == 401
+    assert unauth_client.get(f"/league-seasons/{season_id}/reveal").status_code == 401
     assert (
         unauth_client.get(
-            f"/seasons/{season_id}/episode-results/{episode_id}"
+            f"/league-seasons/{season_id}/episode-results/{episode_id}"
         ).status_code
         == 401
     )
     assert (
         unauth_client.post(
-            f"/seasons/{season_id}/reveal-acknowledgement",
+            f"/league-seasons/{season_id}/reveal-acknowledgement",
             json={"episode_id": str(episode_id)},
         ).status_code
         == 401

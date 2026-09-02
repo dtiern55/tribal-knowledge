@@ -18,6 +18,7 @@ import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '..
 import { rankStandings } from '../lib/standings'
 import { useSwipeNav } from '../lib/swipe'
 import type {
+  Season,
   AdvantagePlay,
   Contestant,
   Elimination,
@@ -70,7 +71,7 @@ function AdvantageEarned({ value }: { value: number }) {
 }
 
 export function TeamPage() {
-  const { seasonId, userId } = useParams()
+  const { leagueSeasonId, userId } = useParams()
   const [siblings, setSiblings] = useState<StandingEntry[]>([])
   const [player, setPlayer] = useState<StandingEntry | null>(null)
   const [roster, setRoster] = useState<RosterPick[]>([])
@@ -87,7 +88,7 @@ export function TeamPage() {
   const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
 
   useEffect(() => {
-    if (!seasonId || !userId) return
+    if (!leagueSeasonId || !userId) return
     async function load() {
       setLoading(true)
       setError(null)
@@ -98,21 +99,22 @@ export function TeamPage() {
       setSsBonus(0)
       setBracket(null)
       try {
+        const season = await api.get<Season>(`/league-seasons/${leagueSeasonId}`)
         const [cs, standings, episodeRows] = await Promise.all([
-          api.get<Contestant[]>(`/seasons/${seasonId}/contestants`),
-          api.get<StandingEntry[]>(`/seasons/${seasonId}/standings`),
-          api.get<Episode[]>(`/seasons/${seasonId}/episodes`),
+          api.get<Contestant[]>(`/seasons/${season.season_id}/contestants`),
+          api.get<StandingEntry[]>(`/league-seasons/${leagueSeasonId}/standings`),
+          api.get<Episode[]>(`/seasons/${season.season_id}/episodes`),
         ])
         setContestants(cs)
         setEpisodes(episodeRows)
         setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
         setSiblings(standings)
         try {
-          setRoster(await api.get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`))
-          const breakdown = await api.get<ScoringBreakdown>(`/seasons/${seasonId}/scoring-breakdown/${userId}`)
+          setRoster(await api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`))
+          const breakdown = await api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`)
           setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
           setSsBonus(breakdown.sole_survivor_bonus)
-          setPlays(await api.get<AdvantagePlay[]>(`/seasons/${seasonId}/advantage-plays/${userId}`).catch(() => []))
+          setPlays(await api.get<AdvantagePlay[]>(`/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`).catch(() => []))
         } catch {
           setHidden(true)
         }
@@ -122,7 +124,7 @@ export function TeamPage() {
         const visible = episodeRows.filter((e) => episodeClosed(e) && !e.is_finale).sort((a, b) => b.episode_number - a.episode_number)
         setVotes(await Promise.all(visible.map(async (episode) => {
           const [picks, eliminations] = await Promise.all([
-            api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`).catch(() => []),
+            api.get<EliminationPick[]>(`/league-seasons/${leagueSeasonId}/episodes/${episode.id}/picks/${userId}`).catch(() => []),
             api.get<Elimination[]>(`/episodes/${episode.id}/eliminations`),
           ])
           return { episode, picks, eliminatedIds: new Set(eliminations.map((row) => row.contestant_id)) }
@@ -131,7 +133,7 @@ export function TeamPage() {
         // The finale ballot is a separate bracket (Final 4/3/winner), not
         // elimination picks; 404 when the player never filed one (they may only
         // have the Sole Survivor designation), 403 until the finale locks.
-        setBracket(await api.get<FinalePrediction>(`/seasons/${seasonId}/finale-predictions/${userId}`).catch(() => null))
+        setBracket(await api.get<FinalePrediction>(`/league-seasons/${leagueSeasonId}/finale-predictions/${userId}`).catch(() => null))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load team')
       } finally {
@@ -139,12 +141,12 @@ export function TeamPage() {
       }
     }
     void load()
-  }, [seasonId, userId])
+  }, [leagueSeasonId, userId])
 
   const idx = siblings.findIndex((standing) => standing.user_id === userId)
   const prevP = idx > 0 ? siblings[idx - 1] : undefined
   const nextP = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
-  const href = (standing?: StandingEntry) => standing && `/seasons/${seasonId}/team/${standing.user_id}`
+  const href = (standing?: StandingEntry) => standing && `/league-seasons/${leagueSeasonId}/team/${standing.user_id}`
   useSwipeNav(href(prevP), href(nextP))
 
   // Keep the current team on screen while swiping to a sibling (#451) — only the

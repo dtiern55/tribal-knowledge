@@ -9,15 +9,17 @@ from app.schemas import RulesResponse
 router = APIRouter(tags=["rules"])
 
 
-@router.get("/seasons/{season_id}/rules", response_model=RulesResponse)
-def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
+@router.get("/league-seasons/{league_season_id}/rules", response_model=RulesResponse)
+def get_rules(league_season_id: UUID, user_id: UUID = Depends(get_current_user)):
     """Everything a Rules page needs, straight from the config tables so it
     stays in sync with actual scoring (issue #95): the season's structural
     rules plus scoring-event, prediction and advantage values.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], user_id)
+            season_id = str(season["season_id"])
             # Season snapshot, not the globals (#170): the Rules page shows
             # the values THIS season actually scores with, forever.
             cur.execute(
@@ -25,7 +27,7 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
                 " token_value, is_per_unit from season_scoring_event_types"
                 " where season_id = %s and (enabled or %s)"
                 " order by point_value desc, token_value desc, label",
-                [str(season_id), season["token_economy_enabled"]],
+                [season_id, season["token_economy_enabled"]],
             )
             scoring_events = cur.fetchall()
             # Classic winner-pick / placement outcomes were removed (#164 →
@@ -40,7 +42,7 @@ def get_rules(season_id: UUID, _: UUID = Depends(get_current_user)):
                 " from season_prediction_score_types where season_id = %s"
                 f" and key not in {hidden}"
                 " order by point_value desc",
-                [str(season_id)],
+                [season_id],
             )
             prediction_scores = cur.fetchall()
             cur.execute(

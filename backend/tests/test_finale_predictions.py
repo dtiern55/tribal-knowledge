@@ -38,7 +38,7 @@ def test_submit_and_get_finale_prediction(client, db_conn, current_user):
     _open_finale_episode(db_conn, season["id"])
 
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={
             "final_four_contestant_ids": [
                 str(cs[0]["id"]),
@@ -69,7 +69,9 @@ def test_submit_and_get_finale_prediction(client, db_conn, current_user):
     ]
     assert data["winner_contestant_id"] == str(cs[0]["id"])
 
-    r2 = client.get(f"/seasons/{season['id']}/finale-predictions/{current_user['id']}")
+    r2 = client.get(
+        f"/league-seasons/{season['league_season_id']}/finale-predictions/{current_user['id']}"
+    )
     assert r2.status_code == 200
     assert r2.json()["winner_contestant_id"] == str(cs[0]["id"])
 
@@ -81,7 +83,7 @@ def test_partial_ballot_allowed(client, db_conn):
     _open_finale_episode(db_conn, season["id"])
 
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"winner_contestant_id": str(c1["id"])},
     )
     assert r.status_code == 200
@@ -99,7 +101,7 @@ def test_dedupes_repeated_pick(client, db_conn):
     _open_finale_episode(db_conn, season["id"])
 
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={
             "final_four_contestant_ids": [str(c1["id"]), str(c1["id"]), str(c2["id"])]
         },
@@ -116,11 +118,11 @@ def test_upsert_updates_existing(client, db_conn):
     _open_finale_episode(db_conn, season["id"])
 
     client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"winner_contestant_id": str(c1["id"])},
     )
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"winner_contestant_id": str(c2["id"])},
     )
     assert r.status_code == 200
@@ -130,7 +132,9 @@ def test_upsert_updates_existing(client, db_conn):
 @pytest.mark.integration
 def test_get_prediction_not_found(client, db_conn, current_user):
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/finale-predictions/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/finale-predictions/{current_user['id']}"
+    )
     assert r.status_code == 404
 
 
@@ -138,7 +142,9 @@ def test_get_prediction_not_found(client, db_conn, current_user):
 def test_other_users_prediction_hidden_until_lock(client, db_conn):
     season = insert_season(db_conn)
     _open_finale_episode(db_conn, season["id"])
-    r = client.get(f"/seasons/{season['id']}/finale-predictions/{uuid.uuid4()}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/finale-predictions/{uuid.uuid4()}"
+    )
     assert r.status_code == 403
 
 
@@ -156,7 +162,9 @@ def test_other_users_prediction_visible_after_lock(client, db_conn):
     )
     other = insert_user(db_conn, display_name="Other")
     insert_finale_prediction(db_conn, other["id"], season["id"])
-    r = client.get(f"/seasons/{season['id']}/finale-predictions/{other['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/finale-predictions/{other['id']}"
+    )
     assert r.status_code == 200
     assert r.json()["user_id"] == str(other["id"])
 
@@ -165,7 +173,7 @@ def test_other_users_prediction_visible_after_lock(client, db_conn):
 def test_submit_blocked_no_finale_episode(client, db_conn):
     season = insert_season(db_conn, status="active")
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={},
     )
     assert r.status_code == 400
@@ -177,7 +185,7 @@ def test_submit_blocked_after_lock(client, db_conn):
     season = insert_season(db_conn, status="active")
     _locked_finale_episode(db_conn, season["id"])
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={},
     )
     assert r.status_code == 400
@@ -189,7 +197,7 @@ def test_submit_blocked_completed_season(client, db_conn):
     season = insert_season(db_conn, status="completed")
     _open_finale_episode(db_conn, season["id"])
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={},
     )
     assert r.status_code == 400
@@ -201,7 +209,7 @@ def test_submit_invalid_contestant(client, db_conn):
     season = insert_season(db_conn, status="active")
     _open_finale_episode(db_conn, season["id"])
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"winner_contestant_id": str(uuid.uuid4())},
     )
     assert r.status_code == 400
@@ -220,14 +228,14 @@ def test_ballot_rejects_eliminated_contestant(client, db_conn, current_user):
     _open_finale_episode(db_conn, season["id"])
 
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"final_four_contestant_ids": [str(gone["id"])]},
     )
     assert r.status_code == 400
     assert "eliminated" in r.json()["detail"]
 
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"winner_contestant_id": str(alive["id"])},
     )
     assert r.status_code == 200
@@ -243,7 +251,7 @@ def test_ballot_allows_finale_episode_boots(client, db_conn, current_user):
     insert_elimination(db_conn, fin["id"], finalist["id"])
 
     r = client.post(
-        f"/seasons/{season['id']}/finale-predictions",
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
         json={"final_four_contestant_ids": [str(finalist["id"])]},
     )
     assert r.status_code == 200

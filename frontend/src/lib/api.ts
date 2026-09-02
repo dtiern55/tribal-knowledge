@@ -43,7 +43,7 @@ export const api = {
 // The Standings season pick sticks app-wide (issue: every page independently
 // snapped back to the default season). Pinning the default clears instead, so
 // nobody stays stuck on an old season once a new one goes live.
-const SEASON_KEY = 'tk-season-id'
+const SEASON_KEY = 'tk-league-season-id'
 
 export function pinSeason(id: string, seasons: Season[]) {
   if (id === defaultSeason(seasons)?.id) localStorage.removeItem(SEASON_KEY)
@@ -51,10 +51,10 @@ export function pinSeason(id: string, seasons: Season[]) {
 }
 
 export function defaultSeason(seasons: Season[]): Season | null {
-  // Falls back to the most recently *created* season, not the highest number:
-  // /seasons is ordered by season_number, and practice seasons are numbered
-  // 100+, so `at(-1)` sent everyone to Practice Island V the moment the real
-  // season was marked completed.
+  // The first active league-season (/league-seasons is ordered by season
+  // number, then league). Falls back to the most recently *created* one, not
+  // the highest number: practice seasons are numbered 100+, so `at(-1)` sent
+  // everyone to Practice Island V the moment the real season was completed.
   const newest = seasons.reduce<Season | null>(
     (best, s) => (best == null || s.created_at > best.created_at ? s : best),
     null,
@@ -62,10 +62,10 @@ export function defaultSeason(seasons: Season[]): Season | null {
   return seasons.find((s) => s.status === 'active') ?? newest
 }
 
-/** The season every page operates on: the pinned Standings pick if it still
- * exists, else the active one, else the most recent. */
+/** The league-season every page operates on (#595): the pinned pick if it
+ * still exists, else the active one, else the most recent. */
 export async function getActiveSeason(): Promise<Season | null> {
-  const seasons = await api.get<Season[]>('/seasons')
+  const seasons = await api.get<Season[]>('/league-seasons')
   const pinned = localStorage.getItem(SEASON_KEY)
   return seasons.find((s) => s.id === pinned) ?? defaultSeason(seasons)
 }

@@ -16,8 +16,6 @@ def test_create_season(client):
     data = r.json()
     assert data["name"] == "Survivor: X"
     assert data["season_number"] == 50
-    assert data["roster_size"] == 5  # default
-    assert data["roster_lock_episode"] == 1  # default (#152)
     assert data["status"] == "upcoming"
 
 
@@ -29,24 +27,15 @@ def test_create_season_duplicate_number(client, db_conn):
 
 
 @pytest.mark.integration
-def test_create_season_bad_roster_size(client):
-    r = client.post(
-        "/seasons",
-        json={"name": "X", "season_number": 51, "roster_size": 99},
-    )
-    assert r.status_code == 422  # pydantic le=10
-
-
-@pytest.mark.integration
 def test_update_season(client, db_conn):
     season = insert_season(db_conn)
     r = client.patch(
         f"/seasons/{season['id']}",
-        json={"roster_lock_episode": 2, "status": "active"},
+        json={"merge_episode": 7, "status": "active"},
     )
     assert r.status_code == 200
     data = r.json()
-    assert data["roster_lock_episode"] == 2
+    assert data["merge_episode"] == 7
     assert data["status"] == "active"
 
 

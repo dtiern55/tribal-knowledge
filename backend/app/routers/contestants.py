@@ -219,12 +219,17 @@ def get_contestant_performance(
 
             # Token earning stops at the advantage cutoff (#102). Without this
             # the page renders an event's token_value as though it were paid
-            # (#295) — on a locked episode nobody received anything.
+            # (#295) — on a locked episode nobody received anything. The lock
+            # is a league-season knob now (#595); tokens only ever existed in
+            # the single-league era, so the season's first league-season is
+            # exactly the one that paid them.
             cur.execute(
-                "select advantage_lock_episode from seasons where id = %s",
+                "select advantage_lock_episode from league_seasons"
+                " where season_id = %s order by created_at limit 1",
                 [str(c["season_id"])],
             )
-            adv_lock = cur.fetchone()["advantage_lock_episode"]
+            row = cur.fetchone()
+            adv_lock = row["advantage_lock_episode"] if row else None
             for stat in by_ep.values():
                 stat["tokens_locked"] = advantages_locked(
                     stat["episode_number"], stat["is_finale"], adv_lock

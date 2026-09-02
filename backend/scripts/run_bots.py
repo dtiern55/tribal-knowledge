@@ -13,12 +13,15 @@ just echoing it back. Now the commissioner supplies the BEHAVIOUR and survivoR
 supplies the OUTCOME, and the interaction is what we learn from.
 
 Usage (from backend/):
-    uv run python scripts/run_bots.py setup            # accounts + persona labels
-    uv run python scripts/run_bots.py draft            # opening rosters (needs read)
-    uv run python scripts/run_bots.py week 2           # picks + plays for ep 2
-    uv run python scripts/run_bots.py ballot           # finale bracket (active season)
-    uv run python scripts/run_bots.py ballot --check   # preflight, writes nothing
-    uv run python scripts/run_bots.py ballot --season 37   # backfill a scored season
+    uv run python scripts/run_bots.py setup --league Bots         # accounts + labels
+    uv run python scripts/run_bots.py draft --league Bots --season 101
+    uv run python scripts/run_bots.py week 2 --league Bots --season 101
+    uv run python scripts/run_bots.py ballot --league Bots --season 101
+    uv run python scripts/run_bots.py ballot --league Bots --season 101 --check
+
+Bots play in a league of their own (#595): `setup` enrolls them in the named
+league, and every writing command names the league AND the season it plays,
+so a stray run can never file picks into a league real players are in.
 
 `week N` runs BEFORE episode N airs. Import and score the episode afterwards
 with scripts/import_episode.py, then run `week N+1`.
@@ -166,14 +169,39 @@ def db():
     )
 
 
-def active_season(cur) -> dict:
+def league_by_name(cur, name: str) -> dict:
+    cur.execute("select * from leagues where name = %s", [name])
+    league = cur.fetchone()
+    if not league:
+        sys.exit(f"No league named {name!r}")
+    return league
+
+
+def league_season(cur, league_name: str, season_number: int) -> dict:
+    """The league-season the bots play: `id` is the league-season, `season_id`
+    the show. Refuses a league with any real (non-bot, non-admin) member —
+    bots only ever play among themselves and the commissioner."""
+    league = league_by_name(cur, league_name)
     cur.execute(
-        "select * from seasons where status = 'active' order by created_at desc limit 1"
+        "select 1 from league_members m"
+        " join auth.users u on u.id = m.user_id"
+        " join profiles p on p.id = m.user_id"
+        " where m.league_id = %s and not p.is_admin"
+        "   and u.email not like 'bot-%%@tribal.local' limit 1",
+        [league["id"]],
     )
-    s = cur.fetchone()
-    if not s:
-        sys.exit("No active season")
-    return s
+    if cur.fetchone():
+        sys.exit(f"{league_name!r} has real players — bots only play bot leagues")
+    cur.execute(
+        "select ls.*, s.name, s.season_number, s.merge_episode, s.status"
+        " from league_seasons ls join seasons s on s.id = ls.season_id"
+        " where ls.league_id = %s and s.season_number = %s",
+        [league["id"], season_number],
+    )
+    ls = cur.fetchone()
+    if not ls:
+        sys.exit(f"{league_name!r} does not play season {season_number}")
+    return ls
 
 
 def load_read(season) -> dict:
@@ -232,15 +260,18 @@ def create_bot_account(cur, http) -> str:
 
 
 def load_bots(cur) -> list[dict]:
+    # Bots are the accounts setup minted, identified by their auth email.
+    # Anything looser (e.g. "every non-admin") would pick up real players.
     cur.execute(
-        "select id, display_name from profiles"
-        " where not is_admin and display_name <> 'Danny Fairplay'"
-        " order by created_at"
+        "select p.id, p.display_name from profiles p"
+        " join auth.users u on u.id = p.id"
+        " where u.email like 'bot-%@tribal.local'"
+        " order by p.created_at"
     )
     return cur.fetchall()
 
 
-def setup(cur, http):
+def setup(cur, http, league_name: str):
     """Accounts and persona labels. Needs no read — run it any time.
 
     Deliberately separate from `draft`: labelling is static config, while the
@@ -261,10 +292,9 @@ def setup(cur, http):
         bots = load_bots(cur)
     if len(bots) > len(arche):
         # zip() would quietly pair only the first len(arche) and leave the
-        # rest carrying a previous season's name with no roster — and an
-        # active season's standings lists every profile, so they'd sit there
-        # at zero all season. Surplus bots can't just be deleted either:
-        # their history is what completed seasons still score (#170).
+        # rest carrying a previous season's name with no roster. Surplus bots
+        # can't just be deleted either: their history is what completed
+        # seasons still score (#170).
         surplus = [b["display_name"] for b in bots[len(arche) :]]
         sys.exit(
             f"{len(bots)} bot accounts but {len(arche)} personas.\n"
@@ -273,42 +303,45 @@ def setup(cur, http):
             " setup will not leave bots half-configured."
         )
 
+    league = league_by_name(cur, league_name)
     for a, bot in zip(arche, bots):
         cur.execute(
             "update profiles set display_name = %s where id = %s",
             [a["name"], bot["id"]],
         )
+        cur.execute(
+            "insert into league_members (league_id, user_id) values (%s, %s)"
+            " on conflict do nothing",
+            [league["id"], bot["id"]],
+        )
         print(f"  {bot['display_name']:<26} → {a['name']:<20} {a['style']}")
-    print(f"setup: {len(arche)} bots labelled")
+    print(f"setup: {len(arche)} bots labelled and enrolled in {league_name}")
 
 
-def draft(cur):
+def draft(cur, league_name: str, season_number: int):
     """Draft every bot's opening roster from the read's desirability order.
 
     Run after the premiere, before the roster lock. Popular castaways get
     over-rostered and the unpopular ones barely owned, which is what makes a
     mid-season boot actually hurt the league.
     """
-    season = active_season(cur)
+    season = league_season(cur, league_name, season_number)
+    sid, lsid = str(season["season_id"]), str(season["id"])
     read = load_read(season)
     arche = archetypes()
     bots = load_bots(cur)
     lock_ep = season["roster_lock_episode"] or 1
-    require_history_scored(cur, str(season["id"]), lock_ep)
+    require_history_scored(cur, sid, lock_ep)
     # Anyone already voted out is off the board — nobody drafts a dead slot.
-    everyone = alive_ids(cur, season["id"])
+    everyone = alive_ids(cur, sid)
     wanted = [
-        c
-        for c in resolve(cur, season["id"], read.get("draft", []), "draft")
-        if c in everyone
+        c for c in resolve(cur, sid, read.get("draft", []), "draft") if c in everyone
     ]
     # Desirability order: the read's wanted list, then everyone unmentioned,
     # then anyone the read explicitly flags as unwanted after a rough
     # premiere — they still get drafted occasionally, just last.
     shunned = [
-        c
-        for c in resolve(cur, season["id"], read.get("avoid", []), "avoid")
-        if c in everyone
+        c for c in resolve(cur, sid, read.get("avoid", []), "avoid") if c in everyone
     ]
     middle = [c for c in everyone if c not in wanted and c not in shunned]
     pool = wanted + middle + shunned
@@ -316,8 +349,9 @@ def draft(cur):
     n = 0
     for a, bot in zip(arche, bots):
         cur.execute(
-            "select count(*) n from roster_picks where user_id=%s and season_id=%s",
-            [bot["id"], season["id"]],
+            "select count(*) n from roster_picks"
+            " where user_id=%s and league_season_id=%s",
+            [bot["id"], lsid],
         )
         if cur.fetchone()["n"]:
             continue
@@ -327,10 +361,10 @@ def draft(cur):
         for cid in picks:
             cur.execute(
                 """insert into roster_picks
-                (user_id, season_id, contestant_id, active_from_episode,
+                (user_id, league_season_id, contestant_id, active_from_episode,
                  swap_penalty_points)
                 values (%s,%s,%s,%s,0)""",
-                [bot["id"], season["id"], cid, lock_ep],
+                [bot["id"], lsid, cid, lock_ep],
             )
         n += 1
     print(f"draft: {n} bots rostered for {season['name']}")
@@ -362,7 +396,7 @@ def require_history_scored(cur, sid, upto: int):
         )
 
 
-def next_open_ep(cur, sid):
+def next_open_ep(cur, season):
     """The episode currently open for picks — mirrors app/locking.py.
 
     The roster_lock_episode clause matters: a watch-only premiere is never
@@ -371,12 +405,12 @@ def next_open_ep(cur, sid):
     """
     cur.execute(
         """
-        select e.* from episodes e join seasons s on s.id = e.season_id
+        select e.* from episodes e
         where e.season_id=%s and e.status <> 'scored'
-          and e.episode_number >= coalesce(s.roster_lock_episode, 1)
+          and e.episode_number >= %s
         order by e.episode_number limit 1
         """,
-        [sid],
+        [str(season["season_id"]), season["roster_lock_episode"] or 1],
     )
     ep = cur.fetchone()
     if ep is None:
@@ -404,40 +438,40 @@ def used_play(cur, uid, epid) -> bool:
     return cur.fetchone() is not None
 
 
-def has_sole_survivor(cur, uid, sid) -> bool:
+def has_sole_survivor(cur, uid, lsid) -> bool:
     cur.execute(
         "select 1 from roster_picks"
-        " where user_id=%s and season_id=%s and is_sole_survivor",
-        [uid, sid],
+        " where user_id=%s and league_season_id=%s and is_sole_survivor",
+        [uid, lsid],
     )
     return cur.fetchone() is not None
 
 
-def active_roster(cur, uid, sid) -> list[dict]:
+def active_roster(cur, uid, lsid) -> list[dict]:
     cur.execute(
         "select id, contestant_id::text cid, active_from_episode af"
-        " from roster_picks where user_id=%s and season_id=%s"
+        " from roster_picks where user_id=%s and league_season_id=%s"
         " and active_until_episode is null",
-        [uid, sid],
+        [uid, lsid],
     )
     return cur.fetchall()
 
 
-def swapped_this_episode(cur, uid, sid, episode_n) -> bool:
+def swapped_this_episode(cur, uid, lsid, episode_n) -> bool:
     """One swap per episode (#404): a swap closes the outgoing pick at N-1."""
     cur.execute(
-        "select 1 from roster_picks where user_id=%s and season_id=%s"
+        "select 1 from roster_picks where user_id=%s and league_season_id=%s"
         " and active_until_episode=%s",
-        [uid, sid, episode_n - 1],
+        [uid, lsid, episode_n - 1],
     )
     return cur.fetchone() is not None
 
 
-def swaps_committed(cur, uid, sid) -> int:
+def swaps_committed(cur, uid, lsid) -> int:
     cur.execute(
-        "select count(*) n from roster_picks where user_id=%s and season_id=%s"
+        "select count(*) n from roster_picks where user_id=%s and league_season_id=%s"
         " and active_until_episode is not null",
-        [uid, sid],
+        [uid, lsid],
     )
     return cur.fetchone()["n"]
 
@@ -450,7 +484,7 @@ def swap_penalty(season, ordinal) -> int:
     return max(season["swap_penalty_step"] * ordinal, season["swap_penalty_floor"])
 
 
-def do_swap(cur, uid, sid, ep, old_pick, new_cid, penalty):
+def do_swap(cur, uid, lsid, ep, old_pick, new_cid, penalty):
     """Mirrors POST /roster/swap: close the old row with its penalty, open the
     new one. The swap no longer touches the weekly play (#404)."""
     cur.execute(
@@ -460,21 +494,21 @@ def do_swap(cur, uid, sid, ep, old_pick, new_cid, penalty):
     )
     cur.execute(
         "insert into roster_picks"
-        " (user_id, season_id, contestant_id, active_from_episode)"
+        " (user_id, league_season_id, contestant_id, active_from_episode)"
         " values (%s,%s,%s,%s)",
-        [uid, sid, new_cid, ep["episode_number"]],
+        [uid, lsid, new_cid, ep["episode_number"]],
     )
 
 
-def week(cur, episode_n: int):
+def week(cur, episode_n: int, league_name: str, season_number: int):
     """Make every bot's picks, swaps and advantage play for one episode.
 
     Runs BEFORE the episode airs. Order matters: a swap can consume the
     week's play, so swaps resolve first and the advantage choice sees what's
     left — the same trade-off a human faces on the page.
     """
-    season = active_season(cur)
-    sid = season["id"]
+    season = league_season(cur, league_name, season_number)
+    sid, lsid = str(season["season_id"]), str(season["id"])
     read = load_read(season)
     ep_read = (read.get("episodes") or {}).get(str(episode_n))
     if not ep_read:
@@ -483,7 +517,7 @@ def week(cur, episode_n: int):
             f" season_{season['season_number']}.json"
         )
 
-    require_history_scored(cur, str(sid), episode_n)
+    require_history_scored(cur, sid, episode_n)
     cur.execute(
         "select * from episodes where season_id=%s and episode_number=%s",
         [sid, episode_n],
@@ -491,7 +525,7 @@ def week(cur, episode_n: int):
     ep = cur.fetchone()
     if not ep:
         sys.exit(f"Episode {episode_n} doesn't exist in {season['name']}")
-    nxt = next_open_ep(cur, sid)
+    nxt = next_open_ep(cur, season)
     if not nxt or nxt["episode_number"] != episode_n:
         open_n = nxt["episode_number"] if nxt else None
         sys.exit(
@@ -556,8 +590,8 @@ def week(cur, episode_n: int):
 
     cur.execute(
         """select contestant_id::text cid, count(*) n from roster_picks
-           where season_id=%s and active_until_episode is null group by 1""",
-        [sid],
+           where league_season_id=%s and active_until_episode is null group by 1""",
+        [lsid],
     )
     owned = {r["cid"]: r["n"] for r in cur.fetchall()}
 
@@ -590,8 +624,8 @@ def week(cur, episode_n: int):
         # --- swap out dead weight (an eliminated castaway) ---
         # No longer gated on the weekly play (#404) — swaps have their own
         # economy: one per episode, priced in points.
-        if swaps_open and not swapped_this_episode(cur, uid, sid, episode_n):
-            roster = active_roster(cur, uid, sid)
+        if swaps_open and not swapped_this_episode(cur, uid, lsid, episode_n):
+            roster = active_roster(cur, uid, lsid)
             held = {p["cid"] for p in roster}
             swappable = [p for p in roster if p["af"] < episode_n]
             # Only a corpse is worth a swap. Danny's rule (2026-08-05): there
@@ -600,7 +634,7 @@ def week(cur, episode_n: int):
             # means. Dropping someone merely *likely* to go bails on players
             # who often survive, and spends a finite resource on a guess.
             dead = [p for p in swappable if p["cid"] not in alive]
-            ordinal = swaps_committed(cur, uid, sid) + 1
+            ordinal = swaps_committed(cur, uid, lsid) + 1
             penalty = swap_penalty(season, ordinal)
             add_pool = [c for c in alive if c not in held]
             # Always drop a corpse (Danny 2026-08-21): a dead castaway scores
@@ -616,7 +650,7 @@ def week(cur, episode_n: int):
                 want = sorted(want, key=lambda c: owned.get(c, 0))
                 new = biased_order(want, a["spread"], uid, episode_n, "swapin")[0]
                 owned[new] = owned.get(new, 0) + 1
-                do_swap(cur, uid, sid, ep, out, new, penalty)
+                do_swap(cur, uid, lsid, ep, out, new, penalty)
                 swaps_made += 1
                 if penalty:
                     tally["paid_swap"] += 1
@@ -624,8 +658,8 @@ def week(cur, episode_n: int):
         # --- elimination picks, sampled from the read ---
         cur.execute(
             "select count(*) n from elimination_picks"
-            " where user_id=%s and episode_id=%s",
-            [uid, str(ep["id"])],
+            " where user_id=%s and league_season_id=%s and episode_id=%s",
+            [uid, lsid, str(ep["id"])],
         )
         if cur.fetchone()["n"] == 0 and max_picks:
             if a["style"] == "contrarian":
@@ -655,15 +689,16 @@ def week(cur, episode_n: int):
                 )[:max_picks]
             for cid in chosen:
                 cur.execute(
-                    "insert into elimination_picks (user_id, episode_id, contestant_id)"
-                    " values (%s,%s,%s)",
-                    [uid, str(ep["id"]), cid],
+                    "insert into elimination_picks"
+                    " (user_id, league_season_id, episode_id, contestant_id)"
+                    " values (%s,%s,%s,%s)",
+                    [uid, lsid, str(ep["id"]), cid],
                 )
                 picks_made += 1
 
         # --- the week's one advantage play ---
         if not used_play(cur, uid, ep["id"]):
-            held = {p["cid"] for p in active_roster(cur, uid, sid)}
+            held = {p["cid"] for p in active_roster(cur, uid, lsid)}
             star = [c for c in held if c in targets]
             if a["style"] == "roster":
                 choice = "double_roster_points"
@@ -716,10 +751,10 @@ def week(cur, episode_n: int):
                     dbl_used[target] = dbl_used.get(target, 0) + 1
             cur.execute(
                 """insert into advantage_plays
-                (user_id, season_id, episode_id, advantage_type,
+                (user_id, league_season_id, episode_id, advantage_type,
                  target_contestant_id, token_cost)
                 values (%s,%s,%s,%s,%s,0)""",
-                [uid, sid, str(ep["id"]), choice, target],
+                [uid, lsid, str(ep["id"]), choice, target],
             )
             plays_made += 1
             tally[choice] += 1
@@ -728,13 +763,15 @@ def week(cur, episode_n: int):
         # The read is forward-looking and has no opinion on who wins, so this
         # is a coin toss across the bot's live roster rather than a judgement.
         # alive_ids already excludes the eliminated, who aren't valid (#180).
-        if ss_open and not has_sole_survivor(cur, uid, sid):
-            live = [p["cid"] for p in active_roster(cur, uid, sid) if p["cid"] in alive]
+        if ss_open and not has_sole_survivor(cur, uid, lsid):
+            live = [
+                p["cid"] for p in active_roster(cur, uid, lsid) if p["cid"] in alive
+            ]
             if live:
                 cur.execute(
                     "update roster_picks set is_sole_survivor = true"
-                    " where user_id=%s and season_id=%s and contestant_id=%s",
-                    [uid, sid, min(live, key=lambda c: rng(uid, "ss", c))],
+                    " where user_id=%s and league_season_id=%s and contestant_id=%s",
+                    [uid, lsid, min(live, key=lambda c: rng(uid, "ss", c))],
                 )
                 ss_made += 1
 
@@ -778,11 +815,11 @@ def finalists(cur, sid) -> list[str]:
     return [r["cid"] for r in cur.fetchall()]
 
 
-def sole_survivor_id(cur, uid, sid):
+def sole_survivor_id(cur, uid, lsid):
     cur.execute(
         "select contestant_id::text cid from roster_picks"
-        " where user_id=%s and season_id=%s and is_sole_survivor limit 1",
-        [uid, sid],
+        " where user_id=%s and league_season_id=%s and is_sole_survivor limit 1",
+        [uid, lsid],
     )
     r = cur.fetchone()
     return r["cid"] if r else None
@@ -805,25 +842,14 @@ def finale_slate(pool: list[str], ss, spread: float, uid: str):
     return final_four, final_three, winner
 
 
-def season_by_number(cur, number: int) -> dict:
-    cur.execute("select * from seasons where season_number=%s", [number])
-    s = cur.fetchone()
-    if not s:
-        sys.exit(f"No season with season_number {number}")
-    return s
-
-
-def ballot(cur, season_number=None, check_only=False):
+def ballot(cur, league_name: str, season_number: int, check_only=False):
     """Every bot files a finale bracket: the winner from its Sole Survivor
     designation (mostly), the Final 4/3 a biased-random fill of the finalists.
 
-    Forward-looking by default (the active season, pre-finale); pass a season
-    number to backfill one whose finale is already scored — the finalist pool
-    computes the same way either way (#582)."""
-    season = (
-        season_by_number(cur, season_number) if season_number else active_season(cur)
-    )
-    sid = season["id"]
+    Works pre-finale or as a backfill once the finale is scored — the finalist
+    pool computes the same way either way (#582)."""
+    season = league_season(cur, league_name, season_number)
+    sid, lsid = str(season["season_id"]), str(season["id"])
 
     cur.execute("select 1 from episodes where season_id=%s and is_finale", [sid])
     if not cur.fetchone():
@@ -844,19 +870,20 @@ def ballot(cur, season_number=None, check_only=False):
             continue
         uid = bot["id"]
         cur.execute(
-            "select 1 from finale_predictions where user_id=%s and season_id=%s",
-            [uid, sid],
+            "select 1 from finale_predictions"
+            " where user_id=%s and league_season_id=%s",
+            [uid, lsid],
         )
         if cur.fetchone():
             continue
-        ss = sole_survivor_id(cur, uid, sid)
+        ss = sole_survivor_id(cur, uid, lsid)
         final_four, final_three, winner = finale_slate(pool, ss, a["spread"], uid)
         cur.execute(
             """insert into finale_predictions
-            (user_id, season_id, final_four_contestant_ids,
+            (user_id, league_season_id, final_four_contestant_ids,
              final_three_contestant_ids, winner_contestant_id)
             values (%s,%s,%s::uuid[],%s::uuid[],%s)""",
-            [uid, sid, final_four, final_three, winner],
+            [uid, lsid, final_four, final_three, winner],
         )
         n += 1
     print(f"ballot: {n} bots filed for {season['name']}")
@@ -864,31 +891,36 @@ def ballot(cur, season_number=None, check_only=False):
 
 def main():
     cmds = ("setup", "draft", "week", "ballot")
-    if len(sys.argv) < 2 or sys.argv[1] not in cmds:
-        sys.exit(
-            f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]\n"
-            "       run_bots.py ballot --check   (preflight only, writes nothing)"
-        )
+    usage = (
+        f"usage: run_bots.py {{{'|'.join(cmds)}}} [episode]"
+        " --league <name> [--season <number>]\n"
+        "       run_bots.py ballot --league <name> --season <n> --check"
+        "   (writes nothing)"
+    )
+    args = sys.argv[1:]
+    if not args or args[0] not in cmds or "--league" not in args:
+        sys.exit(usage)
+    cmd = args[0]
+    league_name = args[args.index("--league") + 1]
+    season_number = None
+    if "--season" in args:
+        season_number = int(args[args.index("--season") + 1])
+    elif cmd != "setup":
+        sys.exit(usage)
     conn = db()
     try:
         with conn.cursor() as cur:
-            if sys.argv[1] == "setup":
+            if cmd == "setup":
                 with httpx.Client(timeout=30) as http:
-                    setup(cur, http)
-            elif sys.argv[1] == "draft":
-                draft(cur)
-            elif sys.argv[1] == "ballot":
-                rest = sys.argv[2:]
-                season_number = (
-                    int(rest[rest.index("--season") + 1])
-                    if "--season" in rest
-                    else None
-                )
-                ballot(cur, season_number=season_number, check_only="--check" in rest)
+                    setup(cur, http, league_name)
+            elif cmd == "draft":
+                draft(cur, league_name, season_number)
+            elif cmd == "ballot":
+                ballot(cur, league_name, season_number, check_only="--check" in args)
             else:
-                if len(sys.argv) < 3:
-                    sys.exit("usage: run_bots.py week <episode_number>")
-                week(cur, int(sys.argv[2]))
+                if len(args) < 2 or not args[1].isdigit():
+                    sys.exit(usage)
+                week(cur, int(args[1]), league_name, season_number)
         conn.commit()
     finally:
         conn.close()

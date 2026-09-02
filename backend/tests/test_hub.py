@@ -30,14 +30,22 @@ def _episode(conn, season_id, *, locked):
 def test_hub_hidden_until_lock(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _episode(db_conn, season["id"], locked=False)
-    assert client.get(f"/episodes/{ep['id']}/hub").status_code == 403
+    assert (
+        client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+        ).status_code
+        == 403
+    )
 
 
 @pytest.mark.integration
 def test_hub_missing_episode(client):
     from uuid import uuid4
 
-    assert client.get(f"/episodes/{uuid4()}/hub").status_code == 404
+    assert (
+        client.get(f"/league-seasons/{uuid4()}/episodes/{uuid4()}/hub").status_code
+        == 404
+    )
 
 
 @pytest.mark.integration
@@ -61,7 +69,9 @@ def test_hub_reveals_the_field_at_lock(client, db_conn, current_user):
         target_contestant_id=boot["id"],
     )
 
-    rows = client.get(f"/episodes/{ep['id']}/hub").json()
+    rows = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+    ).json()
     by_name = {r["display_name"]: r for r in rows}
     assert set(by_name) >= {"Bianca"}
 
@@ -72,7 +82,9 @@ def test_hub_reveals_the_field_at_lock(client, db_conn, current_user):
 
     # A player with only a roster and no ballot still appears; a no-show doesn't.
     insert_user(db_conn, display_name="NoShow")
-    rows = client.get(f"/episodes/{ep['id']}/hub").json()
+    rows = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+    ).json()
     assert "NoShow" not in {r["display_name"] for r in rows}
 
 
@@ -92,5 +104,10 @@ def test_hub_orders_by_standings_not_alphabetical(client, db_conn, current_user)
     insert_roster_pick(db_conn, zed["id"], season["id"], boot["id"])
     insert_scoring_event(db_conn, ep["id"], boot["id"], "win_individual_immunity")
 
-    names = [r["display_name"] for r in client.get(f"/episodes/{ep['id']}/hub").json()]
+    names = [
+        r["display_name"]
+        for r in client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+        ).json()
+    ]
     assert names.index("Zed") < names.index("Aaron")

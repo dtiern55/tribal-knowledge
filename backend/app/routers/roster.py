@@ -16,19 +16,19 @@ from app.schemas import (
 router = APIRouter(tags=["roster"])
 
 
-def _effective_ss_lock(cur, season) -> int | None:
+def _effective_ss_lock(cur, ls) -> int | None:
     """The episode from which sole-survivor designation is locked (#164;
     retimed 2026-07-19): explicit ss_lock_episode, else the advantage lock,
     else the finale — designation stays open later than swaps, closing with
     the rest of the advantage economy."""
-    if season["ss_lock_episode"] is not None:
-        return season["ss_lock_episode"]
-    if season["advantage_lock_episode"] is not None:
-        return season["advantage_lock_episode"]
+    if ls["ss_lock_episode"] is not None:
+        return ls["ss_lock_episode"]
+    if ls["advantage_lock_episode"] is not None:
+        return ls["advantage_lock_episode"]
     cur.execute(
         "select episode_number from episodes"
         " where season_id = %s and is_finale = true limit 1",
-        [str(season["id"])],
+        [str(ls["season_id"])],
     )
     row = cur.fetchone()
     return row["episode_number"] if row else None
@@ -45,42 +45,46 @@ def _episode_locked(cur, season_id, episode_number) -> bool:
     return cur.fetchone() is not None
 
 
-def _ss_window_open_yet(cur, season) -> bool:
+def _ss_window_open_yet(cur, ls) -> bool:
     """Whether Sole Survivor designation has opened yet (#587).
 
     Designation opens at the merge — it's unavailable until the merge episode is
     the open one or later, so nobody crowns a winner while two tribes still
     stand. A season with no merge set opens from the start, unchanged."""
-    merge = season["merge_episode"]
+    merge = ls["merge_episode"]
     if merge is None:
         return True
-    nxt = next_open_episode(cur, str(season["id"]))
+    nxt = next_open_episode(cur, ls)
     if nxt is not None:
         return nxt["episode_number"] >= merge
     # Nothing is open (an episode is airing, or play is over): fall back to how
     # far the season has locked, so a window that has since CLOSED past the
     # merge still reads as opened rather than not-yet.
-    latest = latest_locked_episode(cur, season["id"])
+    latest = latest_locked_episode(cur, ls["season_id"])
     return latest is not None and latest >= merge
 
 
-@router.get("/seasons/{season_id}/roster/{user_id}", response_model=list[RosterPick])
+@router.get(
+    "/league-seasons/{league_season_id}/roster/{user_id}",
+    response_model=list[RosterPick],
+)
 def get_roster(
-    season_id: UUID,
+    league_season_id: UUID,
     user_id: UUID,
     current_user: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
-            database.require_roster_visible(cur, season, user_id, current_user)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], current_user)
+            database.require_roster_visible(cur, ls, user_id, current_user)
             cur.execute(
                 """
                 select * from roster_picks
-                where user_id = %s and season_id = %s
+                where user_id = %s and league_season_id = %s
                 order by active_from_episode, contestant_id
                 """,
-                [str(user_id), str(season_id)],
+                [str(user_id), str(league_season_id)],
             )
             rows = cur.fetchall()
 
@@ -97,7 +101,7 @@ def get_roster(
                 #   outgoing pick still reads as rostered.
                 # - A swap whose episode has already locked
                 #   (active_until < locked_through) is history: show it as-is.
-                locked_through = latest_locked_episode(cur, season_id)
+                locked_through = latest_locked_episode(cur, ls["season_id"])
                 visible = []
                 for r in rows:
                     if (
@@ -114,27 +118,32 @@ def get_roster(
                 rows = visible
                 # Another player's designation is strategy until it locks (#164):
                 # the roster may already be visible, the flag is not.
-                ss_lock = _effective_ss_lock(cur, season)
-                if ss_lock is None or not _episode_locked(cur, season_id, ss_lock):
+                ss_lock = _effective_ss_lock(cur, ls)
+                if ss_lock is None or not _episode_locked(
+                    cur, ls["season_id"], ss_lock
+                ):
                     for r in rows:
                         r["is_sole_survivor"] = False
             return rows
 
 
-@router.post("/seasons/{season_id}/roster", response_model=list[RosterPick])
+@router.post(
+    "/league-seasons/{league_season_id}/roster", response_model=list[RosterPick]
+)
 def submit_roster(
-    season_id: UUID,
+    league_season_id: UUID,
     body: RosterSubmitRequest,
     user_id: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
 
-            if season["status"] == "completed":
+            if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
-            if season["roster_lock_episode"] is None:
+            if ls["roster_lock_episode"] is None:
                 raise HTTPException(
                     status_code=400,
                     detail="Roster lock episode not set for this season",
@@ -146,7 +155,7 @@ def submit_roster(
                 where season_id = %s and episode_number = %s
                   and {EPISODE_LOCKED_SQL}
                 """,
-                [str(season_id), season["roster_lock_episode"]],
+                [str(ls["season_id"]), ls["roster_lock_episode"]],
             )
             if cur.fetchone():
                 raise HTTPException(
@@ -154,11 +163,11 @@ def submit_roster(
                     detail="Roster submission window has closed",
                 )
 
-            if len(body.contestant_ids) != season["roster_size"]:
+            if len(body.contestant_ids) != ls["roster_size"]:
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"Expected {season['roster_size']} contestants,"
+                        f"Expected {ls['roster_size']} contestants,"
                         f" got {len(body.contestant_ids)}"
                     ),
                 )
@@ -172,15 +181,15 @@ def submit_roster(
             # is still open (checked above), rosters haven't scored yet, so a
             # re-submit simply replaces the previous picks — no swap penalty.
             cur.execute(
-                "delete from roster_picks where user_id = %s and season_id = %s",
-                [str(user_id), str(season_id)],
+                "delete from roster_picks where user_id = %s and league_season_id = %s",
+                [str(user_id), str(league_season_id)],
             )
 
             ids = [str(c) for c in body.contestant_ids]
             cur.execute(
                 "select id::text as id from contestants"
                 " where season_id = %s and id::text = any(%s)",
-                [str(season_id), ids],
+                [str(ls["season_id"]), ids],
             )
             valid_id_strs = {row["id"] for row in cur.fetchall()}
             invalid = [c for c in ids if c not in valid_id_strs]
@@ -196,15 +205,16 @@ def submit_roster(
                     cur.execute(
                         """
                         insert into roster_picks
-                            (user_id, season_id, contestant_id, active_from_episode)
+                            (user_id, league_season_id, contestant_id,
+                             active_from_episode)
                         values (%s, %s, %s, %s)
                         returning *
                         """,
                         [
                             str(user_id),
-                            str(season_id),
+                            str(league_season_id),
                             str(cid),
-                            season["roster_lock_episode"],
+                            ls["roster_lock_episode"],
                         ],
                     )
                     rows.append(cur.fetchone())
@@ -216,24 +226,27 @@ def submit_roster(
             return rows
 
 
-@router.post("/seasons/{season_id}/roster/swap", response_model=RosterPick)
+@router.post(
+    "/league-seasons/{league_season_id}/roster/swap", response_model=RosterPick
+)
 def swap_roster_pick(
-    season_id: UUID,
+    league_season_id: UUID,
     body: RosterSwapRequest,
     user_id: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
             # Guards the one-per-episode check and the penalty count below
             # against concurrent swaps.
-            database.lock_user_season(cur, user_id, season_id)
+            database.lock_user_season(cur, user_id, league_season_id)
 
-            if season["status"] == "completed":
+            if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
             # Swaps take effect immediately, from the next open episode (#9).
-            episode = next_open_episode(cur, str(season_id))
+            episode = next_open_episode(cur, ls)
             if not episode:
                 raise HTTPException(
                     status_code=400, detail="No open episode to swap into"
@@ -242,10 +255,10 @@ def swap_roster_pick(
             cur.execute(
                 """
                 select * from roster_picks
-                where user_id = %s and season_id = %s
+                where user_id = %s and league_season_id = %s
                   and contestant_id = %s and active_until_episode is null
                 """,
-                [str(user_id), str(season_id), str(body.old_contestant_id)],
+                [str(user_id), str(league_season_id), str(body.old_contestant_id)],
             )
             old_pick = cur.fetchone()
             if not old_pick:
@@ -265,9 +278,9 @@ def swap_roster_pick(
             # two episodes past the merge (#163) so a fresh season can never
             # swap a finalist in at final tribal; the finale itself is always
             # off-limits.
-            swap_lock = season["swap_lock_episode"]
-            if swap_lock is None and season["merge_episode"] is not None:
-                swap_lock = season["merge_episode"] + 2
+            swap_lock = ls["swap_lock_episode"]
+            if swap_lock is None and ls["merge_episode"] is not None:
+                swap_lock = ls["merge_episode"] + 2
             if episode["is_finale"] or (
                 swap_lock is not None and swap_episode >= swap_lock
             ):
@@ -278,7 +291,7 @@ def swap_roster_pick(
 
             cur.execute(
                 "select id, name from contestants where id = %s and season_id = %s",
-                [str(body.new_contestant_id), str(season_id)],
+                [str(body.new_contestant_id), str(ls["season_id"])],
             )
             new_contestant = cur.fetchone()
             if not new_contestant:
@@ -300,8 +313,8 @@ def swap_roster_pick(
             # Explicit check — unique constraint would fire otherwise
             cur.execute(
                 "select id from roster_picks"
-                " where user_id = %s and season_id = %s and contestant_id = %s",
-                [str(user_id), str(season_id), str(body.new_contestant_id)],
+                " where user_id = %s and league_season_id = %s and contestant_id = %s",
+                [str(user_id), str(league_season_id), str(body.new_contestant_id)],
             )
             if cur.fetchone():
                 raise HTTPException(
@@ -314,9 +327,9 @@ def swap_roster_pick(
             # swapped this episode".
             cur.execute(
                 "select 1 from roster_picks"
-                " where user_id = %s and season_id = %s"
+                " where user_id = %s and league_season_id = %s"
                 " and active_until_episode = %s",
-                [str(user_id), str(season_id), swap_episode - 1],
+                [str(user_id), str(league_season_id), swap_episode - 1],
             )
             if cur.fetchone():
                 raise HTTPException(
@@ -333,18 +346,18 @@ def swap_roster_pick(
             # of "losing a castaway costs you".
             cur.execute(
                 "select count(*) as n from roster_picks"
-                " where user_id = %s and season_id = %s"
+                " where user_id = %s and league_season_id = %s"
                 " and active_until_episode is not null",
-                [str(user_id), str(season_id)],
+                [str(user_id), str(league_season_id)],
             )
             ordinal = cur.fetchone()["n"] + 1
             penalty = (
                 0
-                if ordinal <= season["free_swaps"]
+                if ordinal <= ls["free_swaps"]
                 # Both operands are <= 0, so max() applies the floor.
                 else max(
-                    season["swap_penalty_step"] * ordinal,
-                    season["swap_penalty_floor"],
+                    ls["swap_penalty_step"] * ordinal,
+                    ls["swap_penalty_floor"],
                 )
             )
 
@@ -360,13 +373,13 @@ def swap_roster_pick(
             cur.execute(
                 """
                 insert into roster_picks
-                    (user_id, season_id, contestant_id, active_from_episode)
+                    (user_id, league_season_id, contestant_id, active_from_episode)
                 values (%s, %s, %s, %s)
                 returning *
                 """,
                 [
                     str(user_id),
-                    str(season_id),
+                    str(league_season_id),
                     str(body.new_contestant_id),
                     swap_episode,
                 ],
@@ -376,9 +389,9 @@ def swap_roster_pick(
             return new_pick
 
 
-@router.delete("/seasons/{season_id}/roster/swap", status_code=204)
+@router.delete("/league-seasons/{league_season_id}/roster/swap", status_code=204)
 def undo_roster_swap(
-    season_id: UUID,
+    league_season_id: UUID,
     user_id: UUID = Depends(get_current_user),
 ):
     """Undo this episode's swap while the episode is still open.
@@ -394,16 +407,17 @@ def undo_roster_swap(
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
             # Serializes against a concurrent swap in the same episode.
-            database.lock_user_season(cur, user_id, season_id)
+            database.lock_user_season(cur, user_id, league_season_id)
 
-            if season["status"] == "completed":
+            if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
             # Only the open episode's swap is reversible; next_open_episode
             # already excludes anything past its picks_lock_at.
-            episode = next_open_episode(cur, str(season_id))
+            episode = next_open_episode(cur, ls)
             if not episode:
                 raise HTTPException(
                     status_code=400, detail="Episode has locked; the swap is final"
@@ -413,9 +427,10 @@ def undo_roster_swap(
             cur.execute(
                 """
                 select * from roster_picks
-                where user_id = %s and season_id = %s and active_until_episode = %s
+                where user_id = %s and league_season_id = %s
+                  and active_until_episode = %s
                 """,
-                [str(user_id), str(season_id), swap_episode - 1],
+                [str(user_id), str(league_season_id), swap_episode - 1],
             )
             dropped = cur.fetchone()
             if not dropped:
@@ -426,10 +441,10 @@ def undo_roster_swap(
             cur.execute(
                 """
                 select * from roster_picks
-                where user_id = %s and season_id = %s
+                where user_id = %s and league_season_id = %s
                   and active_from_episode = %s and active_until_episode is null
                 """,
-                [str(user_id), str(season_id), swap_episode],
+                [str(user_id), str(league_season_id), swap_episode],
             )
             added = cur.fetchone()
             if not added:
@@ -467,9 +482,11 @@ def undo_roster_swap(
             )
 
 
-@router.post("/seasons/{season_id}/sole-survivor", response_model=RosterPick)
+@router.post(
+    "/league-seasons/{league_season_id}/sole-survivor", response_model=RosterPick
+)
 def designate_sole_survivor(
-    season_id: UUID,
+    league_season_id: UUID,
     body: SoleSurvivorRequest,
     user_id: UUID = Depends(get_current_user),
 ):
@@ -480,22 +497,23 @@ def designate_sole_survivor(
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
-            if season["status"] == "completed":
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
+            if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
-            ss_lock = _effective_ss_lock(cur, season)
+            ss_lock = _effective_ss_lock(cur, ls)
             if ss_lock is None:
                 raise HTTPException(
                     status_code=400,
                     detail="Sole survivor lock not configured for this season",
                 )
-            if not _ss_window_open_yet(cur, season):
+            if not _ss_window_open_yet(cur, ls):
                 raise HTTPException(
                     status_code=400,
                     detail="Sole Survivor designation opens at the merge",
                 )
-            if _episode_locked(cur, season_id, ss_lock):
+            if _episode_locked(cur, ls["season_id"], ss_lock):
                 raise HTTPException(
                     status_code=400,
                     detail="Sole survivor designation window has closed",
@@ -504,10 +522,10 @@ def designate_sole_survivor(
             cur.execute(
                 """
                 select id from roster_picks
-                where user_id = %s and season_id = %s and contestant_id = %s
+                where user_id = %s and league_season_id = %s and contestant_id = %s
                   and active_until_episode is null
                 """,
-                [str(user_id), str(season_id), str(body.contestant_id)],
+                [str(user_id), str(league_season_id), str(body.contestant_id)],
             )
             pick = cur.fetchone()
             if not pick:
@@ -530,8 +548,8 @@ def designate_sole_survivor(
 
             cur.execute(
                 "update roster_picks set is_sole_survivor = false"
-                " where user_id = %s and season_id = %s and is_sole_survivor",
-                [str(user_id), str(season_id)],
+                " where user_id = %s and league_season_id = %s and is_sole_survivor",
+                [str(user_id), str(league_season_id)],
             )
             cur.execute(
                 "update roster_picks set is_sole_survivor = true"
@@ -541,23 +559,26 @@ def designate_sole_survivor(
             return cur.fetchone()
 
 
-@router.delete("/seasons/{season_id}/sole-survivor", status_code=204)
-def clear_sole_survivor(season_id: UUID, user_id: UUID = Depends(get_current_user)):
+@router.delete("/league-seasons/{league_season_id}/sole-survivor", status_code=204)
+def clear_sole_survivor(
+    league_season_id: UUID, user_id: UUID = Depends(get_current_user)
+):
     """Clear your Sole Survivor designation (the Undo, #164). Only while the
     designation window is open, same as designating."""
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
-            if season["status"] == "completed":
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
+            if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
-            ss_lock = _effective_ss_lock(cur, season)
-            if ss_lock is not None and _episode_locked(cur, season_id, ss_lock):
+            ss_lock = _effective_ss_lock(cur, ls)
+            if ss_lock is not None and _episode_locked(cur, ls["season_id"], ss_lock):
                 raise HTTPException(
                     status_code=400,
                     detail="Sole survivor designation window has closed",
                 )
             cur.execute(
                 "update roster_picks set is_sole_survivor = false"
-                " where user_id = %s and season_id = %s and is_sole_survivor",
-                [str(user_id), str(season_id)],
+                " where user_id = %s and league_season_id = %s and is_sole_survivor",
+                [str(user_id), str(league_season_id)],
             )

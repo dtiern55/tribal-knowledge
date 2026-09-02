@@ -89,13 +89,16 @@ export function NavDrawer({
   // Load seasons + the current pick the first time the drawer opens.
   useEffect(() => {
     if (!open || seasons.length) return
-    void Promise.all([api.get<Season[]>('/seasons'), getActiveSeason()]).then(
+    void Promise.all([api.get<Season[]>('/league-seasons'), getActiveSeason()]).then(
       ([ss, active]) => {
         setSeasons(ss)
         setActiveId(active?.id ?? '')
       },
     )
   }, [open, seasons.length])
+
+  // Only name the league when there's more than one to tell apart (#595).
+  const multiLeague = new Set(seasons.map((s) => s.league_id)).size > 1
 
   function changeSeason(id: string) {
     if (id === activeId) return
@@ -165,6 +168,7 @@ export function NavDrawer({
                 .sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active'))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
+                    {multiLeague ? `${s.league_name} · ` : ''}
                     {s.name}
                     {s.status === 'active' ? ' (active)' : ''}
                   </option>

@@ -33,6 +33,9 @@ vi.mock('../lib/api', () => ({
 
 const season = {
   id: 'season-1',
+  season_id: 'season-1',
+  league_id: 'league-1',
+  league_name: 'Snakes and Rats',
   name: 'Survivor 51',
   status: 'active',
   roster_lock_episode: 2,
@@ -332,7 +335,7 @@ describe('MySeasonPage state shell', () => {
     // A vote is a name written down, not a person looked at (#552) — the tribe
     // rides the slip's left edge and the portrait is gone.
     expect(slip?.querySelector('.contestant-avatar')).toBeNull()
-    expect(api.post).toHaveBeenCalledWith('/episodes/episode-2/picks', {
+    expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
     })
 
@@ -535,7 +538,7 @@ describe('MySeasonPage state shell', () => {
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/advantage-plays', {
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_roster_points',
         target_contestant_id: 'cast-2',
       }),
@@ -584,7 +587,7 @@ describe('MySeasonPage state shell', () => {
     // The play converts to a targetless ballot double, and we auto-switch to the
     // Ballot beat so its landing is visible.
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/advantage-plays', {
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_vote_points',
         target_contestant_id: null,
       }),
@@ -679,7 +682,7 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Venus/ }))
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/roster/swap', {
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap', {
         old_contestant_id: 'cast-2',
         new_contestant_id: 'cast-3',
       }),
@@ -724,7 +727,7 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(within(roster).getByRole('button', { name: 'Undo' }))
 
     await waitFor(() =>
-      expect(api.delete).toHaveBeenCalledWith('/seasons/season-1/roster/swap'),
+      expect(api.delete).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap'),
     )
   })
 
@@ -795,7 +798,7 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(ring)
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/seasons/season-1/sole-survivor', {
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
         contestant_id: 'cast-1',
       }),
     )
@@ -975,7 +978,7 @@ describe('MySeasonPage state shell', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByRole('tab', { name: /^Ballot/ })).toBeVisible()
     expect(api.post).toHaveBeenCalledWith(
-      '/seasons/season-1/reveal-acknowledgement',
+      '/league-seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
     )
   })
@@ -1125,7 +1128,7 @@ describe('MySeasonPage state shell', () => {
 
       const dialog = await screen.findByRole('dialog')
       expect(dialog).toHaveTextContent('Ep 2 replay')
-      expect(api.get).toHaveBeenCalledWith('/seasons/season-1/episode-results/episode-2')
+      expect(api.get).toHaveBeenCalledWith('/league-seasons/season-1/episode-results/episode-2')
     })
   })
 })
