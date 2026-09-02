@@ -1,19 +1,20 @@
-name: Deploy
+name: Deploy production
 
-# Every merge to main ships automatically (decision 2026-07-15, from the
-# practice-season retro): migrations first, then the Fly backend. Frontend
-# deploys separately via Vercel's own GitHub integration.
+# Prod ships on a version tag, not on merge to main (issue #150, decided
+# 2026-09-02). Merges land on staging first (deploy-staging.yml). When
+# staging looks right, `gh release create vX.Y` promotes that commit:
+# migrations, then the Fly backend, then the `production` branch that
+# Vercel builds the frontend from.
 on:
   push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'supabase/migrations/**'
-      - '.github/workflows/deploy.yml'
+    tags: ['v*']
 
 concurrency:
-  group: deploy
+  group: deploy-production
   cancel-in-progress: false
+
+permissions:
+  contents: write # fast-forwards the production branch
 
 jobs:
   deploy:
@@ -21,6 +22,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the push below needs the history behind the tag
 
       - uses: supabase/setup-cli@v3
         with:
@@ -48,3 +51,9 @@ jobs:
           curl --fail --silent --show-error --max-time 30 \
             --retry 5 --retry-delay 5 --retry-all-errors \
             https://tribal-knowledge-app.fly.dev/health
+
+      # Vercel's production branch is `production`, so the frontend only
+      # moves once the backend behind it is healthy. Fast-forward only: a
+      # tag off a side branch is rejected here rather than shipped.
+      - name: Promote frontend
+        run: git push origin HEAD:refs/heads/production
