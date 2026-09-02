@@ -20,32 +20,48 @@ const GAP = 4
 const SOLVED = [0, 1, 2, 3, 4, 5, 6, 7, null]
 const INITIAL = [1, 4, 2, 7, null, 5, 0, 6, 3]
 
-// Keycap bevels + the recessed well — identical in both themes (the frame and
-// tile art are what change).
+// The soft floor shadow is shared. The tray, recessed well, and tile bevels
+// are theme-specific so each puzzle reads as one wooden box.
 const BOARD = {
   shadow: 'radial-gradient(ellipse at center, rgba(18,34,26,0.42), transparent 70%)',
-  well: 'linear-gradient(158deg, #0d1c15, #0a1610)',
-  wellShadow: 'inset 0 4px 12px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(255,255,255,0.03)',
-  rest: 'inset 0 2px 0 rgba(255,255,255,0.10), inset 0 -4px 8px rgba(0,0,0,0.32), 0 5px 0 #0f2018, 0 7px 9px rgba(0,0,0,0.36)',
-  lift: 'inset 0 2px 0 rgba(255,255,255,0.14), inset 0 -4px 8px rgba(0,0,0,0.32), 0 8px 0 #0f2018, 0 16px 22px rgba(0,0,0,0.46)',
 }
 
-const THEMES: Record<Theme, { scene: string; tileImg: string; label: string; frame: string; frameShadow: string }> = {
+type PuzzleTheme = {
+  scene: string
+  tileImg: string
+  label: string
+  frame: string
+  frameShadow: string
+  well: string
+  wellShadow: string
+  tileRest: string
+  tileLift: string
+}
+
+const THEMES: Record<Theme, PuzzleTheme> = {
   unlocked: {
     // Match the .app-shell ground gradient (index.css) so the loader blends
     // into the sand page instead of reading as a white panel over it.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
     tileImg: 'url("/puzzle-wood-solid.webp?v=20260902-solid")',
     label: '#1e3a2f',
-    frame: 'linear-gradient(158deg, #69472b, #2e190e)',
+    frame: 'repeating-linear-gradient(2deg, rgba(255,220,166,0.035) 0 1px, rgba(35,14,5,0.04) 1px 4px), linear-gradient(158deg, #69472b, #2e190e)',
     frameShadow: 'inset 0 3px 0 rgba(255,225,180,0.10), inset 0 -8px 16px rgba(24,10,4,0.58), 0 34px 44px -12px rgba(62,32,15,0.55)',
+    well: 'repeating-linear-gradient(2deg, rgba(231,183,119,0.025) 0 1px, rgba(20,8,3,0.05) 1px 5px), linear-gradient(158deg, #432817, #241107)',
+    wellShadow: 'inset 0 4px 12px rgba(10,4,1,0.72), inset 0 -2px 0 rgba(239,199,143,0.07)',
+    tileRest: 'inset 0 2px 0 rgba(255,230,190,0.10), inset 0 -4px 8px rgba(20,7,2,0.34), 0 5px 0 #251208, 0 7px 9px rgba(24,9,3,0.40)',
+    tileLift: 'inset 0 2px 0 rgba(255,230,190,0.14), inset 0 -4px 8px rgba(20,7,2,0.34), 0 8px 0 #251208, 0 16px 22px rgba(24,9,3,0.50)',
   },
   locked: {
     scene: 'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px), linear-gradient(180deg, #132e25, #0e1f19)',
     tileImg: 'url("/puzzle-wood-light.webp?v=20260902-light")',
     label: '#f2e9db',
-    frame: 'linear-gradient(158deg, #e7c892, #a97642)',
+    frame: 'repeating-linear-gradient(2deg, rgba(255,248,218,0.07) 0 1px, rgba(102,57,22,0.045) 1px 4px), linear-gradient(158deg, #e7c892, #a97642)',
     frameShadow: 'inset 0 3px 0 rgba(255,247,220,0.34), inset 0 -8px 16px rgba(91,52,22,0.38), 0 34px 48px -12px rgba(0,0,0,0.55)',
+    well: 'repeating-linear-gradient(2deg, rgba(255,235,190,0.055) 0 1px, rgba(75,38,14,0.055) 1px 5px), linear-gradient(158deg, #b47d45, #70431f)',
+    wellShadow: 'inset 0 4px 12px rgba(57,29,11,0.58), inset 0 -2px 0 rgba(255,229,179,0.16)',
+    tileRest: 'inset 0 2px 0 rgba(255,248,224,0.16), inset 0 -4px 8px rgba(69,35,13,0.28), 0 5px 0 #76502c, 0 7px 9px rgba(35,17,6,0.38)',
+    tileLift: 'inset 0 2px 0 rgba(255,248,224,0.22), inset 0 -4px 8px rgba(69,35,13,0.28), 0 8px 0 #76502c, 0 16px 22px rgba(35,17,6,0.48)',
   },
 }
 
@@ -205,8 +221,8 @@ export function SlidePuzzleLoader({
                 width: '360px',
                 height: '360px',
                 borderRadius: '16px',
-                background: BOARD.well,
-                boxShadow: BOARD.wellShadow,
+                background: TH.well,
+                boxShadow: TH.wellShadow,
               }}
             >
               {Array.from({ length: 8 }, (_, id) => {
@@ -232,7 +248,7 @@ export function SlidePuzzleLoader({
                   willChange: 'transform, box-shadow',
                   transform: `translate(${c * CELL + GAP}px, ${r * CELL + GAP}px)`,
                   zIndex: moving ? 6 : 1,
-                  boxShadow: moving && liftTiles ? BOARD.lift : BOARD.rest,
+                  boxShadow: moving && liftTiles ? TH.tileLift : TH.tileRest,
                 }
                 return <div key={id} aria-hidden="true" style={tileStyle} />
               })}
