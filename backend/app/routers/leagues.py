@@ -23,10 +23,13 @@ LEAGUE_COLS = (
 def _require_unused_code(cur, join_code: str, except_id: UUID | None = None) -> None:
     # Checked explicitly rather than caught as a unique violation: a failed
     # insert aborts the transaction, which the test client shares.
-    cur.execute(
-        "select 1 from leagues where join_code = %s and id <> coalesce(%s, id)",
-        [join_code, str(except_id) if except_id else None],
-    )
+    if except_id is None:
+        cur.execute("select 1 from leagues where join_code = %s", [join_code])
+    else:
+        cur.execute(
+            "select 1 from leagues where join_code = %s and id <> %s",
+            [join_code, str(except_id)],
+        )
     if cur.fetchone():
         raise HTTPException(status_code=409, detail="join_code already in use")
 

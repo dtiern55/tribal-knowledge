@@ -1,8 +1,8 @@
 name: CI
 
 on:
+  # Every PR, whatever it targets, so stacked PRs get tested too.
   pull_request:
-    branches: [main]
 
 jobs:
   test:
