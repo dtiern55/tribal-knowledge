@@ -113,6 +113,9 @@ function arrange(
 ) {
   vi.mocked(getActiveSeason).mockResolvedValue(season)
   vi.mocked(api.get).mockImplementation(async (path: string) => {
+    // Show routes live on /seasons; play routes on /league-seasons (#595).
+    if (/^\/league-seasons\/[^/]+\/(contestants|episodes)$/.test(path)) throw new Error(`No such route: ${path}`)
+    if (/^\/episodes\/[^/]+\/picks/.test(path)) throw new Error(`No such route: ${path}`)
     if (path.endsWith('/episodes')) return episodes
     if (path.endsWith('/reveal')) return automaticResult
     if (path.includes('/episode-results/')) return replayResult
