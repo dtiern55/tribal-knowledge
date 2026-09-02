@@ -34,6 +34,7 @@ type PuzzleTheme = {
   frameShadow: string
   well: string
   wellShadow: string
+  lipShadow: string
   tileRest: string
   tileLift: string
 }
@@ -43,23 +44,25 @@ const THEMES: Record<Theme, PuzzleTheme> = {
     // Match the .app-shell ground gradient (index.css) so the loader blends
     // into the sand page instead of reading as a white panel over it.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
-    tileImg: 'url("/puzzle-wood-solid.webp?v=20260902-solid")',
+    tileImg: 'url("/puzzle-wood-solid.webp?v=20260902-fine")',
     label: '#1e3a2f',
     frame: 'linear-gradient(158deg, rgba(151,107,72,0.10), rgba(28,12,5,0.28)), url("/wood-walnut.png") center / cover',
-    frameShadow: 'inset 0 3px 0 rgba(255,225,180,0.10), inset 0 -8px 16px rgba(24,10,4,0.58), 0 34px 44px -12px rgba(62,32,15,0.55)',
+    frameShadow: 'inset 5px 5px 9px rgba(255,225,180,0.12), inset -7px -9px 14px rgba(19,7,3,0.64), 0 7px 0 #241108, 0 36px 46px -12px rgba(62,32,15,0.58)',
     well: 'linear-gradient(158deg, rgba(30,13,6,0.34), rgba(10,4,1,0.54)), url("/wood-walnut.png") center / cover',
     wellShadow: 'inset 0 4px 12px rgba(10,4,1,0.72), inset 0 -2px 0 rgba(239,199,143,0.07)',
+    lipShadow: 'inset 0 0 0 4px rgba(31,13,6,0.94), inset 8px 8px 11px rgba(10,4,1,0.56), inset -4px -4px 7px rgba(190,132,86,0.16)',
     tileRest: 'inset 0 2px 0 rgba(255,230,190,0.10), inset 0 -4px 8px rgba(20,7,2,0.34), 0 5px 0 #251208, 0 7px 9px rgba(24,9,3,0.40)',
     tileLift: 'inset 0 2px 0 rgba(255,230,190,0.14), inset 0 -4px 8px rgba(20,7,2,0.34), 0 8px 0 #251208, 0 16px 22px rgba(24,9,3,0.50)',
   },
   locked: {
     scene: 'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px), linear-gradient(180deg, #132e25, #0e1f19)',
-    tileImg: 'url("/puzzle-wood-light.webp?v=20260902-light")',
+    tileImg: 'url("/puzzle-wood-light.webp?v=20260902-fine")',
     label: '#f2e9db',
     frame: 'linear-gradient(158deg, rgba(255,241,210,0.08), rgba(112,65,29,0.16)), url("/wood-oak.png") center / cover',
-    frameShadow: 'inset 0 3px 0 rgba(255,247,220,0.34), inset 0 -8px 16px rgba(91,52,22,0.38), 0 34px 48px -12px rgba(0,0,0,0.55)',
+    frameShadow: 'inset 5px 5px 9px rgba(255,247,220,0.42), inset -7px -9px 14px rgba(91,52,22,0.42), 0 7px 0 #80532d, 0 36px 50px -12px rgba(0,0,0,0.58)',
     well: 'linear-gradient(158deg, rgba(137,87,43,0.22), rgba(78,43,18,0.38)), url("/wood-oak.png") center / cover',
     wellShadow: 'inset 0 4px 12px rgba(57,29,11,0.58), inset 0 -2px 0 rgba(255,229,179,0.16)',
+    lipShadow: 'inset 0 0 0 4px rgba(111,70,33,0.72), inset 8px 8px 11px rgba(57,29,11,0.42), inset -4px -4px 7px rgba(255,241,207,0.30)',
     tileRest: 'inset 0 2px 0 rgba(255,248,224,0.16), inset 0 -4px 8px rgba(69,35,13,0.28), 0 5px 0 #76502c, 0 7px 9px rgba(35,17,6,0.38)',
     tileLift: 'inset 0 2px 0 rgba(255,248,224,0.22), inset 0 -4px 8px rgba(69,35,13,0.28), 0 8px 0 #76502c, 0 16px 22px rgba(35,17,6,0.48)',
   },
@@ -209,8 +212,8 @@ export function SlidePuzzleLoader({
             style={{
               position: 'relative',
               zIndex: 1,
-              padding: '16px',
-              borderRadius: '28px',
+              padding: '20px',
+              borderRadius: '31px',
               background: TH.frame,
               boxShadow: TH.frameShadow,
             }}
@@ -252,6 +255,17 @@ export function SlidePuzzleLoader({
                 }
                 return <div key={id} aria-hidden="true" style={tileStyle} />
               })}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  inset: '-1px',
+                  borderRadius: '17px',
+                  boxShadow: TH.lipShadow,
+                  pointerEvents: 'none',
+                  zIndex: 10,
+                }}
+              />
             </div>
           </div>
         </div>

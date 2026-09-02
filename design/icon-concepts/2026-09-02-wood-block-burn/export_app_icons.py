@@ -8,7 +8,8 @@ from PIL import Image, ImageFilter
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 SOURCE_DARK = HERE / "wood-block-burn-v2-solid-background.png"
-SOURCE_LIGHT = HERE / "wood-block-burn-v3-light-background.png"
+PUZZLE_DARK = HERE / "wood-block-burn-v4-fine-dark.png"
+PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
 PUBLIC = REPO / "frontend" / "public"
 RESAMPLE = Image.Resampling.LANCZOS
 
@@ -46,16 +47,17 @@ def maskable_icon(source: Image.Image) -> Image.Image:
 
 def main() -> None:
     dark = Image.open(SOURCE_DARK).convert("RGB")
-    light = Image.open(SOURCE_LIGHT).convert("RGB")
-    for source in (dark, light):
+    puzzle_dark = Image.open(PUZZLE_DARK).convert("RGB")
+    puzzle_light = Image.open(PUZZLE_LIGHT).convert("RGB")
+    for source in (dark, puzzle_dark, puzzle_light):
         if source.width != source.height:
             raise ValueError(f"Expected a square source, got {source.size}")
 
     save_webp(resized(dark, 512), "icon-512.webp")
     save_webp(resized(dark, 192), "icon-192.webp")
     save_webp(maskable_icon(dark), "icon-512-maskable.webp")
-    save_webp(resized(dark, 640), "puzzle-wood-solid.webp")
-    save_webp(resized(light, 640), "puzzle-wood-light.webp")
+    save_webp(resized(puzzle_dark, 640), "puzzle-wood-solid.webp")
+    save_webp(resized(puzzle_light, 640), "puzzle-wood-light.webp")
 
     resized(dark, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
     dark.save(
