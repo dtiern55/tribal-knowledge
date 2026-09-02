@@ -34,7 +34,7 @@ def _require_scored_playable_episode(cur, season: dict, episode_id: UUID) -> dic
 def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             select x.contestant_id, x.name, x.image_url,
                    x.raw_points
                      + round(case when x.is_sole_survivor and %s
@@ -45,13 +45,7 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
                      coalesce(c.nickname, c.name) as name, c.image_url,
                      rp.is_sole_survivor,
                      coalesce(sum(case when se.id is null then 0 else
-                       (case
-                          when s.merge_episode is not null
-                           and ep.episode_number >= s.merge_episode
-                           and et.postmerge_point_value is not null
-                          then et.postmerge_point_value else et.point_value
-                        end)
-                       * (case when et.is_per_unit then se.quantity else 1 end)
+                       {scoring.EVENT_POINTS_SQL}
                      end), 0)::int as raw_points
               from roster_picks rp
               join contestants c on c.id = rp.contestant_id
@@ -63,9 +57,7 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
               left join season_scoring_event_types et
                 on et.season_id = s.id and et.event_type = se.event_type
               where rp.league_season_id = %s and rp.user_id = %s
-                and rp.active_from_episode <= ep.episode_number
-                and (rp.active_until_episode is null
-                     or rp.active_until_episode >= ep.episode_number)
+                and {scoring.ROSTER_ACTIVE_SQL}
               group by c.id, c.name, c.image_url, rp.is_sole_survivor
             ) x
             order by x.name
@@ -85,16 +77,10 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
         # is the finale Sole Survivor bonus, which isn't a scoring_events row,
         # so it's folded in as its own line below rather than recomputed.
         cur.execute(
-            """
+            f"""
             select rp.contestant_id::text as contestant_id, se.event_type, et.label,
                    (case when et.is_per_unit then se.quantity else 1 end) as quantity,
-                   (case
-                      when s.merge_episode is not null
-                       and ep.episode_number >= s.merge_episode
-                       and et.postmerge_point_value is not null
-                      then et.postmerge_point_value else et.point_value
-                    end)
-                   * (case when et.is_per_unit then se.quantity else 1 end)
+                   {scoring.EVENT_POINTS_SQL}
                      as points
             from roster_picks rp
             join league_seasons ls on ls.id = rp.league_season_id
@@ -105,9 +91,7 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
             join season_scoring_event_types et
               on et.season_id = s.id and et.event_type = se.event_type
             where rp.league_season_id = %s and rp.user_id = %s
-              and rp.active_from_episode <= ep.episode_number
-              and (rp.active_until_episode is null
-                   or rp.active_until_episode >= ep.episode_number)
+              and {scoring.ROSTER_ACTIVE_SQL}
             order by et.label
             """,
             [str(episode["id"]), str(league_season_id), str(user_id)],
@@ -151,13 +135,7 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
     league_season_id = str(ls["id"])
     with conn.cursor() as cur:
         if not episode["is_finale"]:
-            cur.execute(
-                "select point_value, postmerge_point_value"
-                " from season_prediction_score_types"
-                " where season_id = %s and key = 'correct_elimination'",
-                [season_id],
-            )
-            cfg = cur.fetchone()
+            pre, post = scoring.elimination_rates(cur, league_season_id)
             cur.execute(
                 """
                 select c.id::text as contestant_id,
@@ -177,10 +155,7 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
             picks = cur.fetchall()
             merge = ls["merge_episode"] or 2**31 - 1
             value = (
-                cfg["postmerge_point_value"]
-                if cfg["postmerge_point_value"] is not None
-                and episode["episode_number"] >= merge
-                else cfg["point_value"]
+                post if post is not None and episode["episode_number"] >= merge else pre
             )
             return [
                 {
