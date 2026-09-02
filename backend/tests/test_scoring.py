@@ -28,7 +28,9 @@ def test_roster_points_basic(db_conn):
     insert_roster_pick(db_conn, user["id"], season["id"], contestant["id"])
     insert_scoring_event(db_conn, ep["id"], contestant["id"], "win_individual_immunity")
 
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 15
+    }
 
 
 @pytest.mark.integration
@@ -45,7 +47,9 @@ def test_votes_received_scores_zero(db_conn):
     insert_scoring_event(db_conn, pre["id"], c["id"], "votes_received", quantity=2)
     insert_scoring_event(db_conn, post["id"], c["id"], "votes_received", quantity=3)
 
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 0}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 0
+    }
 
 
 @pytest.mark.integration
@@ -68,7 +72,9 @@ def test_retired_event_types_still_score(db_conn):
             [str(season["id"])],
         )
 
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 15
+    }
 
 
 @pytest.mark.integration
@@ -88,10 +94,16 @@ def test_scoring_event_uses_postmerge_value(db_conn):
     insert_scoring_event(db_conn, pre["id"], c["id"], "vote_correctly_at_tribal")
     insert_scoring_event(db_conn, post["id"], c["id"], "vote_correctly_at_tribal")
 
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 8}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 8
+    }
     # The merge episode itself is post-merge (>=, decision #10).
-    assert scoring.episode_points(db_conn, season["id"], 7) == {str(user["id"]): 5}
-    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 3}
+    assert scoring.episode_points(db_conn, season["league_season_id"], 7) == {
+        str(user["id"]): 5
+    }
+    assert scoring.episode_points(db_conn, season["league_season_id"], 6) == {
+        str(user["id"]): 3
+    }
 
 
 @pytest.mark.integration
@@ -118,7 +130,9 @@ def test_roster_points_respects_active_range(db_conn):
     insert_scoring_event(db_conn, ep5["id"], c["id"], "win_individual_immunity")  # out
 
     # ep2 counts (+15), ep5 is outside the active range, plus -20 swap penalty
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): -5}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): -5
+    }
 
 
 @pytest.mark.integration
@@ -143,7 +157,9 @@ def test_swap_penalty_books_only_when_its_episode_locks(db_conn):
     insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")  # 15
 
     # ep3 still open -> the -10 is not booked yet
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 15
+    }
 
     # lock ep3 -> the penalty books
     with db_conn.cursor() as cur:
@@ -151,7 +167,9 @@ def test_swap_penalty_books_only_when_its_episode_locks(db_conn):
             "update episodes set status = 'scored' where id = %s",
             [str(open_ep3["id"])],
         )
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 5}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 5
+    }
 
 
 @pytest.mark.integration
@@ -165,7 +183,7 @@ def test_roster_points_same_contestant_two_users(db_conn):
     insert_roster_pick(db_conn, u2["id"], season["id"], c["id"])
     insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
 
-    result = scoring.roster_points(db_conn, season["id"])
+    result = scoring.roster_points(db_conn, season["league_season_id"])
     assert result == {str(u1["id"]): 15, str(u2["id"]): 15}
 
 
@@ -181,7 +199,9 @@ def test_roster_points_doubled_by_advantage(db_conn):
         db_conn, user["id"], ep["id"], "double_roster_points", c["id"]
     )
 
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 30}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 30
+    }
 
 
 @pytest.mark.integration
@@ -200,7 +220,9 @@ def test_roster_points_double_only_matching_episode(db_conn):
     )
 
     # ep2: 15, ep3: 30 -> 45
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 45}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 45
+    }
 
 
 @pytest.mark.integration
@@ -214,7 +236,9 @@ def test_roster_points_includes_placement(db_conn):
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
 
     # Rostering the winner at the finale -> 30 MFT + 50 won_season (#87).
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 80}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 80
+    }
 
 
 @pytest.mark.integration
@@ -231,7 +255,9 @@ def test_placement_points_only_if_active_at_finale(db_conn):
     )
 
     # Total stays 0 (no placement bonus); would be +20 if it counted.
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 0}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 0
+    }
 
 
 @pytest.mark.integration
@@ -251,11 +277,12 @@ def test_episode_points_reconciles_with_standings(db_conn):
     insert_elimination(db_conn, ep3["id"], other["id"])  # correct -> +16
 
     uid = str(user["id"])
-    total = scoring.roster_points(db_conn, season["id"]).get(
+    total = scoring.roster_points(db_conn, season["league_season_id"]).get(
         uid, 0
-    ) + scoring.elimination_points(db_conn, season["id"]).get(uid, 0)
+    ) + scoring.elimination_points(db_conn, season["league_season_id"]).get(uid, 0)
     summed = sum(
-        scoring.episode_points(db_conn, season["id"], n).get(uid, 0) for n in (2, 3)
+        scoring.episode_points(db_conn, season["league_season_id"], n).get(uid, 0)
+        for n in (2, 3)
     )
     assert summed == total == 43
 
@@ -273,7 +300,9 @@ def test_episode_points_finale_includes_outcomes(db_conn):
 
     # Rostering the placement-1 finisher pays made_final_tribal 30 and
     # won_season 50.
-    assert scoring.episode_points(db_conn, season["id"], 6) == {str(user["id"]): 80}
+    assert scoring.episode_points(db_conn, season["league_season_id"], 6) == {
+        str(user["id"]): 80
+    }
 
 
 # --- elimination_points ---
@@ -288,7 +317,9 @@ def test_elimination_points_correct_premerge(db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 16}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 16
+    }
 
 
 @pytest.mark.integration
@@ -300,7 +331,9 @@ def test_elimination_points_correct_postmerge(db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 20}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 20
+    }
 
 
 @pytest.mark.integration
@@ -313,7 +346,7 @@ def test_elimination_points_wrong_pick_scores_nothing(db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], picked["id"])
     insert_elimination(db_conn, ep["id"], eliminated["id"])
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {}
 
 
 @pytest.mark.integration
@@ -331,7 +364,7 @@ def test_elimination_points_excludes_finale(db_conn):
         db_conn, finale["id"], c["id"], elimination_type="fire_making_loss"
     )
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {}
 
 
 @pytest.mark.integration
@@ -346,7 +379,9 @@ def test_elimination_points_legacy_targeted_double(db_conn):
     insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points", c["id"])
 
     # pre-merge correct pick 16 -> doubled to 32
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 32}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 32
+    }
 
 
 @pytest.mark.integration
@@ -363,7 +398,9 @@ def test_elimination_points_legacy_double_wrong_target_no_effect(db_conn):
         db_conn, user["id"], ep["id"], "double_vote_points", other["id"]
     )
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 16}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 16
+    }
 
 
 @pytest.mark.integration
@@ -382,7 +419,9 @@ def test_elimination_points_ballot_double_covers_every_pick(db_conn):
     insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
 
     # two correct pre-merge picks, 16 each -> 64 doubled; the miss stays 0
-    assert scoring.elimination_points(db_conn, season["id"]) == {str(user["id"]): 64}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 64
+    }
 
 
 @pytest.mark.integration
@@ -396,7 +435,7 @@ def test_elimination_points_ballot_double_pays_nothing_on_a_whiff(db_conn):
     insert_elimination(db_conn, ep["id"], booted["id"])
     insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
 
-    assert scoring.elimination_points(db_conn, season["id"]) == {}
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {}
 
 
 @pytest.mark.integration
@@ -414,7 +453,9 @@ def test_ballot_double_bonus_sums_every_correct_pick(db_conn):
     insert_elimination(db_conn, ep["id"], hit_b["id"])
     play = insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
 
-    bonus = scoring.advantage_bonus_by_play(db_conn, season["id"], user["id"])
+    bonus = scoring.advantage_bonus_by_play(
+        db_conn, season["league_season_id"], user["id"]
+    )
     assert bonus[str(play["id"])] == 32  # 16 + 16, the un-doubled base
 
 
@@ -429,7 +470,9 @@ def test_ballot_double_bonus_is_zero_when_no_pick_lands(db_conn):
     insert_elimination(db_conn, ep["id"], booted["id"])
     play = insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points")
 
-    bonus = scoring.advantage_bonus_by_play(db_conn, season["id"], user["id"])
+    bonus = scoring.advantage_bonus_by_play(
+        db_conn, season["league_season_id"], user["id"]
+    )
     assert bonus[str(play["id"])] == 0
 
 
@@ -470,7 +513,9 @@ def test_finale_points_perfect_ballot(db_conn):
     )
 
     # 4*6 (final four) + 3*8 (final three) + 12 (perfect) + 40 (winner)
-    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 100}
+    assert scoring.finale_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 100
+    }
 
 
 @pytest.mark.integration
@@ -489,7 +534,9 @@ def test_finale_points_partial_credit(db_conn):
     )
 
     # 3*6 + 2*8 + 0 + 40
-    assert scoring.finale_points(db_conn, season["id"]) == {str(user["id"]): 74}
+    assert scoring.finale_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 74
+    }
 
 
 @pytest.mark.integration
@@ -505,7 +552,7 @@ def test_finale_points_all_wrong_scores_nothing(db_conn):
         winner=boot["id"],
     )
 
-    assert scoring.finale_points(db_conn, season["id"]) == {}
+    assert scoring.finale_points(db_conn, season["league_season_id"]) == {}
 
 
 # --- per-user breakdown (My Season, #52) ---
@@ -532,12 +579,14 @@ def test_roster_points_by_contestant_splits_and_sums(db_conn):
     )
     insert_scoring_event(db_conn, ep["id"], a["id"], "win_individual_immunity")  # 15
 
-    by_c = scoring.roster_points_by_contestant(db_conn, season["id"], user["id"])
+    by_c = scoring.roster_points_by_contestant(
+        db_conn, season["league_season_id"], user["id"]
+    )
     assert by_c == {str(a["id"]): 15, str(b["id"]): -20}
     # Per-contestant sum matches the season-level total (no doubles in play)
     assert (
         sum(by_c.values())
-        == scoring.roster_points(db_conn, season["id"])[str(user["id"])]
+        == scoring.roster_points(db_conn, season["league_season_id"])[str(user["id"])]
     )
 
     # A played Double Roster folds into the breakdown now (#257 reverses #136):
@@ -550,9 +599,11 @@ def test_roster_points_by_contestant_splits_and_sums(db_conn):
         "double_roster_points",
         target_contestant_id=a["id"],
     )
-    by_c = scoring.roster_points_by_contestant(db_conn, season["id"], user["id"])
+    by_c = scoring.roster_points_by_contestant(
+        db_conn, season["league_season_id"], user["id"]
+    )
     assert by_c[str(a["id"])] == 30  # doubled
-    total = scoring.roster_points(db_conn, season["id"])[str(user["id"])]
+    total = scoring.roster_points(db_conn, season["league_season_id"])[str(user["id"])]
     assert sum(by_c.values()) == total == 10  # 30 doubled - 20 swap
 
 
@@ -567,7 +618,9 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
     insert_elimination_pick(db_conn, user["id"], ep["id"], miss["id"])
     insert_elimination(db_conn, ep["id"], hit["id"])
 
-    results = scoring.elimination_pick_results(db_conn, season["id"], user["id"])
+    results = scoring.elimination_pick_results(
+        db_conn, season["league_season_id"], user["id"]
+    )
     by_c = {r["contestant_id"]: r for r in results}
     assert by_c[str(hit["id"])]["correct"] is True
     assert by_c[str(hit["id"])]["points"] == 16  # premerge correct_elimination
@@ -583,10 +636,15 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
         "double_vote_points",
         target_contestant_id=hit["id"],
     )
-    results = scoring.elimination_pick_results(db_conn, season["id"], user["id"])
+    results = scoring.elimination_pick_results(
+        db_conn, season["league_season_id"], user["id"]
+    )
     by_c = {r["contestant_id"]: r for r in results}
     assert by_c[str(hit["id"])]["points"] == 16  # base, not 32
-    assert scoring.elimination_points(db_conn, season["id"])[str(user["id"])] == 32
+    assert (
+        scoring.elimination_points(db_conn, season["league_season_id"])[str(user["id"])]
+        == 32
+    )
 
 
 @pytest.mark.integration
@@ -607,10 +665,16 @@ def test_scoring_stays_hidden_until_the_episode_locks(db_conn):
 
     uid = str(user["id"])
     # Pre-lock: no points anywhere, and the pending pick shows but not its result.
-    assert scoring.roster_points(db_conn, season["id"]).get(uid, 0) == 0
-    assert scoring.elimination_points(db_conn, season["id"]).get(uid, 0) == 0
-    assert scoring.episode_points(db_conn, season["id"], 3).get(uid, 0) == 0
-    pick = scoring.elimination_pick_results(db_conn, season["id"], user["id"])[0]
+    assert scoring.roster_points(db_conn, season["league_season_id"]).get(uid, 0) == 0
+    assert (
+        scoring.elimination_points(db_conn, season["league_season_id"]).get(uid, 0) == 0
+    )
+    assert (
+        scoring.episode_points(db_conn, season["league_season_id"], 3).get(uid, 0) == 0
+    )
+    pick = scoring.elimination_pick_results(
+        db_conn, season["league_season_id"], user["id"]
+    )[0]
     assert pick["correct"] is False and pick["points"] == 0
 
     # Lock the episode by moving picks_lock_at into the past (no scoring yet).
@@ -620,10 +684,12 @@ def test_scoring_stays_hidden_until_the_episode_locks(db_conn):
             [datetime.now(timezone.utc) - timedelta(hours=1), str(ep["id"])],
         )
 
-    assert scoring.roster_points(db_conn, season["id"])[uid] == 15
-    assert scoring.elimination_points(db_conn, season["id"])[uid] == 16
-    assert scoring.episode_points(db_conn, season["id"], 3)[uid] == 31
-    pick = scoring.elimination_pick_results(db_conn, season["id"], user["id"])[0]
+    assert scoring.roster_points(db_conn, season["league_season_id"])[uid] == 15
+    assert scoring.elimination_points(db_conn, season["league_season_id"])[uid] == 16
+    assert scoring.episode_points(db_conn, season["league_season_id"], 3)[uid] == 31
+    pick = scoring.elimination_pick_results(
+        db_conn, season["league_season_id"], user["id"]
+    )[0]
     assert pick["correct"] is True and pick["points"] == 16
 
 
@@ -638,7 +704,9 @@ def test_scoring_ignores_global_template_changes(db_conn):
     insert_roster_pick(db_conn, user["id"], season["id"], contestant["id"])
     insert_scoring_event(db_conn, ep["id"], contestant["id"], "win_individual_immunity")
 
-    assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 15
+    }
 
     with db_conn.cursor() as cur:
         cur.execute(
@@ -650,7 +718,9 @@ def test_scoring_ignores_global_template_changes(db_conn):
             " where key = 'correct_elimination'"
         )
     try:
-        assert scoring.roster_points(db_conn, season["id"]) == {str(user["id"]): 15}
+        assert scoring.roster_points(db_conn, season["league_season_id"]) == {
+            str(user["id"]): 15
+        }
     finally:
         with db_conn.cursor() as cur:
             cur.execute(

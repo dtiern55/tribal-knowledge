@@ -47,11 +47,11 @@ def test_finale_double_and_additive_placements(client, db_conn, current_user):
 
     # Designee: 15 event + 30 MFT + 50 won_season = 95 base, +50% = 47.5 -> 48.
     # Runner: 30 MFT + 20 runner-up = 50. Total 95 + 48 + 50 = 193.
-    assert scoring.roster_points(db_conn, season["id"]) == {
+    assert scoring.roster_points(db_conn, season["league_season_id"]) == {
         str(current_user["id"]): 193
     }
     by_c = scoring.roster_points_by_contestant(
-        db_conn, season["id"], current_user["id"]
+        db_conn, season["league_season_id"], current_user["id"]
     )
     assert by_c[str(a["id"])] == 143
     assert by_c[str(b["id"])] == 50

@@ -31,7 +31,9 @@ def test_bonus_is_half_the_finale_total_rounded_half_up(db_conn):
             db_conn, ep["id"], c["id"], "vote_correctly_at_tribal"
         )
 
-    assert scoring.roster_points(db_conn, season["id"])[str(user["id"])] == 9
+    assert (
+        scoring.roster_points(db_conn, season["league_season_id"])[str(user["id"])] == 9
+    )
 
     with db_conn.cursor() as cur:
         cur.execute(
@@ -39,7 +41,10 @@ def test_bonus_is_half_the_finale_total_rounded_half_up(db_conn):
             " where user_id = %s and contestant_id = %s",
             [str(user["id"]), str(c["id"])],
         )
-    assert scoring.roster_points(db_conn, season["id"])[str(user["id"])] == 14
+    assert (
+        scoring.roster_points(db_conn, season["league_season_id"])[str(user["id"])]
+        == 14
+    )
 
 
 def test_bonus_helper_names_the_designee_and_amount(db_conn):
@@ -53,7 +58,9 @@ def test_bonus_helper_names_the_designee_and_amount(db_conn):
             db_conn, ep["id"], c["id"], "vote_correctly_at_tribal"
         )
     # On the roster but not designated -> no bonus.
-    assert scoring.sole_survivor_bonus(db_conn, season["id"], user["id"]) == (None, 0)
+    assert scoring.sole_survivor_bonus(
+        db_conn, season["league_season_id"], user["id"]
+    ) == (None, 0)
 
     with db_conn.cursor() as cur:
         cur.execute(
@@ -62,7 +69,9 @@ def test_bonus_helper_names_the_designee_and_amount(db_conn):
             [str(user["id"]), str(c["id"])],
         )
     # 9 finale points -> +4.5 -> +5, named on the designee.
-    assert scoring.sole_survivor_bonus(db_conn, season["id"], user["id"]) == (
+    assert scoring.sole_survivor_bonus(
+        db_conn, season["league_season_id"], user["id"]
+    ) == (
         str(c["id"]),
         5,
     )
@@ -99,4 +108,7 @@ def test_only_the_designee_and_only_the_finale(db_conn):
         )
     # 15 (early) + 15 (finale) + 15 (other) = 45, plus half of the designee's
     # finale 15 = 7.5 -> 8.
-    assert scoring.roster_points(db_conn, season["id"])[str(user["id"])] == 53
+    assert (
+        scoring.roster_points(db_conn, season["league_season_id"])[str(user["id"])]
+        == 53
+    )
