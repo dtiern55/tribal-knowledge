@@ -154,7 +154,7 @@ export function NavDrawer({
               htmlFor="drawer-season"
               className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-forest-600"
             >
-              Season
+              {multiLeague ? 'League · Season' : 'Season'}
             </label>
             <select
               id="drawer-season"
