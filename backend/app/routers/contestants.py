@@ -12,6 +12,7 @@ from app.schemas import (
     ContestantsCreateRequest,
     ContestantUpdateRequest,
 )
+from app.scoring import EVENT_POINTS_SQL
 
 router = APIRouter(tags=["contestants"])
 
@@ -60,13 +61,7 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                         order by ct.from_episode desc limit 1) as tribe_color,
                        coalesce(sum(
                          case when ep.id is null then 0 else
-                           (case
-                              when s.merge_episode is not null
-                               and ep.episode_number >= s.merge_episode
-                               and et.postmerge_point_value is not null
-                              then et.postmerge_point_value else et.point_value
-                            end)
-                           * (case when et.is_per_unit then se.quantity else 1 end)
+                           {EVENT_POINTS_SQL}
                          end
                        ), 0) as total_points,
                        coalesce(sum(
@@ -147,13 +142,7 @@ def get_contestant_performance(
             cur.execute(
                 f"""
                 select ep.episode_number, ep.is_finale, et.label,
-                       (case
-                          when s.merge_episode is not null
-                           and ep.episode_number >= s.merge_episode
-                           and et.postmerge_point_value is not null
-                          then et.postmerge_point_value else et.point_value
-                        end)
-                        * (case when et.is_per_unit then se.quantity else 1 end)
+                       {EVENT_POINTS_SQL}
                          as points,
                        et.token_value
                         * (case when et.is_per_unit then se.quantity else 1 end)

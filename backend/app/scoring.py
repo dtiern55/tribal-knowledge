@@ -49,6 +49,43 @@ ROSTER_ACTIVE_SQL = """
          or rp.active_until_episode >= ep.episode_number)
 """
 
+# A played Double Castaway Points that doubles this roster scoring event.
+# Needs `rp` (roster_picks) and `se` (scoring_events); binds no params, aliases
+# the play as `dbl` — pair with `(case when dbl.id is not null then 2 else 1 end)`.
+DOUBLE_ROSTER_JOIN_SQL = """
+    left join advantage_plays dbl
+      on dbl.advantage_type = 'double_roster_points'
+     and dbl.user_id = rp.user_id
+     and dbl.league_season_id = rp.league_season_id
+     and dbl.episode_id = se.episode_id
+     and dbl.target_contestant_id = se.contestant_id
+"""
+
+# A played Double Vote Points that doubles this elimination pick. Needs `pick`
+# (elimination_picks); aliases the play as `dbl`, same doubling pattern as
+# DOUBLE_ROSTER_JOIN_SQL. Pre-#303 plays name a target and only double that
+# pick; #303 on doubles the whole ballot (target_contestant_id is null).
+DOUBLE_VOTE_JOIN_SQL = """
+    left join advantage_plays dbl
+      on dbl.advantage_type = 'double_vote_points'
+     and dbl.user_id = pick.user_id
+     and dbl.league_season_id = pick.league_season_id
+     and dbl.episode_id = pick.episode_id
+     and (dbl.target_contestant_id is null
+          or dbl.target_contestant_id = pick.contestant_id)
+"""
+
+# The pre/post-merge value of a correct elimination pick, as two %s bind
+# params passed (post, pre) — i.e. elimination_rates()'s return reversed.
+# Needs `s` (seasons) and `ep` (episodes).
+MERGE_RATE_CASE_SQL = """
+    (case
+       when s.merge_episode is not null
+        and ep.episode_number >= s.merge_episode
+       then %s else %s
+     end)
+"""
+
 
 def _season_id(cur, league_season_id: UUID) -> str:
     cur.execute(
@@ -57,7 +94,7 @@ def _season_id(cur, league_season_id: UUID) -> str:
     return str(cur.fetchone()["season_id"])
 
 
-def _elimination_rates(cur, league_season_id: UUID) -> tuple[int, int]:
+def elimination_rates(cur, league_season_id: UUID) -> tuple[int, int]:
     """(pre-merge, post-merge) value of a correct elimination pick."""
     cur.execute(
         "select t.point_value, t.postmerge_point_value"
@@ -105,12 +142,7 @@ def roster_points(conn, league_season_id: UUID) -> dict[str, int]:
               on rp.contestant_id = se.contestant_id
              and rp.league_season_id = ls.id
              and {ROSTER_ACTIVE_SQL}
-            left join advantage_plays dbl
-              on dbl.advantage_type = 'double_roster_points'
-             and dbl.user_id = rp.user_id
-             and dbl.league_season_id = rp.league_season_id
-             and dbl.episode_id = se.episode_id
-             and dbl.target_contestant_id = se.contestant_id
+            {DOUBLE_ROSTER_JOIN_SQL}
             -- An episode's results stay hidden until it locks: applying
             -- scoring_events before picks_lock_at must not leak the boot or
             -- point changes to players who can still change their picks (#559).
@@ -160,16 +192,12 @@ def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
     excluded — there picks are scored as a winner vote instead (#19).
     """
     with conn.cursor() as cur:
-        pre, post = _elimination_rates(cur, league_season_id)
+        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.user_id::text as user_id,
                    sum(
-                     (case
-                        when s.merge_episode is not null
-                         and ep.episode_number >= s.merge_episode
-                        then %s else %s
-                      end)
+                     {MERGE_RATE_CASE_SQL}
                      * (case when dbl.id is not null then 2 else 1 end)
                    ) as points
             from elimination_picks pick
@@ -177,13 +205,7 @@ def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
             join seasons s on ep.season_id = s.id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
-            left join advantage_plays dbl
-              on dbl.advantage_type = 'double_vote_points'
-             and dbl.user_id = pick.user_id
-             and dbl.league_season_id = pick.league_season_id
-             and dbl.episode_id = pick.episode_id
-             and (dbl.target_contestant_id is null
-                  or dbl.target_contestant_id = pick.contestant_id)
+            {DOUBLE_VOTE_JOIN_SQL}
             -- Hidden until the episode locks, same as roster_points (#559).
             where pick.league_season_id = %s and ep.is_finale = false
               and {episode_locked_sql("ep")}
@@ -317,12 +339,7 @@ def roster_points_by_contestant(
               on rp.contestant_id = se.contestant_id
              and rp.league_season_id = %s
              and {ROSTER_ACTIVE_SQL}
-            left join advantage_plays dbl
-              on dbl.advantage_type = 'double_roster_points'
-             and dbl.user_id = rp.user_id
-             and dbl.league_season_id = rp.league_season_id
-             and dbl.episode_id = se.episode_id
-             and dbl.target_contestant_id = se.contestant_id
+            {DOUBLE_ROSTER_JOIN_SQL}
             -- Hidden until the episode locks (#559): this breakdown is visible
             -- to other players once rosters lock, so it must gate too.
             where rp.user_id = %s and {episode_locked_sql("ep")}
@@ -388,12 +405,7 @@ def sole_survivor_bonus(
              and rp.league_season_id = %s
              and rp.is_sole_survivor
              and {ROSTER_ACTIVE_SQL}
-            left join advantage_plays dbl
-              on dbl.advantage_type = 'double_roster_points'
-             and dbl.user_id = rp.user_id
-             and dbl.league_season_id = rp.league_season_id
-             and dbl.episode_id = se.episode_id
-             and dbl.target_contestant_id = se.contestant_id
+            {DOUBLE_ROSTER_JOIN_SQL}
             where rp.user_id = %s and {episode_locked_sql("ep")}
             group by se.contestant_id
             """,
@@ -450,14 +462,12 @@ def advantage_bonus_by_play(
         for row in cur.fetchall():
             bonus[row["play_id"]] = row["bonus"]
 
-        pre, post = _elimination_rates(cur, league_season_id)
+        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select ap.id::text as play_id, coalesce(sum(
                 (case when el.contestant_id is null then 0
-                   when s.merge_episode is not null
-                    and ep.episode_number >= s.merge_episode
-                   then %s else %s end)
+                 else {MERGE_RATE_CASE_SQL} end)
             ), 0) as bonus
             from advantage_plays ap
             join episodes ep on ep.id = ap.episode_id
@@ -496,19 +506,14 @@ def elimination_pick_results(conn, league_season_id: UUID, user_id: UUID) -> lis
     picks are excluded — there they score as a winner vote.
     """
     with conn.cursor() as cur:
-        pre, post = _elimination_rates(cur, league_season_id)
+        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.episode_id::text as episode_id,
                    pick.contestant_id::text as contestant_id,
                    (el.contestant_id is not null) as correct,
-                   (case when el.contestant_id is null then 0 else
-                     (case
-                        when s.merge_episode is not null
-                         and ep.episode_number >= s.merge_episode
-                        then %s else %s
-                      end)
-                    end) as points
+                   (case when el.contestant_id is null then 0
+                    else {MERGE_RATE_CASE_SQL} end) as points
             from elimination_picks pick
             join episodes ep on pick.episode_id = ep.id
             join seasons s on ep.season_id = s.id
@@ -567,12 +572,7 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
               on rp.contestant_id = se.contestant_id
              and rp.league_season_id = %s
              and {ROSTER_ACTIVE_SQL}
-            left join advantage_plays dbl
-              on dbl.advantage_type = 'double_roster_points'
-             and dbl.user_id = rp.user_id
-             and dbl.league_season_id = rp.league_season_id
-             and dbl.episode_id = se.episode_id
-             and dbl.target_contestant_id = se.contestant_id
+            {DOUBLE_ROSTER_JOIN_SQL}
             -- Consistent with roster_points: an episode's points don't count
             -- until it locks, so this delta reconciles with the total (#559).
             where ep.episode_number = %s and {episode_locked_sql("ep")}
@@ -595,13 +595,11 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
         for row in cur.fetchall():
             add(row["user_id"], row["pen"])
 
-        pre, post = _elimination_rates(cur, league_season_id)
+        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.user_id::text as user_id, sum(
-                (case when s.merge_episode is not null
-                       and ep.episode_number >= s.merge_episode
-                      then %s else %s end)
+                {MERGE_RATE_CASE_SQL}
                 * (case when dbl.id is not null then 2 else 1 end)
             ) as pts
             from elimination_picks pick
@@ -609,13 +607,7 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
             join seasons s on s.id = ep.season_id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
-            left join advantage_plays dbl
-              on dbl.advantage_type = 'double_vote_points'
-             and dbl.user_id = pick.user_id
-             and dbl.league_season_id = pick.league_season_id
-             and dbl.episode_id = pick.episode_id
-             and (dbl.target_contestant_id is null
-                  or dbl.target_contestant_id = pick.contestant_id)
+            {DOUBLE_VOTE_JOIN_SQL}
             where pick.league_season_id = %s and ep.episode_number = %s
               and ep.is_finale = false
               and {episode_locked_sql("ep")}
