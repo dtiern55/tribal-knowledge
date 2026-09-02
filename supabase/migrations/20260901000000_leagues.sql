@@ -24,7 +24,13 @@ alter table league_members enable row level security;
 insert into leagues (name, join_code)
 select 'Snakes and Rats', join_code from league_settings limit 1;
 
+-- Real players only: the practice bots (bot-*@tribal.local accounts) get
+-- their own league from the bot driver. Their history still scores — a
+-- completed season's standings list whoever has a roster in it.
 insert into league_members (league_id, user_id)
-select l.id, p.id from leagues l, profiles p where p.is_player;
+select l.id, p.id
+from leagues l, profiles p
+join auth.users u on u.id = p.id
+where p.is_player and u.email not like 'bot-%@tribal.local';
 
 drop table league_settings;
