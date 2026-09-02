@@ -11,7 +11,7 @@ describe('ColdStart', () => {
 
   it('tells the commissioner a season has to exist first', () => {
     renderWithApp(<ColdStart />, {
-      auth: { profile: { id: 'user-1', display_name: 'Test Player', is_admin: true } },
+      auth: { profile: { id: 'user-1', display_name: 'Test Player', is_admin: true, leagues: [] } },
     })
     expect(screen.getByRole('heading', { name: 'No season yet' })).toBeVisible()
     // #526: the commissioner now has somewhere to go. Before the create-season

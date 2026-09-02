@@ -181,26 +181,6 @@ def test_update_episode(client, db_conn):
     assert data["max_elimination_picks"] == 1
 
 
-# --- league settings ---
-
-
-@pytest.mark.integration
-def test_get_league_settings(client):
-    r = client.get("/league-settings")
-    assert r.status_code == 200
-    assert r.json()["join_code"] == "change-me"
-
-
-@pytest.mark.integration
-def test_update_league_settings(client):
-    r = client.patch("/league-settings", json={"join_code": "new-code-2026"})
-    assert r.status_code == 200
-    assert r.json()["join_code"] == "new-code-2026"
-
-    r2 = client.get("/league-settings")
-    assert r2.json()["join_code"] == "new-code-2026"
-
-
 # --- scoring event types ---
 
 

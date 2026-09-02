@@ -13,7 +13,7 @@ import type {
   Contestant,
   Episode,
   EpisodeInsightConfig,
-  LeagueSettings,
+  League,
   ScoringEventType,
   Season,
 } from '../types'
@@ -1720,45 +1720,108 @@ function TokensSection({ season }: { season: Season }) {
 
 // ─── League settings section ───────────────────────────────────────────────────
 
-function LeagueSettingsSection({
-  settings,
-  onUpdated,
-}: {
-  settings: LeagueSettings
-  onUpdated: (s: LeagueSettings) => void
-}) {
-  const [joinCode, setJoinCode] = useState(settings.join_code)
+function LeagueRow({ league, onUpdated }: { league: League; onUpdated: (l: League) => void }) {
+  const [name, setName] = useState(league.name)
+  const [joinCode, setJoinCode] = useState(league.join_code)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const dirty = name.trim() !== league.name || joinCode.trim() !== league.join_code
 
   function save() {
     setSuccess(null)
     void run(setSaving, setError, async () => {
-      const updated = await api.patch<LeagueSettings>('/league-settings', {
-        join_code: joinCode,
-      })
-      onUpdated(updated)
-      setSuccess('Join code updated.')
+      onUpdated(
+        await api.patch<League>(`/leagues/${league.id}`, {
+          name: name.trim(),
+          join_code: joinCode.trim(),
+        }),
+      )
+      setSuccess('Saved.')
     })
   }
 
   return (
-    <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3 max-w-sm">
+    <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`league-name-${league.id}`} className="block text-xs text-gray-500 mb-1">Name</label>
+          <input
+            id={`league-name-${league.id}`}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor={`league-code-${league.id}`} className="block text-xs text-gray-500 mb-1">Join code</label>
+          <input
+            id={`league-code-${league.id}`}
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 font-mono text-sm"
+          />
+        </div>
+      </div>
       <p className="text-xs text-gray-500">
-        Share this code with new members — they enter it at /join to create their
-        profile.
+        {league.member_count} member{league.member_count === 1 ? '' : 's'}. New members enter the code at /join.
       </p>
-      <input
-        value={joinCode}
-        onChange={(e) => setJoinCode(e.target.value)}
-        className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
-      />
       <ErrorMsg msg={error} />
       <SuccessMsg msg={success} />
-      <ActionBtn onClick={save} disabled={saving || !joinCode.trim()}>
+      <ActionBtn onClick={save} disabled={saving || !dirty || !name.trim() || !joinCode.trim()}>
         {saving ? 'Saving…' : 'Save'}
       </ActionBtn>
+    </div>
+  )
+}
+
+function LeaguesSection({ leagues, onChanged }: { leagues: League[]; onChanged: (ls: League[]) => void }) {
+  const [name, setName] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function create() {
+    void run(setBusy, setError, async () => {
+      const created = await api.post<League>('/leagues', { name: name.trim(), join_code: joinCode.trim() })
+      onChanged([...leagues, created])
+      setName('')
+      setJoinCode('')
+    })
+  }
+
+  return (
+    <div className="space-y-3">
+      {leagues.map((l) => (
+        <LeagueRow
+          key={l.id}
+          league={l}
+          onUpdated={(u) => onChanged(leagues.map((x) => (x.id === u.id ? u : x)))}
+        />
+      ))}
+      <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-forest-600">New league</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            aria-label="New league name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="League name"
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            aria-label="New league join code"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            placeholder="join-code"
+            className="w-full border border-cream-200 rounded-lg px-3 py-2 font-mono text-sm"
+          />
+        </div>
+        <ErrorMsg msg={error} />
+        <ActionBtn onClick={create} disabled={busy || !name.trim() || !joinCode.trim()}>
+          {busy ? 'Creating…' : 'Create league'}
+        </ActionBtn>
+      </div>
     </div>
   )
 }
@@ -1864,7 +1927,7 @@ export function AdminPage() {
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [eventTypes, setEventTypes] = useState<ScoringEventType[]>([])
-  const [leagueSettings, setLeagueSettings] = useState<LeagueSettings | null>(null)
+  const [leagues, setLeagues] = useState<League[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -1873,17 +1936,17 @@ export function AdminPage() {
   // left behind.
   const loadSeason = useCallback(async (target: Season) => {
     setSeason(target)
-    const [cs, eps, types, settings] = await Promise.all([
+    const [cs, eps, types, ls] = await Promise.all([
       api.get<Contestant[]>(`/seasons/${target.id}/contestants`),
       api.get<Episode[]>(`/seasons/${target.id}/episodes`),
       // Season-scoped since #170's snapshot; the global route is gone
       api.get<ScoringEventType[]>(`/seasons/${target.id}/scoring-event-types`),
-      api.get<LeagueSettings>('/league-settings'),
+      api.get<League[]>('/leagues'),
     ])
     setContestants(cs)
     setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
     setEventTypes(types)
-    setLeagueSettings(settings)
+    setLeagues(ls)
   }, [])
 
   useEffect(() => {
@@ -1925,7 +1988,7 @@ export function AdminPage() {
     { id: 'episodes', label: '1. Schedule & score' },
     { id: 'season-setup', label: '2. Season setup' },
     { id: 'cast-setup', label: '3. Cast setup' },
-    { id: 'league-settings', label: '4. League access' },
+    { id: 'league-settings', label: '4. Leagues' },
   ]
 
   return (
@@ -1983,11 +2046,9 @@ export function AdminPage() {
         </Section>
       )}
 
-      {leagueSettings && (
-        <Section id="league-settings" title="League access" description="Control the join code shared with new league members.">
-          <LeagueSettingsSection settings={leagueSettings} onUpdated={setLeagueSettings} />
-        </Section>
-      )}
+      <Section id="league-settings" title="Leagues" description="Each league has its own join code and members.">
+        <LeaguesSection leagues={leagues} onChanged={setLeagues} />
+      </Section>
 
       <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
         <LoaderPreviewSection />

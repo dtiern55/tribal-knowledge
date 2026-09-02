@@ -121,7 +121,7 @@ describe('Layout', () => {
 
   it('lets an admin force night theme via the drawer, overriding the unlocked episode state', async () => {
     const user = userEvent.setup()
-    renderLayout('/', { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } })
+    renderLayout('/', { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } })
 
     await waitFor(() => expect(document.documentElement).not.toHaveClass('locked-night'))
     await user.click(screen.getByRole('button', { name: 'Open menu' }))
