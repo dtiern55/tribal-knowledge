@@ -68,6 +68,21 @@ or pale fine-grain reference and the matching v2/v3 artwork target:
 > seams, tiles, new objects, text, watermark, pencil lines, exaggerated grain,
 > or glossy finish.
 
+## Readable dark loader revision
+
+`wood-block-burn-v6-readable-dark.png` lifts the dark loader field from near-
+black espresso to a warmer dark walnut so the emblem remains legible at the
+loader's rendered size. It supersedes v4 for the loader only; the installed app
+icon remains unchanged.
+
+> Make one restrained tonal correction only: lighten the existing dark brown
+> wood field/background about 12–15%, from near-black espresso to readable dark
+> walnut. Preserve the exact existing fine, subtle, low-contrast vertical wood
+> grain, canvas, composition, silhouette, geometry, burned outlines, colors,
+> shadows, and lighting. Do not redraw, enlarge, emboss, sharpen, or make the
+> grain more visible. No cropping, shape changes, new details, text, or
+> watermark.
+
 ## Prompt
 
 > Change only the material and surface texture. Reinterpret the entire icon as

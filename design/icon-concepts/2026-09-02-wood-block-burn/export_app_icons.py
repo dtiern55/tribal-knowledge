@@ -8,7 +8,7 @@ from PIL import Image, ImageFilter
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 SOURCE_DARK = HERE / "wood-block-burn-v2-solid-background.png"
-PUZZLE_DARK = HERE / "wood-block-burn-v4-fine-dark.png"
+PUZZLE_DARK = HERE / "wood-block-burn-v6-readable-dark.png"
 PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
 PUBLIC = REPO / "frontend" / "public"
 RESAMPLE = Image.Resampling.LANCZOS
