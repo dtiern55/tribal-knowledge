@@ -52,5 +52,12 @@ same visual world as the application.
 The app is now named **Snakes and Rats**, with a new mark inspired by Sue Hawk's
 season-one Tribal Council speech. A cream rat and terracotta snake frame a gold
 hidden flame on the established forest-green textured canvas. The final source
-art is `snakes-and-rats-final.png`; production favicon, app-icon, maskable-icon,
-and sliding-puzzle exports live under `frontend/public`.
+art is `snakes-and-rats-final.png`. Its snake keeps the more aggressive middle
+curve and green cut-through from the exploration while the last curve resolves
+directly into the flame base without the lower coil.
+
+The locked loading-screen palette lives in `snakes-and-rats-locked.png`: cream
+textured ground, forest-green rat, terracotta snake, and gold flame. Production
+favicon, app-icon, maskable-icon, and both current sliding-puzzle exports live
+under `frontend/public`; the earlier fire-ring puzzle exports remain there for
+the four-way admin preview.
