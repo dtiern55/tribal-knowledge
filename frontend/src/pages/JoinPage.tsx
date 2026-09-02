@@ -16,7 +16,9 @@ export function JoinPage() {
 
   if (loading) return <PageLoader label="Getting your league ready…" />
   if (!session) return <Navigate to="/login" replace />
-  if (profile) return <Navigate to="/" replace />
+  // A member joining another league (#595) only needs the code; the profile
+  // and display name already exist.
+  const member = profile != null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -24,7 +26,7 @@ export function JoinPage() {
     setError(null)
     try {
       await api.post<UserProfile>('/join', {
-        display_name: displayName.trim(),
+        ...(member ? {} : { display_name: displayName.trim() }),
         join_code: joinCode.trim(),
       })
       await refreshProfile()
@@ -37,11 +39,18 @@ export function JoinPage() {
 
   return (
     <AuthScene eyebrow="One last step">
-      <h2 className="font-display text-2xl tracking-wide text-forest-800">Join your league</h2>
+      <h2 className="font-display text-2xl tracking-wide text-forest-800">
+        {member ? 'Join another league' : 'Join your league'}
+      </h2>
       <p className="mt-1 text-sm leading-6 text-gray-600">
-        Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name other players will see, then enter your join code.
+        {member ? (
+          <>Playing as <span className="font-medium text-gray-800">{profile.display_name}</span>. Enter the join code for the new league.</>
+        ) : (
+          <>Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name other players will see, then enter your join code.</>
+        )}
       </p>
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'join-error' : undefined}>
+        {!member && (
         <div>
           <label htmlFor="join-display-name" className="mb-1 block text-sm font-medium text-gray-700">Display name</label>
           <input
@@ -56,6 +65,7 @@ export function JoinPage() {
           />
           <p className="mt-1 text-xs text-gray-500">This is how you will appear in standings.</p>
         </div>
+        )}
         <div>
           <label htmlFor="join-code" className="mb-1 block text-sm font-medium text-gray-700">Join code</label>
           <input
@@ -73,7 +83,7 @@ export function JoinPage() {
         {error && <p id="join-error" role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
         <button
           type="submit"
-          disabled={submitting || !displayName.trim() || !joinCode.trim()}
+          disabled={submitting || (!member && !displayName.trim()) || !joinCode.trim()}
           className="min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50"
         >
           {submitting ? 'Joining league…' : 'Join league'}

@@ -151,6 +151,34 @@ describe('account entry flows', () => {
     expect(refreshProfile).toHaveBeenCalledOnce()
   })
 
+  it('lets a member join another league with just the code (#595)', async () => {
+    const user = userEvent.setup()
+    const refreshProfile = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(api.post).mockResolvedValue({ id: 'user-1', display_name: 'Danny', is_admin: false, leagues: [] })
+    renderWithApp(
+      <Routes>
+        <Route path="/join" element={<JoinPage />} />
+        <Route path="/" element={<p>My Season destination</p>} />
+      </Routes>,
+      {
+        route: '/join',
+        auth: {
+          session: memberSession,
+          profile: { id: 'user-1', display_name: 'Danny', is_admin: false, leagues: [{ id: 'l1', name: 'First' }] },
+          refreshProfile,
+        },
+      },
+    )
+
+    expect(screen.getByRole('heading', { name: 'Join another league' })).toBeVisible()
+    expect(screen.queryByRole('textbox', { name: 'Display name' })).toBeNull()
+    await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'camp-b')
+    await user.click(screen.getByRole('button', { name: 'Join league' }))
+
+    expect(await screen.findByText('My Season destination')).toBeVisible()
+    expect(api.post).toHaveBeenCalledWith('/join', { join_code: 'camp-b' })
+  })
+
   it('keeps an invalid join code beside the join action and allows retry', async () => {
     const user = userEvent.setup()
     vi.mocked(api.post).mockRejectedValue(new Error('That join code is not valid'))
