@@ -116,7 +116,7 @@ describe('account entry flows', () => {
         <Route path="/reset" element={<ResetPasswordPage />} />
         <Route path="/" element={<p>My Season destination</p>} />
       </Routes>,
-      { route: '/reset', auth: { session: memberSession, profile: { id: 'user-1', display_name: 'Danny', is_admin: false } } },
+      { route: '/reset', auth: { session: memberSession, profile: { id: 'user-1', display_name: 'Danny', is_admin: false, leagues: [] } } },
     )
 
     await user.type(screen.getByLabelText('New password'), 'brand-new-pass')
@@ -129,7 +129,7 @@ describe('account entry flows', () => {
   it('joins with trimmed league identity data and continues to My Season', async () => {
     const user = userEvent.setup()
     const refreshProfile = vi.fn().mockResolvedValue(undefined)
-    vi.mocked(api.post).mockResolvedValue({ id: 'user-1', display_name: 'Danny', is_admin: false })
+    vi.mocked(api.post).mockResolvedValue({ id: 'user-1', display_name: 'Danny', is_admin: false, leagues: [] })
 
     renderWithApp(
       <Routes>
@@ -169,11 +169,11 @@ describe('account entry flows', () => {
   it('keeps league identity separate from account identity on Profile', async () => {
     const user = userEvent.setup()
     const refreshProfile = vi.fn().mockResolvedValue(undefined)
-    vi.mocked(api.patch).mockResolvedValue({ id: 'user-1', display_name: 'Danny', is_admin: false })
+    vi.mocked(api.patch).mockResolvedValue({ id: 'user-1', display_name: 'Danny', is_admin: false, leagues: [] })
     renderWithApp(<ProfilePage />, {
       auth: {
         session: memberSession,
-        profile: { id: 'user-1', display_name: 'Test Player', is_admin: false },
+        profile: { id: 'user-1', display_name: 'Test Player', is_admin: false, leagues: [] },
         refreshProfile,
       },
     })

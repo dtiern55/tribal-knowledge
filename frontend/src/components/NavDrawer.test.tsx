@@ -53,7 +53,7 @@ describe('NavDrawer', () => {
   it('only shows the admin testing theme toggle to admins', async () => {
     const admin = renderWithApp(
       <NavDrawer open onClose={() => undefined} themeOverride="auto" onThemeOverrideChange={() => undefined} />,
-      { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } } },
+      { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } } },
     )
     expect(await screen.findByText('Testing')).toBeVisible()
     expect(screen.getByRole('button', { name: 'night' })).toBeVisible()
@@ -61,7 +61,7 @@ describe('NavDrawer', () => {
 
     renderWithApp(
       <NavDrawer open onClose={() => undefined} themeOverride="auto" onThemeOverrideChange={() => undefined} />,
-      { auth: { profile: { id: 'user-1', display_name: 'Player', is_admin: false } } },
+      { auth: { profile: { id: 'user-1', display_name: 'Player', is_admin: false, leagues: [] } } },
     )
     expect(screen.queryByText('Testing')).not.toBeInTheDocument()
   })
@@ -76,7 +76,7 @@ describe('NavDrawer', () => {
         themeOverride="auto"
         onThemeOverrideChange={onThemeOverrideChange}
       />,
-      { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true } } },
+      { auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } } },
     )
 
     await user.click(await screen.findByRole('button', { name: 'night' }))

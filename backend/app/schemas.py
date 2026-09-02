@@ -539,14 +539,31 @@ class RulesResponse(BaseModel):
     advantages: list[AdvantageType]
 
 
-class LeagueSettings(BaseModel):
+class LeagueRef(BaseModel):
     id: UUID
+    name: str
+
+
+class League(LeagueRef):
     join_code: str
-    updated_at: datetime
+    member_count: int
+    created_at: datetime
 
 
-class LeagueSettingsUpdateRequest(BaseModel):
+class LeagueCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
     join_code: str = Field(min_length=1)
+
+
+class LeagueUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    join_code: Optional[str] = Field(default=None, min_length=1)
+
+
+class LeagueMember(BaseModel):
+    id: UUID
+    display_name: str
+    joined_at: datetime
 
 
 class TokenTransaction(BaseModel):
@@ -585,10 +602,12 @@ class UserProfile(BaseModel):
     id: UUID
     display_name: str
     is_admin: bool
+    leagues: list[LeagueRef]
 
 
 class JoinRequest(BaseModel):
-    display_name: str = Field(min_length=1, max_length=40)
+    # Required on the first join (it creates the profile), ignored after.
+    display_name: Optional[str] = Field(default=None, max_length=40)
     join_code: str = Field(min_length=1)
 
 
