@@ -118,24 +118,6 @@ function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean
   )
 }
 
-/** The Sole Survivor ring lifted off the page during a reassign drag (#164) —
- *  the medallion twin of {@link SealGhost}. */
-function SsGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
-  if (!drag) return null
-  return createPortal(
-    <div
-      aria-hidden
-      className={`seal-ghost pointer-events-none fixed z-50 ${drag.releasing ? 'seal-ghost--releasing' : ''}`}
-      style={{ left: drag.x, top: drag.y, transform: `translate(-50%, calc(-50% - ${SEAL_LIFT_Y}px))` }}
-    >
-      <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
-        <img src={idolRing} alt="" className="block h-12 w-12" />
-      </span>
-    </div>,
-    document.body,
-  )
-}
-
 // My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
 // season sections + the one data load, so both pages live in this file.
 function useMySeasonData() {
@@ -2585,36 +2567,7 @@ function RosterSection({
     },
   })
 
-  // Sole Survivor reassign by dragging the ring (#164) — the direct-manipulation
-  // twin of the card's selector, reusing the same roster-row drop targets. Only
-  // while the designation window is open.
-  const currentSsId = roster.find((p) => p.is_sole_survivor)?.contestant_id
-  const {
-    drag: ssDrag,
-    dragging: ssDragging,
-    start: startSsDrag,
-  } = useSealDrag({
-    disabled: !ssOpen,
-    canDropOn: (id) =>
-      !id.startsWith('beat:') &&
-      id !== currentSsId &&
-      activeRoster.some((p) => p.contestant_id === id) &&
-      contestantMap.get(id)?.eliminated_in_episode == null,
-    onDrop: (id) => {
-      void reassignSoleSurvivor(id)
-    },
-  })
 
-  async function reassignSoleSurvivor(id: string) {
-    setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === id })))
-    try {
-      await api.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, { contestant_id: id })
-      onRosterChange()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Designation failed')
-      setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
-    }
-  }
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
@@ -2812,7 +2765,6 @@ function RosterSection({
   return (
     <>
     <SealGhost drag={drag} />
-    <SsGhost drag={ssDrag} />
       {toolbar}
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
@@ -2914,23 +2866,8 @@ function RosterSection({
                 sealLifted={
                   dragging && displayedDoubleTarget === pick.contestant_id
                 }
-                // #164: the Sole Survivor ring is a drag handle to reassign the
-                // designation; every row is a drop target for it too.
-                onSsPointerDown={
-                  ssOpen && !picking && pick.is_sole_survivor ? startSsDrag : undefined
-                }
-                // #529: nobody designated yet — every row offers the empty ring.
-                onSsDesignate={
-                  ssOpen && !picking && !currentSsId
-                    ? () => void reassignSoleSurvivor(pick.contestant_id)
-                    : undefined
-                }
-                ssLifted={ssDragging && pick.is_sole_survivor}
                 dropId={pick.contestant_id}
-                dropActive={
-                  drag?.overId === pick.contestant_id ||
-                  ssDrag?.overId === pick.contestant_id
-                }
+                dropActive={drag?.overId === pick.contestant_id}
                 stamp={stampId === pick.contestant_id}
               >
                 <RosterBreakdown
@@ -4083,13 +4020,13 @@ function SoleSurvivorLine({
     }
   }
 
-  // Locked: the roster card already wears the Sole Survivor ring, so a second
+  // Locked: the roster row already carries the Sole Survivor tag, so a second
   // box restating a decision nobody can change any more is just noise (#487).
   if (!windowOpen) return null
 
   // Played: collapse to a slim confirmation with just an Undo, mirroring the
   // Advantage played row (no header, lock, or rules — only the state and its
-  // undo). Reassign by dragging the ring on the roster, or Undo to choose again.
+  // undo).
   if (designee) {
     return (
       <div className="flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
@@ -4114,9 +4051,9 @@ function SoleSurvivorLine({
     )
   }
 
-  // Undesignated: a prompt, not a picker. The select listed the same five
-  // castaways sitting on screen underneath it, and the box it sat in cost 204px
-  // above the roster (#529). Designating is now a tap on a roster card's ring.
+  // Undesignated: just the state for now. The ring on the roster cards that
+  // used to take the designation is gone; how to name one comes on a later
+  // pass.
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
       {/* The lock badge runs ~170px wide; sharing one wrapping row with it
@@ -4129,7 +4066,7 @@ function SoleSurvivorLine({
             Sole Survivor
           </span>
           {' — '}
-          tap a ring on your roster to name yours.
+          not named yet.
         </p>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-10">
