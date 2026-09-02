@@ -145,7 +145,11 @@ def test_double_roster_requires_a_rostered_target(client, db_conn, current_user)
     assert "target_contestant_id" in r.json()["detail"]
 
     r = _play(
-        client, season["id"], "double_roster_points", target=stranger["id"], expect=400
+        client,
+        season["league_season_id"],
+        "double_roster_points",
+        target=stranger["id"],
+        expect=400,
     )
     assert "not on your active roster" in r.json()["detail"]
 

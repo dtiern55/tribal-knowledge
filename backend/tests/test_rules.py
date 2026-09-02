@@ -9,7 +9,7 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     r = client.get(f"/league-seasons/{season['league_season_id']}/rules")
     assert r.status_code == 200
     data = r.json()
-    assert data["season"]["id"] == str(season["id"])
+    assert data["season"]["id"] == season["league_season_id"]
     assert data["season"]["swap_token_cost"] == 30
     assert data["season"]["token_economy_enabled"] is False
 

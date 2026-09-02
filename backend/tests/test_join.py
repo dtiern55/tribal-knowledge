@@ -57,7 +57,8 @@ def test_join_second_league_keeps_profile(client, db_conn, current_user):
     r = client.post("/join", json={"join_code": "two"})
     assert r.status_code == 201
     assert r.json()["display_name"] == current_user["display_name"]
-    assert [lg["name"] for lg in r.json()["leagues"]] == ["First", "Second"]
+    # insert_user enrolls the fixture user in the default test league too.
+    assert [lg["name"] for lg in r.json()["leagues"]][-2:] == ["First", "Second"]
 
     assert client.post("/join", json={"join_code": "two"}).status_code == 409
     assert str(second["id"]) in {lg["id"] for lg in client.get("/me").json()["leagues"]}

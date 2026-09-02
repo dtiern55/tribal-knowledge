@@ -74,7 +74,9 @@ def test_two_leagues_play_one_season_separately(client, db_conn, current_user):
     c = insert_contestant(db_conn, season["id"], "Kenzie")
     other_league = insert_league(db_conn, name="Camp B")
     enroll(db_conn, other_league["id"], current_user["id"])
-    other_ls = _ls(client, other_league["id"], season["id"], roster_lock_episode=1)
+    other_ls = _ls(
+        client, other_league["id"], season["id"], roster_lock_episode=1, roster_size=1
+    )
     rival = insert_user(db_conn, display_name="Rival")  # default league only
 
     # Roster in the default league; nothing in Camp B yet.
