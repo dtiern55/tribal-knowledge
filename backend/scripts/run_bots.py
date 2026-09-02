@@ -179,11 +179,8 @@ def league_season(cur, league_name: str, season_number: int) -> dict:
     bots only ever play among themselves and the commissioner."""
     league = league_by_name(cur, league_name)
     cur.execute(
-        "select 1 from league_members m"
-        " join auth.users u on u.id = m.user_id"
-        " join profiles p on p.id = m.user_id"
-        " where m.league_id = %s and not p.is_admin"
-        "   and u.email not like 'bot-%%@tribal.local' limit 1",
+        "select 1 from league_members m join profiles p on p.id = m.user_id"
+        " where m.league_id = %s and not p.is_admin and not p.is_bot limit 1",
         [league["id"]],
     )
     if cur.fetchone():
@@ -248,21 +245,18 @@ def create_bot_account(cur, http) -> str:
     r.raise_for_status()
     uid = r.json()["id"]
     cur.execute(
-        "insert into profiles (id, display_name, is_admin) values (%s, %s, false)"
-        " on conflict (id) do nothing",
+        "insert into profiles (id, display_name, is_admin, is_bot)"
+        " values (%s, %s, false, true) on conflict (id) do nothing",
         [uid, "bot"],
     )
     return uid
 
 
 def load_bots(cur) -> list[dict]:
-    # Bots are the accounts setup minted, identified by their auth email.
-    # Anything looser (e.g. "every non-admin") would pick up real players.
+    # profiles.is_bot is the marker: the oldest bot accounts sit on the
+    # commissioner's own email, so nothing looser is safe.
     cur.execute(
-        "select p.id, p.display_name from profiles p"
-        " join auth.users u on u.id = p.id"
-        " where u.email like 'bot-%@tribal.local'"
-        " order by p.created_at"
+        "select id, display_name from profiles where is_bot order by created_at"
     )
     return cur.fetchall()
 
@@ -277,8 +271,8 @@ def setup(cur, http, league_name: str):
     """
     arche = archetypes()
     cur.execute(
-        "insert into profiles (id, display_name, is_admin)"
-        " select u.id, 'bot', false from auth.users u"
+        "insert into profiles (id, display_name, is_admin, is_bot)"
+        " select u.id, 'bot', false, true from auth.users u"
         " left join profiles p on p.id = u.id"
         " where p.id is null and u.email like 'bot-%@tribal.local'"
     )
