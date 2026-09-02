@@ -42,3 +42,7 @@ When sources disagree, use this order:
 4. Mockups and screenshots as exploratory references, not specifications.
 
 Preserve unrelated working-tree changes. Do not rewrite existing product history to make old seasons follow new rules.
+
+## Codex desktop image previews on Windows
+
+Keep project image assets in this WSL repository. Before embedding a local image in a Codex desktop response, copy a preview to the Windows-visible directory `%USERPROFILE%\.codex\visualizations\tribal-knowledge` and embed the absolute `C:\...` path. Do not embed `/home/...` or `\\wsl.localhost\...` paths in chat; the Windows desktop renderer may not display them.
