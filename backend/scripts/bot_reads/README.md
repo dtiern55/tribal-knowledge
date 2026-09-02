@@ -41,20 +41,16 @@ Notes from building it:
 - **`draft` order drives ownership.** Naming someone first gets them rostered
   by nearly everyone, which is what makes their boot cascade through the
   league. That's realistic — use it deliberately.
-- **`confidence` steers the advantage split**, and it defaults to `medium`.
-  `high` pushes the flex personas onto the vote double, `low` sends them to
-  their roster stars, `medium` splits them. State it — it used to be inferred
-  from how many names `likely_boots` held, which conflated "how many people
-  could go" with "how sure am I": a read covering two tribes looked uncertain
-  purely because it was long.
+- **The weekly play is the bot's lean, not the read's.** Ballot bots mostly
+  double the ballot, Roster bots mostly double a rostered castaway, Mixed
+  bots flip a coin. A `confidence` key in older reads is ignored.
 - **`safe` keeps someone off ballots entirely.** Names not in `likely_boots`
-  still get votes from the spread and contrarian personas, since they land in
-  the leftover field. If the read says nobody would vote for them, say so here.
+  still get votes from the looser and random bots, since they land in the
+  leftover field. If the read says nobody would vote for them, say so here.
 - **Bots only swap off an eliminated castaway.** There's no reason to burn a
   swap while your five are all alive, so a name appearing in `likely_boots`
   never triggers one — only a slot that's actually dead does. A free swap
-  covers it; past that it costs the week's play, which a Roster Loyalist
-  won't pay.
+  covers it; past that it costs points.
 - **`double_targets` decides who a roster double lands on** — bots only double
   a castaway they actually roster, so naming a whole tribe is fine.
 - Names are matched case- and punctuation-insensitively. An unrecognised name
