@@ -33,30 +33,15 @@ remain unchanged.
 > three-part flame exactly, including every color, burned outline, texture,
 > position, proportion, negative space, internal cutout, and silhouette.
 
-## Light loader revision
+## Fine-grain light loader revision
 
-`wood-block-burn-v3-light-background.png` is the locked-theme companion. It
-keeps the snake, flame, geometry, and pyrography treatment unchanged while
-swapping the other two tonal roles: one continuous pale maple background and a
-smoked-walnut rat.
+`wood-block-burn-v5-fine-light.png` supplies the locked-theme loader tiles with
+fine, low-contrast wood fibers. The dark loader uses the later readable-walnut
+revision below, while the earlier dark source stays in place for the installed
+app icon.
 
-> Change only the background wood tone and rat wood tone. Replace the
-> continuous dark-walnut background with one uninterrupted pale warm maple or
-> beech surface, and change the rat from pale wood to deep smoked walnut. Keep
-> the rat visibly wood-grained and burned into the surface. Preserve the exact
-> crop, padding, positions, proportions, negative spaces, internal cutouts,
-> burned outlines, and silhouettes. Keep the snake terracotta and the flame
-> amber gold. No seams, tiles, panels, new objects, text, glow, or watermark.
-
-## Fine-grain loader revisions
-
-`wood-block-burn-v4-fine-dark.png` and
-`wood-block-burn-v5-fine-light.png` replace the coarse embossed grain in the
-loader tiles with fine, low-contrast wood fibers. The earlier dark source stays
-in place for the installed app icon.
-
-Both revisions use the same edit instruction, paired with the appropriate dark
-or pale fine-grain reference and the matching v2/v3 artwork target:
+The edit used the pale fine-grain reference and the matching light artwork
+target:
 
 > Change only the wood surface texture so every wooden region uses a much
 > finer, tighter, lower-contrast grain like the supplied material reference.
