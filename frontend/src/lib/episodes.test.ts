@@ -88,8 +88,8 @@ describe('sole survivor designation window', () => {
       episode(2, '2026-09-05T00:00:00Z'),
       episode(9, '2026-10-24T00:00:00Z'),
     ]
-    expect(ssWindowOpenYet(noMerge, episodes)).toBe(true)
-    expect(ssDesignationOpen(noMerge, episodes)).toBe(true)
+    expect(ssWindowOpenYet(noMerge, episodes)).toBe(false)
+    expect(ssDesignationOpen(noMerge, episodes)).toBe(false)
     vi.useRealTimers()
   })
 })

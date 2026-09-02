@@ -50,10 +50,11 @@ def _ss_window_open_yet(cur, ls) -> bool:
 
     Designation opens at the merge — it's unavailable until the merge episode is
     the open one or later, so nobody crowns a winner while two tribes still
-    stand. A season with no merge set opens from the start, unchanged."""
+    stand. No merge set means not yet: the designation doubles a finale
+    contribution, meaningless before the merge is known (#529)."""
     merge = ls["merge_episode"]
     if merge is None:
-        return True
+        return False
     nxt = next_open_episode(cur, ls)
     if nxt is not None:
         return nxt["episode_number"] >= merge
