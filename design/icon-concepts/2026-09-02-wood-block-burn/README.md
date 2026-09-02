@@ -1,9 +1,8 @@
 # Wood-block burn texture study
 
-Texture exploration for the production rat, snake, and flame mark. The app icon
-and favicon remain unchanged; the selected solid-background revision is used
-only by the sliding-puzzle loader through
-`frontend/public/puzzle-wood-solid.webp`.
+Texture exploration for the production rat, snake, and flame mark. The selected
+solid-background revision supplies the installed app icons and the
+sliding-puzzle loader.
 
 The production icon's composition and silhouettes are held fixed. Only the
 surface treatment changes, with the cream rat, terracotta snake, and gold flame
@@ -11,6 +10,14 @@ rendered as stained pyrography with restrained charred edges.
 
 Generated with the built-in image-generation edit flow using
 `frontend/public/icon-512.webp` as the edit target.
+
+Production exports are generated deterministically from
+`wood-block-burn-v2-solid-background.png`:
+
+```bash
+uv run --with pillow python \
+  design/icon-concepts/2026-09-02-wood-block-burn/export_app_icons.py
+```
 
 ## Solid-background revision
 
