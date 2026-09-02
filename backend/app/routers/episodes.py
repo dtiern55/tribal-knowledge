@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database, scoring
 from app.auth import get_current_admin, get_current_user
-from app.locking import advantages_locked, episode_locked
+from app.locking import episode_locked
+from app.routers.standings import league_field
 from app.schemas import (
     Episode,
     EpisodeCreateRequest,
@@ -97,43 +98,11 @@ def create_episode(
                 """,
                 params,
             )
-            episode = cur.fetchone()
-
-            # INERT since #307: tokens buy nothing now (one free advantage
-            # play per week replaced them) and weekly_token_allocation
-            # defaults to 0, so this no-ops for every new season. Kept, not
-            # deleted, so the economy can be switched back on for a season if
-            # the weekly-play experiment doesn't hold up.
-            #
-            # Fund the episode the moment its row exists (#217): one weekly
-            # allocation per player per episode, granted here rather than when
-            # the prior episode is scored — so a grant can never be silently
-            # lost by scoring before the next episode has been created, and no
-            # manual season-start bootstrap is required. Skipped past the
-            # advantage lock (nothing left to spend on) or when allocation is 0.
-            amount = season["weekly_token_allocation"]
-            if amount > 0 and not advantages_locked(
-                episode["episode_number"],
-                episode["is_finale"],
-                season["advantage_lock_episode"],
-            ):
-                cur.execute(
-                    """
-                    insert into token_transactions
-                        (user_id, season_id, episode_id, transaction_type, amount)
-                    select p.id, %(season)s, %(episode)s, 'weekly_allocation',
-                           %(amount)s
-                    from profiles p
-                    where p.is_player
-                    on conflict do nothing
-                    """,
-                    {
-                        "season": str(season_id),
-                        "episode": str(episode["id"]),
-                        "amount": amount,
-                    },
-                )
-            return episode
+            # The automatic weekly token grant that used to live here (#217)
+            # went with the token economy (#307): allocations are 0 on every
+            # league-season, and the manual weekly-allocation endpoint remains
+            # for a league that switches tokens back on.
+            return cur.fetchone()
 
 
 @router.patch("/episodes/{episode_id}", response_model=Episode)
@@ -208,21 +177,25 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
             cur.execute(
                 """
                 with played as (
-                    select ap.id, ap.user_id,
-                           row_number() over (partition by ap.user_id
-                                              order by ap.created_at desc) as rn,
-                           count(*) over (partition by ap.user_id) as extras
+                    select ap.id, ap.user_id, ap.league_season_id,
+                           row_number() over (
+                             partition by ap.user_id, ap.league_season_id
+                             order by ap.created_at desc) as rn,
+                           count(*) over (
+                             partition by ap.user_id, ap.league_season_id) as extras
                     from advantage_plays ap
                     where ap.episode_id = %(ep)s
                       and ap.advantage_type = 'extra_vote'
                 ), picked as (
-                    select user_id, count(*) as n from elimination_picks
-                    where episode_id = %(ep)s group by user_id
+                    select user_id, league_season_id, count(*) as n
+                    from elimination_picks
+                    where episode_id = %(ep)s group by user_id, league_season_id
                 )
                 update advantage_plays set episode_id = null
                 where id in (
                     select p.id from played p
                     left join picked k on k.user_id = p.user_id
+                                      and k.league_season_id = p.league_season_id
                     -- unused capacity = (base max + extras) - picks made
                     where p.rn <= least(
                         p.extras,
@@ -253,8 +226,13 @@ def score_episode(episode_id: UUID, _: UUID = Depends(get_current_admin)):
             return scored
 
 
-@router.get("/episodes/{episode_id}/hub", response_model=list[HubEntry])
-def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
+@router.get(
+    "/league-seasons/{league_season_id}/episodes/{episode_id}/hub",
+    response_model=list[HubEntry],
+)
+def get_episode_hub(
+    league_season_id: UUID, episode_id: UUID, user_id: UUID = Depends(get_current_user)
+):
     """The locked-state league Hub (#490): every player's frozen choices for
     the airing episode — roster, this-episode ballot, and any played advantage.
 
@@ -265,9 +243,12 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
             cur.execute(
-                "select season_id, picks_lock_at, status from episodes where id = %s",
-                [str(episode_id)],
+                "select season_id, picks_lock_at, status from episodes"
+                " where id = %s and season_id = %s",
+                [str(episode_id), str(ls["season_id"])],
             )
             episode = cur.fetchone()
             if not episode:
@@ -277,7 +258,7 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
                     status_code=403,
                     detail="The Hub opens when the episode locks",
                 )
-            season_id = str(episode["season_id"])
+            lsid = str(league_season_id)
 
             # Active rosters for the whole league (still-in-inventory picks).
             cur.execute(
@@ -288,10 +269,10 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
                 from roster_picks rp
                 join contestants c on c.id = rp.contestant_id
                 {_TRIBE_LATERAL}
-                where rp.season_id = %s and rp.active_until_episode is null
+                where rp.league_season_id = %s and rp.active_until_episode is null
                 order by c.name
                 """,
-                [season_id],
+                [lsid],
             )
             rosters: dict[str, list[dict]] = {}
             for row in cur.fetchall():
@@ -306,10 +287,10 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
                 from elimination_picks ep
                 join contestants c on c.id = ep.contestant_id
                 {_TRIBE_LATERAL}
-                where ep.episode_id = %s
+                where ep.league_season_id = %s and ep.episode_id = %s
                 order by ep.created_at
                 """,
-                [str(episode_id)],
+                [lsid, str(episode_id)],
             )
             ballots: dict[str, list[dict]] = {}
             for row in cur.fetchall():
@@ -325,9 +306,9 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
                 from advantage_plays ap
                 left join contestants c on c.id = ap.target_contestant_id
                 {_TRIBE_LATERAL}
-                where ap.episode_id = %s
+                where ap.league_season_id = %s and ap.episode_id = %s
                 """,
-                [str(episode_id)],
+                [lsid, str(episode_id)],
             )
             advantages: dict[str, dict] = {}
             for row in cur.fetchall():
@@ -341,11 +322,8 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
 
             # One row per participating player — anyone with a roster, a ballot,
             # or a play this episode. Drops service accounts and no-shows.
-            cur.execute(
-                "select id::text as id, display_name from profiles where is_player"
-            )
             entries = []
-            for player in cur.fetchall():
+            for player in league_field(cur, ls):
                 uid = player["id"]
                 roster = rosters.get(uid, [])
                 ballot = ballots.get(uid, [])
@@ -365,9 +343,9 @@ def get_episode_hub(episode_id: UUID, _: UUID = Depends(get_current_user)):
             # Standings order, not alphabetical (#490 follow-up): the lock
             # screen reads like the leaderboard. Same live sum + tiebreak the
             # standings endpoint uses (total desc, then display name).
-            roster_pts = scoring.roster_points(conn, season_id)
-            elim_pts = scoring.elimination_points(conn, season_id)
-            finale_pts = scoring.finale_points(conn, season_id)
+            roster_pts = scoring.roster_points(conn, league_season_id)
+            elim_pts = scoring.elimination_points(conn, league_season_id)
+            finale_pts = scoring.finale_points(conn, league_season_id)
             for e in entries:
                 uid = e["user_id"]
                 e["_total"] = (

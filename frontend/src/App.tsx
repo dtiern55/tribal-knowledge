@@ -35,7 +35,7 @@ export default function App() {
               element={<ProtectedRoute><StandingsPage /></ProtectedRoute>}
             />
             <Route
-              path="seasons/:seasonId/team/:userId"
+              path="league-seasons/:leagueSeasonId/team/:userId"
               element={<ProtectedRoute><TeamPage /></ProtectedRoute>}
             />
             <Route

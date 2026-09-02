@@ -58,7 +58,7 @@ headshot upload additionally needs the service-role key for storage.
 
    ```bash
    cd backend
-   uv run python scripts/run_bots.py week 2
+   uv run python scripts/run_bots.py week 2 --league Bots --season 101
    ```
 
    Bot personas and read-file format are documented in
@@ -96,14 +96,18 @@ and the final score action.
 From `backend/`:
 
 ```bash
-uv run python scripts/run_bots.py setup
-uv run python scripts/run_bots.py draft
-uv run python scripts/run_bots.py week 2
-uv run python scripts/run_bots.py ballot
+uv run python scripts/run_bots.py setup --league Bots
+uv run python scripts/run_bots.py draft --league Bots --season 101
+uv run python scripts/run_bots.py week 2 --league Bots --season 101
+uv run python scripts/run_bots.py ballot --league Bots --season 101
 ```
 
-Bots write directly with the configured service-role database access and are
-idempotent for their intended episode. They require an explicit commissioner
+Bots play in a league of their own (#595): create it on the Admin page, sign
+it up for the season, then `setup` enrolls the bots. Every writing command
+names the league and season, and refuses a league with any real player (the commissioner may join), so a
+practice run can never touch a league real players are in. Bots write directly
+with the configured service-role database access and are idempotent for their
+intended episode. They require an explicit commissioner
 read and must run before the outcome is known; do not use them as a production
 league-member workflow.
 

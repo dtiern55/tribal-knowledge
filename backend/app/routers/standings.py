@@ -10,8 +10,36 @@ from app.schemas import ScoringBreakdown, StandingEntry
 router = APIRouter(tags=["standings"])
 
 
-@router.get("/seasons/{season_id}/standings", response_model=list[StandingEntry])
-def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
+def league_field(cur, ls: dict) -> list[dict]:
+    """Who competes in a league-season: the league's players (#595).
+
+    Service accounts like Producer are is_player = false (#471). A past
+    (completed) season shows only who actually played it (had a roster); an
+    active/upcoming season shows every member (#235).
+    """
+    if ls["status"] == "completed":
+        cur.execute(
+            "select p.id::text as id, p.display_name from profiles p"
+            " where p.is_player and exists ("
+            "   select 1 from roster_picks rp"
+            "   where rp.user_id = p.id and rp.league_season_id = %s)",
+            [str(ls["id"])],
+        )
+    else:
+        cur.execute(
+            "select p.id::text as id, p.display_name from profiles p"
+            " join league_members m on m.user_id = p.id"
+            " where p.is_player and m.league_id = %s",
+            [str(ls["league_id"])],
+        )
+    return cur.fetchall()
+
+
+@router.get(
+    "/league-seasons/{league_season_id}/standings",
+    response_model=list[StandingEntry],
+)
+def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_user)):
     """Live leaderboard: every league member's points for the season.
 
     Sums the three scoring components per user. Computed live, never cached.
@@ -19,30 +47,14 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
-            # Only league participants compete — service accounts like Producer
-            # are is_player = false (#471; formerly filtered as `not is_admin`,
-            # which wrongly dropped a commissioner who also plays). A past
-            # (completed) season shows only who actually played it (had a
-            # roster); an active/upcoming season shows every participant (#235).
-            if season["status"] == "completed":
-                cur.execute(
-                    "select p.id::text as id, p.display_name from profiles p"
-                    " where p.is_player and exists ("
-                    "   select 1 from roster_picks rp"
-                    "   where rp.user_id = p.id and rp.season_id = %s)",
-                    [str(season_id)],
-                )
-            else:
-                cur.execute(
-                    "select id::text as id, display_name from profiles"
-                    " where is_player"
-                )
-            profiles = cur.fetchall()
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], user_id)
+            profiles = league_field(cur, season)
+            season_id = str(season["season_id"])
 
-        roster = scoring.roster_points(conn, season_id)
-        elimination = scoring.elimination_points(conn, season_id)
-        finale = scoring.finale_points(conn, season_id)
+        roster = scoring.roster_points(conn, league_season_id)
+        elimination = scoring.elimination_points(conn, league_season_id)
+        finale = scoring.finale_points(conn, league_season_id)
 
         # Trend arrow: rank now vs rank as of the previous scored episode
         # (current total minus the latest scored episode's contribution).
@@ -50,11 +62,11 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 "select max(episode_number) as n from episodes"
                 " where season_id = %s and status = 'scored'",
-                [str(season_id)],
+                [season_id],
             )
             last_scored = cur.fetchone()["n"]
         last_delta = (
-            scoring.episode_points(conn, season_id, last_scored)
+            scoring.episode_points(conn, league_season_id, last_scored)
             if last_scored is not None
             else {}
         )
@@ -74,7 +86,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                     where season_id = %s and episode_number = %s
                       and {EPISODE_LOCKED_SQL}
                     """,
-                    [str(season_id), season["roster_lock_episode"]],
+                    [season_id, season["roster_lock_episode"]],
                 )
                 rosters_visible = cur.fetchone() is not None
             if rosters_visible:
@@ -94,7 +106,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                       order by ct.from_episode desc
                       limit 1
                     ) tribe on true
-                    where rp.season_id = %s
+                    where rp.league_season_id = %s
                       and rp.active_until_episode is null
                       and not exists (
                         select 1 from eliminations e
@@ -103,7 +115,7 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                           and {episode_locked_sql("ep")})
                     order by c.name
                     """,
-                    [str(season_id)],
+                    [str(league_season_id)],
                 )
                 for row in cur.fetchall():
                     survivors.setdefault(row["user_id"], []).append(
@@ -140,12 +152,12 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
                           order by ct.from_episode desc
                           limit 1
                         ) tribe on true
-                        where rp.season_id = %s
+                        where rp.league_season_id = %s
                           and rp.active_until_episode is null
                           and ep.episode_number = %s
                         order by c.name
                         """,
-                        [str(season_id), last_scored],
+                        [str(league_season_id), last_scored],
                     )
                     for row in cur.fetchall():
                         recently_eliminated.setdefault(row["user_id"], []).append(
@@ -201,11 +213,11 @@ def get_standings(season_id: UUID, _: UUID = Depends(get_current_user)):
 
 
 @router.get(
-    "/seasons/{season_id}/scoring-breakdown/{user_id}",
+    "/league-seasons/{league_season_id}/scoring-breakdown/{user_id}",
     response_model=ScoringBreakdown,
 )
 def get_scoring_breakdown(
-    season_id: UUID,
+    league_season_id: UUID,
     user_id: UUID,
     current_user: UUID = Depends(get_current_user),
 ):
@@ -218,16 +230,17 @@ def get_scoring_breakdown(
     is_owner = str(user_id) == str(current_user)
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], current_user)
             database.require_roster_visible(cur, season, user_id, current_user)
-        roster = scoring.roster_points_by_contestant(conn, season_id, user_id)
+        roster = scoring.roster_points_by_contestant(conn, league_season_id, user_id)
         picks = (
-            scoring.elimination_pick_results(conn, season_id, user_id)
+            scoring.elimination_pick_results(conn, league_season_id, user_id)
             if is_owner
             else []
         )
         ss_contestant_id, ss_bonus = scoring.sole_survivor_bonus(
-            conn, season_id, user_id
+            conn, league_season_id, user_id
         )
     return {
         "roster": [

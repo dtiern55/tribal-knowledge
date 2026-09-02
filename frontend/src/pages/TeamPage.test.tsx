@@ -64,6 +64,7 @@ describe('TeamPage', () => {
     } as ContestantPerformance
 
     vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
       if (path.endsWith('/contestants')) return [contestant]
       if (path.endsWith('/standings')) return [player]
       if (path.endsWith('/episodes')) return [] as Episode[]
@@ -78,10 +79,10 @@ describe('TeamPage', () => {
 
     renderWithApp(
       <Routes>
-        <Route path="/seasons/:seasonId/team/:userId" element={<TeamPage />} />
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
         <Route path="/contestants/:contestantId" element={<p>Contestant page</p>} />
       </Routes>,
-      { route: '/seasons/season-1/team/friend-1' },
+      { route: '/league-seasons/season-1/team/friend-1' },
     )
 
     const name = await screen.findByText('Kenzie')

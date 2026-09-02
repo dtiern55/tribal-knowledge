@@ -1,8 +1,10 @@
 """Live score computation.
 
 Scores are always computed from raw facts (scoring_events, picks, eliminations)
-— never cached. Each function takes a psycopg2 connection and a season id and
-returns a {user_id: points} dict keyed by stringified UUID.
+— never cached. Each function takes a psycopg2 connection and a league-season
+id (#595: one league playing one season) and returns a {user_id: points} dict
+keyed by stringified UUID. Point values come from the shared season snapshot;
+play rows (rosters, picks, plays, brackets) are the league-season's own.
 
 Pre/post-merge: an episode is post-merge when its episode_number >= the season's
 merge_episode (decision #10). When merge_episode is NULL, everything is pre-merge.
@@ -27,8 +29,48 @@ from uuid import UUID
 
 from app.locking import EPISODE_LOCKED_SQL, episode_locked_sql
 
+# The point value a scoring event carries in its episode (pre/post-merge,
+# per-unit). Needs `s` (seasons), `ep` (episodes), `et` (snapshot), `se`.
+EVENT_POINTS_SQL = """
+    (case
+       when s.merge_episode is not null
+        and ep.episode_number >= s.merge_episode
+        and et.postmerge_point_value is not null
+       then et.postmerge_point_value
+       else et.point_value
+     end)
+    * (case when et.is_per_unit then se.quantity else 1 end)
+"""
 
-def roster_points(conn, season_id: UUID) -> dict[str, int]:
+# A roster pick rostered in the event's episode — the effective-episode range.
+ROSTER_ACTIVE_SQL = """
+    rp.active_from_episode <= ep.episode_number
+    and (rp.active_until_episode is null
+         or rp.active_until_episode >= ep.episode_number)
+"""
+
+
+def _season_id(cur, league_season_id: UUID) -> str:
+    cur.execute(
+        "select season_id from league_seasons where id = %s", [str(league_season_id)]
+    )
+    return str(cur.fetchone()["season_id"])
+
+
+def _elimination_rates(cur, league_season_id: UUID) -> tuple[int, int]:
+    """(pre-merge, post-merge) value of a correct elimination pick."""
+    cur.execute(
+        "select t.point_value, t.postmerge_point_value"
+        " from season_prediction_score_types t"
+        " join league_seasons ls on ls.season_id = t.season_id"
+        " where ls.id = %s and t.key = 'correct_elimination'",
+        [str(league_season_id)],
+    )
+    cfg = cur.fetchone()
+    return cfg["point_value"], cfg["postmerge_point_value"]
+
+
+def roster_points(conn, league_season_id: UUID) -> dict[str, int]:
     """Points each user earns from contestants on their roster.
 
     A scoring_event scores for every user who had that contestant rostered in
@@ -50,40 +92,33 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
             from (
               select rp.user_id::text as user_id,
                      (ep.is_finale and rp.is_sole_survivor) as ss,
-                     (case
-                        when s.merge_episode is not null
-                         and ep.episode_number >= s.merge_episode
-                         and et.postmerge_point_value is not null
-                        then et.postmerge_point_value
-                        else et.point_value
-                      end)
-                     * (case when et.is_per_unit then se.quantity else 1 end)
+                     {EVENT_POINTS_SQL}
                      * (case when dbl.id is not null then 2 else 1 end)
                      as pts
             from scoring_events se
             join episodes ep on se.episode_id = ep.id
             join seasons s on ep.season_id = s.id
+            join league_seasons ls on ls.season_id = s.id
             join season_scoring_event_types et
               on se.event_type = et.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = se.contestant_id
-             and rp.season_id = s.id
-             and rp.active_from_episode <= ep.episode_number
-             and (rp.active_until_episode is null
-                  or rp.active_until_episode >= ep.episode_number)
+             and rp.league_season_id = ls.id
+             and {ROSTER_ACTIVE_SQL}
             left join advantage_plays dbl
               on dbl.advantage_type = 'double_roster_points'
              and dbl.user_id = rp.user_id
+             and dbl.league_season_id = rp.league_season_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
             -- An episode's results stay hidden until it locks: applying
             -- scoring_events before picks_lock_at must not leak the boot or
             -- point changes to players who can still change their picks (#559).
-            where s.id = %s and {episode_locked_sql("ep")}
+            where ls.id = %s and {episode_locked_sql("ep")}
             ) x
             group by user_id
             """,
-            [str(season_id)],
+            [str(league_season_id)],
         )
         for row in cur.fetchall():
             points[row["user_id"]] = row["points"]
@@ -100,13 +135,14 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
                           then rp.swap_penalty_points else 0 end
                    ) as penalty
             from roster_picks rp
+            join league_seasons ls on ls.id = rp.league_season_id
             left join episodes pe
-              on pe.season_id = rp.season_id
+              on pe.season_id = ls.season_id
              and pe.episode_number = rp.active_until_episode + 1
-            where rp.season_id = %s
+            where rp.league_season_id = %s
             group by rp.user_id
             """,
-            [str(season_id)],
+            [str(league_season_id)],
         )
         for row in cur.fetchall():
             points[row["user_id"]] = points.get(row["user_id"], 0) + row["penalty"]
@@ -114,7 +150,7 @@ def roster_points(conn, season_id: UUID) -> dict[str, int]:
     return points
 
 
-def elimination_points(conn, season_id: UUID) -> dict[str, int]:
+def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
     """Points each user earns from correct weekly elimination predictions.
 
     A pick scores when the predicted contestant appears in that episode's
@@ -124,15 +160,7 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
     excluded — there picks are scored as a winner vote instead (#19).
     """
     with conn.cursor() as cur:
-        cur.execute(
-            "select point_value, postmerge_point_value"
-            " from season_prediction_score_types"
-            " where season_id = %s and key = 'correct_elimination'",
-            [str(season_id)],
-        )
-        cfg = cur.fetchone()
-        pre, post = cfg["point_value"], cfg["postmerge_point_value"]
-
+        pre, post = _elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.user_id::text as user_id,
@@ -152,15 +180,16 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
             left join advantage_plays dbl
               on dbl.advantage_type = 'double_vote_points'
              and dbl.user_id = pick.user_id
+             and dbl.league_season_id = pick.league_season_id
              and dbl.episode_id = pick.episode_id
              and (dbl.target_contestant_id is null
                   or dbl.target_contestant_id = pick.contestant_id)
             -- Hidden until the episode locks, same as roster_points (#559).
-            where s.id = %s and ep.is_finale = false
+            where pick.league_season_id = %s and ep.is_finale = false
               and {episode_locked_sql("ep")}
             group by pick.user_id
             """,
-            [post, pre, str(season_id)],
+            [post, pre, str(league_season_id)],
         )
         return {row["user_id"]: row["points"] for row in cur.fetchall()}
 
@@ -168,10 +197,10 @@ def elimination_points(conn, season_id: UUID) -> dict[str, int]:
 def finale_actuals(cur, season_id: UUID):
     """The recorded finale outcome the bracket ballot resolves against (#534).
 
-    Returns (final_three, final_four, winner_id): the Final 3 are placements
-    1-3, the Final 4 is the Final 3 plus whoever lost fire-making, and the
-    winner is placement 1. All are None/empty until the finale is scored, so
-    finale points stay 0 until then.
+    Show data, so it takes the season. Returns (final_three, final_four,
+    winner_id): the Final 3 are placements 1-3, the Final 4 is the Final 3 plus
+    whoever lost fire-making, and the winner is placement 1. All are None/empty
+    until the finale is scored, so finale points stay 0 until then.
     """
     cur.execute(
         "select id::text as id, placement from contestants"
@@ -203,7 +232,7 @@ def finale_actuals(cur, season_id: UUID):
     return final_three, final_four, winner
 
 
-def finale_points(conn, season_id: UUID) -> dict[str, int]:
+def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
     """Points from each user's finale bracket ballot (#534).
 
     Survivor-centric: your Final 4 (partial credit per correct name), your
@@ -212,6 +241,7 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
     is 6 / 8 / 12 bonus / 40 winner.
     """
     with conn.cursor() as cur:
+        season_id = _season_id(cur, league_season_id)
         cur.execute(
             """
             select key, point_value from season_prediction_score_types
@@ -219,7 +249,7 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
               and key in ('correct_final_four', 'correct_final_three',
                           'perfect_final_three', 'correct_winner_vote')
             """,
-            [str(season_id)],
+            [season_id],
         )
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
         if not v:
@@ -232,9 +262,9 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
                    final_four_contestant_ids::text[] as final_four,
                    final_three_contestant_ids::text[] as final_three,
                    winner_contestant_id::text as winner
-            from finale_predictions where season_id = %s
+            from finale_predictions where league_season_id = %s
             """,
-            [str(season_id)],
+            [str(league_season_id)],
         )
         points: dict[str, int] = {}
         for row in cur.fetchall():
@@ -252,7 +282,9 @@ def finale_points(conn, season_id: UUID) -> dict[str, int]:
         return points
 
 
-def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[str, int]:
+def roster_points_by_contestant(
+    conn, league_season_id: UUID, user_id: UUID
+) -> dict[str, int]:
     """One user's roster points broken down per contestant (My Season, #52).
 
     Same rules as roster_points() but grouped by contestant and scoped to one
@@ -273,14 +305,7 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
             from (
               select se.contestant_id::text as contestant_id,
                      (ep.is_finale and rp.is_sole_survivor) as ss,
-                     (case
-                        when s.merge_episode is not null
-                         and ep.episode_number >= s.merge_episode
-                         and et.postmerge_point_value is not null
-                        then et.postmerge_point_value
-                        else et.point_value
-                      end)
-                     * (case when et.is_per_unit then se.quantity else 1 end)
+                     {EVENT_POINTS_SQL}
                      * (case when dbl.id is not null then 2 else 1 end)
                      as pts
             from scoring_events se
@@ -290,22 +315,21 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
               on se.event_type = et.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = se.contestant_id
-             and rp.season_id = s.id
-             and rp.active_from_episode <= ep.episode_number
-             and (rp.active_until_episode is null
-                  or rp.active_until_episode >= ep.episode_number)
+             and rp.league_season_id = %s
+             and {ROSTER_ACTIVE_SQL}
             left join advantage_plays dbl
               on dbl.advantage_type = 'double_roster_points'
              and dbl.user_id = rp.user_id
+             and dbl.league_season_id = rp.league_season_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
             -- Hidden until the episode locks (#559): this breakdown is visible
             -- to other players once rosters lock, so it must gate too.
-            where s.id = %s and rp.user_id = %s and {episode_locked_sql("ep")}
+            where rp.user_id = %s and {episode_locked_sql("ep")}
             ) x
             group by contestant_id
             """,
-            [str(season_id), str(user_id)],
+            [str(league_season_id), str(user_id)],
         )
         for row in cur.fetchall():
             points[row["contestant_id"]] = row["points"]
@@ -320,13 +344,14 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
                           then rp.swap_penalty_points else 0 end
                    ) as penalty
             from roster_picks rp
+            join league_seasons ls on ls.id = rp.league_season_id
             left join episodes pe
-              on pe.season_id = rp.season_id
+              on pe.season_id = ls.season_id
              and pe.episode_number = rp.active_until_episode + 1
-            where rp.season_id = %s and rp.user_id = %s
+            where rp.league_season_id = %s and rp.user_id = %s
             group by rp.contestant_id
             """,
-            [str(season_id), str(user_id)],
+            [str(league_season_id), str(user_id)],
         )
         for row in cur.fetchall():
             cid = row["contestant_id"]
@@ -336,7 +361,7 @@ def roster_points_by_contestant(conn, season_id: UUID, user_id: UUID) -> dict[st
 
 
 def sole_survivor_bonus(
-    conn, season_id: UUID, user_id: UUID
+    conn, league_season_id: UUID, user_id: UUID
 ) -> tuple[Optional[str], int]:
     """The +50% Sole Survivor finale bonus for one user: (contestant_id, points).
 
@@ -350,14 +375,7 @@ def sole_survivor_bonus(
             f"""
             select se.contestant_id::text as contestant_id,
                    round(sum(
-                     (case
-                        when s.merge_episode is not null
-                         and ep.episode_number >= s.merge_episode
-                         and et.postmerge_point_value is not null
-                        then et.postmerge_point_value
-                        else et.point_value
-                      end)
-                     * (case when et.is_per_unit then se.quantity else 1 end)
+                     {EVENT_POINTS_SQL}
                      * (case when dbl.id is not null then 2 else 1 end)
                    ) * 0.5)::int as bonus
             from scoring_events se
@@ -367,20 +385,19 @@ def sole_survivor_bonus(
               on se.event_type = et.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = se.contestant_id
-             and rp.season_id = s.id
+             and rp.league_season_id = %s
              and rp.is_sole_survivor
-             and rp.active_from_episode <= ep.episode_number
-             and (rp.active_until_episode is null
-                  or rp.active_until_episode >= ep.episode_number)
+             and {ROSTER_ACTIVE_SQL}
             left join advantage_plays dbl
               on dbl.advantage_type = 'double_roster_points'
              and dbl.user_id = rp.user_id
+             and dbl.league_season_id = rp.league_season_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
-            where s.id = %s and rp.user_id = %s and {episode_locked_sql("ep")}
+            where rp.user_id = %s and {episode_locked_sql("ep")}
             group by se.contestant_id
             """,
-            [str(season_id), str(user_id)],
+            [str(league_season_id), str(user_id)],
         )
         row = cur.fetchone()
         if not row or not row["bonus"]:
@@ -388,7 +405,9 @@ def sole_survivor_bonus(
         return row["contestant_id"], row["bonus"]
 
 
-def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, int]:
+def advantage_bonus_by_play(
+    conn, league_season_id: UUID, user_id: UUID
+) -> dict[str, int]:
     """Bonus points each played double actually earned (issue #85).
 
     A double adds one extra copy of the doubled points for that episode, so
@@ -406,15 +425,7 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            select ap.id::text as play_id, coalesce(sum(
-                (case
-                   when s.merge_episode is not null
-                    and ep.episode_number >= s.merge_episode
-                    and et.postmerge_point_value is not null
-                   then et.postmerge_point_value else et.point_value
-                 end)
-                * (case when et.is_per_unit then se.quantity else 1 end)
-            ), 0) as bonus
+            select ap.id::text as play_id, coalesce(sum({EVENT_POINTS_SQL}), 0) as bonus
             from advantage_plays ap
             join episodes ep on ep.id = ap.episode_id
             join seasons s on s.id = ep.season_id
@@ -425,31 +436,21 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
               on et.event_type = se.event_type and et.season_id = s.id
             join roster_picks rp
               on rp.contestant_id = ap.target_contestant_id
-             and rp.season_id = ap.season_id
+             and rp.league_season_id = ap.league_season_id
              and rp.user_id = ap.user_id
-             and rp.active_from_episode <= ep.episode_number
-             and (rp.active_until_episode is null
-                  or rp.active_until_episode >= ep.episode_number)
-            where ap.season_id = %s and ap.user_id = %s
+             and {ROSTER_ACTIVE_SQL}
+            where ap.league_season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_roster_points'
               and ap.episode_id is not null
               and {episode_locked_sql("ep")}
             group by ap.id
             """,
-            [str(season_id), str(user_id)],
+            [str(league_season_id), str(user_id)],
         )
         for row in cur.fetchall():
             bonus[row["play_id"]] = row["bonus"]
 
-        cur.execute(
-            "select point_value, postmerge_point_value"
-            " from season_prediction_score_types"
-            " where season_id = %s and key = 'correct_elimination'",
-            [str(season_id)],
-        )
-        cfg = cur.fetchone()
-        pre, post = cfg["point_value"], cfg["postmerge_point_value"]
-
+        pre, post = _elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select ap.id::text as play_id, coalesce(sum(
@@ -463,19 +464,20 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
             join seasons s on s.id = ep.season_id
             left join elimination_picks pick
               on pick.user_id = ap.user_id
+             and pick.league_season_id = ap.league_season_id
              and pick.episode_id = ap.episode_id
              and (ap.target_contestant_id is null
                   or pick.contestant_id = ap.target_contestant_id)
             left join eliminations el
               on el.episode_id = ap.episode_id
              and el.contestant_id = pick.contestant_id
-            where ap.season_id = %s and ap.user_id = %s
+            where ap.league_season_id = %s and ap.user_id = %s
               and ap.advantage_type = 'double_vote_points'
               and ap.episode_id is not null
               and {episode_locked_sql("ep")}
             group by ap.id
             """,
-            [post, pre, str(season_id), str(user_id)],
+            [post, pre, str(league_season_id), str(user_id)],
         )
         for row in cur.fetchall():
             bonus[row["play_id"]] = row["bonus"]
@@ -483,7 +485,7 @@ def advantage_bonus_by_play(conn, season_id: UUID, user_id: UUID) -> dict[str, i
     return bonus
 
 
-def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]:
+def elimination_pick_results(conn, league_season_id: UUID, user_id: UUID) -> list[dict]:
     """One user's weekly elimination picks with hit/miss and points (#52/#53).
 
     Every non-finale pick, correct or not: correct when the picked contestant
@@ -494,15 +496,7 @@ def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]
     picks are excluded — there they score as a winner vote.
     """
     with conn.cursor() as cur:
-        cur.execute(
-            "select point_value, postmerge_point_value"
-            " from season_prediction_score_types"
-            " where season_id = %s and key = 'correct_elimination'",
-            [str(season_id)],
-        )
-        cfg = cur.fetchone()
-        pre, post = cfg["point_value"], cfg["postmerge_point_value"]
-
+        pre, post = _elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.episode_id::text as episode_id,
@@ -525,15 +519,16 @@ def elimination_pick_results(conn, season_id: UUID, user_id: UUID) -> list[dict]
             left join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
              and {episode_locked_sql("ep")}
-            where s.id = %s and pick.user_id = %s and ep.is_finale = false
+            where pick.league_season_id = %s and pick.user_id = %s
+              and ep.is_finale = false
             order by ep.episode_number
             """,
-            [post, pre, str(season_id), str(user_id)],
+            [post, pre, str(league_season_id), str(user_id)],
         )
         return cur.fetchall()
 
 
-def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]:
+def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[str, int]:
     """Points each user gained from one episode — the change in their total.
 
     Used for the Standings trend arrow: rank as of the prior episode = current
@@ -560,14 +555,8 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
             from (
               select rp.user_id::text as user_id,
                      (ep.is_finale and rp.is_sole_survivor) as ss,
-                (case
-                   when s.merge_episode is not null
-                    and ep.episode_number >= s.merge_episode
-                    and et.postmerge_point_value is not null
-                   then et.postmerge_point_value else et.point_value
-                 end)
-                * (case when et.is_per_unit then se.quantity else 1 end)
-                * (case when dbl.id is not null then 2 else 1 end)
+                     {EVENT_POINTS_SQL}
+                     * (case when dbl.id is not null then 2 else 1 end)
                      as pts
             from scoring_events se
             join episodes ep on ep.id = se.episode_id
@@ -575,22 +564,22 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
             join season_scoring_event_types et
               on et.event_type = se.event_type and et.season_id = s.id
             join roster_picks rp
-              on rp.contestant_id = se.contestant_id and rp.season_id = s.id
-             and rp.active_from_episode <= ep.episode_number
-             and (rp.active_until_episode is null
-                  or rp.active_until_episode >= ep.episode_number)
+              on rp.contestant_id = se.contestant_id
+             and rp.league_season_id = %s
+             and {ROSTER_ACTIVE_SQL}
             left join advantage_plays dbl
               on dbl.advantage_type = 'double_roster_points'
              and dbl.user_id = rp.user_id
+             and dbl.league_season_id = rp.league_season_id
              and dbl.episode_id = se.episode_id
              and dbl.target_contestant_id = se.contestant_id
             -- Consistent with roster_points: an episode's points don't count
             -- until it locks, so this delta reconciles with the total (#559).
-            where s.id = %s and ep.episode_number = %s and {episode_locked_sql("ep")}
+            where ep.episode_number = %s and {episode_locked_sql("ep")}
             ) x
             group by user_id
             """,
-            [str(season_id), episode_number],
+            [str(league_season_id), episode_number],
         )
         for row in cur.fetchall():
             add(row["user_id"], row["pts"])
@@ -598,21 +587,15 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
         # A swap charged at this episode closed the old pick at episode_number-1.
         cur.execute(
             "select user_id::text as user_id, sum(swap_penalty_points) as pen"
-            " from roster_picks where season_id = %s and active_until_episode = %s"
+            " from roster_picks"
+            " where league_season_id = %s and active_until_episode = %s"
             " group by user_id",
-            [str(season_id), episode_number - 1],
+            [str(league_season_id), episode_number - 1],
         )
         for row in cur.fetchall():
             add(row["user_id"], row["pen"])
 
-        cur.execute(
-            "select point_value, postmerge_point_value"
-            " from season_prediction_score_types"
-            " where season_id = %s and key = 'correct_elimination'",
-            [str(season_id)],
-        )
-        cfg = cur.fetchone()
-        pre, post = cfg["point_value"], cfg["postmerge_point_value"]
+        pre, post = _elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.user_id::text as user_id, sum(
@@ -629,29 +612,32 @@ def episode_points(conn, season_id: UUID, episode_number: int) -> dict[str, int]
             left join advantage_plays dbl
               on dbl.advantage_type = 'double_vote_points'
              and dbl.user_id = pick.user_id
+             and dbl.league_season_id = pick.league_season_id
              and dbl.episode_id = pick.episode_id
              and (dbl.target_contestant_id is null
                   or dbl.target_contestant_id = pick.contestant_id)
-            where s.id = %s and ep.episode_number = %s and ep.is_finale = false
+            where pick.league_season_id = %s and ep.episode_number = %s
+              and ep.is_finale = false
               and {episode_locked_sql("ep")}
             group by pick.user_id
             """,
-            [post, pre, str(season_id), episode_number],
+            [post, pre, str(league_season_id), episode_number],
         )
         for row in cur.fetchall():
             add(row["user_id"], row["pts"])
 
         cur.execute(
-            "select 1 from episodes where season_id = %s"
-            " and episode_number = %s and is_finale = true",
-            [str(season_id), episode_number],
+            "select 1 from episodes ep"
+            " join league_seasons ls on ls.season_id = ep.season_id"
+            " where ls.id = %s and ep.episode_number = %s and ep.is_finale",
+            [str(league_season_id), episode_number],
         )
         is_finale = cur.fetchone() is not None
 
     # The finale ballot resolves at the finale. Placement no longer needs a
     # special case — it's ordinary finale scoring events now.
     if is_finale:
-        for uid, val in finale_points(conn, season_id).items():
+        for uid, val in finale_points(conn, league_season_id).items():
             add(uid, val)
 
     return points

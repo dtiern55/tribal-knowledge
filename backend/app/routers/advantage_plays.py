@@ -30,11 +30,13 @@ def list_advantage_types(_: UUID = Depends(get_current_user)):
 
 
 @router.get(
-    "/seasons/{season_id}/advantage-plays/{user_id}",
+    "/league-seasons/{league_season_id}/advantage-plays/{user_id}",
     response_model=list[AdvantagePlay],
 )
 def list_user_advantage_plays(
-    season_id: UUID, user_id: UUID, current_user: UUID = Depends(get_current_user)
+    league_season_id: UUID,
+    user_id: UUID,
+    current_user: UUID = Depends(get_current_user),
 ):
     """Own rows: everything, including unused inventory. Other players:
     only used advantages whose episode has locked — unused inventory is
@@ -42,43 +44,44 @@ def list_user_advantage_plays(
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], current_user)
             if str(user_id) == str(current_user):
                 cur.execute(
                     """
                     select * from advantage_plays
-                    where season_id = %s and user_id = %s
+                    where league_season_id = %s and user_id = %s
                     order by created_at
                     """,
-                    [str(season_id), str(user_id)],
+                    [str(league_season_id), str(user_id)],
                 )
             else:
                 cur.execute(
                     """
                     select ap.* from advantage_plays ap
                     join episodes ep on ep.id = ap.episode_id
-                    where ap.season_id = %s and ap.user_id = %s
+                    where ap.league_season_id = %s and ap.user_id = %s
                       and (ep.picks_lock_at <= now() or ep.status = 'scored')
                     order by ap.created_at
                     """,
-                    [str(season_id), str(user_id)],
+                    [str(league_season_id), str(user_id)],
                 )
             plays = cur.fetchall()
 
         # Attach the bonus points each played double actually earned (#85).
-        bonus = scoring.advantage_bonus_by_play(conn, season_id, user_id)
+        bonus = scoring.advantage_bonus_by_play(conn, league_season_id, user_id)
         for play in plays:
             play["points_earned"] = bonus.get(str(play["id"]))
         return plays
 
 
 @router.post(
-    "/seasons/{season_id}/advantage-plays",
+    "/league-seasons/{league_season_id}/advantage-plays",
     response_model=AdvantagePlay,
     status_code=201,
 )
 def play_advantage(
-    season_id: UUID,
+    league_season_id: UUID,
     body: AdvantagePlayRequest,
     user_id: UUID = Depends(get_current_user),
 ):
@@ -95,24 +98,22 @@ def play_advantage(
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
             # Serializes the one-play check below against a concurrent play.
-            database.lock_user_season(cur, user_id, season_id)
+            database.lock_user_season(cur, user_id, league_season_id)
 
-            episode = next_open_episode(cur, str(season_id))
+            episode = next_open_episode(cur, ls)
             if episode is None:
                 raise HTTPException(
                     status_code=400,
                     detail="No open episode to play an advantage in",
                 )
 
-            cur.execute(
-                "select advantage_lock_episode from seasons where id = %s",
-                [str(season_id)],
-            )
-            adv_lock = cur.fetchone()["advantage_lock_episode"]
             if advantages_locked(
-                episode["episode_number"], episode["is_finale"], adv_lock
+                episode["episode_number"],
+                episode["is_finale"],
+                ls["advantage_lock_episode"],
             ):
                 raise HTTPException(
                     status_code=400,
@@ -130,7 +131,7 @@ def play_advantage(
                     detail=f"Unknown advantage type: {body.advantage_type}",
                 )
 
-            if used_weekly_play(cur, user_id, episode["id"]):
+            if used_weekly_play(cur, user_id, league_season_id, episode["id"]):
                 raise HTTPException(
                     status_code=409,
                     detail="You have already used your advantage this episode",
@@ -147,10 +148,14 @@ def play_advantage(
                 cur.execute(
                     """
                     select 1 from roster_picks
-                    where user_id = %s and season_id = %s and contestant_id = %s
-                      and active_until_episode is null
+                    where user_id = %s and league_season_id = %s
+                      and contestant_id = %s and active_until_episode is null
                     """,
-                    [str(user_id), str(season_id), str(body.target_contestant_id)],
+                    [
+                        str(user_id),
+                        str(league_season_id),
+                        str(body.target_contestant_id),
+                    ],
                 )
                 if not cur.fetchone():
                     raise HTTPException(
@@ -168,14 +173,14 @@ def play_advantage(
             cur.execute(
                 """
                 insert into advantage_plays
-                    (user_id, season_id, episode_id, advantage_type,
+                    (user_id, league_season_id, episode_id, advantage_type,
                      target_contestant_id, token_cost)
                 values (%s, %s, %s, %s, %s, 0)
                 returning *
                 """,
                 [
                     str(user_id),
-                    str(season_id),
+                    str(league_season_id),
                     episode["id"],
                     body.advantage_type,
                     (

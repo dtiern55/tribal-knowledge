@@ -12,6 +12,7 @@ router = APIRouter(prefix="/seasons", tags=["seasons"])
 
 @router.get("", response_model=list[Season])
 def list_seasons(_: UUID = Depends(get_current_user)):
+    """The show seasons (#595): what a league can be signed up to play."""
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("select * from seasons order by season_number")
@@ -59,19 +60,8 @@ def create_season(body: SeasonCreateRequest, _: UUID = Depends(get_current_admin
                 )
             cur.execute(
                 """
-                insert into seasons
-                    (name, season_number, roster_size, roster_lock_episode,
-                     merge_episode, swap_token_cost,
-                     free_swaps, weekly_token_allocation,
-                     token_economy_enabled,
-                     ss_lock_episode, status)
-                values
-                    (%(name)s, %(season_number)s, %(roster_size)s,
-                     %(roster_lock_episode)s, %(merge_episode)s,
-                     %(swap_token_cost)s,
-                     %(free_swaps)s, %(weekly_token_allocation)s,
-                     %(token_economy_enabled)s,
-                     %(ss_lock_episode)s, %(status)s)
+                insert into seasons (name, season_number, merge_episode, status)
+                values (%(name)s, %(season_number)s, %(merge_episode)s, %(status)s)
                 returning *
                 """,
                 body.model_dump(),

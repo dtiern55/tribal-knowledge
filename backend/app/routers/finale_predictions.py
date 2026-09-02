@@ -13,7 +13,7 @@ router = APIRouter(tags=["finale_predictions"])
 # array slates are cast to text[] to come back as real lists for the response
 # model.
 _COLS = (
-    "id, user_id, season_id,"
+    "id, user_id, league_season_id,"
     " final_four_contestant_ids::text[] as final_four_contestant_ids,"
     " final_three_contestant_ids::text[] as final_three_contestant_ids,"
     " winner_contestant_id, created_at"
@@ -21,17 +21,18 @@ _COLS = (
 
 
 @router.get(
-    "/seasons/{season_id}/finale-predictions/{user_id}",
+    "/league-seasons/{league_season_id}/finale-predictions/{user_id}",
     response_model=FinalePrediction,
 )
 def get_finale_prediction(
-    season_id: UUID,
+    league_season_id: UUID,
     user_id: UUID,
     current_user: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], current_user)
 
             # Other players' ballots stay hidden until the finale locks
             if str(user_id) != str(current_user):
@@ -41,7 +42,7 @@ def get_finale_prediction(
                     where season_id = %s and is_finale = true
                       and {EPISODE_LOCKED_SQL}
                     """,
-                    [str(season_id)],
+                    [str(ls["season_id"])],
                 )
                 if not cur.fetchone():
                     raise HTTPException(
@@ -50,8 +51,8 @@ def get_finale_prediction(
                     )
             cur.execute(
                 f"select {_COLS} from finale_predictions"
-                " where season_id = %s and user_id = %s",
-                [str(season_id), str(user_id)],
+                " where league_season_id = %s and user_id = %s",
+                [str(league_season_id), str(user_id)],
             )
             row = cur.fetchone()
             if not row:
@@ -60,25 +61,27 @@ def get_finale_prediction(
 
 
 @router.post(
-    "/seasons/{season_id}/finale-predictions",
+    "/league-seasons/{league_season_id}/finale-predictions",
     response_model=FinalePrediction,
 )
 def submit_finale_prediction(
-    season_id: UUID,
+    league_season_id: UUID,
     body: FinalePredictionRequest,
     user_id: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            ls = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, ls["league_id"], user_id)
+            season_id = str(ls["season_id"])
 
-            if season["status"] == "completed":
+            if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
             cur.execute(
                 "select picks_lock_at, status from episodes"
                 " where season_id = %s and is_finale = true",
-                [str(season_id)],
+                [season_id],
             )
             finale_ep = cur.fetchone()
             if not finale_ep:
@@ -114,7 +117,7 @@ def submit_finale_prediction(
                 cur.execute(
                     "select id::text as id from contestants"
                     " where season_id = %s and id::text = any(%s)",
-                    [str(season_id), ids],
+                    [season_id, ids],
                 )
                 valid = {row["id"] for row in cur.fetchall()}
                 invalid = [i for i in ids if i not in valid]
@@ -131,7 +134,7 @@ def submit_finale_prediction(
                     where ep.season_id = %s and e.contestant_id::text = any(%s)
                       and ep.is_finale = false
                     """,
-                    [str(season_id), ids],
+                    [season_id, ids],
                 )
                 gone = {row["id"] for row in cur.fetchall()}
                 dead = [i for i in ids if i in gone]
@@ -144,17 +147,17 @@ def submit_finale_prediction(
             cur.execute(
                 """
                 insert into finale_predictions
-                    (user_id, season_id, final_four_contestant_ids,
+                    (user_id, league_season_id, final_four_contestant_ids,
                      final_three_contestant_ids, winner_contestant_id)
                 values (%s, %s, %s::uuid[], %s::uuid[], %s)
-                on conflict (user_id, season_id) do update set
+                on conflict (user_id, league_season_id) do update set
                     final_four_contestant_ids  = excluded.final_four_contestant_ids,
                     final_three_contestant_ids = excluded.final_three_contestant_ids,
                     winner_contestant_id       = excluded.winner_contestant_id
                 returning """ + _COLS,
                 [
                     str(user_id),
-                    str(season_id),
+                    str(league_season_id),
                     final_four,
                     final_three,
                     winner,

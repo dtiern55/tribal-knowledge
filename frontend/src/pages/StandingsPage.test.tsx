@@ -21,7 +21,7 @@ describe('StandingsPage', () => {
     })
     vi.mocked(getActiveSeason).mockReturnValue(seasonPending)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/seasons') return [season]
+      if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) return []
       throw new Error(`Unexpected path: ${path}`)
     })
@@ -40,7 +40,7 @@ describe('StandingsPage', () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/seasons') return [season]
+      if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) {
         return [{
           user_id: 'user-1',
@@ -77,7 +77,7 @@ describe('StandingsPage', () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/seasons') return [season]
+      if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) {
         return [{
           user_id: 'user-1',

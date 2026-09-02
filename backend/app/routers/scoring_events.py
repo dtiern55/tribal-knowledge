@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
-from app.locking import advantages_locked
 from app.schemas import ScoringEvent, ScoringEventEntry, ScoringEventType
 
 router = APIRouter(tags=["scoring_events"])
@@ -64,18 +63,6 @@ def set_scoring_events(
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
 
-            # Token earning stops at the advantage cutoff (issue #102): events
-            # are still recorded for context, but grant no tokens past it.
-            cur.execute(
-                "select advantage_lock_episode from seasons where id = %s",
-                [str(episode["season_id"])],
-            )
-            tokens_locked = advantages_locked(
-                episode["episode_number"],
-                episode["is_finale"],
-                cur.fetchone()["advantage_lock_episode"],
-            )
-
             event_type_info: dict[str, dict] = {}
             if body:
                 contestant_ids = list({str(e.contestant_id) for e in body})
@@ -97,7 +84,7 @@ def set_scoring_events(
                 # new episode. Seasons snapshotted before a retirement still
                 # carry enabled = true, so their history stays re-enterable.
                 cur.execute(
-                    "select event_type, token_value, is_per_unit"
+                    "select event_type"
                     " from season_scoring_event_types"
                     " where season_id = %s and event_type = any(%s) and enabled",
                     [str(episode["season_id"]), event_types],
@@ -129,48 +116,10 @@ def set_scoring_events(
                         entry.notes,
                     ],
                 )
-                se = cur.fetchone()
-                rows.append(se)
-
-                info = event_type_info.get(entry.event_type, {})
-                token_value = info.get("token_value", 0)
-                if token_value and token_value > 0 and not tokens_locked:
-                    amount = (
-                        token_value * entry.quantity
-                        if info.get("is_per_unit")
-                        else token_value
-                    )
-                    cur.execute(
-                        """
-                        select user_id::text from roster_picks
-                        where season_id = %s and contestant_id = %s
-                          and active_from_episode <= %s
-                          and (active_until_episode is null
-                               or active_until_episode >= %s)
-                        """,
-                        [
-                            str(episode["season_id"]),
-                            str(entry.contestant_id),
-                            episode["episode_number"],
-                            episode["episode_number"],
-                        ],
-                    )
-                    for owner in cur.fetchall():
-                        cur.execute(
-                            """
-                            insert into token_transactions
-                                (user_id, season_id, episode_id, transaction_type,
-                                 amount, scoring_event_id)
-                            values (%s, %s, %s, 'gameplay_event', %s, %s)
-                            """,
-                            [
-                                owner["user_id"],
-                                str(episode["season_id"]),
-                                str(episode_id),
-                                amount,
-                                str(se["id"]),
-                            ],
-                        )
+                rows.append(cur.fetchone())
+            # The per-owner token grant that used to follow each insert went
+            # with the token economy (#307): every current event type carries
+            # token_value 0, and the ledger is read-only history now.
             return rows
 
 
@@ -188,10 +137,10 @@ def delete_scoring_event(event_id: UUID, _: UUID = Depends(get_current_admin)):
                 """
                 select 1 from token_transactions tt
                 where tt.scoring_event_id = %s
-                group by tt.user_id, tt.season_id
+                group by tt.user_id, tt.league_season_id
                 having (select coalesce(sum(amount), 0) from token_transactions t
                         where t.user_id = tt.user_id
-                          and t.season_id = tt.season_id)
+                          and t.league_season_id = tt.league_season_id)
                        < sum(tt.amount)
                 limit 1
                 """,

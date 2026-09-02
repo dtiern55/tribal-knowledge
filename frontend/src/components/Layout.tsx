@@ -61,7 +61,7 @@ export function Layout() {
           if (live) setNightMode(false)
           return
         }
-        const episodes = await api.get<Episode[]>(`/seasons/${season.id}/episodes`)
+        const episodes = await api.get<Episode[]>(`/seasons/${season.season_id}/episodes`)
         if (live) setNightMode(resolveMySeasonState(season, episodes).kind === 'locked')
       } catch {
         // A page-level error handles failed data loads. Keep the last known

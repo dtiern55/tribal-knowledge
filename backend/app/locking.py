@@ -66,7 +66,7 @@ def latest_locked_episode(cur, season_id) -> int | None:
     return row["n"] if row else None
 
 
-def next_open_episode(cur, season_id: str) -> dict | None:
+def next_open_episode(cur, ls: dict) -> dict | None:
     """The one episode currently open for picks (decision #38, week-by-week).
 
     It is the lowest-numbered episode that hasn't been scored — and it's open
@@ -77,19 +77,18 @@ def next_open_episode(cur, season_id: str) -> dict | None:
     window is the following episode" — which the old timestamp-only query
     didn't enforce, so N+1 opened the moment N locked.
 
-    Episodes before the season's roster_lock_episode are watch-only and never
-    open (decision #51). Mirrored in frontend/src/lib/episodes.ts.
+    Episodes before the league-season's roster_lock_episode are watch-only and
+    never open (decision #51). Mirrored in frontend/src/lib/episodes.ts.
     """
     cur.execute(
         """
         select e.id, e.episode_number, e.is_finale, e.picks_lock_at from episodes e
-        join seasons s on s.id = e.season_id
         where e.season_id = %s and e.status != 'scored'
-          and e.episode_number >= coalesce(s.roster_lock_episode, 1)
+          and e.episode_number >= %s
         order by e.episode_number
         limit 1
         """,
-        [season_id],
+        [str(ls["season_id"]), ls["roster_lock_episode"] or 1],
     )
     ep = cur.fetchone()
     if ep is None:
@@ -97,7 +96,7 @@ def next_open_episode(cur, season_id: str) -> dict | None:
     return ep if ep["picks_lock_at"] > datetime.now(timezone.utc) else None
 
 
-def airing_episode(cur, season_id: str) -> dict | None:
+def airing_episode(cur, ls: dict) -> dict | None:
     """The episode that has locked but hasn't been scored — i.e. airing now.
 
     The gap between lock and scoring is a real state, not dead air: picks are
@@ -106,19 +105,18 @@ def airing_episode(cur, season_id: str) -> dict | None:
     cur.execute(
         """
         select e.id, e.episode_number, e.is_finale, e.picks_lock_at from episodes e
-        join seasons s on s.id = e.season_id
         where e.season_id = %s and e.status != 'scored'
           and e.picks_lock_at <= now()
-          and e.episode_number >= coalesce(s.roster_lock_episode, 1)
+          and e.episode_number >= %s
         order by e.episode_number
         limit 1
         """,
-        [season_id],
+        [str(ls["season_id"]), ls["roster_lock_episode"] or 1],
     )
     return cur.fetchone()
 
 
-def used_weekly_play(cur, user_id, episode_id) -> bool:
+def used_weekly_play(cur, user_id, league_season_id, episode_id) -> bool:
     """Has this player already spent their one advantage play this episode?
 
     #307: the allowance is one play per player per episode, whatever it was
@@ -127,7 +125,7 @@ def used_weekly_play(cur, user_id, episode_id) -> bool:
     """
     cur.execute(
         "select 1 from advantage_plays"
-        " where user_id = %s and episode_id = %s limit 1",
-        [str(user_id), str(episode_id)],
+        " where user_id = %s and league_season_id = %s and episode_id = %s limit 1",
+        [str(user_id), str(league_season_id), str(episode_id)],
     )
     return cur.fetchone() is not None

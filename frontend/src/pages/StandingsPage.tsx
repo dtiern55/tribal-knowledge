@@ -140,7 +140,7 @@ export function StandingsPage() {
     async function load() {
       try {
         const [ss, current] = await Promise.all([
-          api.get<Season[]>('/seasons'),
+          api.get<Season[]>('/league-seasons'),
           getActiveSeason(),
         ])
         if (!live) return
@@ -148,7 +148,7 @@ export function StandingsPage() {
         const activeId = current?.id ?? ''
         setSelectedId(activeId)
         if (activeId) {
-          const standings = await api.get<StandingEntry[]>(`/seasons/${activeId}/standings`)
+          const standings = await api.get<StandingEntry[]>(`/league-seasons/${activeId}/standings`)
           if (live) setEntries(standings)
         }
       } catch (e) {
@@ -182,7 +182,7 @@ export function StandingsPage() {
 
       {mine && (
         <Link
-          to={`/seasons/${season.id}/team/${mine.entry.user_id}`}
+          to={`/league-seasons/${season.id}/team/${mine.entry.user_id}`}
           className="block transition-transform hover:-translate-y-0.5"
           aria-label={`Your team — rank ${mine.rank} of ${ranked.length}`}
         >
@@ -209,7 +209,7 @@ export function StandingsPage() {
               return (
                 <li key={entry.user_id}>
                   <Link
-                    to={`/seasons/${season.id}/team/${entry.user_id}`}
+                    to={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
                     className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_5.5rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'

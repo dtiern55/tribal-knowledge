@@ -106,7 +106,7 @@ export function RulesPage() {
     async function load() {
       try {
         const active = await getActiveSeason()
-        if (active) setRules(await api.get<RulesResponse>(`/seasons/${active.id}/rules`))
+        if (active) setRules(await api.get<RulesResponse>(`/league-seasons/${active.id}/rules`))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load rules')
       } finally {
