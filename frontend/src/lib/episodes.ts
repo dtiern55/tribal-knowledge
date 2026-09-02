@@ -62,10 +62,11 @@ export function ssLockEpisodeNumber(season: Season, episodes: Episode[]): number
 
 // Sole Survivor designation opens at the merge (#587): unavailable until the
 // merge episode is the open one or later — nobody crowns a winner while two
-// tribes still stand. No merge set → open from the start. Mirrors backend
-// roster.py _ss_window_open_yet.
+// tribes still stand. No merge set → not open: the designation doubles a
+// finale contribution, which is meaningless before the merge is known (#529).
+// Mirrors backend roster.py _ss_window_open_yet.
 export function ssWindowOpenYet(season: Season, episodes: Episode[]): boolean {
-  if (season.merge_episode == null) return true
+  if (season.merge_episode == null) return false
   const open = openEpisode(episodes, season)
   if (open) return open.episode_number >= season.merge_episode
   // Nothing open (airing or over): use how far the season has locked.

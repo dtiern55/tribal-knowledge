@@ -740,7 +740,7 @@ export function MySeasonPage() {
         aria-hidden={visibleResult ? true : undefined}
         inert={visibleResult ? true : undefined}
       >
-      {state.kind !== 'open' && (
+      {state.kind !== 'open' && state.kind !== 'watch_only' && (
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-display text-2xl md:text-3xl tracking-wide text-forest-800">
@@ -751,41 +751,69 @@ export function MySeasonPage() {
           {/* The Roster beat carries Episode History in the open state (#478);
               the other states have no beat bar, so it rides here near the top so
               replays stay reachable between and after episodes. */}
-          {state.kind !== 'watch_only' && (
-            <HistorySection
-              season={d.season}
-              userId={d.userId}
-              episodes={d.episodes}
-              plays={d.plays}
-              contestants={d.contestants}
-              pickResults={pickResults}
-              onReplay={openReplay}
-              replayLoading={replayLoading}
-              replayError={replayError}
-            />
-          )}
+          <HistorySection
+            season={d.season}
+            userId={d.userId}
+            episodes={d.episodes}
+            plays={d.plays}
+            contestants={d.contestants}
+            pickResults={pickResults}
+            onReplay={openReplay}
+            replayLoading={replayLoading}
+            replayError={replayError}
+          />
         </div>
       )}
 
+      {/* The premiere wears the same record as a live week — hero, then the
+          Tribe lane — so the page doesn't change shape once episode 2 opens.
+          Only the Tribe beat exists yet: ballots and plays wait for episode 2. */}
       {state.kind === 'watch_only' && (
         <div className="space-y-3.5">
-          <WatchOnlyState episode={state.episode} />
-          {/* The roster opens with the season, not after the premiere is
-              scored: browse the cast and lock in a tribe while episode 1 is
-              watch-only. Ballots and plays still wait for episode 2. */}
-          <div id="roster">
-            <RosterSection
-              season={d.season}
-              contestants={d.contestants}
-              episodes={d.episodes}
-              userId={d.userId}
-              rosterPoints={rosterPoints}
-              plays={d.plays}
-              setPlays={d.setPlays}
-              onRosterChange={d.bumpRoster}
-              rosterVersion={d.rosterVersion}
+          <h1 className="font-display text-xl tracking-wide text-forest-800 md:text-2xl">
+            {d.season.name}
+          </h1>
+          <ThisWeekHero
+            eyebrow={
+              <EpisodeLabel
+                episode={{ episode_number: state.episode.episode_number, title: null }}
+                suffix="watch only"
+              />
+            }
+            headline="No action needed for the premiere"
+            settled
+            sub={<span>Your tribe locks at the start of episode {d.season.roster_lock_episode ?? 2}.</span>}
+            right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} hero />}
+          />
+          <LaneStack lane="jade">
+            <RecordBeats
+              value="roster"
+              onChange={() => {}}
+              beats={[
+                {
+                  key: 'roster',
+                  label: 'Tribe',
+                  done: d.roster.length > 0,
+                  note: d.roster.length > 0 ? 'Locked in' : 'Not chosen',
+                },
+              ]}
             />
-          </div>
+            <RecordPanel beat="roster" active>
+              <div id="roster">
+                <RosterSection
+                  season={d.season}
+                  contestants={d.contestants}
+                  episodes={d.episodes}
+                  userId={d.userId}
+                  rosterPoints={rosterPoints}
+                  plays={d.plays}
+                  setPlays={d.setPlays}
+                  onRosterChange={d.bumpRoster}
+                  rosterVersion={d.rosterVersion}
+                />
+              </div>
+            </RecordPanel>
+          </LaneStack>
         </div>
       )}
 
@@ -964,21 +992,21 @@ export function MySeasonPage() {
   )
 }
 
-function WatchOnlyState({ episode }: { episode: Episode }) {
-  return (
-    <section className="p-5 bg-forest-50 border border-forest-200 rounded-xl">
-      <EpisodeLabel
-        episode={episode}
-        suffix="watch only"
-        className="mb-1 text-xs font-semibold uppercase tracking-wide text-forest-700"
-      />
-      <p className="text-sm text-gray-700">
-        Watch the premiere and get a feel for the cast. Your tribe can be
-        locked in below any time before episode 2; ballots open once the
-        premiere is scored.
-      </p>
-    </section>
-  )
+/** The draft reads by tribe, the way the cast is introduced. Castaways without
+ *  a tribe yet (pre-sync) collect under one heading at the end. */
+function groupByTribe(
+  cast: Contestant[],
+): [{ name: string; color: string | null }, Contestant[]][] {
+  const groups = new Map<string, { tribe: { name: string; color: string | null }; members: Contestant[] }>()
+  for (const c of cast) {
+    const name = c.tribe_name ?? 'No tribe yet'
+    const g = groups.get(name) ?? { tribe: { name, color: c.tribe_color ?? null }, members: [] }
+    g.members.push(c)
+    groups.set(name, g)
+  }
+  return [...groups.values()]
+    .sort((a, b) => (a.tribe.name === 'No tribe yet' ? 1 : b.tribe.name === 'No tribe yet' ? -1 : 0))
+    .map((g) => [g.tribe, g.members])
 }
 
 function IntermissionState() {
@@ -2629,6 +2657,7 @@ function RosterSection({
   const swappedThisEpisode = thisEpisodeSwap != null
   const swapAvailable =
     season.status !== 'completed' &&
+    !windowOpen &&
     !swapsLocked(season, episodes) &&
     !swappedThisEpisode &&
     activeRoster.length > 0 &&
@@ -2964,8 +2993,16 @@ function RosterSection({
           <p className="text-xs text-gray-500 mb-4">
             {selected.size} / {season.roster_size} selected
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-            {contestants.map((c) => {
+          {groupByTribe(contestants).map(([tribe, members]) => (
+          <div key={tribe.name} className="mb-4">
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-forest-700">
+              {tribe.color && (
+                <span className="tribe-marker" style={{ backgroundColor: tribe.color }} aria-hidden="true" />
+              )}
+              {tribe.name}
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {members.map((c) => {
               const isSelected = selected.has(c.id)
               const isOut = c.eliminated_in_episode != null
               const maxed = !isSelected && selected.size >= season.roster_size
@@ -2998,7 +3035,9 @@ function RosterSection({
                 </button>
               )
             })}
+            </div>
           </div>
+          ))}
           <div className="flex items-center gap-3">
             <button
               onClick={submitRoster}
