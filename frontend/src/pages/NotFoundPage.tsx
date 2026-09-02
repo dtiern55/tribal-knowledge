@@ -6,7 +6,7 @@ export function NotFoundPage() {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-16 text-center sm:py-24">
       <img
-        src="/icon-512.webp?v=20260901-final"
+        src="/icon-512.webp?v=20260901-mirrored"
         alt=""
         width={72}
         height={72}

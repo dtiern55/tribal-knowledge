@@ -52,7 +52,8 @@ same visual world as the application.
 The app is now named **Snakes and Rats**, with a new mark inspired by Sue Hawk's
 season-one Tribal Council speech. A cream rat and terracotta snake frame a gold
 hidden flame on the established forest-green textured canvas. The final source
-art is `snakes-and-rats-final.png`. Its snake keeps the more aggressive middle
+art is `snakes-and-rats-final.png`, mirrored so the snake occupies the left
+side and the rat the right. Its snake keeps the more aggressive middle
 curve and green cut-through from the exploration while the last curve resolves
 directly into the flame base without the lower coil.
 
