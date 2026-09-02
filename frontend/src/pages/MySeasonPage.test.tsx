@@ -788,6 +788,8 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     const select = await screen.findByRole('combobox', { name: 'Name your Sole Survivor' })
+    // Options arrive with the roster fetch, after the select itself renders.
+    await screen.findByRole('option', { name: 'Kenzie' })
     await userEvent.selectOptions(select, 'cast-1')
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
