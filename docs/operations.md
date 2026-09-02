@@ -104,7 +104,7 @@ uv run python scripts/run_bots.py ballot --league Bots --season 101
 
 Bots play in a league of their own (#595): create it on the Admin page, sign
 it up for the season, then `setup` enrolls the bots. Every writing command
-names the league and season, and refuses a league with any real member, so a
+names the league and season, and refuses a league with any real player (the commissioner may join), so a
 practice run can never touch a league real players are in. Bots write directly
 with the configured service-role database access and are idempotent for their
 intended episode. They require an explicit commissioner
