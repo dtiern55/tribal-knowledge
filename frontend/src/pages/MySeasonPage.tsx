@@ -767,7 +767,27 @@ export function MySeasonPage() {
         </div>
       )}
 
-      {state.kind === 'watch_only' && <WatchOnlyState episode={state.episode} />}
+      {state.kind === 'watch_only' && (
+        <div className="space-y-3.5">
+          <WatchOnlyState episode={state.episode} />
+          {/* The roster opens with the season, not after the premiere is
+              scored: browse the cast and lock in a tribe while episode 1 is
+              watch-only. Ballots and plays still wait for episode 2. */}
+          <div id="roster">
+            <RosterSection
+              season={d.season}
+              contestants={d.contestants}
+              episodes={d.episodes}
+              userId={d.userId}
+              rosterPoints={rosterPoints}
+              plays={d.plays}
+              setPlays={d.setPlays}
+              onRosterChange={d.bumpRoster}
+              rosterVersion={d.rosterVersion}
+            />
+          </div>
+        </div>
+      )}
 
       {state.kind === 'locked' && (
         <LockedState
@@ -953,8 +973,9 @@ function WatchOnlyState({ episode }: { episode: Episode }) {
         className="mb-1 text-xs font-semibold uppercase tracking-wide text-forest-700"
       />
       <p className="text-sm text-gray-700">
-        Watch the premiere and get a feel for the cast. Rosters and ballots
-        open after it is scored.
+        Watch the premiere and get a feel for the cast. Your tribe can be
+        locked in below any time before episode 2; ballots open once the
+        premiere is scored.
       </p>
     </section>
   )
