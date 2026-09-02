@@ -4020,6 +4020,30 @@ function SoleSurvivorLine({
     }
   }
 
+  async function designate(contestantId: string) {
+    if (!contestantId) return
+    setSaving(true)
+    setError(null)
+    try {
+      await api.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, {
+        contestant_id: contestantId,
+      })
+      setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === contestantId })))
+      onRosterChange()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Designation failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Who can be named: still on the roster and still in the game (#180).
+  const candidates = roster.filter(
+    (p) =>
+      p.active_until_episode === null &&
+      contestants.find((c) => c.id === p.contestant_id)?.eliminated_in_episode == null,
+  )
+
   // Locked: the roster row already carries the Sole Survivor tag, so a second
   // box restating a decision nobody can change any more is just noise (#487).
   if (!windowOpen) return null
@@ -4051,9 +4075,8 @@ function SoleSurvivorLine({
     )
   }
 
-  // Undesignated: just the state for now. The ring on the roster cards that
-  // used to take the designation is gone; how to name one comes on a later
-  // pass.
+  // Undesignated: name one right here. A slim select in the line, not the
+  // tall picker box #529 retired — the roster it lists sits just below.
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
       {/* The lock badge runs ~170px wide; sharing one wrapping row with it
@@ -4068,6 +4091,20 @@ function SoleSurvivorLine({
           {' — '}
           not named yet.
         </p>
+        <select
+          aria-label="Name your Sole Survivor"
+          value=""
+          onChange={(e) => void designate(e.target.value)}
+          disabled={saving || candidates.length === 0}
+          className="shrink-0 rounded-lg border border-gold-300 bg-white px-2 py-1.5 text-sm text-paper-ink disabled:opacity-40"
+        >
+          <option value="">Name…</option>
+          {candidates.map((p) => (
+            <option key={p.contestant_id} value={p.contestant_id}>
+              {nameOf(p.contestant_id)}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-10">
         {lockEpisode && (
