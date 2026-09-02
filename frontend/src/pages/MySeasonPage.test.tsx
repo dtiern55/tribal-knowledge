@@ -769,46 +769,6 @@ describe('MySeasonPage state shell', () => {
   // `compact={false}` that no call site ever passed. It is the only way to
   // designate, so it gets a test of its own. #529 moved it from a select above
   // the roster onto the roster card's own ring; the guarantee is unchanged.
-  it('lets you designate a Sole Survivor once the merge is reached', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({
-      ...season,
-      merge_episode: 5,
-      ss_lock_episode: 10,
-    })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path.endsWith('/episodes')) {
-        // Designation opens at the merge (#587): the merge episode (5) is the
-        // open one, so the ring is live.
-        return [
-          episode(4, 'scored', '2026-08-08T00:00:00Z'),
-          episode(5, 'upcoming', '2099-08-27T00:00:00Z'),
-        ]
-      }
-      if (path.endsWith('/contestants')) {
-        return [
-          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
-        ]
-      }
-      if (path.includes('/roster/')) {
-        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 }]
-      }
-      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
-      if (path.endsWith('/reveal')) return undefined
-      return []
-    })
-
-    renderWithApp(<MySeasonPage />, { auth })
-
-    const ring = await screen.findByRole('button', { name: 'Name Kenzie your Sole Survivor' })
-    await userEvent.click(ring)
-
-    await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
-        contestant_id: 'cast-1',
-      }),
-    )
-  })
-
   it('limits broadcast styling to the short window after lock without changing state', () => {
     const locked = episode(2, 'upcoming', '2026-08-13T18:00:00Z')
     expect(isBroadcastWindow(locked, new Date('2026-08-13T20:00:00Z'))).toBe(true)

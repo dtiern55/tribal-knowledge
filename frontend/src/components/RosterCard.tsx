@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
-import { SoleSurvivorFrame } from './SoleSurvivorFrame'
 import { displayName } from '../lib/cast'
 
 /**
@@ -37,9 +36,6 @@ export function RosterCard({
   onToggle,
   onSealPointerDown,
   sealLifted = false,
-  onSsPointerDown,
-  ssLifted = false,
-  onSsDesignate,
   dropId,
   dropActive = false,
   stamp = false,
@@ -81,15 +77,6 @@ export function RosterCard({
   // becomes draggable; `sealLifted` dims it while it's in the air.
   onSealPointerDown?: (e: React.PointerEvent) => void
   sealLifted?: boolean
-  // #164 medallion: the Sole Survivor ring is a drag handle to move the
-  // designation onto another castaway; `ssLifted` dims it while it's in the air.
-  onSsPointerDown?: (e: React.PointerEvent) => void
-  ssLifted?: boolean
-  // #529: while the designation window is open and nobody wears the necklace
-  // yet, every still-in row offers an empty ring you tap to claim it. This is
-  // what replaced the standalone select-and-Designate box above the roster —
-  // a roster decision now happens on the castaway it applies to.
-  onSsDesignate?: () => void
   // The row is a drop target for that drag: `dropId` is what it reassigns to,
   // `dropActive` highlights it as the finger passes over.
   dropId?: string
@@ -104,11 +91,6 @@ export function RosterCard({
 }) {
   const name = contestant ? displayName(contestant) : '—'
   const outEp = contestant?.eliminated_in_episode ?? null
-  const ssDraggable = isSoleSurvivor && outEp == null && onSsPointerDown != null
-  // Not while the row is already a button for a different question (swap /
-  // double): a button inside a button is invalid, and mid-decision the tap
-  // belongs to the decision being made.
-  const ssDesignatable = !isSoleSurvivor && outEp == null && onSsDesignate != null && onSelect == null
   const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
   // The note under the name is tribe (with its colour dot) for anyone still in;
   // a boot shows when it happened instead. A swap-in is provenance, not a
@@ -156,51 +138,22 @@ export function RosterCard({
         tribeName={contestant?.tribe_name ?? null}
         size={prominent ? 'lg' : 'md'}
       />
-      {isSoleSurvivor && outEp == null && <SoleSurvivorFrame />}
-      {ssDesignatable && (
-        // An empty necklace resting on the portrait: the same object you'd be
-        // claiming, shown faint so it reads as available rather than worn.
-        <span className="pointer-events-none absolute inset-0 opacity-30 grayscale">
-          <SoleSurvivorFrame />
-        </span>
-      )}
     </>
   )
 
-  const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''} ${
-    ssDraggable ? 'cursor-grab touch-none transition-opacity active:cursor-grabbing' : ''
-  }`
+  const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`
 
+  // The Sole Survivor designation is the text tag on the row, nothing on the
+  // portrait: the ring that used to sit there (and offer itself on every
+  // undesignated card) is gone.
   const inner = (
     <>
-      {ssDesignatable ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onSsDesignate()
-          }}
-          aria-label={`Name ${name} your Sole Survivor`}
-          className={`${avatarClass} rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-gold-500`}
-        >
-          {avatar}
-        </button>
-      ) : (
-        <span
-          className={avatarClass}
-          title={
-            ssDraggable
-              ? 'Drag to move your Sole Survivor'
-              : outEp != null
-                ? `Voted out · episode ${outEp}`
-                : 'Still in the game'
-          }
-          onPointerDown={ssDraggable ? onSsPointerDown : undefined}
-          style={ssLifted ? { opacity: 0.3 } : undefined}
-        >
-          {avatar}
-        </span>
-      )}
+      <span
+        className={avatarClass}
+        title={outEp != null ? `Voted out · episode ${outEp}` : 'Still in the game'}
+      >
+        {avatar}
+      </span>
       <span className="min-w-0 text-left">
         <span className="flex items-center gap-2">
           <span
