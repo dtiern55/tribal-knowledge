@@ -192,6 +192,10 @@ export function NavDrawer({
               <UserIcon />
               Profile
             </NavLink>
+            <NavLink to="/join" onClick={onClose} className={rowCls}>
+              <UserIcon />
+              Join a league
+            </NavLink>
             <div className={`${rowCls} cursor-default text-forest-800/55 hover:bg-transparent`}>
               <GearIcon />
               <span className="flex-1">Settings</span>

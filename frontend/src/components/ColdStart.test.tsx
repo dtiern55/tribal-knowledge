@@ -26,4 +26,12 @@ describe('ColdStart', () => {
     renderWithApp(<ColdStart />)
     expect(screen.queryByRole('link', { name: 'Create the first season' })).toBeNull()
   })
+
+  it('sends a player in no league to enter a join code (#595)', () => {
+    renderWithApp(<ColdStart />, {
+      auth: { profile: { id: 'user-1', display_name: 'Test Player', is_admin: false, leagues: [] } },
+    })
+    expect(screen.getByRole('heading', { name: 'You’re not in a league yet' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Enter a join code' })).toHaveAttribute('href', '/join')
+  })
 })

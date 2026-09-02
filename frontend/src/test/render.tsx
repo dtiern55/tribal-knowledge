@@ -7,7 +7,7 @@ import type { AuthContextValue } from '../auth/context'
 
 const authenticated: AuthContextValue = {
   session: { access_token: 'test-token' } as Session,
-  profile: { id: 'user-1', display_name: 'Test Player', is_admin: false, leagues: [] },
+  profile: { id: 'user-1', display_name: 'Test Player', is_admin: false, leagues: [{ id: 'league-1', name: 'Snakes and Rats' }] },
   loading: false,
   signOut: async () => undefined,
   refreshProfile: async () => undefined,
