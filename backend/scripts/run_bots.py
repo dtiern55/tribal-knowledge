@@ -1,10 +1,10 @@
 """Practice-league bot driver — persona-based, forward-looking (#307 era).
 
-Twenty bots plus the human make a 21-player league. Each bot has a
-PERSONA, not a skill dial, and acts on the commissioner's pre-episode read of
-what the room would do. Nothing here knows the result: picks are made BEFORE
-the episode airs, exactly like a real player's, so the driver can run against
-a season nobody has watched yet.
+Eighteen bots make the league. Each bot has a PERSONA, not a skill dial, and
+acts on the commissioner's pre-episode read of what the room would do.
+Nothing here knows the result: picks are made BEFORE the episode airs,
+exactly like a real player's, so the driver can run against a season nobody
+has watched yet.
 
 That's the whole point of the rewrite. The old driver was handed the answer
 and used a skill percentage to decide how often to use it, which made every
@@ -51,7 +51,7 @@ vote split directly:
                      ["Angelina Keeley", 6], ["Gabby Pascuzzi", 5],
                      ["Alison Raybould", 5]]
 
-Weights apportion the non-contrarian pick slots (Hamilton method), so the
+Weights apportion the pick slots (Hamilton method), so the
 tally tracks the split instead of collapsing onto the top name — a plain rank
 sort is convex and can't hold a steep-top/flat-tail shape. Weight every boot
 or none within an episode. Contrarians stay off-consensus regardless.
@@ -82,40 +82,36 @@ load_dotenv(ENV)
 
 READS_DIR = Path(__file__).resolve().parent / "bot_reads"
 
-# The league Danny signed off on (2026-08-04): 20 bots + the human = 21,
-# sized to the bot accounts already carrying history from earlier seasons.
-# Two contrarians exactly, as specified; the rest scale.
-# `spread` controls how far down
-# the read's likely-boot list a bot will wander: small hugs the consensus,
-# large spreads out. Nobody skips their weekly play.
+# The persona grid (Danny 2026-09-01): three leans × six follow levels = 18
+# bots, named so nobody mistakes them for people ("Ballot Bot 3").
 #
-#   flex        — reads the week: doubles a roster star if they hold one,
-#                 otherwise doubles the ballot
-#   roster      — always doubles a rostered castaway
-#   vote        — always doubles the ballot
-#   contrarian  — picks off-consensus, and doubles the ballot when the room
-#                 looks confident (a short likely-boot list)
-PERSONAS = [
-    ("Consensus", 5, 0.6, "flex"),
-    ("Reader", 7, 1.8, "flex"),
-    ("Contrarian", 2, 2.5, "contrarian"),
-    ("Roster Loyalist", 4, 1.0, "roster"),
-    ("Vote Gambler", 2, 0.5, "vote"),
+# Lean is which double a bot reaches for with its weekly play, and how
+# reliably: Ballot bots mostly double the ballot, Roster bots mostly double a
+# rostered castaway, Mixed bots flip a coin each week.
+#
+# Follow is how tightly the bot tracks the commissioner's read (`spread` in
+# biased_order): 0 is lockstep with the read, ~1-2.5 wanders down the list to
+# varying degrees, 8 is close to a uniform shuffle. Per lean: one strict
+# follower, three that loosen, two that are random. Nobody skips their play.
+LEANS = [
+    ("Ballot", "double_vote_points", 0.8),
+    ("Roster", "double_roster_points", 0.8),
+    ("Mixed", "double_vote_points", 0.5),
 ]
+FOLLOW = [0.0, 0.8, 1.5, 2.5, 8.0, 8.0]
 
 
 def archetypes() -> list[dict]:
-    out = []
-    for label, count, spread, style in PERSONAS:
-        for i in range(1, count + 1):
-            out.append(
-                {
-                    "name": f"{label} {i}" if count > 1 else label,
-                    "spread": spread,
-                    "style": style,
-                }
-            )
-    return out
+    return [
+        {
+            "name": f"{lean} Bot {i}",
+            "spread": spread,
+            "play": play,
+            "bias": bias,
+        }
+        for lean, play, bias in LEANS
+        for i, spread in enumerate(FOLLOW, 1)
+    ]
 
 
 def rng(*parts) -> float:
@@ -290,20 +286,16 @@ def setup(cur, http, league_name: str):
     while len(bots) < len(arche):
         create_bot_account(cur, http)
         bots = load_bots(cur)
-    if len(bots) > len(arche):
-        # zip() would quietly pair only the first len(arche) and leave the
-        # rest carrying a previous season's name with no roster. Surplus bots
-        # can't just be deleted either: their history is what completed
-        # seasons still score (#170).
-        surplus = [b["display_name"] for b in bots[len(arche) :]]
-        sys.exit(
-            f"{len(bots)} bot accounts but {len(arche)} personas.\n"
-            f"Unassigned: {surplus}\n"
-            "Widen PERSONAS to cover them, or retire the accounts first —"
-            " setup will not leave bots half-configured."
-        )
-
     league = league_by_name(cur, league_name)
+    # Accounts beyond the persona grid are parked, not deleted: their history
+    # is what completed seasons still score (#170). They join no league, so
+    # they show up nowhere new.
+    for n, spare in enumerate(bots[len(arche) :], 1):
+        cur.execute(
+            "update profiles set display_name = %s where id = %s",
+            [f"Spare Bot {n}", spare["id"]],
+        )
+        print(f"  {spare['display_name']:<26} → Spare Bot {n} (parked)")
     for a, bot in zip(arche, bots):
         cur.execute(
             "update profiles set display_name = %s where id = %s",
@@ -314,7 +306,7 @@ def setup(cur, http, league_name: str):
             " on conflict do nothing",
             [league["id"], bot["id"]],
         )
-        print(f"  {bot['display_name']:<26} → {a['name']:<20} {a['style']}")
+        print(f"  {bot['display_name']:<26} → {a['name']:<14} follow={a['spread']}")
     print(f"setup: {len(arche)} bots labelled and enrolled in {league_name}")
 
 
@@ -549,7 +541,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         resolve(cur, sid, ep_read.get("double_targets", []), "double_targets")
     )
     # Castaways the room simply won't vote for this week. Without this they
-    # fall into `others` and the spread/contrarian personas hand them votes
+    # fall into `others` and the looser bots hand them votes
     # anyway, which contradicts a read that says nobody would.
     safe = set(resolve(cur, sid, ep_read.get("safe", []), "safe"))
     # The draft's avoid list still applies to swap-ins: sorting the pool by
@@ -563,15 +555,6 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     boots = [c for c, _ in live_pairs]
     boot_weights = [w for _, w in live_pairs]
     others = [c for c in alive if c not in boots and c not in safe]
-    # How sure the room is about the boot — stated, not inferred. Deriving it
-    # from len(likely_boots) conflated "how many people could go" with "how
-    # sure am I", so a read listing both tribes read as uncertain and pushed
-    # every flex bot onto their roster star.
-    confidence = (ep_read.get("confidence") or "medium").lower()
-    if confidence not in ("high", "medium", "low"):
-        sys.exit(f"confidence must be high, medium or low — got {confidence!r}")
-    confident = confidence == "high"
-    unsure = confidence == "low"
     # Can never vote for every remaining castaway (#240)
     max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
 
@@ -601,18 +584,14 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
 
     bot_rows = load_bots(cur)
-    # Weighted mode: cap each boot's non-contrarian picks to its apportioned
+    # Weighted mode: cap each boot's picks to its apportioned
     # share, so the read's vote split holds instead of collapsing onto the top
-    # name. Contrarians stay off-consensus and uncapped. dbl_used spreads the
-    # double-roster plays across targets rather than piling on the most-rostered.
+    # name. dbl_used spreads the double-roster plays across targets rather
+    # than piling on the most-rostered.
     caps = None
     if weighted:
-        nonc = sum(
-            1
-            for b in bot_rows
-            if (by_name.get(b["display_name"]) or {}).get("style") != "contrarian"
-        )
-        caps = dict(zip(boots, largest_remainder(boot_weights, max_picks * nonc)))
+        n_bots = sum(1 for b in bot_rows if b["display_name"] in by_name)
+        caps = dict(zip(boots, largest_remainder(boot_weights, max_picks * n_bots)))
     dbl_used: dict[str, int] = {}
 
     for bot in bot_rows:
@@ -662,13 +641,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
             [uid, lsid, str(ep["id"])],
         )
         if cur.fetchone()["n"] == 0 and max_picks:
-            if a["style"] == "contrarian":
-                # deliberately off-consensus: the field first, the crowd's
-                # names only if there's room left
-                order = biased_order(others, a["spread"], uid, episode_n, "pick")
-                order += biased_order(boots, a["spread"], uid, episode_n, "pick2")
-                chosen = order[:max_picks]
-            elif caps is not None:
+            if caps is not None:
                 # weighted: draw only from boots with capacity left, so the
                 # commissioner's split holds; overflow to the field if the caps
                 # empty before this bot is served.
@@ -700,38 +673,14 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         if not used_play(cur, uid, ep["id"]):
             held = {p["cid"] for p in active_roster(cur, uid, lsid)}
             star = [c for c in held if c in targets]
-            if a["style"] == "roster":
-                choice = "double_roster_points"
-            elif a["style"] == "vote":
-                choice = "double_vote_points"
-            elif a["style"] == "contrarian":
-                choice = "double_vote_points" if confident else "double_roster_points"
-            else:
-                # flex reads the week: when the room is confident about the
-                # boot, back your ballot; otherwise back a roster star if you
-                # hold one. Without the confidence term this collapses to
-                # "roster double every week", because the draft over-rosters
-                # the same names the read names as targets.
-                if confident:
-                    choice = "double_vote_points"
-                elif unsure:
-                    choice = "double_roster_points" if star else "double_vote_points"
-                else:
-                    # Middling week: split on whether this bot's star is one
-                    # the room is actually backing, rather than all-or-nothing.
-                    choice = (
-                        "double_roster_points"
-                        if star and rng(uid, episode_n, "lean") < 0.5
-                        else "double_vote_points"
-                    )
-            # a quarter of the time a flex/contrarian bot goes the other way
-            wobbly = a["style"] in ("flex", "contrarian")
-            if wobbly and rng(uid, episode_n, "flip") < 0.25:
-                choice = (
-                    "double_vote_points"
-                    if choice == "double_roster_points"
-                    else "double_roster_points"
-                )
+            # The lean's preferred double, `bias` of the time; the other
+            # otherwise. Mixed bots sit at a coin flip.
+            other = (
+                "double_roster_points"
+                if a["play"] == "double_vote_points"
+                else "double_vote_points"
+            )
+            choice = a["play"] if rng(uid, episode_n, "lean") < a["bias"] else other
             target = None
             if choice == "double_roster_points":
                 pool = star or [c for c in held if c in alive]
