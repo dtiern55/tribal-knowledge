@@ -25,7 +25,7 @@ def test_standings_season_not_found(client):
 @pytest.mark.integration
 def test_standings_lists_members_at_zero(client, db_conn, current_user):
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/standings")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/standings")
     assert r.status_code == 200
     data = r.json()
     assert len(data) == 1
@@ -60,7 +60,9 @@ def test_standings_survivors_include_tribe_treatment_data(
         )
     insert_roster_pick(db_conn, current_user["id"], season["id"], contestant["id"])
 
-    entry = client.get(f"/seasons/{season['id']}/standings").json()[0]
+    entry = client.get(
+        f"/league-seasons/{season['league_season_id']}/standings"
+    ).json()[0]
     assert entry["active_survivors"] == [
         {
             "contestant_id": str(contestant["id"]),
@@ -92,7 +94,9 @@ def test_active_survivors_keep_a_boot_until_its_episode_locks(
     insert_elimination(db_conn, ep2["id"], booted["id"])  # applied early
 
     def survivor_names():
-        entry = client.get(f"/seasons/{season['id']}/standings").json()[0]
+        entry = client.get(
+            f"/league-seasons/{season['league_season_id']}/standings"
+        ).json()[0]
         return {s["name"] for s in entry["active_survivors"]}
 
     assert "Booted" in survivor_names()  # boot hidden pre-lock
@@ -114,7 +118,7 @@ def test_completed_season_lists_only_participants(client, db_conn, current_user)
     c = insert_contestant(db_conn, season["id"])
     insert_roster_pick(db_conn, played["id"], season["id"], c["id"])
 
-    data = client.get(f"/seasons/{season['id']}/standings").json()
+    data = client.get(f"/league-seasons/{season['league_season_id']}/standings").json()
     names = {e["display_name"] for e in data}
     assert names == {"Played"}
 
@@ -138,7 +142,9 @@ def test_standings_trend_reflects_last_episode(client, db_conn, current_user):
 
     data = {
         e["display_name"]: e
-        for e in client.get(f"/seasons/{season['id']}/standings").json()
+        for e in client.get(
+            f"/league-seasons/{season['league_season_id']}/standings"
+        ).json()
     }
     assert data[a["display_name"]]["trend"] == "up"
     assert data["B"]["trend"] == "down"
@@ -151,7 +157,7 @@ def test_standings_excludes_service_accounts(client, db_conn, current_user):
     season = insert_season(db_conn)
     insert_user(db_conn, display_name="Producer", is_admin=True, is_player=False)
     commish = insert_user(db_conn, display_name="Commish", is_admin=True)
-    r = client.get(f"/seasons/{season['id']}/standings")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/standings")
     assert r.status_code == 200
     names = [row["display_name"] for row in r.json()]
     assert "Producer" not in names
@@ -166,7 +172,9 @@ def test_scoring_breakdown_hidden_until_roster_lock(client, db_conn, current_use
     other = insert_user(db_conn, display_name="Other")
 
     insert_episode(db_conn, season["id"], episode_number=1)  # lock in the future
-    r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{other['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/scoring-breakdown/{other['id']}"
+    )
     assert r.status_code == 403
 
     with db_conn.cursor() as cur:
@@ -175,7 +183,9 @@ def test_scoring_breakdown_hidden_until_roster_lock(client, db_conn, current_use
             " where season_id = %s",
             [str(season["id"])],
         )
-    r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{other['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/scoring-breakdown/{other['id']}"
+    )
     assert r.status_code == 200
     assert r.json()["picks"] == []
 
@@ -190,7 +200,9 @@ def test_scoring_breakdown_shape(client, db_conn, current_user):
     insert_elimination_pick(db_conn, current_user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
 
-    r = client.get(f"/seasons/{season['id']}/scoring-breakdown/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/scoring-breakdown/{current_user['id']}"
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["roster"] == [{"contestant_id": str(c["id"]), "points": 15}]
@@ -226,7 +238,7 @@ def test_standings_aggregates_components(client, db_conn):
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_finale_prediction(db_conn, user["id"], season["id"], winner=winner["id"])
 
-    r = client.get(f"/seasons/{season['id']}/standings")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/standings")
     assert r.status_code == 200
     entry = r.json()[0]
     assert entry["roster_points"] == 15
@@ -245,7 +257,7 @@ def test_standings_sorted_by_total_desc(client, db_conn):
     insert_roster_pick(db_conn, high["id"], season["id"], c["id"])
     insert_scoring_event(db_conn, ep["id"], c["id"], "win_individual_immunity")
 
-    r = client.get(f"/seasons/{season['id']}/standings")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/standings")
     data = r.json()
     # High is first; the remaining users (Low + current_user) are both at 0
     assert data[0]["display_name"] == "High"

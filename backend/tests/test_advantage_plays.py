@@ -37,7 +37,7 @@ def _play(client, season_id, advantage_type, target=None, expect=201):
     body = {"advantage_type": advantage_type}
     if target is not None:
         body["target_contestant_id"] = str(target)
-    r = client.post(f"/seasons/{season_id}/advantage-plays", json=body)
+    r = client.post(f"/league-seasons/{season_id}/advantage-plays", json=body)
     assert r.status_code == expect, r.text
     return r.json() if expect == 201 else r
 
@@ -67,7 +67,7 @@ def test_list_advantage_types(client):
 def test_playing_a_retired_advantage_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    r = _play(client, season["id"], "extra_vote", expect=400)
+    r = _play(client, season["league_season_id"], "extra_vote", expect=400)
     assert "Unknown advantage type" in r.json()["detail"]
 
 
@@ -75,7 +75,7 @@ def test_playing_a_retired_advantage_rejected(client, db_conn, current_user):
 def test_play_invalid_advantage_type(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    r = _play(client, season["id"], "nonsense", expect=400)
+    r = _play(client, season["league_season_id"], "nonsense", expect=400)
     assert "Unknown advantage type" in r.json()["detail"]
 
 
@@ -86,11 +86,13 @@ def test_play_invalid_advantage_type(client, db_conn, current_user):
 def test_play_binds_the_open_episode_and_costs_nothing(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
 
     assert play["episode_id"] == str(ep["id"])
     assert play["token_cost"] == 0
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()
+    balance = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
+    ).json()
     assert balance["balance"] == 0  # nothing spent, and nothing needed
 
 
@@ -100,9 +102,15 @@ def test_second_play_same_episode_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = _rostered(db_conn, season["id"], current_user["id"])
-    _play(client, season["id"], "double_vote_points")
+    _play(client, season["league_season_id"], "double_vote_points")
 
-    r = _play(client, season["id"], "double_roster_points", target=c["id"], expect=409)
+    r = _play(
+        client,
+        season["league_season_id"],
+        "double_roster_points",
+        target=c["id"],
+        expect=409,
+    )
     assert "already used your advantage" in r.json()["detail"]
 
 
@@ -120,7 +128,7 @@ def test_play_allowed_again_in_the_next_episode(client, db_conn, current_user):
     # Episode 2 is only open once episode 1 is scored (#11).
     score_episode(db_conn, ep1["id"])
 
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
     assert play["episode_id"] != str(ep1["id"])
 
 
@@ -133,7 +141,7 @@ def test_double_roster_requires_a_rostered_target(client, db_conn, current_user)
     _open_episode(db_conn, season["id"])
     stranger = insert_contestant(db_conn, season["id"], "Stranger")
 
-    r = _play(client, season["id"], "double_roster_points", expect=400)
+    r = _play(client, season["league_season_id"], "double_roster_points", expect=400)
     assert "target_contestant_id" in r.json()["detail"]
 
     r = _play(
@@ -149,10 +157,16 @@ def test_double_vote_takes_no_target(client, db_conn, current_user):
     _open_episode(db_conn, season["id"])
     c = insert_contestant(db_conn, season["id"])
 
-    r = _play(client, season["id"], "double_vote_points", target=c["id"], expect=400)
+    r = _play(
+        client,
+        season["league_season_id"],
+        "double_vote_points",
+        target=c["id"],
+        expect=400,
+    )
     assert "does not take a" in r.json()["detail"]
 
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
     assert play["target_contestant_id"] is None
 
 
@@ -168,7 +182,7 @@ def test_play_blocked_when_no_open_episode(client, db_conn, current_user):
         episode_number=1,
         picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
     )
-    r = _play(client, season["id"], "double_vote_points", expect=400)
+    r = _play(client, season["league_season_id"], "double_vote_points", expect=400)
     assert "No open episode" in r.json()["detail"]
 
 
@@ -182,7 +196,7 @@ def test_play_blocked_in_finale(client, db_conn, current_user):
         is_finale=True,
         picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
-    r = _play(client, season["id"], "double_vote_points", expect=400)
+    r = _play(client, season["league_season_id"], "double_vote_points", expect=400)
     assert "no longer be played" in r.json()["detail"]
 
 
@@ -190,7 +204,7 @@ def test_play_blocked_in_finale(client, db_conn, current_user):
 def test_play_blocked_at_advantage_lock_episode(client, db_conn, current_user):
     season = insert_season(db_conn, advantage_lock_episode=5)
     _open_episode(db_conn, season["id"], episode_number=5)
-    r = _play(client, season["id"], "double_vote_points", expect=400)
+    r = _play(client, season["league_season_id"], "double_vote_points", expect=400)
     assert "no longer be played" in r.json()["detail"]
 
 
@@ -203,7 +217,7 @@ def test_play_takes_user_season_advisory_lock(client, db_conn, current_user):
     """
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
-    _play(client, season["id"], "double_vote_points")
+    _play(client, season["league_season_id"], "double_vote_points")
 
     with db_conn.cursor() as cur:
         cur.execute(
@@ -221,11 +235,13 @@ def test_take_back_frees_the_week(client, db_conn, current_user):
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
     c = _rostered(db_conn, season["id"], current_user["id"])
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
 
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
     # The allowance is free again, so a different choice is now possible
-    again = _play(client, season["id"], "double_roster_points", target=c["id"])
+    again = _play(
+        client, season["league_season_id"], "double_roster_points", target=c["id"]
+    )
     assert again["advantage_type"] == "double_roster_points"
 
 
@@ -233,7 +249,7 @@ def test_take_back_frees_the_week(client, db_conn, current_user):
 def test_take_back_after_lock_rejected(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
     with db_conn.cursor() as cur:
         cur.execute(
             "update episodes set picks_lock_at = %s where id = %s",
@@ -276,7 +292,7 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
     season = insert_season(db_conn, merge_episode=7)
     ep = _open_episode(db_conn, season["id"], episode_number=2)
     c = insert_contestant(db_conn, season["id"])
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
     # The double pays only on picks the user actually made (#115).
     insert_elimination_pick(db_conn, current_user["id"], ep["id"], c["id"])
     insert_elimination(db_conn, ep["id"], c["id"])
@@ -288,7 +304,7 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
         )
 
     plays = client.get(
-        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
     played = next(p for p in plays if p["id"] == play["id"])
     assert played["points_earned"] == 16  # pre-merge correct_elimination value
@@ -300,7 +316,7 @@ def test_double_vote_earns_zero_without_a_matching_pick(client, db_conn, current
     season = insert_season(db_conn, merge_episode=7)
     ep = _open_episode(db_conn, season["id"], episode_number=2)
     c = insert_contestant(db_conn, season["id"])
-    play = _play(client, season["id"], "double_vote_points")
+    play = _play(client, season["league_season_id"], "double_vote_points")
     insert_elimination(db_conn, ep["id"], c["id"])  # eliminated, but never picked
     with db_conn.cursor() as cur:
         cur.execute(
@@ -309,7 +325,7 @@ def test_double_vote_earns_zero_without_a_matching_pick(client, db_conn, current
         )
 
     plays = client.get(
-        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
     played = next(p for p in plays if p["id"] == play["id"])
     assert played["points_earned"] == 0
@@ -325,7 +341,9 @@ def test_other_users_play_hidden_until_episode_locks(client, db_conn, current_us
     other = insert_user(db_conn, display_name="Other")
     insert_advantage_play(db_conn, other["id"], ep["id"], "double_vote_points")
 
-    plays = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}").json()
+    plays = client.get(
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{other['id']}"
+    ).json()
     assert plays == []
 
 
@@ -341,5 +359,7 @@ def test_other_users_play_visible_after_episode_locks(client, db_conn, current_u
     other = insert_user(db_conn, display_name="Other")
     insert_advantage_play(db_conn, other["id"], ep["id"], "double_vote_points")
 
-    plays = client.get(f"/seasons/{season['id']}/advantage-plays/{other['id']}").json()
+    plays = client.get(
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{other['id']}"
+    ).json()
     assert len(plays) == 1

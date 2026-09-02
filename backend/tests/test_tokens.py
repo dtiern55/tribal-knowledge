@@ -29,7 +29,9 @@ def _relive(db_conn, season_id, event_type="cry_on_camera"):
 @pytest.mark.integration
 def test_balance_starts_at_zero(client, db_conn, current_user):
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["balance"] == 0
@@ -41,7 +43,7 @@ def test_weekly_allocation(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     r = client.post(
-        f"/seasons/{season['id']}/tokens/weekly-allocation",
+        f"/league-seasons/{season['league_season_id']}/tokens/weekly-allocation",
         json={"episode_id": str(ep["id"]), "amount": 10},
     )
     assert r.status_code == 200
@@ -56,11 +58,11 @@ def test_weekly_allocation_idempotent(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = insert_episode(db_conn, season["id"])
     client.post(
-        f"/seasons/{season['id']}/tokens/weekly-allocation",
+        f"/league-seasons/{season['league_season_id']}/tokens/weekly-allocation",
         json={"episode_id": str(ep["id"]), "amount": 10},
     )
     r = client.post(
-        f"/seasons/{season['id']}/tokens/weekly-allocation",
+        f"/league-seasons/{season['league_season_id']}/tokens/weekly-allocation",
         json={"episode_id": str(ep["id"]), "amount": 10},
     )
     assert r.status_code == 200
@@ -73,10 +75,12 @@ def test_balance_reflects_allocations(client, db_conn, current_user):
     ep = insert_episode(db_conn, season["id"])
     grant_tokens(db_conn, current_user["id"], season["id"], amount=10)
     client.post(
-        f"/seasons/{season['id']}/tokens/weekly-allocation",
+        f"/league-seasons/{season['league_season_id']}/tokens/weekly-allocation",
         json={"episode_id": str(ep["id"]), "amount": 10},
     )
-    r = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
+    )
     assert r.json()["balance"] == 20
 
 
@@ -98,9 +102,9 @@ def test_scoring_events_accrue_gameplay_tokens(client, db_conn, current_user):
     )
     assert r.status_code == 200
 
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
-        "balance"
-    ]
+    balance = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
+    ).json()["balance"]
     assert balance == 5
 
 
@@ -120,9 +124,9 @@ def test_scoring_events_grant_no_tokens_past_cutoff(client, db_conn, current_use
         json=[{"contestant_id": str(c["id"]), "event_type": "cry_on_camera"}],
     )
     assert r.status_code == 200  # event still recorded
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
-        "balance"
-    ]
+    balance = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
+    ).json()["balance"]
     assert balance == 0  # but no tokens granted
 
 
@@ -140,9 +144,9 @@ def test_scoring_events_no_tokens_for_zero_value_event(client, db_conn, current_
         f"/episodes/{ep['id']}/scoring-events",
         json=[{"contestant_id": str(c["id"]), "event_type": "win_individual_immunity"}],
     )
-    balance = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}").json()[
-        "balance"
-    ]
+    balance = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
+    ).json()["balance"]
     assert balance == 0
 
 
@@ -161,7 +165,7 @@ def test_deleting_scoring_event_clears_its_tokens(client, db_conn, current_user)
         f"/episodes/{ep['id']}/scoring-events",
         json=[{"contestant_id": str(c["id"]), "event_type": "cry_on_camera"}],
     ).json()
-    url = f"/seasons/{season['id']}/tokens/{current_user['id']}"
+    url = f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
     assert client.get(url).json()["balance"] == 5  # cry_on_camera grants 5
 
     client.delete(f"/scoring-events/{created[0]['id']}")
@@ -172,7 +176,7 @@ def test_deleting_scoring_event_clears_its_tokens(client, db_conn, current_user)
 def test_other_users_balance_is_private(client, db_conn):
     season = insert_season(db_conn)
     other = insert_user(db_conn, display_name="Other")
-    r = client.get(f"/seasons/{season['id']}/tokens/{other['id']}")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/tokens/{other['id']}")
     assert r.status_code == 403
 
 
@@ -180,7 +184,9 @@ def test_other_users_balance_is_private(client, db_conn):
 def test_token_history_owner_only(client, db_conn, current_user):
     season = insert_season(db_conn)
     other = insert_user(db_conn, display_name="Other")
-    r = client.get(f"/seasons/{season['id']}/tokens/{other['id']}/history")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{other['id']}/history"
+    )
     assert r.status_code == 403
 
 
@@ -195,7 +201,9 @@ def test_token_history_describes_gameplay_event(client, db_conn, current_user):
         f"/episodes/{ep['id']}/scoring-events",
         json=[{"contestant_id": str(c["id"]), "event_type": "survivor_moment"}],
     )
-    r = client.get(f"/seasons/{season['id']}/tokens/{current_user['id']}/history")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}/history"
+    )
     assert r.status_code == 200
     entries = r.json()
     assert len(entries) == 1

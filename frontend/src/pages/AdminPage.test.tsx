@@ -13,6 +13,9 @@ vi.mock('../lib/api', () => ({
 
 const season = {
   id: 'season-1',
+  season_id: 'season-1',
+  league_id: 'league-1',
+  league_name: 'Snakes and Rats',
   name: 'Survivor 51',
   season_number: 51,
   status: 'active',

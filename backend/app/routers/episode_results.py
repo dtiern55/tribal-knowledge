@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app import database, scoring
 from app.auth import get_current_user
 from app.routers.episode_insights import compute_episode_insights
+from app.routers.standings import league_field
 from app.schemas import (
     EpisodeResult,
     RevealAcknowledgement,
@@ -17,7 +18,7 @@ router = APIRouter(tags=["episode results"])
 def _require_scored_playable_episode(cur, season: dict, episode_id: UUID) -> dict:
     cur.execute(
         "select * from episodes where id = %s and season_id = %s",
-        [str(episode_id), str(season["id"])],
+        [str(episode_id), str(season["season_id"])],
     )
     episode = cur.fetchone()
     if not episode:
@@ -30,7 +31,7 @@ def _require_scored_playable_episode(cur, season: dict, episode_id: UUID) -> dic
     return episode
 
 
-def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
+def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -54,13 +55,14 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
                      end), 0)::int as raw_points
               from roster_picks rp
               join contestants c on c.id = rp.contestant_id
-              join seasons s on s.id = rp.season_id
+              join league_seasons ls on ls.id = rp.league_season_id
+              join seasons s on s.id = ls.season_id
               join episodes ep on ep.id = %s
               left join scoring_events se
                 on se.episode_id = ep.id and se.contestant_id = rp.contestant_id
               left join season_scoring_event_types et
                 on et.season_id = s.id and et.event_type = se.event_type
-              where rp.season_id = %s and rp.user_id = %s
+              where rp.league_season_id = %s and rp.user_id = %s
                 and rp.active_from_episode <= ep.episode_number
                 and (rp.active_until_episode is null
                      or rp.active_until_episode >= ep.episode_number)
@@ -71,7 +73,7 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             [
                 episode["is_finale"],
                 str(episode["id"]),
-                str(season_id),
+                str(league_season_id),
                 str(user_id),
             ],
         )
@@ -95,19 +97,20 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
                    * (case when et.is_per_unit then se.quantity else 1 end)
                      as points
             from roster_picks rp
-            join seasons s on s.id = rp.season_id
+            join league_seasons ls on ls.id = rp.league_season_id
+            join seasons s on s.id = ls.season_id
             join episodes ep on ep.id = %s
             join scoring_events se
               on se.episode_id = ep.id and se.contestant_id = rp.contestant_id
             join season_scoring_event_types et
               on et.season_id = s.id and et.event_type = se.event_type
-            where rp.season_id = %s and rp.user_id = %s
+            where rp.league_season_id = %s and rp.user_id = %s
               and rp.active_from_episode <= ep.episode_number
               and (rp.active_until_episode is null
                    or rp.active_until_episode >= ep.episode_number)
             order by et.label
             """,
-            [str(episode["id"]), str(season_id), str(user_id)],
+            [str(episode["id"]), str(league_season_id), str(user_id)],
         )
         events_by_contestant: dict[str, list[dict]] = {}
         for row in cur.fetchall():
@@ -135,22 +138,24 @@ def _roster_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
 
         cur.execute(
             "select coalesce(sum(swap_penalty_points), 0)::int as points"
-            " from roster_picks where season_id = %s and user_id = %s"
+            " from roster_picks where league_season_id = %s and user_id = %s"
             " and active_until_episode = %s",
-            [str(season_id), str(user_id), episode["episode_number"] - 1],
+            [str(league_season_id), str(user_id), episode["episode_number"] - 1],
         )
         adjustment = cur.fetchone()["points"]
     return roster, adjustment
 
 
-def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
+def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
+    season_id = str(ls["season_id"])
+    league_season_id = str(ls["id"])
     with conn.cursor() as cur:
         if not episode["is_finale"]:
             cur.execute(
                 "select point_value, postmerge_point_value"
                 " from season_prediction_score_types"
                 " where season_id = %s and key = 'correct_elimination'",
-                [str(season_id)],
+                [season_id],
             )
             cfg = cur.fetchone()
             cur.execute(
@@ -163,16 +168,18 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
                 left join eliminations el
                   on el.episode_id = pick.episode_id
                  and el.contestant_id = pick.contestant_id
-                where pick.user_id = %s and pick.episode_id = %s
+                where pick.user_id = %s and pick.league_season_id = %s
+                  and pick.episode_id = %s
                 order by pick.created_at, c.name
                 """,
-                [str(user_id), str(episode["id"])],
+                [str(user_id), league_season_id, str(episode["id"])],
             )
             picks = cur.fetchall()
+            merge = ls["merge_episode"] or 2**31 - 1
             value = (
                 cfg["postmerge_point_value"]
                 if cfg["postmerge_point_value"] is not None
-                and episode["episode_number"] >= _merge_episode(cur, season_id)
+                and episode["episode_number"] >= merge
                 else cfg["point_value"]
             )
             return [
@@ -189,9 +196,9 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             select final_four_contestant_ids::text[] as final_four,
                    final_three_contestant_ids::text[] as final_three,
                    winner_contestant_id::text as winner
-            from finale_predictions where season_id = %s and user_id = %s
+            from finale_predictions where league_season_id = %s and user_id = %s
             """,
-            [str(season_id), str(user_id)],
+            [league_season_id, str(user_id)],
         )
         prediction = cur.fetchone()
         if not prediction:
@@ -201,14 +208,14 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
             " where season_id = %s and key in ('correct_final_four',"
             " 'correct_final_three', 'perfect_final_three',"
             " 'correct_winner_vote')",
-            [str(season_id)],
+            [season_id],
         )
         values = {row["key"]: row["point_value"] for row in cur.fetchall()}
         cur.execute(
             "select id::text as contestant_id,"
             " coalesce(nickname, name) as name, image_url"
             " from contestants where season_id = %s",
-            [str(season_id)],
+            [season_id],
         )
         contestants = {row["contestant_id"]: row for row in cur.fetchall()}
         final_three, final_four, winner = scoring.finale_actuals(cur, season_id)
@@ -270,29 +277,13 @@ def _ballot_lane(conn, season_id: UUID, user_id: UUID, episode: dict):
     return ballot
 
 
-def _merge_episode(cur, season_id: UUID) -> int:
-    cur.execute("select merge_episode from seasons where id = %s", [str(season_id)])
-    return cur.fetchone()["merge_episode"] or 2**31 - 1
-
-
 def _rank_context(conn, season: dict, user_id: UUID, result_episode: dict):
     with conn.cursor() as cur:
-        if season["status"] == "completed":
-            cur.execute(
-                "select p.id::text as id, p.display_name from profiles p"
-                " where p.is_player and exists (select 1 from roster_picks rp"
-                " where rp.user_id = p.id and rp.season_id = %s)",
-                [str(season["id"])],
-            )
-        else:
-            cur.execute(
-                "select id::text as id, display_name from profiles where is_player"
-            )
-        profiles = cur.fetchall()
+        profiles = league_field(cur, season)
         cur.execute(
             "select max(episode_number) as n from episodes"
             " where season_id = %s and status = 'scored'",
-            [str(season["id"])],
+            [str(season["season_id"])],
         )
         latest_scored = cur.fetchone()["n"]
 
@@ -346,7 +337,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
                    coalesce(c.nickname, c.name) as target_name
             from advantage_plays ap
             left join contestants c on c.id = ap.target_contestant_id
-            where ap.user_id = %s and ap.season_id = %s and ap.episode_id = %s
+            where ap.user_id = %s and ap.league_season_id = %s and ap.episode_id = %s
             order by ap.created_at
             """,
             [str(user_id), str(season["id"]), str(episode["id"])],
@@ -354,7 +345,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         plays = cur.fetchall()
 
     roster, roster_adjustment = _roster_lane(conn, season["id"], user_id, episode)
-    ballot = _ballot_lane(conn, season["id"], user_id, episode)
+    ballot = _ballot_lane(conn, season, user_id, episode)
     roster_points = sum(row["points"] for row in roster)
     ballot_points = sum(row["points"] for row in ballot)
     total_points = scoring.episode_points(
@@ -393,16 +384,17 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
 
 
 @router.get(
-    "/seasons/{season_id}/reveal",
+    "/league-seasons/{league_season_id}/reveal",
     response_model=EpisodeResult,
     responses={204: {"description": "No unseen result"}},
 )
 def get_latest_unseen_result(
-    season_id: UUID, current_user: UUID = Depends(get_current_user)
+    league_season_id: UUID, current_user: UUID = Depends(get_current_user)
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], current_user)
             if season["roster_lock_episode"] is None:
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
             # The migration pre-acknowledges participants in completed seasons
@@ -410,8 +402,9 @@ def get_latest_unseen_result(
             # who joined later) must not be offered one of those old reveals.
             if season["status"] == "completed":
                 cur.execute(
-                    "select 1 from roster_picks where season_id = %s and user_id = %s",
-                    [str(season_id), str(current_user)],
+                    "select 1 from roster_picks"
+                    " where league_season_id = %s and user_id = %s",
+                    [str(league_season_id), str(current_user)],
                 )
                 if cur.fetchone() is None:
                     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -419,14 +412,19 @@ def get_latest_unseen_result(
                 """
                 select ep.* from episodes ep
                 left join reveal_acknowledgements ra
-                  on ra.user_id = %s and ra.season_id = ep.season_id
+                  on ra.user_id = %s and ra.league_season_id = %s
                 left join episodes seen on seen.id = ra.episode_id
                 where ep.season_id = %s and ep.status = 'scored'
                   and ep.episode_number >= %s
                   and (seen.id is null or ep.episode_number > seen.episode_number)
                 order by ep.episode_number desc limit 1
                 """,
-                [str(current_user), str(season_id), season["roster_lock_episode"]],
+                [
+                    str(current_user),
+                    str(league_season_id),
+                    str(season["season_id"]),
+                    season["roster_lock_episode"],
+                ],
             )
             episode = cur.fetchone()
         if not episode:
@@ -435,60 +433,62 @@ def get_latest_unseen_result(
 
 
 @router.get(
-    "/seasons/{season_id}/episode-results/{episode_id}",
+    "/league-seasons/{league_season_id}/episode-results/{episode_id}",
     response_model=EpisodeResult,
 )
 def get_episode_result(
-    season_id: UUID,
+    league_season_id: UUID,
     episode_id: UUID,
     current_user: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], current_user)
             episode = _require_scored_playable_episode(cur, season, episode_id)
         return _build_result(conn, season, episode, current_user)
 
 
 @router.post(
-    "/seasons/{season_id}/reveal-acknowledgement",
+    "/league-seasons/{league_season_id}/reveal-acknowledgement",
     response_model=RevealAcknowledgement,
 )
 def acknowledge_reveal(
-    season_id: UUID,
+    league_season_id: UUID,
     body: RevealAcknowledgementRequest,
     current_user: UUID = Depends(get_current_user),
 ):
     with database.get_db() as conn:
         with conn.cursor() as cur:
-            season = database.require_season(cur, season_id)
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], current_user)
             episode = _require_scored_playable_episode(cur, season, body.episode_id)
-            database.lock_user_season(cur, current_user, season_id)
+            database.lock_user_season(cur, current_user, league_season_id)
             cur.execute(
                 """
                 select ra.*, ep.episode_number
                 from reveal_acknowledgements ra
                 join episodes ep on ep.id = ra.episode_id
-                where ra.user_id = %s and ra.season_id = %s
+                where ra.user_id = %s and ra.league_season_id = %s
                 """,
-                [str(current_user), str(season_id)],
+                [str(current_user), str(league_season_id)],
             )
             existing = cur.fetchone()
             if not existing or episode["episode_number"] > existing["episode_number"]:
                 cur.execute(
                     """
                     insert into reveal_acknowledgements
-                        (user_id, season_id, episode_id)
+                        (user_id, league_season_id, episode_id)
                     values (%s, %s, %s)
-                    on conflict (user_id, season_id) do update
+                    on conflict (user_id, league_season_id) do update
                     set episode_id = excluded.episode_id, acknowledged_at = now()
-                    returning season_id, episode_id, acknowledged_at
+                    returning league_season_id, episode_id, acknowledged_at
                     """,
-                    [str(current_user), str(season_id), str(body.episode_id)],
+                    [str(current_user), str(league_season_id), str(body.episode_id)],
                 )
                 return cur.fetchone()
             return {
-                "season_id": existing["season_id"],
+                "league_season_id": existing["league_season_id"],
                 "episode_id": existing["episode_id"],
                 "acknowledged_at": existing["acknowledged_at"],
             }

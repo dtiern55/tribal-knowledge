@@ -6,7 +6,7 @@ from tests.helpers import insert_season
 @pytest.mark.integration
 def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     season = insert_season(db_conn, swap_token_cost=30, token_economy_enabled=False)
-    r = client.get(f"/seasons/{season['id']}/rules")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/rules")
     assert r.status_code == 200
     data = r.json()
     assert data["season"]["id"] == str(season["id"])
@@ -53,7 +53,7 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
 @pytest.mark.integration
 def test_rules_returns_historical_token_capability(client, db_conn, current_user):
     season = insert_season(db_conn, token_economy_enabled=True)
-    r = client.get(f"/seasons/{season['id']}/rules")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/rules")
     assert r.status_code == 200
     data = r.json()
     assert data["season"]["token_economy_enabled"] is True

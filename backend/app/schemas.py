@@ -14,24 +14,70 @@ class EliminationPickTier(BaseModel):
 
 
 class Season(BaseModel):
+    """The show: shared by every league playing it (#595)."""
+
     id: UUID
     name: str
     season_number: int
-    roster_size: int
-    roster_lock_episode: Optional[int]
     merge_episode: Optional[int]
-    swap_token_cost: int
-    free_swaps: int
-    swap_penalty_step: int
-    swap_penalty_floor: int
-    ss_lock_episode: Optional[int]
-    swap_lock_episode: Optional[int]
-    advantage_lock_episode: Optional[int]
-    weekly_token_allocation: int
-    token_economy_enabled: bool
     elimination_pick_schedule: list[EliminationPickTier]
     status: str
     created_at: datetime
+
+
+class LeagueSeason(Season):
+    """One league playing one season: the season plus that league's rule knobs.
+
+    `id` is the league-season id; `season_id` is the show. Every play route
+    is keyed by `id`.
+    """
+
+    season_id: UUID
+    league_id: UUID
+    league_name: str
+    roster_size: int
+    roster_lock_episode: Optional[int]
+    swap_lock_episode: Optional[int]
+    free_swaps: int
+    swap_penalty_step: int
+    swap_penalty_floor: int
+    swap_token_cost: int
+    weekly_token_allocation: int
+    token_economy_enabled: bool
+    ss_lock_episode: Optional[int]
+    advantage_lock_episode: Optional[int]
+
+
+class LeagueSeasonCreateRequest(BaseModel):
+    season_id: UUID
+    roster_size: int = Field(default=5, ge=1, le=10)
+    # Required for a season to be playable (#152): default 1.
+    roster_lock_episode: int = Field(default=1, gt=0)
+    swap_lock_episode: Optional[int] = Field(default=None, gt=0)
+    free_swaps: int = Field(default=1, ge=0)
+    swap_penalty_step: int = Field(default=-5, le=0)
+    swap_penalty_floor: int = Field(default=-25, le=0)
+    ss_lock_episode: Optional[int] = Field(default=None, gt=0)
+    advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
+    # Tokens are retired (#307); kept so a league can switch the economy back
+    # on deliberately.
+    swap_token_cost: int = Field(default=20, ge=0)
+    weekly_token_allocation: int = Field(default=0, ge=0)
+    token_economy_enabled: bool = False
+
+
+class LeagueSeasonUpdateRequest(BaseModel):
+    roster_size: Optional[int] = Field(default=None, ge=1, le=10)
+    roster_lock_episode: Optional[int] = Field(default=None, gt=0)
+    swap_lock_episode: Optional[int] = Field(default=None, gt=0)
+    free_swaps: Optional[int] = Field(default=None, ge=0)
+    swap_penalty_step: Optional[int] = Field(default=None, le=0)
+    swap_penalty_floor: Optional[int] = Field(default=None, le=0)
+    ss_lock_episode: Optional[int] = Field(default=None, gt=0)
+    advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
+    swap_token_cost: Optional[int] = Field(default=None, ge=0)
+    weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
+    token_economy_enabled: Optional[bool] = None
 
 
 class Contestant(BaseModel):
@@ -72,7 +118,7 @@ class Episode(BaseModel):
 class RosterPick(BaseModel):
     id: UUID
     user_id: UUID
-    season_id: UUID
+    league_season_id: UUID
     contestant_id: UUID
     active_from_episode: int
     active_until_episode: Optional[int]
@@ -232,37 +278,14 @@ class RulePredictionScore(BaseModel):
 class SeasonCreateRequest(BaseModel):
     name: str
     season_number: int
-    roster_size: int = Field(default=5, ge=1, le=10)
-    # Required for a season to be playable (#152): default 1, explicit null 422s
-    # at create time instead of 400ing every roster submit later.
-    roster_lock_episode: int = Field(default=1, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
-    swap_token_cost: int = Field(default=20, ge=0)
-    free_swaps: int = Field(default=1, ge=0)
-    # Tokens are retired (#307). Kept so a season can switch the economy back
-    # on deliberately; the default must be 0 or every new season silently
-    # accrues an allowance that buys nothing (DvG banked 2,730 of them).
-    weekly_token_allocation: int = Field(default=0, ge=0)
-    token_economy_enabled: bool = False
-    ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     status: Literal["upcoming", "active", "completed"] = "upcoming"
 
 
 class SeasonUpdateRequest(BaseModel):
     name: Optional[str] = None
     season_number: Optional[int] = None
-    roster_size: Optional[int] = Field(default=None, ge=1, le=10)
-    roster_lock_episode: Optional[int] = Field(default=None, gt=0)
     merge_episode: Optional[int] = Field(default=None, gt=0)
-    swap_token_cost: Optional[int] = Field(default=None, ge=0)
-    free_swaps: Optional[int] = Field(default=None, ge=0)
-    swap_penalty_step: Optional[int] = Field(default=None, le=0)
-    swap_penalty_floor: Optional[int] = Field(default=None, le=0)
-    ss_lock_episode: Optional[int] = Field(default=None, gt=0)
-    swap_lock_episode: Optional[int] = Field(default=None, gt=0)
-    advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
-    weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
-    token_economy_enabled: Optional[bool] = None
     elimination_pick_schedule: Optional[list[EliminationPickTier]] = None
     status: Optional[Literal["upcoming", "active", "completed"]] = None
 
@@ -404,7 +427,7 @@ class EpisodeUpdateRequest(BaseModel):
 class AdvantagePlay(BaseModel):
     id: UUID
     user_id: UUID
-    season_id: UUID
+    league_season_id: UUID
     # None while the advantage sits unused in the owner's inventory
     episode_id: Optional[UUID]
     advantage_type: str
@@ -520,7 +543,7 @@ class RevealAcknowledgementRequest(BaseModel):
 
 
 class RevealAcknowledgement(BaseModel):
-    season_id: UUID
+    league_season_id: UUID
     episode_id: UUID
     acknowledged_at: datetime
 
@@ -533,7 +556,7 @@ class AdvantageType(BaseModel):
 
 
 class RulesResponse(BaseModel):
-    season: Season
+    season: LeagueSeason
     scoring_events: list[RuleScoringEvent]
     prediction_scores: list[RulePredictionScore]
     advantages: list[AdvantageType]
@@ -569,7 +592,7 @@ class LeagueMember(BaseModel):
 class TokenTransaction(BaseModel):
     id: UUID
     user_id: UUID
-    season_id: UUID
+    league_season_id: UUID
     episode_id: Optional[UUID]
     transaction_type: str
     amount: int
@@ -581,7 +604,7 @@ class TokenTransaction(BaseModel):
 
 class TokenBalance(BaseModel):
     user_id: UUID
-    season_id: UUID
+    league_season_id: UUID
     balance: int
 
 
@@ -618,7 +641,7 @@ class ProfileUpdateRequest(BaseModel):
 class FinalePrediction(BaseModel):
     id: UUID
     user_id: UUID
-    season_id: UUID
+    league_season_id: UUID
     final_four_contestant_ids: list[UUID] = Field(default_factory=list)
     final_three_contestant_ids: list[UUID] = Field(default_factory=list)
     winner_contestant_id: Optional[UUID]

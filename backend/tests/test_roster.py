@@ -38,7 +38,9 @@ def _make_season_with_roster(conn, roster_size=3, lock_episode=2, **season_kwarg
 @pytest.mark.integration
 def test_get_roster_empty(client, db_conn, current_user):
     season = insert_season(db_conn)
-    r = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    )
     assert r.status_code == 200
     assert r.json() == []
 
@@ -55,7 +57,7 @@ def test_submit_roster(client, db_conn, current_user):
         db_conn, roster_size=3, lock_episode=2
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     assert r.status_code == 200
@@ -70,10 +72,12 @@ def test_submit_roster(client, db_conn, current_user):
 def test_submit_roster_appears_in_get(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(db_conn)
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
-    r = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    )
     assert r.status_code == 200
     assert len(r.json()) == 3
 
@@ -82,7 +86,7 @@ def test_submit_roster_appears_in_get(client, db_conn, current_user):
 def test_submit_roster_wrong_count(client, db_conn):
     season, contestants = _make_season_with_roster(db_conn, roster_size=3)
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(contestants[0]["id"])]},
     )
     assert r.status_code == 400
@@ -93,7 +97,7 @@ def test_submit_roster_wrong_count(client, db_conn):
 def test_submit_roster_invalid_contestant(client, db_conn):
     season = insert_season(db_conn, roster_size=1, roster_lock_episode=2)
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(uuid.uuid4())]},
     )
     assert r.status_code == 400
@@ -104,7 +108,7 @@ def test_submit_roster_no_lock_episode(client, db_conn):
     season = insert_season(db_conn, roster_size=1)  # no roster_lock_episode
     contestant = insert_contestant(db_conn, season["id"])
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(contestant["id"])]},
     )
     assert r.status_code == 400
@@ -118,11 +122,11 @@ def test_resubmit_before_lock_replaces_free(client, db_conn, current_user):
     season, contestants = _make_season_with_roster(db_conn, roster_size=3)
     other = insert_contestant(db_conn, season["id"], "Swapped In")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={
             "contestant_ids": [
                 str(contestants[0]["id"]),
@@ -132,7 +136,9 @@ def test_resubmit_before_lock_replaces_free(client, db_conn, current_user):
         },
     )
     assert r.status_code == 200
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    roster = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    ).json()
     assert len(roster) == 3
     assert all(p["swap_penalty_points"] == 0 for p in roster)
     assert all(p["active_until_episode"] is None for p in roster)
@@ -147,7 +153,7 @@ def test_resubmit_before_lock_replaces_free(client, db_conn, current_user):
 def test_submit_roster_duplicate_contestant_ids(client, db_conn):
     season, contestants = _make_season_with_roster(db_conn, roster_size=3)
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={
             "contestant_ids": [
                 str(contestants[0]["id"]),
@@ -168,11 +174,11 @@ def test_swap_roster_pick(client, db_conn, current_user):
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new_contestant["id"]),
@@ -184,14 +190,16 @@ def test_swap_roster_pick(client, db_conn, current_user):
     assert new_pick["contestant_id"] == str(new_contestant["id"])
     assert new_pick["active_from_episode"] == 3
 
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    roster = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    ).json()
     old = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert old["active_until_episode"] == 2
     # The first swap each season is free (#404): no penalty, and no advantage
     # play either — the swap no longer touches the weekly play at all.
     assert old["swap_penalty_points"] == 0
     plays = client.get(
-        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
     assert plays == []
 
@@ -219,7 +227,9 @@ def test_other_players_locked_swaps_visible_pending_hidden(client, db_conn):
     insert_roster_pick(db_conn, other["id"], season["id"], b_old["id"], 1, 3)
     insert_roster_pick(db_conn, other["id"], season["id"], b_new["id"], 4, None)
 
-    roster = client.get(f"/seasons/{season['id']}/roster/{other['id']}").json()
+    roster = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{other['id']}"
+    ).json()
     by_contestant = {p["contestant_id"]: p for p in roster}
 
     # The locked swap is visible on both sides.
@@ -239,7 +249,7 @@ def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
         db_conn, roster_size=7, lock_episode=2, free_swaps=1
     )
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     incoming = [insert_contestant(db_conn, season["id"], f"New {i}") for i in range(6)]
@@ -249,7 +259,7 @@ def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
         episode_number = 3 + i
         insert_episode(db_conn, season["id"], episode_number=episode_number)
         r = client.post(
-            f"/seasons/{season['id']}/roster/swap",
+            f"/league-seasons/{season['league_season_id']}/roster/swap",
             json={
                 "old_contestant_id": str(contestants[i]["id"]),
                 "new_contestant_id": str(incoming[i]["id"]),
@@ -257,7 +267,7 @@ def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
         )
         assert r.status_code == 200, r.json()
         roster = client.get(
-            f"/seasons/{season['id']}/roster/{current_user['id']}"
+            f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
         ).json()
         dropped = next(
             p for p in roster if p["contestant_id"] == str(contestants[i]["id"])
@@ -273,7 +283,7 @@ def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
 
     # The whole point of the rework: none of this touched the weekly play.
     plays = client.get(
-        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
     assert plays == []
 
@@ -288,12 +298,12 @@ def test_only_one_swap_per_episode(client, db_conn, current_user):
     new1 = insert_contestant(db_conn, season["id"], "New 1")
     new2 = insert_contestant(db_conn, season["id"], "New 2")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
 
     first = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new1["id"]),
@@ -302,7 +312,7 @@ def test_only_one_swap_per_episode(client, db_conn, current_user):
     assert first.status_code == 200
 
     second = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[1]["id"]),
             "new_contestant_id": str(new2["id"]),
@@ -321,19 +331,19 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     assert (
         client.post(
-            f"/seasons/{season['id']}/advantage-plays",
+            f"/league-seasons/{season['league_season_id']}/advantage-plays",
             json={"advantage_type": "double_vote_points"},
         ).status_code
         == 201
     )
 
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new1["id"]),
@@ -341,12 +351,14 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
     )
     assert r.status_code == 200
     # free_swaps=0, so this is the 1st charged swap: step * 1 = -5.
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    roster = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    ).json()
     dropped = next(p for p in roster if p["contestant_id"] == str(contestants[0]["id"]))
     assert dropped["swap_penalty_points"] == -5
     # The double is still there, untouched.
     plays = client.get(
-        f"/seasons/{season['id']}/advantage-plays/{current_user['id']}"
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
     assert [p["advantage_type"] for p in plays] == ["double_vote_points"]
 
@@ -360,11 +372,11 @@ def test_swap_lock_defaults_to_merge_plus_two(client, db_conn):
     insert_episode(db_conn, season["id"], episode_number=5)
     new = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new["id"]),
@@ -383,11 +395,11 @@ def test_swap_blocked_into_finale(client, db_conn):
     insert_episode(db_conn, season["id"], episode_number=3, is_finale=True)
     new = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new["id"]),
@@ -406,11 +418,11 @@ def test_swaps_locked_after_swap_lock_episode(client, db_conn):
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new["id"]),
@@ -426,11 +438,11 @@ def test_swap_contestant_not_on_roster(client, db_conn):
     season, contestants = _make_season_with_roster(db_conn)
     ep = insert_episode(db_conn, season["id"], episode_number=3)
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(uuid.uuid4()),
             "new_contestant_id": str(contestants[0]["id"]),
@@ -449,11 +461,11 @@ def test_swap_re_add_past_contestant(client, db_conn):
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     ep4 = insert_episode(db_conn, season["id"], episode_number=4)
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new_contestant["id"]),
@@ -462,7 +474,7 @@ def test_swap_re_add_past_contestant(client, db_conn):
     )
     # Re-adding a past contestant is rejected before any credit is consumed.
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[1]["id"]),
             "new_contestant_id": str(contestants[0]["id"]),
@@ -478,7 +490,7 @@ def test_submit_roster_blocked_on_completed_season(client, db_conn):
         db_conn, roster_size=3, lock_episode=2, status="completed"
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     assert r.status_code == 400
@@ -497,7 +509,7 @@ def test_submit_roster_blocked_after_lock(client, db_conn):
         picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     assert r.status_code == 400
@@ -512,7 +524,7 @@ def test_swap_blocked_on_completed_season(client, db_conn):
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     with db_conn.cursor() as cur:
@@ -521,7 +533,7 @@ def test_swap_blocked_on_completed_season(client, db_conn):
             [str(season["id"])],
         )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new_contestant["id"]),
@@ -545,11 +557,11 @@ def test_swap_blocked_after_episode_lock(client, db_conn):
     )
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new_contestant["id"]),
@@ -568,7 +580,7 @@ def test_swap_eliminated_contestant_rejected(client, db_conn):
     )
     new_contestant = insert_contestant(db_conn, season["id"], "Eliminated Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     ep2 = insert_episode(
@@ -581,7 +593,7 @@ def test_swap_eliminated_contestant_rejected(client, db_conn):
     insert_elimination(db_conn, ep2["id"], new_contestant["id"])
     ep3 = insert_episode(db_conn, season["id"], episode_number=3)
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new_contestant["id"]),
@@ -601,7 +613,9 @@ def test_other_users_roster_hidden_until_lock(client, db_conn):
         episode_number=2,
         picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
-    r = client.get(f"/seasons/{season['id']}/roster/{uuid.uuid4()}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{uuid.uuid4()}"
+    )
     assert r.status_code == 403
 
 
@@ -618,7 +632,7 @@ def test_other_users_roster_visible_after_lock(client, db_conn):
     )
     other = insert_user(db_conn, display_name="Other")
     insert_roster_pick(db_conn, other["id"], season["id"], contestants[0]["id"])
-    r = client.get(f"/seasons/{season['id']}/roster/{other['id']}")
+    r = client.get(f"/league-seasons/{season['league_season_id']}/roster/{other['id']}")
     assert r.status_code == 200
     assert len(r.json()) == 1
 
@@ -659,7 +673,9 @@ def test_other_players_pending_swap_hidden_until_episode_locks(
     )
 
     def seen():
-        r = client.get(f"/seasons/{season['id']}/roster/{other['id']}")
+        r = client.get(
+            f"/league-seasons/{season['league_season_id']}/roster/{other['id']}"
+        )
         assert r.status_code == 200
         return {row["contestant_id"] for row in r.json()}
 
@@ -676,7 +692,9 @@ def test_other_players_pending_swap_hidden_until_episode_locks(
             " where id = %s",
             [str(open_ep["id"])],
         )
-    after = client.get(f"/seasons/{season['id']}/roster/{other['id']}").json()
+    after = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{other['id']}"
+    ).json()
     after_ids = {row["contestant_id"] for row in after}
     assert str(swap_in["id"]) in after_ids
     assert str(dropped["id"]) in after_ids
@@ -693,11 +711,11 @@ def test_swap_takes_user_season_advisory_lock(client, db_conn, current_user):
     insert_episode(db_conn, season["id"], episode_number=3)
     new_contestant = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     r = client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new_contestant["id"]),
@@ -722,12 +740,12 @@ def test_undo_swap_restores_roster_and_clears_penalty(client, db_conn, current_u
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     assert (
         client.post(
-            f"/seasons/{season['id']}/roster/swap",
+            f"/league-seasons/{season['league_season_id']}/roster/swap",
             json={
                 "old_contestant_id": str(contestants[0]["id"]),
                 "new_contestant_id": str(new1["id"]),
@@ -736,10 +754,12 @@ def test_undo_swap_restores_roster_and_clears_penalty(client, db_conn, current_u
         == 200
     )
 
-    r = client.delete(f"/seasons/{season['id']}/roster/swap")
+    r = client.delete(f"/league-seasons/{season['league_season_id']}/roster/swap")
     assert r.status_code == 204
 
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    roster = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    ).json()
     active = {p["contestant_id"] for p in roster if p["active_until_episode"] is None}
     assert active == {str(c["id"]) for c in contestants}
     assert str(new1["id"]) not in {p["contestant_id"] for p in roster}
@@ -748,7 +768,7 @@ def test_undo_swap_restores_roster_and_clears_penalty(client, db_conn, current_u
     # The once-per-episode allowance is free again.
     assert (
         client.post(
-            f"/seasons/{season['id']}/roster/swap",
+            f"/league-seasons/{season['league_season_id']}/roster/swap",
             json={
                 "old_contestant_id": str(contestants[1]["id"]),
                 "new_contestant_id": str(new1["id"]),
@@ -765,10 +785,10 @@ def test_undo_swap_requires_a_swap_this_episode(client, db_conn):
     )
     insert_episode(db_conn, season["id"], episode_number=3)
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
-    r = client.delete(f"/seasons/{season['id']}/roster/swap")
+    r = client.delete(f"/league-seasons/{season['league_season_id']}/roster/swap")
     assert r.status_code == 400
     assert "No swap to undo" in r.json()["detail"]
 
@@ -784,11 +804,11 @@ def test_undo_swap_blocked_while_double_targets_the_incoming_castaway(
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
     client.post(
-        f"/seasons/{season['id']}/roster",
+        f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
     client.post(
-        f"/seasons/{season['id']}/roster/swap",
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
             "old_contestant_id": str(contestants[0]["id"]),
             "new_contestant_id": str(new1["id"]),
@@ -796,7 +816,7 @@ def test_undo_swap_blocked_while_double_targets_the_incoming_castaway(
     )
     assert (
         client.post(
-            f"/seasons/{season['id']}/advantage-plays",
+            f"/league-seasons/{season['league_season_id']}/advantage-plays",
             json={
                 "advantage_type": "double_roster_points",
                 "target_contestant_id": str(new1["id"]),
@@ -805,6 +825,6 @@ def test_undo_swap_blocked_while_double_targets_the_incoming_castaway(
         == 201
     )
 
-    r = client.delete(f"/seasons/{season['id']}/roster/swap")
+    r = client.delete(f"/league-seasons/{season['league_season_id']}/roster/swap")
     assert r.status_code == 400
     assert "take it back first" in r.json()["detail"]

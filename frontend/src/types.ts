@@ -13,8 +13,26 @@ export interface League {
   created_at: string
 }
 
+/** The show season: shared by every league playing it (#595). */
+export interface ShowSeason {
+  id: string
+  name: string
+  season_number: number
+  merge_episode: number | null
+  elimination_pick_schedule: EliminationPickTier[]
+  status: 'upcoming' | 'active' | 'completed'
+  created_at: string
+}
+
+/** One league playing one season (#595): the show plus that league's rule
+ * knobs. `id` is the league-season id every play route is keyed by;
+ * `season_id` is the show, for cast/episode routes. This is what every page
+ * calls "the season". */
 export interface Season {
   id: string
+  season_id: string
+  league_id: string
+  league_name: string
   name: string
   season_number: number
   roster_size: number

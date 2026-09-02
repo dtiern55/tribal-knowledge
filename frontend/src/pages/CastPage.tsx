@@ -20,7 +20,7 @@ export function CastPage() {
       try {
         const active = await getActiveSeason()
         setSeason(active)
-        if (active) setCast(await api.get<CastMember[]>(`/seasons/${active.id}/cast`))
+        if (active) setCast(await api.get<CastMember[]>(`/seasons/${active.season_id}/cast`))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load cast')
       } finally {

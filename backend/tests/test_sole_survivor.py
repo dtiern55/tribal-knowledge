@@ -37,7 +37,8 @@ def test_finale_double_and_additive_placements(client, db_conn, current_user):
     insert_roster_pick(db_conn, current_user["id"], season["id"], b["id"])
 
     r = client.post(
-        f"/seasons/{season['id']}/sole-survivor", json={"contestant_id": str(a["id"])}
+        f"/league-seasons/{season['league_season_id']}/sole-survivor",
+        json={"contestant_id": str(a["id"])},
     )
     assert r.status_code == 200
     assert r.json()["is_sole_survivor"] is True
@@ -72,7 +73,7 @@ def test_designation_rules(client, db_conn, current_user):
     insert_roster_pick(db_conn, current_user["id"], season["id"], dead["id"])
     insert_elimination(db_conn, ep1["id"], dead["id"])
 
-    url = f"/seasons/{season['id']}/sole-survivor"
+    url = f"/league-seasons/{season['league_season_id']}/sole-survivor"
     r = client.post(url, json={"contestant_id": str(off_roster["id"])})
     assert r.status_code == 400  # not on the active roster
 
@@ -84,7 +85,9 @@ def test_designation_rules(client, db_conn, current_user):
     assert client.post(url, json={"contestant_id": str(a["id"])}).status_code == 200
     # Re-designation before lock replaces, never duplicates.
     assert client.post(url, json={"contestant_id": str(b["id"])}).status_code == 200
-    roster = client.get(f"/seasons/{season['id']}/roster/{current_user['id']}").json()
+    roster = client.get(
+        f"/league-seasons/{season['league_season_id']}/roster/{current_user['id']}"
+    ).json()
     flags = {p["contestant_id"]: p["is_sole_survivor"] for p in roster}
     assert flags == {str(a["id"]): False, str(b["id"]): True, str(dead["id"]): False}
 
@@ -114,7 +117,7 @@ def test_designation_opens_at_merge(client, db_conn, current_user):
     insert_episode(db_conn, season["id"], episode_number=8)  # ss lock
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
-    url = f"/seasons/{season['id']}/sole-survivor"
+    url = f"/league-seasons/{season['league_season_id']}/sole-survivor"
 
     # Pre-merge: ep2 is the open one, the merge is in the future — not yet.
     r = client.post(url, json={"contestant_id": str(a["id"])})
@@ -147,7 +150,7 @@ def test_designation_hidden_from_others_until_lock(client, db_conn, current_user
             [str(other["id"])],
         )
 
-    url = f"/seasons/{season['id']}/roster/{other['id']}"
+    url = f"/league-seasons/{season['league_season_id']}/roster/{other['id']}"
     assert [p["is_sole_survivor"] for p in client.get(url).json()] == [False]
 
     with db_conn.cursor() as cur:
@@ -172,7 +175,8 @@ def test_ss_lock_falls_back_to_advantage_lock(client, db_conn, current_user):
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
     r = client.post(
-        f"/seasons/{season['id']}/sole-survivor", json={"contestant_id": str(a["id"])}
+        f"/league-seasons/{season['league_season_id']}/sole-survivor",
+        json={"contestant_id": str(a["id"])},
     )
     assert r.status_code == 400
     assert "closed" in r.json()["detail"]
@@ -193,6 +197,7 @@ def test_ss_lock_falls_back_to_finale(client, db_conn, current_user):
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
     r = client.post(
-        f"/seasons/{season['id']}/sole-survivor", json={"contestant_id": str(a["id"])}
+        f"/league-seasons/{season['league_season_id']}/sole-survivor",
+        json={"contestant_id": str(a["id"])},
     )
     assert r.status_code == 200

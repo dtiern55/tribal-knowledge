@@ -141,7 +141,7 @@ def test_create_grant_not_doubled_by_manual_bootstrap(client, db_conn, current_u
     season = insert_season(db_conn, weekly_token_allocation=10)
     ep = _create_episode(client, season["id"], 2)
     r = client.post(
-        f"/seasons/{season['id']}/tokens/weekly-allocation",
+        f"/league-seasons/{season['league_season_id']}/tokens/weekly-allocation",
         json={"episode_id": str(ep["id"]), "amount": 3},
     )
     assert r.status_code == 200

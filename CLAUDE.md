@@ -18,6 +18,10 @@ an auto-merge.
   React never talks to Supabase directly.
 - No ORM — raw SQL with psycopg2 via the `get_db()` context manager in `app/database.py`.
 - No computed score caching — scores calculated live from `scoring_events` + picks.
+- Multi-league (#595): `seasons` is the show, shared; a `league_seasons` row is one
+  league playing it and owns the rule knobs. Every play table (rosters, picks,
+  plays, brackets) keys on `league_season_id`; play routes are
+  `/league-seasons/{id}/…`, show routes stay `/seasons/{season_id}/…`.
 - RLS enabled on all tables (deny-all). FastAPI's service role key bypasses it.
 - Every endpoint requires a Supabase JWT except `/health`. Other players'
   picks/rosters/ballots are 403 until their lock passes; token balances are

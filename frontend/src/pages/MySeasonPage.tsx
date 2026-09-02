@@ -193,12 +193,12 @@ function useMySeasonData() {
         setSeason(active)
 
         const [cs, eps, standings, bd, ownPlays, unseenResult] = await Promise.all([
-          api.get<Contestant[]>(`/seasons/${active.id}/contestants`),
-          api.get<Episode[]>(`/seasons/${active.id}/episodes`),
-          api.get<StandingEntry[]>(`/seasons/${active.id}/standings`),
-          api.get<ScoringBreakdown>(`/seasons/${active.id}/scoring-breakdown/${userId}`),
-          api.get<AdvantagePlay[]>(`/seasons/${active.id}/advantage-plays/${userId}`),
-          api.get<EpisodeResult | undefined>(`/seasons/${active.id}/reveal`),
+          api.get<Contestant[]>(`/league-seasons/${active.season_id}/contestants`),
+          api.get<Episode[]>(`/league-seasons/${active.season_id}/episodes`),
+          api.get<StandingEntry[]>(`/league-seasons/${active.id}/standings`),
+          api.get<ScoringBreakdown>(`/league-seasons/${active.id}/scoring-breakdown/${userId}`),
+          api.get<AdvantagePlay[]>(`/league-seasons/${active.id}/advantage-plays/${userId}`),
+          api.get<EpisodeResult | undefined>(`/league-seasons/${active.id}/reveal`),
         ])
         setContestants(cs)
         setEpisodes(eps)
@@ -226,7 +226,7 @@ function useMySeasonData() {
     if (!season || !userId) return
     const seasonId = season.id
     api
-      .get<RosterPick[]>(`/seasons/${seasonId}/roster/${userId}`)
+      .get<RosterPick[]>(`/league-seasons/${seasonId}/roster/${userId}`)
       .then(setRoster)
       .catch(() => setRoster([]))
       .finally(() => setRosterFor(seasonId))
@@ -298,7 +298,7 @@ function useWeeklyPlay(
     setError(null)
     try {
       const created = await api.post<AdvantagePlay>(
-        `/seasons/${season.id}/advantage-plays`,
+        `/league-seasons/${season.id}/advantage-plays`,
         {
           advantage_type: advantageType,
           target_contestant_id: targetContestantId ?? null,
@@ -349,7 +349,7 @@ function useWeeklyPlay(
         await api.delete(`/advantage-plays/${play.id}`)
       }
       const created = await api.post<AdvantagePlay>(
-        `/seasons/${season.id}/advantage-plays`,
+        `/league-seasons/${season.id}/advantage-plays`,
         {
           advantage_type: advantageType,
           target_contestant_id: targetContestantId ?? null,
@@ -555,7 +555,7 @@ export function MySeasonPage() {
     setReplayLoading(recapId)
     setReplayError(null)
     api
-      .get<EpisodeResult>(`/seasons/${d.season.id}/episode-results/${recapId}`)
+      .get<EpisodeResult>(`/league-seasons/${d.season.id}/episode-results/${recapId}`)
       .then((res) => {
         if (live) setReplayResult(res)
       })
@@ -612,7 +612,7 @@ export function MySeasonPage() {
 
   async function acknowledgeResult() {
     if (!d.automaticResult) return
-    await api.post(`/seasons/${d.season!.id}/reveal-acknowledgement`, {
+    await api.post(`/league-seasons/${d.season!.id}/reveal-acknowledgement`, {
       episode_id: d.automaticResult.episode_id,
     })
     d.setAutomaticResult(null)
@@ -1107,10 +1107,10 @@ function LockedState({
     // At the finale there is no weekly boot vote — the locked ballot is the
     // Final 4/3/winner bracket. Fetch the prediction instead of the picks;
     // a 404 (no ballot yet) resolves to null rather than erroring the page.
-    const rosterReq = api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+    const rosterReq = api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
     const ballotReq = episode.is_finale
-      ? api.get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`).catch(() => null)
-      : api.get<EliminationPick[]>(`/episodes/${episode.id}/picks/${userId}`)
+      ? api.get<FinalePrediction>(`/league-seasons/${season.id}/finale-predictions/${userId}`).catch(() => null)
+      : api.get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episode.id}/picks/${userId}`)
     void Promise.all([ballotReq, rosterReq])
       .then(([ballot, savedRoster]) => {
         if (!live) return
@@ -1324,6 +1324,7 @@ function LockedState({
           choices open at once when the episode locks, so this is the
           watch-along Hub, not a leak. */}
       <LeagueHub
+        leagueSeasonId={season.id}
         episodeId={episode.id}
         episodeNumber={episode.episode_number}
         userId={userId}
@@ -1339,11 +1340,13 @@ function LockedState({
  * locks, when the whole league's picks are already public.
  */
 function LeagueHub({
+  leagueSeasonId,
   episodeId,
   episodeNumber,
   userId,
   broadcast,
 }: {
+  leagueSeasonId: string
   episodeId: string
   episodeNumber: number
   userId: string
@@ -1355,7 +1358,7 @@ function LeagueHub({
   useEffect(() => {
     let live = true
     api
-      .get<HubEntry[]>(`/episodes/${episodeId}/hub`)
+      .get<HubEntry[]>(`/league-seasons/${leagueSeasonId}/episodes/${episodeId}/hub`)
       .then((rows) => live && setEntries(rows))
       .catch(() => live && setFailed(true))
     return () => {
@@ -1640,7 +1643,7 @@ function HistorySection({
   useEffect(() => {
     let live = true
     api
-      .get<TokenLedgerEntry[]>(`/seasons/${season.id}/tokens/${userId}/history`)
+      .get<TokenLedgerEntry[]>(`/league-seasons/${season.id}/tokens/${userId}/history`)
       .then((h) => live && setLedger(h))
       .catch(() => live && setLedger([]))
     return () => {
@@ -1671,7 +1674,7 @@ function HistorySection({
     }
     let live = true
     api
-      .get<EpisodeResult>(`/seasons/${season.id}/episode-results/${newestScoredId}`)
+      .get<EpisodeResult>(`/league-seasons/${season.id}/episode-results/${newestScoredId}`)
       .then((r) => live && setLastResult(r))
       .catch(() => live && setLastResult(null))
     return () => {
@@ -1686,7 +1689,7 @@ function HistorySection({
     // One batched request for every closed episode's picks (#558), instead of
     // fanning out one round-trip per ballot and blocking the tab on Promise.all.
     api
-      .get<Record<string, EliminationPick[]>>(`/seasons/${season.id}/picks/${userId}`)
+      .get<Record<string, EliminationPick[]>>(`/league-seasons/${season.id}/picks/${userId}`)
       .then((byEpisode) => live && setPastBallots(new Map(Object.entries(byEpisode))))
       .catch(() => live && setPastBallots(new Map()))
     return () => {
@@ -2411,7 +2414,7 @@ function RosterSection({
 
   useEffect(() => {
     api
-      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
       .then((picks) => {
         setRoster(picks)
         // Seed the picker from the current active roster so pre-lock edits
@@ -2556,11 +2559,11 @@ function RosterSection({
   async function reassignSoleSurvivor(id: string) {
     setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === id })))
     try {
-      await api.post<RosterPick>(`/seasons/${season.id}/sole-survivor`, { contestant_id: id })
+      await api.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, { contestant_id: id })
       onRosterChange()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Designation failed')
-      setRoster(await api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`))
+      setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
     }
   }
 
@@ -2614,8 +2617,8 @@ function RosterSection({
     setSwapping(true)
     setError(null)
     try {
-      await api.delete(`/seasons/${season.id}/roster/swap`)
-      setRoster(await api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`))
+      await api.delete(`/league-seasons/${season.id}/roster/swap`)
+      setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
       onRosterChange()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Undo failed')
@@ -2629,13 +2632,13 @@ function RosterSection({
     setSwapping(true)
     setError(null)
     try {
-      await api.post<RosterPick>(`/seasons/${season.id}/roster/swap`, {
+      await api.post<RosterPick>(`/league-seasons/${season.id}/roster/swap`, {
         old_contestant_id: dropping,
         new_contestant_id: newContestantId,
       })
       // The roster changed — the weekly play is no longer involved (#404).
       const picks = await api.get<RosterPick[]>(
-        `/seasons/${season.id}/roster/${userId}`,
+        `/league-seasons/${season.id}/roster/${userId}`,
       )
       setRoster(picks)
       onRosterChange()
@@ -2652,7 +2655,7 @@ function RosterSection({
     setSubmitting(true)
     setError(null)
     try {
-      const picks = await api.post<RosterPick[]>(`/seasons/${season.id}/roster`, {
+      const picks = await api.post<RosterPick[]>(`/league-seasons/${season.id}/roster`, {
         contestant_ids: [...selected],
       })
       setRoster(picks)
@@ -3331,7 +3334,7 @@ function PicksSection({
       return m
     })
     try {
-      const picks = await api.post<EliminationPick[]>(`/episodes/${episodeId}/picks`, {
+      const picks = await api.post<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks`, {
         contestant_ids: [...(pending.get(episodeId) ?? [])],
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
@@ -3673,7 +3676,7 @@ function FinaleBallot({
 
   useEffect(() => {
     api
-      .get<FinalePrediction>(`/seasons/${season.id}/finale-predictions/${userId}`)
+      .get<FinalePrediction>(`/league-seasons/${season.id}/finale-predictions/${userId}`)
       .then((pred) => {
         setFinalFour(pred.final_four_contestant_ids ?? [])
         setFinalThree(pred.final_three_contestant_ids ?? [])
@@ -3737,7 +3740,7 @@ function FinaleBallot({
     setError(null)
     setSaved(false)
     try {
-      await api.post<FinalePrediction>(`/seasons/${season.id}/finale-predictions`, {
+      await api.post<FinalePrediction>(`/league-seasons/${season.id}/finale-predictions`, {
         final_four_contestant_ids: finalFour,
         final_three_contestant_ids: finalThree,
         winner_contestant_id: winner || null,
@@ -3991,7 +3994,7 @@ function SoleSurvivorLine({
   // leave a removed castaway designated or hide the new pick (#180 follow-up).
   useEffect(() => {
     api
-      .get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`)
+      .get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
       .then(setRoster)
       .catch(() => setRoster([]))
   }, [season.id, userId, rosterVersion])
@@ -4010,7 +4013,7 @@ function SoleSurvivorLine({
     setSaving(true)
     setError(null)
     try {
-      await api.delete(`/seasons/${season.id}/sole-survivor`)
+      await api.delete(`/league-seasons/${season.id}/sole-survivor`)
       setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: false })))
       onRosterChange()
     } catch (e) {

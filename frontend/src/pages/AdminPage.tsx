@@ -14,6 +14,7 @@ import type {
   Episode,
   EpisodeInsightConfig,
   League,
+  ShowSeason,
   ScoringEventType,
   Season,
 } from '../types'
@@ -196,18 +197,22 @@ function SeasonSection({
 
   function save() {
     void run(setSaving, setError, async () => {
-      const updated = await api.patch<Season>(`/seasons/${season.id}`, {
+      // The show fields live on the season, the rule knobs on this league's
+      // league-season (#595); the second PATCH returns the merged shape.
+      await api.patch<ShowSeason>(`/seasons/${season.season_id}`, {
         name,
         merge_episode: mergeEp ? Number(mergeEp) : null,
-        roster_lock_episode: lockEp ? Number(lockEp) : null,
-        ...(season.token_economy_enabled
-          ? { swap_token_cost: Number(swapCost) }
-          : {}),
         elimination_pick_schedule: schedule
           .filter((t) => t.from_episode && t.picks)
           .map((t) => ({ from_episode: Number(t.from_episode), picks: Number(t.picks) }))
           .sort((a, b) => a.from_episode - b.from_episode),
         status,
+      })
+      const updated = await api.patch<Season>(`/league-seasons/${season.id}`, {
+        roster_lock_episode: lockEp ? Number(lockEp) : null,
+        ...(season.token_economy_enabled
+          ? { swap_token_cost: Number(swapCost) }
+          : {}),
       })
       onUpdated(updated)
       setEditing(false)
@@ -1404,7 +1409,7 @@ function EpisodeProposalSection({
     void run(setLoading, setError, async () => {
       const q = tvmazeSeason ? `?tvmaze_season=${tvmazeSeason}` : ''
       const p = await api.get<EpisodeProposal>(
-        `/seasons/${season.id}/episode-proposal${q}`,
+        `/seasons/${season.season_id}/episode-proposal${q}`,
       )
       setProposal(p)
       // Already-created episode numbers default unchecked — creating them
@@ -1431,7 +1436,7 @@ function EpisodeProposalSection({
       for (const e of proposal.episodes) {
         if (!checked.has(e.episode_number)) continue
         created.push(
-          await api.post<Episode>(`/seasons/${season.id}/episodes`, {
+          await api.post<Episode>(`/seasons/${season.season_id}/episodes`, {
             episode_number: e.episode_number,
             air_date: e.air_date,
             picks_lock_at: e.picks_lock_at,
@@ -1545,7 +1550,7 @@ function EpisodesSection({
 
   function addEpisode() {
     void run(setAdding, setAddError, async () => {
-      const ep = await api.post<Episode>(`/seasons/${season.id}/episodes`, {
+      const ep = await api.post<Episode>(`/seasons/${season.season_id}/episodes`, {
         episode_number: Number(epNum),
         air_date: airDate,
         picks_lock_at: centralLocalToUtc(locksAt),
@@ -1771,6 +1776,59 @@ function LeagueRow({ league, onUpdated }: { league: League; onUpdated: (l: Leagu
       <ActionBtn onClick={save} disabled={saving || !dirty || !name.trim() || !joinCode.trim()}>
         {saving ? 'Saving…' : 'Save'}
       </ActionBtn>
+      <AddSeasonToLeague league={league} />
+    </div>
+  )
+}
+
+function AddSeasonToLeague({ league }: { league: League }) {
+  const [shows, setShows] = useState<ShowSeason[]>([])
+  const [played, setPlayed] = useState<Set<string>>(new Set())
+  const [seasonId, setSeasonId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    void Promise.all([api.get<ShowSeason[]>('/seasons'), api.get<Season[]>('/league-seasons')]).then(
+      ([ss, lss]) => {
+        setShows(ss)
+        setPlayed(new Set(lss.filter((l) => l.league_id === league.id).map((l) => l.season_id)))
+      },
+    )
+  }, [league.id])
+
+  const options = shows.filter((s) => !played.has(s.id))
+  if (!options.length) return null
+
+  function add() {
+    setSuccess(null)
+    void run(setBusy, setError, async () => {
+      await api.post<Season>(`/leagues/${league.id}/seasons`, { season_id: seasonId })
+      setPlayed((prev) => new Set(prev).add(seasonId))
+      setSeasonId('')
+      setSuccess('Season added — set its rules in Season setup.')
+    })
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <select
+        aria-label={`Season to add to ${league.name}`}
+        value={seasonId}
+        onChange={(e) => setSeasonId(e.target.value)}
+        className="rounded-lg border border-cream-200 px-3 py-2 text-sm"
+      >
+        <option value="">Add a season…</option>
+        {options.map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+      <ActionBtn variant="secondary" onClick={add} disabled={busy || !seasonId}>
+        {busy ? 'Adding…' : 'Add'}
+      </ActionBtn>
+      <ErrorMsg msg={error} />
+      <SuccessMsg msg={success} />
     </div>
   )
 }
@@ -1837,25 +1895,33 @@ function LeaguesSection({ leagues, onChanged }: { leagues: League[]; onChanged: 
  * Deliberately three fields. Every other column has a server default and is
  * editable in Season setup the moment the season exists, so asking for roster
  * size and lock episodes here would just duplicate that form. */
-function CreateSeasonSection({ onCreated }: { onCreated: (season: Season) => void }) {
+function CreateSeasonSection({
+  leagues,
+  onCreated,
+}: {
+  leagues: League[]
+  onCreated: (season: Season) => void
+}) {
   const [name, setName] = useState('')
   const [seasonNumber, setSeasonNumber] = useState('')
   const [status, setStatus] = useState<Season['status']>('upcoming')
+  const [leagueId, setLeagueId] = useState(leagues[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const valid = name.trim() !== '' && Number(seasonNumber) > 0
+  const valid = name.trim() !== '' && Number(seasonNumber) > 0 && leagueId !== ''
 
   function submit() {
     if (!valid) return
     void run(setBusy, setError, async () => {
-      onCreated(
-        await api.post<Season>('/seasons', {
-          name: name.trim(),
-          season_number: Number(seasonNumber),
-          status,
-        }),
-      )
+      // A season is the show; a league plays it (#595). Create both so the
+      // page can operate on the league-season straight away.
+      const show = await api.post<ShowSeason>('/seasons', {
+        name: name.trim(),
+        season_number: Number(seasonNumber),
+        status,
+      })
+      onCreated(await api.post<Season>(`/leagues/${leagueId}/seasons`, { season_id: show.id }))
     })
   }
 
@@ -1906,6 +1972,21 @@ function CreateSeasonSection({ onCreated }: { onCreated: (season: Season) => voi
             <option value="completed">Completed</option>
           </select>
         </div>
+        <div>
+          <label htmlFor="new-season-league" className="mb-1 block text-xs text-gray-500">
+            League
+          </label>
+          <select
+            id="new-season-league"
+            value={leagueId}
+            onChange={(e) => setLeagueId(e.target.value)}
+            className="w-full rounded-lg border border-cream-200 px-3 py-2 text-sm"
+          >
+            {leagues.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="mt-3">
         <ActionBtn onClick={submit} disabled={busy || !valid}>
@@ -1936,23 +2017,24 @@ export function AdminPage() {
   // left behind.
   const loadSeason = useCallback(async (target: Season) => {
     setSeason(target)
-    const [cs, eps, types, ls] = await Promise.all([
-      api.get<Contestant[]>(`/seasons/${target.id}/contestants`),
-      api.get<Episode[]>(`/seasons/${target.id}/episodes`),
+    const [cs, eps, types] = await Promise.all([
+      api.get<Contestant[]>(`/seasons/${target.season_id}/contestants`),
+      api.get<Episode[]>(`/seasons/${target.season_id}/episodes`),
       // Season-scoped since #170's snapshot; the global route is gone
-      api.get<ScoringEventType[]>(`/seasons/${target.id}/scoring-event-types`),
-      api.get<League[]>('/leagues'),
+      api.get<ScoringEventType[]>(`/seasons/${target.season_id}/scoring-event-types`),
     ])
     setContestants(cs)
     setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
     setEventTypes(types)
-    setLeagues(ls)
   }, [])
 
   useEffect(() => {
     async function load() {
       try {
-        const active = await getActiveSeason()
+        // Leagues load regardless of season: the cold-start create form needs
+        // one to sign up, and the Leagues section manages them (#595).
+        const [active, ls] = await Promise.all([getActiveSeason(), api.get<League[]>('/leagues')])
+        setLeagues(ls)
         if (active) await loadSeason(active)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
@@ -1978,7 +2060,7 @@ export function AdminPage() {
           title="Create the first season"
           description="This league has no seasons yet. Create one to open scheduling, cast setup, and scoring."
         />
-        <CreateSeasonSection onCreated={(s) => void loadSeason(s)} />
+        <CreateSeasonSection leagues={leagues} onCreated={(s) => void loadSeason(s)} />
       </div>
     )
   }
@@ -2034,7 +2116,7 @@ export function AdminPage() {
 
       <Section id="cast-setup" title={`Cast setup (${contestants.length})`} description="Add contestants and maintain names, placements, and photos.">
         <ContestantsSection
-          seasonId={season.id}
+          seasonId={season.season_id}
           contestants={contestants}
           onUpdated={setContestants}
         />

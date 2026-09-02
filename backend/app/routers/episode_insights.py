@@ -148,7 +148,7 @@ def set_episode_insights(
             return rows
 
 
-def _auto_league_call(conn, episode: dict) -> Optional[dict]:
+def _auto_league_call(conn, ls: dict, episode: dict) -> Optional[dict]:
     """The guaranteed boot-caught insight: what share of ballots called the boot."""
     with conn.cursor() as cur:
         cur.execute(
@@ -169,9 +169,9 @@ def _auto_league_call(conn, episode: dict) -> Optional[dict]:
             left join eliminations el
               on el.episode_id = pick.episode_id
              and el.contestant_id = pick.contestant_id
-            where pick.episode_id = %s
+            where pick.league_season_id = %s and pick.episode_id = %s
             """,
-            [str(episode["id"])],
+            [str(ls["id"]), str(episode["id"])],
         )
         counts = cur.fetchone()
     if counts["total"] == 0:
@@ -187,9 +187,12 @@ def _auto_league_call(conn, episode: dict) -> Optional[dict]:
 
 
 def compute_episode_insights(
-    conn, season: dict, episode: dict, user_id: UUID
+    conn, ls: dict, episode: dict, user_id: UUID
 ) -> list[dict]:
-    """Compute selected facts beyond the scored-result privacy boundary."""
+    """Compute selected facts beyond the scored-result privacy boundary.
+
+    League-scoped (#595): ballots, plays and the median are this league's.
+    """
     if episode["status"] != "scored":
         return []
     with conn.cursor() as cur:
@@ -208,22 +211,20 @@ def compute_episode_insights(
     if not episode["is_finale"] and not any(
         item["insight_type"] == "pick_popularity" for item in configured
     ):
-        league_call = _auto_league_call(conn, episode)
+        league_call = _auto_league_call(conn, ls, episode)
         if league_call:
             insights.append(league_call)
 
     if not configured:
         return insights
 
-    episode_scores = scoring.episode_points(
-        conn, season["id"], episode["episode_number"]
-    )
+    episode_scores = scoring.episode_points(conn, ls["id"], episode["episode_number"])
     with conn.cursor() as cur:
         cur.execute(
             "select distinct p.id::text as id from profiles p"
             " join roster_picks rp on rp.user_id = p.id"
-            " where p.is_player and rp.season_id = %s",
-            [str(season["id"])],
+            " where p.is_player and rp.league_season_id = %s",
+            [str(ls["id"])],
         )
         participants = [row["id"] for row in cur.fetchall()]
 
@@ -236,9 +237,10 @@ def compute_episode_insights(
                     select count(distinct user_id)::int as total,
                            count(distinct user_id) filter (
                              where contestant_id = %s)::int as picked
-                    from elimination_picks where episode_id = %s
+                    from elimination_picks
+                    where league_season_id = %s and episode_id = %s
                     """,
-                    [str(item["contestant_id"]), str(episode["id"])],
+                    [str(item["contestant_id"]), str(ls["id"]), str(episode["id"])],
                 )
                 counts = cur.fetchone()
             if counts["total"] == 0:
@@ -266,14 +268,14 @@ def compute_episode_insights(
                       left join eliminations el
                         on el.episode_id = pick.episode_id
                        and el.contestant_id = pick.contestant_id
-                      where pick.episode_id = %s
+                      where pick.league_season_id = %s and pick.episode_id = %s
                       group by pick.user_id
                     )
                     select count(*)::int as total,
                            count(*) filter (where correct >= 2)::int as multiple
                     from ballot
                     """,
-                    [str(episode["id"])],
+                    [str(ls["id"]), str(episode["id"])],
                 )
                 counts = cur.fetchone()
             if counts["total"] == 0:
@@ -311,9 +313,15 @@ def compute_episode_insights(
             with conn.cursor() as cur:
                 cur.execute(
                     "select count(distinct user_id)::int as used"
-                    " from advantage_plays where episode_id = %s"
+                    " from advantage_plays"
+                    " where league_season_id = %s and episode_id = %s"
                     " and advantage_type = %s and user_id::text = any(%s)",
-                    [str(episode["id"]), item["advantage_type"], participants],
+                    [
+                        str(ls["id"]),
+                        str(episode["id"]),
+                        item["advantage_type"],
+                        participants,
+                    ],
                 )
                 used = cur.fetchone()["used"]
             label = PLAY_LABELS[item["advantage_type"]]

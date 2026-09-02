@@ -27,14 +27,18 @@ def _open_episode(conn, season_id, episode_number=1, max_picks=3):
 def test_get_picks_empty(client, db_conn, current_user):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
-    r = client.get(f"/episodes/{ep['id']}/picks/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{current_user['id']}"
+    )
     assert r.status_code == 200
     assert r.json() == []
 
 
 @pytest.mark.integration
 def test_get_picks_episode_not_found(client):
-    r = client.get(f"/episodes/{uuid.uuid4()}/picks/{uuid.uuid4()}")
+    r = client.get(
+        f"/league-seasons/{uuid.uuid4()}/episodes/{uuid.uuid4()}/picks/{uuid.uuid4()}"
+    )
     assert r.status_code == 404
 
 
@@ -46,7 +50,7 @@ def test_submit_picks(client, db_conn, current_user):
     c2 = insert_contestant(db_conn, season["id"], "Player B")
     insert_contestant(db_conn, season["id"], "Player C")  # keep cap above 2
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
     )
     assert r.status_code == 200
@@ -60,10 +64,12 @@ def test_submit_picks_appears_in_get(client, db_conn, current_user):
     contestant = insert_contestant(db_conn, season["id"])
     insert_contestant(db_conn, season["id"], "Other")  # keep cap above 1
     client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
     )
-    r = client.get(f"/episodes/{ep['id']}/picks/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{current_user['id']}"
+    )
     assert r.status_code == 200
     assert len(r.json()) == 1
     assert r.json()[0]["contestant_id"] == str(contestant["id"])
@@ -76,15 +82,17 @@ def test_submit_picks_replaces_existing(client, db_conn, current_user):
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
     client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c1["id"])]},
     )
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c2["id"])]},
     )
     assert r.status_code == 200
-    picks = client.get(f"/episodes/{ep['id']}/picks/{current_user['id']}").json()
+    picks = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{current_user['id']}"
+    ).json()
     assert len(picks) == 1
     assert picks[0]["contestant_id"] == str(c2["id"])
 
@@ -96,7 +104,7 @@ def test_submit_picks_too_many(client, db_conn):
     c1 = insert_contestant(db_conn, season["id"], "Player A")
     c2 = insert_contestant(db_conn, season["id"], "Player B")
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
     )
     assert r.status_code == 400
@@ -117,7 +125,7 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
     insert_advantage_play(db_conn, current_user["id"], ep["id"], "extra_vote")
 
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
     )
     assert r.status_code == 200
@@ -134,14 +142,15 @@ def test_cannot_pick_every_remaining_option(client, db_conn, current_user):
     c2 = insert_contestant(db_conn, season["id"], "Player B")  # only 2 still in
 
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
     )
     assert r.status_code == 400
     assert "Too many picks" in r.json()["detail"]
 
     ok = client.post(
-        f"/episodes/{ep['id']}/picks", json={"contestant_ids": [str(c1["id"])]}
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"])]},
     )
     assert ok.status_code == 200
 
@@ -154,7 +163,7 @@ def test_submit_picks_duplicate_contestant(client, db_conn):
     insert_contestant(db_conn, season["id"], "B")  # keep cap above 2 so the
     insert_contestant(db_conn, season["id"], "C")  # dup check is what fires
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(c["id"]), str(c["id"])]},
     )
     assert r.status_code == 400
@@ -171,7 +180,7 @@ def test_submit_picks_scored_episode(client, db_conn):
         picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
     )
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": []},
     )
     assert r.status_code == 400
@@ -187,7 +196,7 @@ def test_submit_picks_after_lock_time(client, db_conn):
         picks_lock_at=datetime.now(timezone.utc) - timedelta(minutes=1),
     )
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": []},
     )
     assert r.status_code == 400
@@ -199,7 +208,7 @@ def test_submit_picks_invalid_contestant(client, db_conn):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": [str(uuid.uuid4())]},
     )
     assert r.status_code == 400
@@ -222,14 +231,16 @@ def test_next_episode_stays_shut_until_this_one_is_scored(client, db_conn):
     insert_contestant(db_conn, season["id"], "C")
 
     r = client.post(
-        f"/episodes/{ep2['id']}/picks", json={"contestant_ids": [str(c["id"])]}
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep2['id']}/picks",
+        json={"contestant_ids": [str(c["id"])]},
     )
     assert r.status_code == 400
     assert "no episode is currently open" in r.json()["detail"].lower()
 
     score_episode(db_conn, ep1["id"])
     r = client.post(
-        f"/episodes/{ep2['id']}/picks", json={"contestant_ids": [str(c["id"])]}
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep2['id']}/picks",
+        json={"contestant_ids": [str(c["id"])]},
     )
     assert r.status_code == 200
 
@@ -252,7 +263,7 @@ def test_submit_picks_already_eliminated(client, db_conn):
     # rejection would be "nothing is open", not "already eliminated".
     score_episode(db_conn, ep1["id"])
     r = client.post(
-        f"/episodes/{ep2['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep2['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
     )
     assert r.status_code == 400
@@ -264,7 +275,7 @@ def test_submit_empty_picks(client, db_conn):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
     r = client.post(
-        f"/episodes/{ep['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
         json={"contestant_ids": []},
     )
     assert r.status_code == 200
@@ -275,7 +286,9 @@ def test_submit_empty_picks(client, db_conn):
 def test_other_users_picks_hidden_until_lock(client, db_conn):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
-    r = client.get(f"/episodes/{ep['id']}/picks/{uuid.uuid4()}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{uuid.uuid4()}"
+    )
     assert r.status_code == 403
 
 
@@ -294,7 +307,9 @@ def test_other_users_picks_open_at_lock(client, db_conn):
     other = insert_user(db_conn, display_name="Other")
     insert_elimination_pick(db_conn, other["id"], ep["id"], contestant["id"])
 
-    r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{other['id']}"
+    )
     assert r.status_code == 403  # still open for picks
 
     with db_conn.cursor() as cur:
@@ -302,7 +317,9 @@ def test_other_users_picks_open_at_lock(client, db_conn):
             "update episodes set picks_lock_at = %s where id = %s",
             [datetime.now(timezone.utc) - timedelta(hours=1), ep["id"]],
         )
-    r = client.get(f"/episodes/{ep['id']}/picks/{other['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{other['id']}"
+    )
     assert r.status_code == 200  # locked, still unscored
     assert len(r.json()) == 1
 
@@ -321,7 +338,9 @@ def test_season_picks_batches_own_ballots(client, db_conn, current_user):
     insert_elimination_pick(db_conn, current_user["id"], ep1["id"], c1["id"])
     insert_elimination_pick(db_conn, current_user["id"], ep2["id"], c2["id"])
 
-    r = client.get(f"/seasons/{season['id']}/picks/{current_user['id']}")
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/picks/{current_user['id']}"
+    )
     assert r.status_code == 200
     body = r.json()
     assert set(body) == {str(ep1["id"]), str(ep2["id"])}
@@ -348,7 +367,9 @@ def test_season_picks_hide_other_users_unlocked_episodes(client, db_conn):
     insert_elimination_pick(db_conn, other["id"], locked["id"], contestant["id"])
     insert_elimination_pick(db_conn, other["id"], open_ep["id"], contestant["id"])
 
-    body = client.get(f"/seasons/{season['id']}/picks/{other['id']}").json()
+    body = client.get(
+        f"/league-seasons/{season['league_season_id']}/picks/{other['id']}"
+    ).json()
     assert set(body) == {str(locked["id"])}  # open episode's pick is hidden
 
 
@@ -359,7 +380,7 @@ def test_picks_only_open_for_next_episode(client, db_conn):
     ep2 = _open_episode(db_conn, season["id"], episode_number=2)
     contestant = insert_contestant(db_conn, season["id"])
     r = client.post(
-        f"/episodes/{ep2['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep2['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
     )
     assert r.status_code == 400
@@ -376,14 +397,14 @@ def test_watch_only_premiere_rejects_picks(client, db_conn, current_user):
     insert_contestant(db_conn, season["id"], "Other")  # keep cap above 1
 
     r = client.post(
-        f"/episodes/{ep1['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep1['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
     )
     assert r.status_code == 400
     assert "only open for episode 2" in r.json()["detail"]
 
     r = client.post(
-        f"/episodes/{ep2['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep2['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
     )
     assert r.status_code == 200
@@ -395,7 +416,7 @@ def test_watch_only_premiere_with_no_later_episode(client, db_conn, current_user
     ep1 = _open_episode(db_conn, season["id"], episode_number=1)
     contestant = insert_contestant(db_conn, season["id"])
     r = client.post(
-        f"/episodes/{ep1['id']}/picks",
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep1['id']}/picks",
         json={"contestant_ids": [str(contestant["id"])]},
     )
     assert r.status_code == 400

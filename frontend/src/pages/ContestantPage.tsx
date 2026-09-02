@@ -63,7 +63,7 @@ export function ContestantPage() {
   useEffect(() => {
     let live = true
     void getActiveSeason()
-      .then((season) => season && api.get<CastMember[]>(`/seasons/${season.id}/cast`))
+      .then((season) => season && api.get<CastMember[]>(`/seasons/${season.season_id}/cast`))
       .then((rows) => live && rows && setCast(rows))
       .catch(() => {})
     return () => { live = false }
@@ -76,8 +76,8 @@ export function ContestantPage() {
       .then(async (season) => {
         if (!season) return
         const [picks, breakdown] = await Promise.all([
-          api.get<RosterPick[]>(`/seasons/${season.id}/roster/${userId}`),
-          api.get<ScoringBreakdown>(`/seasons/${season.id}/scoring-breakdown/${userId}`),
+          api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`),
+          api.get<ScoringBreakdown>(`/league-seasons/${season.id}/scoring-breakdown/${userId}`),
         ])
         if (!live) return
         setRosterIds(

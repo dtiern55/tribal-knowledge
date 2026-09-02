@@ -13,6 +13,7 @@ from app.routers import (
     episode_results,
     episodes,
     finale_predictions,
+    league_seasons,
     leagues,
     me,
     picks,
@@ -59,6 +60,7 @@ app.include_router(finale_predictions.router)
 app.include_router(tokens.router)
 app.include_router(standings.router)
 app.include_router(leagues.router)
+app.include_router(league_seasons.router)
 app.include_router(rules.router)
 app.include_router(survivor_import.router)
 app.include_router(tvmaze.router)
