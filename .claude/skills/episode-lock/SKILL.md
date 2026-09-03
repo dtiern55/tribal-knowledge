@@ -35,7 +35,8 @@ episode_locked(ep) = ep.picks_lock_at <= now()  OR  ep.status == 'scored'
 
 ## 1. Pick the environment first (this writes real data)
 
-- **Prod = the real league.** `backend/.env` points at the production Supabase.
+- **Prod = the real league.** Its credentials are in `backend/.env.prod`;
+  `backend/.env` is **staging** (#150), so a plain run cannot touch prod.
   Active seasons have `status = 'active'` (the show; several leagues may play it). A prod lock affects
   **every player league-wide.** Confirm with Danny before writing.
 - **Local dev** is a separate stack (bring it up with the `verify` skill); use it
@@ -50,7 +51,8 @@ The DB stores `picks_lock_at` in UTC; the app shows Central
 ## 3. Find the episode (read-only recon)
 
 `app/database.py` calls `load_dotenv()` on import, so `get_db()` uses whatever
-`backend/.env` points at (prod by default). Run from the backend dir:
+`backend/.env` points at (staging). Add `--env-file .env.prod` to `uv run`
+for prod. Run from the backend dir:
 
 ```bash
 cd backend && PYTHONPATH="$PWD" uv run python - <<'PY'

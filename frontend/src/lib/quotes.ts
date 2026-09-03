@@ -33,7 +33,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 7: Pearl Islands',
   },
   {
-    text: "Nobody wants to date somebody that didn't make the merge!",
+    text: "No one wants to date someone who doesn't make the merge.",
     who: 'Kat',
     season: 'Season 27: Blood vs. Water',
   },
@@ -53,7 +53,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 30: Worlds Apart',
   },
   {
-    text: 'Thanks guys. Hope you guys all get bit by a freaking crocodile. Scumbags.',
+    text: 'Hope you guys all get bit by a freaking crocodile. Scumbags.',
     who: 'Judd',
     season: 'Season 11: Guatemala',
   },
@@ -74,17 +74,17 @@ export const QUOTES: Quote[] = [
   },
   {
     text: 'Do you know what a Reuben sandwich is, Jeff?',
-    who: 'Christian Hubicki',
+    who: 'Christian',
     season: 'Season 37: David vs. Goliath',
   },
   {
     text: 'Play with you? Oh, in the sand?',
-    who: 'Christian Hubicki',
+    who: 'Christian',
     season: 'Season 37: David vs. Goliath',
   },
   {
     text: 'One could say I slayed Goliath with an algorithmic slingshot.',
-    who: 'Christian Hubicki',
+    who: 'Christian',
     season: 'Season 37: David vs. Goliath',
   },
   {
@@ -94,7 +94,7 @@ export const QUOTES: Quote[] = [
   },
   {
     text: "Stop rapping. You're trash at rapping. You're garbage at rapping. You can't rap. You have no bars.",
-    who: 'Wendell Holland',
+    who: 'Wendell',
     season: 'Season 36: Ghost Island',
   },
   {
@@ -103,7 +103,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 37: David vs. Goliath',
   },
   {
-    text: 'I’m supposed to talk llama to you. BAAUGH BAUU BEBLLRAAUGHH. You understand that better?',
+    text: 'I’m supposed to talk llama to you. BAAUGH BLAUUEUGHH AABABABUU!! You understand that better?!',
     who: 'Tony',
     season: 'Season 28: Cagayan',
   },
@@ -168,23 +168,28 @@ export const QUOTES: Quote[] = [
     season: 'Season 28: Cagayan',
   },
   {
-    text: 'Like I’m going to keep anyone warm? I weigh 7 pounds… get off of me.',
-    who: 'Courtney Yates',
+    text: "Ham! He's a Jew and he won't eat the ham!",
+    who: 'Big Tom',
+    season: 'Season 3: Africa',
+  },
+  {
+    text: 'Like I’m going to keep anyone warm? I weigh 7 pounds. I can’t even keep myself warm.',
+    who: 'Courtney',
     season: 'Season 15: China',
   },
   {
     text: "I am voting for you because when you snore at nighttime it sounds like someone's choking a walrus.",
-    who: 'Courtney Yates',
+    who: 'Courtney',
     season: 'Season 15: China',
   },
   {
     text: 'I dislike everyone else more than I dislike Todd and Amanda. And I think they mistake that for friendship.',
-    who: 'Courtney Yates',
+    who: 'Courtney',
     season: 'Season 15: China',
   },
   {
     text: "At least our guys know they're useless. Except for Coach. He seems to think he's amazing… don't know where he got that idea.",
-    who: 'Courtney Yates',
+    who: 'Courtney',
     season: 'Season 20: Heroes vs. Villains',
   },
   {
@@ -199,7 +204,7 @@ export const QUOTES: Quote[] = [
   },
   {
     text: '…I’ve been through a hurricane, I’ve been attacked by a shark, had a run-in with a crocodile, got captured by the Indian tribe…',
-    who: 'Coach Benjamin Wade',
+    who: 'Coach',
     season: 'Season 18: Tocantins',
   },
   {
@@ -302,5 +307,25 @@ export const QUOTES: Quote[] = [
     text: 'I truly believe that butterflies are dead relatives saying hi.',
     who: 'Xander',
     season: 'Season 41',
+  },
+  {
+    text: 'Forty bucks to lick your fingers.',
+    who: 'Erik Reichenbach',
+    season: 'Season 16: Micronesia',
+  },
+  {
+    text: 'And I will never EVER give up in a challenge... Except for the sweat test... And the journey.',
+    who: 'Jelinsky',
+    season: 'Season 46',
+  },
+  {
+    text: 'Why did he even come out here? He could’ve just gone camping.',
+    who: 'Kenzie',
+    season: 'Season 46',
+  },
+  {
+    text: "I don't know how to spell it yet, but his name will be written down.",
+    who: 'Q',
+    season: 'Season 46',
   },
 ]

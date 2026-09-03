@@ -45,4 +45,16 @@ Preserve unrelated working-tree changes. Do not rewrite existing product history
 
 ## Codex desktop image previews on Windows
 
-Keep project image assets in this WSL repository. Before embedding a local image in a Codex desktop response, copy a preview to the Windows-visible directory `%USERPROFILE%\.codex\visualizations\tribal-knowledge` and embed the absolute `C:\...` path. Do not embed `/home/...` or `\\wsl.localhost\...` paths in chat; the Windows desktop renderer may not display them.
+Keep project image assets in this WSL repository. For every local image preview
+in Codex desktop:
+
+1. Copy the preview to the Windows-visible directory
+   `%USERPROFILE%\.codex\visualizations\tribal-knowledge`.
+2. Load that copy with the image-viewing tool and return its image content
+   directly. Do not rely on a Markdown embed of any local filesystem path;
+   those embeds may not resolve from a WSL-backed task.
+3. When the user needs to inspect or compare the result, also open the Windows
+   copy in a Codex file panel.
+
+A `C:\...` path link may be included only as a secondary convenience. Never use
+`/home/...` or `\\wsl.localhost\...` paths for a chat preview.

@@ -1,0 +1,49 @@
+name: Deploy staging
+
+# Every merge to main lands on staging automatically (issue #150); prod
+# waits for a version tag (deploy.yml). Vercel builds main and every PR as
+# a preview pointed at the staging API, so the manual trigger exists to put
+# a branch's backend on staging when a preview needs it before merge.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/deploy-staging.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Push migrations
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_STAGING }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Same fly.toml as prod; only the app name differs.
+      - name: Deploy backend
+        run: flyctl deploy --remote-only --app tribal-knowledge-staging
+        working-directory: backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify backend health
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            https://tribal-knowledge-staging.fly.dev/health
