@@ -2140,6 +2140,14 @@ export function AdminPage() {
       <Section id="branding-compare" title="Branding" description="The rebrand at a glance — old identity next to new.">
         <BrandingCompareSection />
       </Section>
+
+      <Section
+        id="app-icon-finalists"
+        title="App icon finalists"
+        description="Four saved directions to compare at full size and at the scale they will appear on a phone."
+      >
+        <AppIconOptionsSection />
+      </Section>
     </div>
   )
 }
@@ -2168,6 +2176,68 @@ function BrandingCompareSection() {
           <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${m.dark ? 'text-stone-300' : 'text-gray-400'}`}>
             {m.caption}
           </span>
+        </figure>
+      ))}
+    </div>
+  )
+}
+
+const APP_ICON_OPTIONS = [
+  {
+    src: '/icon-option-canvas-unlocked.webp?v=20260903',
+    label: 'Canvas · Unlocked',
+    alt: 'Canvas unlocked app icon option',
+    note: 'Heavy brush · 70% original green / 30% midpoint',
+  },
+  {
+    src: '/icon-option-canvas-locked.webp?v=20260903',
+    label: 'Canvas · Locked',
+    alt: 'Canvas locked app icon option',
+    note: 'Heavy brush · warm cream canvas',
+  },
+  {
+    src: '/icon-option-walnut-dark.webp?v=20260903',
+    label: 'Walnut · Dark',
+    alt: 'Dark walnut app icon option',
+    note: 'Natural grain · deep chocolate walnut',
+  },
+  {
+    src: '/icon-option-walnut-light.webp?v=20260903',
+    label: 'Walnut · Lighter',
+    alt: 'Lighter walnut app icon option',
+    note: 'Natural grain · modest brightness lift',
+  },
+] as const
+
+function AppIconOptionsSection() {
+  return (
+    <div className="grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {APP_ICON_OPTIONS.map((option) => (
+        <figure key={option.src} className="rounded-2xl border border-cream-200 bg-white p-3 shadow-sm">
+          <img
+            src={option.src}
+            alt={option.alt}
+            width={640}
+            height={640}
+            loading="lazy"
+            className="aspect-square w-full rounded-[22%] ring-1 ring-black/10"
+          />
+          <figcaption className="mt-3">
+            <p className="font-display text-base font-semibold tracking-wide text-forest-900">{option.label}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{option.note}</p>
+            <div className="mt-3 flex items-end gap-2" aria-label={`${option.label} launcher-size previews`}>
+              {[48, 32, 24].map((size) => (
+                <img
+                  key={size}
+                  src={option.src}
+                  alt=""
+                  width={size}
+                  height={size}
+                  className="rounded-[22%] ring-1 ring-black/10"
+                />
+              ))}
+            </div>
+          </figcaption>
         </figure>
       ))}
     </div>

@@ -57,6 +57,11 @@ describe('AdminPage current rules', () => {
     expect(screen.queryByText(/weekly play/)).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /Tokens/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/weekly token allocation/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /App icon finalists/ })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Canvas unlocked app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Canvas locked app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Dark walnut app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Lighter walnut app icon option' })).toBeVisible()
   })
 
   it('requires explicit confirmation before publishing episode scores', async () => {
