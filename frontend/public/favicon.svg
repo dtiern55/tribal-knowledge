@@ -1,10 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <title>Snakes and Rats</title>
   <rect x="1" y="1" width="62" height="62" rx="12" fill="#1e3a2f"/>
-  <!-- Four hand-cut vote strokes crossed by the fifth tally. -->
-  <path fill="#f8f2e8" d="M13 14l7 2-1 37-6-2Z"/>
-  <path fill="#f8f2e8" d="M24 12l7-3v41l-6 2Z"/>
-  <path fill="#f8f2e8" d="M36 13l6-3 1 44-7-2Z"/>
-  <path fill="#f8f2e8" d="M48 10l7 4-3 37-6-2Z"/>
-  <path fill="#f8f2e8" d="M9 44l43-27 5 8-45 28Z"/>
+  <!-- One heavy S-shaped snake, with a broad head and pointed tail. -->
+  <path
+    d="M47 18C57 24 53 33 42 35C30 37 18 32 16 42C14 52 27 58 39 52C45 49 50 51 53 56"
+    fill="none"
+    stroke="#f8f2e8"
+    stroke-width="9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path fill="#f8f2e8" d="M43 8l14 5-7 13-10-6Z"/>
+  <circle cx="49" cy="15" r="2" fill="#1e3a2f"/>
+  <path fill="#f8f2e8" d="M51 51l7 8-11-2Z"/>
 </svg>

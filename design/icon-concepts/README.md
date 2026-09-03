@@ -66,13 +66,14 @@ The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
 terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its
 own flame color prevents it from reading as part of “RATS.”
 
-## 2026-09-02 tally-mark favicon
+## 2026-09-03 snake favicon
 
 The browser favicon is a separate flat identity at
 `frontend/public/favicon.svg`. The full wood-burn illustration and a reduced
 rat/snake/flame micro-mark both collapsed into indistinct color at 16px. The
-replacement is one cream five-stroke tally on a solid forest field: a reference
-to Tribal Council votes, league scorekeeping, and surviving one round at a
-time. It is drawn on a 64-unit grid with no texture, outlines, internal detail,
-or connection to the illustrated app icon. The ICO uses the same geometry;
-installed and maskable app icons remain separate.
+replacement is one oversized cream snake on a solid forest field. Its body is
+an S-shaped centerline, so the initial and the subject are the same silhouette;
+a broad angular head, one high-contrast eye, and a tapered tail keep it from
+reading as typography. It is drawn on a 64-unit grid with no texture, outlines,
+tongue, scales, or secondary objects. The ICO uses the same geometry; installed
+and maskable app icons remain separate.
