@@ -10,9 +10,12 @@ expected; no AI attribution trailers.
 
 **Always open a PR — don't merge to main directly.** Danny reviews the Vercel
 preview from the PR before merging. Previews run against **staging**
-(Supabase + Fly), never prod; a backend change only shows on a preview after
-"Deploy staging" is run for that branch (Actions → Deploy staging → Run
-workflow). Default flow: branch, push, `gh pr create`,
+(Supabase + Fly), never prod, and staging's backend is whatever was deployed
+last (normally main). So a PR with backend changes is only reviewable on its
+preview after "Deploy staging" is run for that branch (Actions → Deploy
+staging → Run workflow → pick the branch); re-run it on `main` afterwards.
+When handing over a PR, say which parts show on the preview as-is and which
+need that staging run. Default flow: branch, push, `gh pr create`,
 hand back the PR link. Merge (or `gh pr merge --auto`) only when Danny asks for
 an auto-merge.
 
@@ -56,7 +59,8 @@ signups live; prod is the real league and only moves on a version tag.
   migrations (`SUPABASE_DB_URL_STAGING`), then Fly app
   `tribal-knowledge-staging`. Vercel builds main and every PR as a preview
   pointed at staging. "Run workflow" puts any branch's backend on staging.
-- **Prod** — `gh release create vX.Y` runs `.github/workflows/deploy.yml`:
+- **Prod** — Actions → "Deploy production" → Run workflow with a version
+  (or `gh release create vX`) runs `.github/workflows/deploy.yml`:
   migrations (`SUPABASE_DB_URL`), Fly app `tribal-knowledge-app`, health
   check, then fast-forwards the `production` branch that Vercel builds prod
   from. Claude never tags; Danny promotes.
