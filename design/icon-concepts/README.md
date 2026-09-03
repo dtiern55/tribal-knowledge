@@ -5,9 +5,8 @@
 The permanent identity moved to a **three-seat fire ring** after a fresh icon
 exploration. Three broad arcs surround the central flame: a gathering around
 the Tribal Council fire and the final three seats at Final Tribal Council.
-The production SVG lives at `frontend/public/favicon.svg`. Its forked outer
-silhouette keeps some of the hand-cut personality of the earlier tiki/fire
-hybrid while remaining legible at favicon size. The flame was also moved
+The production SVG at that time used a forked outer silhouette with some of the
+hand-cut personality of the earlier tiki/fire hybrid. The flame was also moved
 slightly left and down for optical centering. The concepts below remain the
 exploration history.
 
@@ -66,14 +65,11 @@ The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
 terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its
 own flame color prevents it from reading as part of “RATS.”
 
-## 2026-09-03 coiled-snake favicon
+## 2026-09-03 simple-snake favicon
 
-The browser favicon is a separate flat identity at
-`frontend/public/favicon.svg`. The full wood-burn illustration and a reduced
-rat/snake/flame micro-mark both collapsed into indistinct color at 16px. The
-replacement is one friendly terracotta snake on a solid forest field, inspired
-by a supplied coiled-snake reference. An oversized head, two high-contrast eyes,
-an upright neck, a broad two-level coil, and one cream band carry the entire
-read at 16px. It is drawn on a 64-unit grid with no paper grain, shading, scales,
-tongue, or secondary objects. The ICO uses the same geometry; installed and
-maskable app icons remain separate.
+The browser favicon is a separate flat identity. The full wood-burn
+illustration, reduced rat/snake/flame micro-mark, and detailed character snake
+all collapsed into indistinct color at 16px. The replacement uses the supplied
+simple coiled-snake silhouette: terracotta on a solid forest field, with no
+eyes, bands, scales, tongue, or secondary objects. The PNG and ICO exports share
+the same source; installed and maskable app icons remain separate.
