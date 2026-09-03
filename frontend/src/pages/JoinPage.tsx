@@ -7,7 +7,7 @@ import { AuthScene } from '../components/AuthScene'
 import { PageLoader } from '../components/PageLoader'
 
 export function JoinPage() {
-  const { session, profile, loading, refreshProfile } = useAuth()
+  const { session, profile, loading, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [displayName, setDisplayName] = useState('')
   const [joinCode, setJoinCode] = useState('')
@@ -89,6 +89,16 @@ export function JoinPage() {
           {submitting ? 'Joining league…' : 'Join league'}
         </button>
       </form>
+      <p className="mt-5 text-center text-sm text-gray-600">
+        Don&apos;t have a code? Ask your commissioner.
+      </p>
+      <button
+        type="button"
+        onClick={() => void signOut()}
+        className="mt-2 min-h-11 w-full cursor-pointer text-sm font-medium text-terracotta-700 hover:text-terracotta-900"
+      >
+        Sign out
+      </button>
     </AuthScene>
   )
 }
