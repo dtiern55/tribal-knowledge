@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 
 HERE = Path(__file__).resolve().parent
@@ -12,6 +12,15 @@ PUZZLE_DARK = HERE / "wood-block-burn-v6-readable-dark.png"
 PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
 PUBLIC = REPO / "frontend" / "public"
 RESAMPLE = Image.Resampling.LANCZOS
+FAVICON_BACKGROUND = "#1e3a2f"
+FAVICON_MARK = "#f8f2e8"
+FAVICON_POLYGONS = (
+    ((13, 14), (20, 16), (19, 53), (13, 51)),
+    ((24, 12), (31, 9), (31, 50), (25, 52)),
+    ((36, 13), (42, 10), (43, 54), (36, 52)),
+    ((48, 10), (55, 14), (52, 51), (46, 49)),
+    ((9, 44), (52, 17), (57, 25), (12, 53)),
+)
 
 
 def resized(source: Image.Image, size: int) -> Image.Image:
@@ -20,6 +29,25 @@ def resized(source: Image.Image, size: int) -> Image.Image:
 
 def save_webp(image: Image.Image, name: str) -> None:
     image.save(PUBLIC / name, "WEBP", quality=92, method=6)
+
+
+def favicon_mark(size: int = 512) -> Image.Image:
+    """Render the favicon-first tally mark defined in favicon.svg."""
+
+    scale = size / 64
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(
+        (scale, scale, 63 * scale, 63 * scale),
+        radius=12 * scale,
+        fill=FAVICON_BACKGROUND,
+    )
+    for polygon in FAVICON_POLYGONS:
+        draw.polygon(
+            [(round(x * scale), round(y * scale)) for x, y in polygon],
+            fill=FAVICON_MARK,
+        )
+    return image
 
 
 def maskable_icon(source: Image.Image) -> Image.Image:
@@ -60,10 +88,7 @@ def main() -> None:
     save_webp(resized(puzzle_light, 640), "puzzle-wood-light.webp")
 
     resized(dark, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
-    # Browser tabs render this mark at just 16px. The locked puzzle's pale
-    # field keeps the rat, snake, and flame distinct at that size, while the
-    # dark treatment remains the better fit for larger installed-app icons.
-    puzzle_light.save(
+    favicon_mark().save(
         PUBLIC / "favicon.ico",
         "ICO",
         sizes=[(16, 16), (32, 32), (48, 48)],
