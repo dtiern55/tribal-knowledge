@@ -56,10 +56,13 @@ curve and green cut-through from the exploration while the last curve resolves
 directly into the flame base without the lower coil.
 
 The locked palette lives in `snakes-and-rats-locked.png`: cream textured ground,
-forest-green rat, terracotta snake, and gold flame. It now supplies the installed
-app icon, maskable icon, and Apple touch icon. Production favicon and both
-current sliding-puzzle exports also live under `frontend/public`; the earlier
-fire-ring puzzle exports remain there for the four-way admin preview.
+forest-green rat, terracotta snake, and gold flame.
+
+On 2026-09-03, the selected heavy-brush dark-canvas variation became the
+installed, maskable, and Apple touch icon. The selected lighter-walnut variation
+became the unlocked loading-screen puzzle; the locked loading puzzle remains
+unchanged. Production exports live under `frontend/public`, and all five
+selected originals remain available in the Admin comparison gallery.
 
 The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
 terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its

@@ -1,11 +1,15 @@
 # App icon finalists
 
 Five Snakes & Rats app-icon options are retained for review at the bottom of
-the Admin page. Production icon assets are not changed by this study.
+the Admin page.
 
 These files are the exact versions selected from the design conversation on
 September 3, 2026. Do not regenerate them or make further geometry edits when
 rebuilding the gallery.
+
+`selected-canvas-heavy-dark.png` is also the production installed app icon.
+`selected-walnut-light.png` supplies the unlocked loading-screen puzzle. Their
+dedicated frontend exports are built by `../2026-09-02-wood-block-burn/export_app_icons.py`.
 
 ## Selected sources
 

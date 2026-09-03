@@ -4,7 +4,8 @@ import { QUOTES } from '../lib/quotes'
 
 /**
  * Loading screen: a Survivor 8-tile sliding puzzle built from the Snakes and
- * Rats mark burned into a solid wood field. Tiles clack around a beveled tray
+ * Rats mark. The unlocked board uses the selected lighter-walnut artwork;
+ * tiles clack around a beveled tray
  * forever and never solve. Ported faithfully from the design handoff —
  * geometry, timing, and easing are final.
  *
@@ -44,7 +45,7 @@ const THEMES: Record<Theme, PuzzleTheme> = {
     // Match the .app-shell ground gradient (index.css) so the loader blends
     // into the sand page instead of reading as a white panel over it.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
-    tileImg: 'url("/puzzle-wood-solid.webp?v=20260902-readable")',
+    tileImg: 'url("/puzzle-wood-solid.webp?v=20260903-walnut-lighter")',
     label: '#1e3a2f',
     frame: 'linear-gradient(158deg, rgba(151,107,72,0.10), rgba(28,12,5,0.28)), url("/wood-walnut.png") center / cover',
     frameShadow: 'inset 5px 5px 9px rgba(255,225,180,0.12), inset -7px -9px 14px rgba(19,7,3,0.64), 0 7px 0 #241108, 0 36px 46px -12px rgba(62,32,15,0.58)',

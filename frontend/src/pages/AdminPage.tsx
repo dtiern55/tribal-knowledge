@@ -2254,7 +2254,7 @@ function AppIconOptionsSection() {
 // loader defaults to the solid-wood treatment. `tileSrc` undefined falls back
 // to the current production art.
 const LOADER_VARIANTS = [
-  { key: 'wood-unlocked', label: 'Wood · Unlocked', theme: 'unlocked', tileSrc: undefined },
+  { key: 'wood-unlocked', label: 'Walnut · Lighter', theme: 'unlocked', tileSrc: undefined },
   { key: 'wood-locked', label: 'Wood · Locked', theme: 'locked', tileSrc: undefined },
   { key: 'canvas-unlocked', label: 'Canvas · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-flat-dark.webp?v=20260902-tone' },
   { key: 'canvas-locked', label: 'Canvas · Locked', theme: 'locked', tileSrc: '/puzzle-flat-light.webp?v=20260902-tone' },
