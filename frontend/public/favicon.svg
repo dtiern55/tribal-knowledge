@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Snakes and Rats</title>
+  <rect x="1" y="1" width="62" height="62" rx="12" fill="#1e3a2f"/>
+
+  <!-- A deliberately reduced rat: ear, body, and nose. -->
+  <path
+    fill="#f8f2e8"
+    d="M22 16c-4-1-7 2-6 6-5 4-8 12-7 20 1 9 8 14 17 13 7-1 10-6 8-13-1-5-5-8-7-11 3-2 6-2 9-4-3-5-7-8-11-8 0-2-1-3-3-3Z"
+  />
+
+  <!-- A single heavy S-curve keeps the snake readable at one or two pixels. -->
+  <path
+    d="M46 17c9 2 8 10 1 13-8 4-8 9 0 12 8 2 10 8 5 14"
+    fill="none"
+    stroke="#e49175"
+    stroke-width="9"
+    stroke-linecap="round"
+  />
+
+  <!-- One large flame replaces the original nested three-part treatment. -->
+  <path
+    fill="#e6b657"
+    d="M37 55c-6-1-9-5-7-11 1-4 5-7 5-12 5 3 7 8 5 13 2-1 4-4 5-7 4 7 3 13-1 16-2 1-4 2-7 1Z"
+  />
+</svg>

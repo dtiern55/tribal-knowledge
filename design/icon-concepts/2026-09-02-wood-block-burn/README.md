@@ -3,8 +3,8 @@
 Texture exploration for the production rat, snake, and flame mark. The selected
 solid-background revision supplies the installed app icons; the finer-grained
 dark and light revisions supply the sliding-puzzle loader. The light revision
-also supplies the browser favicon, where its pale field preserves separation
-between the three silhouettes at 16px.
+also supplies the fallback ICO favicon. Modern browsers use the purpose-built
+flat micro-mark in `frontend/public/favicon.svg` instead.
 
 The production icon's composition and silhouettes are held fixed. Only the
 surface treatment changes, with the cream rat, terracotta snake, and gold flame
