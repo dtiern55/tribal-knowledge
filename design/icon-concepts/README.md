@@ -55,11 +55,11 @@ art is `snakes-and-rats-final.png`. Its snake keeps the more aggressive middle
 curve and green cut-through from the exploration while the last curve resolves
 directly into the flame base without the lower coil.
 
-The locked loading-screen palette lives in `snakes-and-rats-locked.png`: cream
-textured ground, forest-green rat, terracotta snake, and gold flame. Production
-favicon, app-icon, maskable-icon, and both current sliding-puzzle exports live
-under `frontend/public`; the earlier fire-ring puzzle exports remain there for
-the four-way admin preview.
+The locked palette lives in `snakes-and-rats-locked.png`: cream textured ground,
+forest-green rat, terracotta snake, and gold flame. It now supplies the installed
+app icon, maskable icon, and Apple touch icon. Production favicon and both
+current sliding-puzzle exports also live under `frontend/public`; the earlier
+fire-ring puzzle exports remain there for the four-way admin preview.
 
 The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
 terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its
