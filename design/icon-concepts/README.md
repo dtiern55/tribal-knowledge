@@ -66,14 +66,14 @@ The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
 terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its
 own flame color prevents it from reading as part of “RATS.”
 
-## 2026-09-03 snake favicon
+## 2026-09-03 coiled-snake favicon
 
 The browser favicon is a separate flat identity at
 `frontend/public/favicon.svg`. The full wood-burn illustration and a reduced
 rat/snake/flame micro-mark both collapsed into indistinct color at 16px. The
-replacement is one oversized cream snake on a solid forest field. Its body is
-an S-shaped centerline, so the initial and the subject are the same silhouette;
-a broad angular head, one high-contrast eye, and a tapered tail keep it from
-reading as typography. It is drawn on a 64-unit grid with no texture, outlines,
-tongue, scales, or secondary objects. The ICO uses the same geometry; installed
-and maskable app icons remain separate.
+replacement is one friendly terracotta snake on a solid forest field, inspired
+by a supplied coiled-snake reference. An oversized head, two high-contrast eyes,
+an upright neck, a broad two-level coil, and one cream band carry the entire
+read at 16px. It is drawn on a 64-unit grid with no paper grain, shading, scales,
+tongue, or secondary objects. The ICO uses the same geometry; installed and
+maskable app icons remain separate.

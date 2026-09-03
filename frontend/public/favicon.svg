@@ -1,16 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <title>Snakes and Rats</title>
   <rect x="1" y="1" width="62" height="62" rx="12" fill="#1e3a2f"/>
-  <!-- One heavy S-shaped snake, with a broad head and pointed tail. -->
-  <path
-    d="M47 18C57 24 53 33 42 35C30 37 18 32 16 42C14 52 27 58 39 52C45 49 50 51 53 56"
-    fill="none"
-    stroke="#f8f2e8"
-    stroke-width="9"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-  <path fill="#f8f2e8" d="M43 8l14 5-7 13-10-6Z"/>
-  <circle cx="49" cy="15" r="2" fill="#1e3a2f"/>
-  <path fill="#f8f2e8" d="M51 51l7 8-11-2Z"/>
+
+  <!-- A broad lower coil with one stripe. -->
+  <ellipse cx="32" cy="48" rx="27" ry="13" fill="#d76c4d"/>
+  <ellipse cx="32" cy="49" rx="25" ry="7" fill="#f8f2e8"/>
+  <ellipse cx="32" cy="54.5" rx="23" ry="5.5" fill="#d76c4d"/>
+
+  <!-- The neck rises through a second coil, leaving two large green gaps. -->
+  <rect x="24" y="17" width="17" height="28" rx="8" fill="#d76c4d"/>
+  <ellipse cx="32" cy="40" rx="22" ry="9" fill="#d76c4d"/>
+  <ellipse cx="32" cy="39" rx="15" ry="4" fill="#1e3a2f"/>
+  <rect x="24" y="35" width="17" height="11" rx="7" fill="#d76c4d"/>
+
+  <!-- The face is intentionally oversized so the eyes remain separate at 16px. -->
+  <ellipse cx="33" cy="16" rx="13" ry="11" fill="#d76c4d"/>
+  <circle cx="27.5" cy="14.5" r="4.5" fill="#f8f2e8"/>
+  <circle cx="39.5" cy="14.5" r="4.5" fill="#f8f2e8"/>
+  <ellipse cx="29" cy="14.5" rx="2" ry="2.5" fill="#1e3a2f"/>
+  <ellipse cx="41" cy="14.5" rx="2" ry="2.5" fill="#1e3a2f"/>
 </svg>

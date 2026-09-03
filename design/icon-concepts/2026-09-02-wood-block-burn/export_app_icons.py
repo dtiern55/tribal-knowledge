@@ -13,16 +13,8 @@ PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
 PUBLIC = REPO / "frontend" / "public"
 RESAMPLE = Image.Resampling.LANCZOS
 FAVICON_BACKGROUND = "#1e3a2f"
-FAVICON_MARK = "#f8f2e8"
-FAVICON_CURVES = (
-    ((47, 18), (57, 24), (53, 33), (42, 35)),
-    ((42, 35), (30, 37), (18, 32), (16, 42)),
-    ((16, 42), (14, 52), (27, 58), (39, 52)),
-    ((39, 52), (45, 49), (50, 51), (53, 56)),
-)
-FAVICON_HEAD = ((43, 8), (57, 13), (50, 26), (40, 20))
-FAVICON_TAIL = ((51, 51), (58, 59), (47, 57))
-FAVICON_EYE = (49, 15, 2)
+FAVICON_BODY = "#d76c4d"
+FAVICON_CREAM = "#f8f2e8"
 
 
 def resized(source: Image.Image, size: int) -> Image.Image:
@@ -33,48 +25,39 @@ def save_webp(image: Image.Image, name: str) -> None:
     image.save(PUBLIC / name, "WEBP", quality=92, method=6)
 
 
-def cubic_point(curve: tuple[tuple[int, int], ...], t: float) -> tuple[float, float]:
-    """Return one point on a cubic Bézier curve."""
-
-    a, b, c, d = curve
-    mt = 1 - t
-    return (
-        mt**3 * a[0] + 3 * mt**2 * t * b[0] + 3 * mt * t**2 * c[0] + t**3 * d[0],
-        mt**3 * a[1] + 3 * mt**2 * t * b[1] + 3 * mt * t**2 * c[1] + t**3 * d[1],
-    )
-
-
 def favicon_mark(size: int = 512) -> Image.Image:
-    """Render the favicon-first snake defined in favicon.svg."""
+    """Render the favicon-first coiled snake defined in favicon.svg."""
 
     scale = size / 64
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
+
+    def box(bounds: tuple[float, float, float, float]) -> tuple[int, int, int, int]:
+        return tuple(round(value * scale) for value in bounds)
+
     draw.rounded_rectangle(
         (scale, scale, 63 * scale, 63 * scale),
         radius=12 * scale,
         fill=FAVICON_BACKGROUND,
     )
-    centerline = []
-    for curve in FAVICON_CURVES:
-        centerline.extend(cubic_point(curve, step / 24) for step in range(25))
-    centerline = [(round(x * scale), round(y * scale)) for x, y in centerline]
-    draw.line(centerline, fill=FAVICON_MARK, width=round(9 * scale), joint="curve")
-    radius = 4.5 * scale
-    for x, y in (centerline[0], centerline[-1]):
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=FAVICON_MARK)
-    for polygon in (FAVICON_HEAD, FAVICON_TAIL):
-        draw.polygon([(round(x * scale), round(y * scale)) for x, y in polygon], fill=FAVICON_MARK)
-    eye_x, eye_y, eye_radius = FAVICON_EYE
-    draw.ellipse(
-        (
-            (eye_x - eye_radius) * scale,
-            (eye_y - eye_radius) * scale,
-            (eye_x + eye_radius) * scale,
-            (eye_y + eye_radius) * scale,
-        ),
-        fill=FAVICON_BACKGROUND,
-    )
+
+    # Lower coil and its single broad band.
+    draw.ellipse(box((5, 35, 59, 61)), fill=FAVICON_BODY)
+    draw.ellipse(box((7, 42, 57, 56)), fill=FAVICON_CREAM)
+    draw.ellipse(box((9, 49, 55, 60)), fill=FAVICON_BODY)
+
+    # Neck, upper coil, and the negative-space opening between them.
+    draw.rounded_rectangle(box((24, 17, 41, 45)), radius=round(8 * scale), fill=FAVICON_BODY)
+    draw.ellipse(box((10, 31, 54, 49)), fill=FAVICON_BODY)
+    draw.ellipse(box((17, 35, 47, 43)), fill=FAVICON_BACKGROUND)
+    draw.rounded_rectangle(box((24, 35, 41, 46)), radius=round(7 * scale), fill=FAVICON_BODY)
+
+    # Oversized head and eyes remain discrete at the 16px export.
+    draw.ellipse(box((20, 5, 46, 27)), fill=FAVICON_BODY)
+    draw.ellipse(box((23, 10, 32, 19)), fill=FAVICON_CREAM)
+    draw.ellipse(box((35, 10, 44, 19)), fill=FAVICON_CREAM)
+    draw.ellipse(box((27, 12, 31, 17)), fill=FAVICON_BACKGROUND)
+    draw.ellipse(box((39, 12, 43, 17)), fill=FAVICON_BACKGROUND)
     return image
 
 
