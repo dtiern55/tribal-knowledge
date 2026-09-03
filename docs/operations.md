@@ -119,7 +119,7 @@ league-member workflow.
 | Supabase | `tribal-knowledge-staging` | `tribal-knowledge` |
 | Backend | `https://tribal-knowledge-staging.fly.dev` | `https://tribal-knowledge-app.fly.dev` |
 | Frontend | `https://tribal-knowledge-git-main-dtiern55s-projects.vercel.app` (and every PR preview) | the Vercel production domain |
-| Deploys on | merge to `main`, or "Run workflow" on any branch | a `v*` tag (`gh release create vX.Y`) |
+| Deploys on | merge to `main`, or "Run workflow" on any branch | Actions → "Deploy production" → Run workflow with a version (or a `v*` tag) |
 | Holds | bots, practice seasons, test signups | the real league only |
 
 Scripts read `backend/.env`, which points at staging. Prod credentials live in
@@ -137,11 +137,17 @@ dashboard.
    [`deploy-staging.yml`](../.github/workflows/deploy-staging.yml): migrations
    with `supabase db push`, then the staging Fly app and its `/health`. Vercel
    rebuilds the main preview.
-3. When staging looks right, `gh release create vX.Y` runs
-   [`deploy.yml`](../.github/workflows/deploy.yml): prod migrations, prod Fly
-   app, `/health`, then a fast-forward of the `production` branch, which Vercel
-   builds the production frontend from. Tags are dates or counters; nothing
-   parses them.
+3. When staging looks right, Actions → "Deploy production" → Run workflow,
+   type a version, and [`deploy.yml`](../.github/workflows/deploy.yml) runs:
+   prod migrations, prod Fly app, `/health`, a fast-forward of the
+   `production` branch (which Vercel builds the production frontend from),
+   then the GitHub release. Pushing a `v*` tag by hand does the same minus
+   the release step. Tags are dates or counters; nothing parses them.
+
+Reviewing a PR on its Vercel preview: the preview is the PR's frontend against
+staging's backend, which is whatever was deployed last (normally `main`). For a
+PR that changes backend code, run "Deploy staging" on that branch first, review,
+then re-run it on `main` so staging matches what's merged.
 
 Before merging a migration, reconstruct the local database and run the full
 suite. Migration filenames are ordered UTC timestamps; never edit a migration

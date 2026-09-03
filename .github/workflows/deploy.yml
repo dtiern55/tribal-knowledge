@@ -1,11 +1,17 @@
 name: Deploy production
 
-# Prod ships on a version tag, not on merge to main (issue #150, decided
+# Prod ships on a release, not on merge to main (issue #150, decided
 # 2026-09-02). Merges land on staging first (deploy-staging.yml). When
-# staging looks right, `gh release create vX.Y` promotes that commit:
-# migrations, then the Fly backend, then the `production` branch that
-# Vercel builds the frontend from.
+# staging looks right, "Run workflow" here (or `gh release create vX`)
+# promotes main: migrations, then the Fly backend, then the `production`
+# branch that Vercel builds the frontend from. The button creates the
+# release last, so a failed deploy leaves no tag behind.
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag, e.g. v3'
+        required: true
   push:
     tags: ['v*']
 
@@ -57,3 +63,10 @@ jobs:
       # tag off a side branch is rejected here rather than shipped.
       - name: Promote frontend
         run: git push origin HEAD:refs/heads/production
+
+      # A tag made with GITHUB_TOKEN doesn't re-trigger this workflow.
+      - name: Create release
+        if: github.event_name == 'workflow_dispatch'
+        run: gh release create "${{ inputs.version }}" --target "$GITHUB_SHA" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
