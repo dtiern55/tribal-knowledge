@@ -1,7 +1,8 @@
-"""Export the supplied snake favicon in the Snakes and Rats palette."""
+"""Export a supplied favicon mark in the Snakes and Rats palette."""
 
 from __future__ import annotations
 
+import argparse
 import colorsys
 from pathlib import Path
 
@@ -11,9 +12,11 @@ from PIL import Image, ImageDraw
 RESAMPLE = Image.Resampling.LANCZOS
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
-SOURCE = HERE / "snake-original.png"
 PUBLIC = REPO / "frontend" / "public"
-FOREGROUND = ("#c45432", "#e49175")
+MARKS = {
+    "rat": (HERE / "rat-original.png", ("#e4d8c7", "#f8f2e8")),
+    "snake": (HERE / "snake-original.png", ("#c45432", "#e49175")),
+}
 FOREST = "#1e3a2f"
 
 
@@ -65,7 +68,12 @@ def recolor(source: Image.Image, foreground: tuple[str, str]) -> Image.Image:
 
 
 def main() -> None:
-    themed = recolor(Image.open(SOURCE), FOREGROUND)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mark", choices=MARKS, default="rat")
+    args = parser.parse_args()
+
+    source, foreground = MARKS[args.mark]
+    themed = recolor(Image.open(source), foreground)
     for size in (16, 32, 48):
         themed.resize((size, size), RESAMPLE).save(
             PUBLIC / f"favicon-{size}x{size}.png",
