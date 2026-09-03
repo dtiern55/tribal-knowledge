@@ -2,7 +2,8 @@
 
 Texture exploration for the production rat, snake, and flame mark. The selected
 solid-background revision supplies the installed app icons; the finer-grained
-dark and light revisions supply the sliding-puzzle loader.
+dark and light revisions supply the sliding-puzzle loader. Browser favicons use
+a separate simple animal mark with no wood-burn artwork.
 
 The production icon's composition and silhouettes are held fixed. Only the
 surface treatment changes, with the cream rat, terracotta snake, and gold flame

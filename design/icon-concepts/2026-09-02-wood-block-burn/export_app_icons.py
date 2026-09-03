@@ -1,4 +1,4 @@
-"""Export the approved solid-wood mark to the frontend's icon assets."""
+"""Export the approved wood marks to the frontend's icon assets."""
 
 from pathlib import Path
 
@@ -60,12 +60,5 @@ def main() -> None:
     save_webp(resized(puzzle_light, 640), "puzzle-wood-light.webp")
 
     resized(dark, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
-    dark.save(
-        PUBLIC / "favicon.ico",
-        "ICO",
-        sizes=[(16, 16), (32, 32), (48, 48)],
-    )
-
-
 if __name__ == "__main__":
     main()
