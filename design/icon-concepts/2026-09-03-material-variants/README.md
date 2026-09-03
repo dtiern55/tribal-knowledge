@@ -30,6 +30,14 @@ uv run --with pillow python \
 
 ## Built-in ImageGen prompt set
 
+### Shared snake-tail refinement
+
+> Shorten only the orange-red snake's terminal point by roughly 40-45 source
+> pixels so it ends at the flame's bottom vertex. The snake should appear to
+> sink into and originate from that shared base, while the mouse and its long
+> thin tail remain completely unchanged. Preserve every other contour,
+> texture, color, light, crop, and spacing detail.
+
 ### Canvas · Unlocked (70/30)
 
 > Starting from the original heavy-brush unlocked study, lighten only its deep
@@ -48,7 +56,9 @@ uv run --with pillow python \
 > dry-brush gaps, and subtle paint buildup. Preserve the exact locked palette
 > and original composition. It must read as paint—not embroidery, stitching,
 > yarn, appliqué, printing, carving, or wood. Do not copy the reference's
-> retired fire-ring design or any puzzle geometry.
+> retired fire-ring design or any puzzle geometry. Preserve the small pointed
+> canvas-colored indentation on the lower-left inside edge of the snake's
+> middle S-curve; this slit is part of the approved snake silhouette.
 
 ### Walnut · Dark
 
