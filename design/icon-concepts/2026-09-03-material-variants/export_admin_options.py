@@ -1,4 +1,4 @@
-"""Export the four app-icon finalists used by the Admin comparison gallery."""
+"""Export the five user-selected app icons used by the Admin gallery."""
 
 from pathlib import Path
 
@@ -11,10 +11,11 @@ PUBLIC = REPO / "frontend" / "public"
 RESAMPLE = Image.Resampling.LANCZOS
 
 OPTIONS = {
-    "heavy-brush-unlocked-70-30.png": "icon-option-canvas-unlocked.webp",
-    "heavy-brush-locked.png": "icon-option-canvas-locked.webp",
-    "darker-real-walnut.png": "icon-option-walnut-dark.webp",
-    "darker-real-walnut-lighter.png": "icon-option-walnut-light.webp",
+    "selected-canvas-woven.png": "icon-option-canvas-woven.webp",
+    "selected-canvas-heavy-dark.png": "icon-option-canvas-heavy-dark.webp",
+    "selected-canvas-heavy-light.png": "icon-option-canvas-heavy-light.webp",
+    "selected-walnut-dark.png": "icon-option-walnut-dark.webp",
+    "selected-walnut-light.png": "icon-option-walnut-light.webp",
 }
 
 

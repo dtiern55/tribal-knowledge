@@ -1,4 +1,4 @@
-"""Build a review board matching the four Admin app-icon finalists."""
+"""Build a review board matching the five user-selected Admin app icons."""
 
 from pathlib import Path
 
@@ -11,10 +11,11 @@ FONT_REGULAR = "/usr/share/fonts/truetype/ubuntu/UbuntuSans[wdth,wght].ttf"
 FONT_BOLD = "/usr/share/fonts/truetype/ubuntu/Ubuntu[wdth,wght].ttf"
 
 OPTIONS = [
-    ("Canvas · Unlocked", "heavy-brush-unlocked-70-30.png", "Heavy brush · 70/30 forest tone"),
-    ("Canvas · Locked", "heavy-brush-locked.png", "Heavy brush · cream canvas"),
-    ("Walnut · Dark", "darker-real-walnut.png", "Natural grain · deep walnut"),
-    ("Walnut · Lighter", "darker-real-walnut-lighter.png", "Natural grain · lifted walnut"),
+    ("Canvas · Woven", "selected-canvas-woven.png", "Fine texture · deep forest"),
+    ("Canvas · Heavy dark", "selected-canvas-heavy-dark.png", "Heavy brush · deep forest"),
+    ("Canvas · Heavy light", "selected-canvas-heavy-light.png", "Heavy brush · lighter forest"),
+    ("Walnut · Dark", "selected-walnut-dark.png", "Natural grain · deep walnut"),
+    ("Walnut · Lighter", "selected-walnut-light.png", "Natural grain · lifted walnut"),
 ]
 
 
@@ -32,36 +33,36 @@ def rounded_icon(image: Image.Image, size: int, radius: int) -> Image.Image:
 
 
 def main() -> None:
-    board = Image.new("RGB", (2048, 2220), "#e9dfcd")
+    board = Image.new("RGB", (2048, 1640), "#e9dfcd")
     draw = ImageDraw.Draw(board)
     draw.text((96, 64), "APP ICON FINALISTS", fill="#16392e", font=font(58, True))
     draw.text(
         (96, 135),
-        "The four options saved at the bottom of Admin, with launcher-size checks.",
+        "The five selected originals saved at the bottom of Admin, with launcher-size checks.",
         fill="#57645d",
         font=font(28),
     )
 
-    positions = [(96, 214), (1060, 214), (96, 1202), (1060, 1202)]
+    positions = [(96, 214), (728, 214), (1360, 214), (412, 920), (1044, 920)]
     for (label, filename, note), (x, y) in zip(OPTIONS, positions):
         draw.rounded_rectangle(
-            (x, y, x + 892, y + 916),
+            (x, y, x + 592, y + 650),
             radius=42,
             fill="#f7efe1",
             outline="#d3c4ab",
             width=3,
         )
         icon = Image.open(HERE / filename)
-        large = rounded_icon(icon, 704, 150)
-        board.paste(large, (x + 94, y + 42), large)
-        draw.text((x + 52, y + 773), label, fill="#173b30", font=font(34, True))
-        draw.text((x + 52, y + 816), note, fill="#657068", font=font(22))
+        large = rounded_icon(icon, 440, 94)
+        board.paste(large, (x + 76, y + 34), large)
+        draw.text((x + 42, y + 500), label, fill="#173b30", font=font(30, True))
+        draw.text((x + 42, y + 540), note, fill="#657068", font=font(20))
 
-        preview_x = x + 664
-        for size in (72, 48, 32):
+        preview_x = x + 374
+        for size in (64, 44, 28):
             preview = rounded_icon(icon, size, max(7, round(size * 0.21)))
-            board.paste(preview, (preview_x, y + 804 + (72 - size) // 2), preview)
-            preview_x += size + 18
+            board.paste(preview, (preview_x, y + 566 + (64 - size) // 2), preview)
+            preview_x += size + 14
 
     board.save(OUT, "PNG", optimize=True)
 

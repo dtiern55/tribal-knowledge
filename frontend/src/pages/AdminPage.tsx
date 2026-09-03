@@ -2184,25 +2184,31 @@ function BrandingCompareSection() {
 
 const APP_ICON_OPTIONS = [
   {
-    src: '/icon-option-canvas-unlocked.webp?v=20260903',
-    label: 'Canvas · Unlocked',
-    alt: 'Canvas unlocked app icon option',
-    note: 'Heavy brush · 70% original green / 30% midpoint',
+    src: '/icon-option-canvas-woven.webp?v=20260903-selected',
+    label: 'Canvas · Woven',
+    alt: 'Woven canvas app icon option',
+    note: 'Fine texture · deep forest',
   },
   {
-    src: '/icon-option-canvas-locked.webp?v=20260903',
-    label: 'Canvas · Locked',
-    alt: 'Canvas locked app icon option',
-    note: 'Heavy brush · warm cream canvas',
+    src: '/icon-option-canvas-heavy-dark.webp?v=20260903-selected',
+    label: 'Canvas · Heavy dark',
+    alt: 'Heavy brush dark canvas app icon option',
+    note: 'Heavy brush · deep forest',
   },
   {
-    src: '/icon-option-walnut-dark.webp?v=20260903',
+    src: '/icon-option-canvas-heavy-light.webp?v=20260903-selected',
+    label: 'Canvas · Heavy light',
+    alt: 'Heavy brush lighter canvas app icon option',
+    note: 'Heavy brush · lighter forest',
+  },
+  {
+    src: '/icon-option-walnut-dark.webp?v=20260903-selected',
     label: 'Walnut · Dark',
     alt: 'Dark walnut app icon option',
     note: 'Natural grain · deep chocolate walnut',
   },
   {
-    src: '/icon-option-walnut-light.webp?v=20260903',
+    src: '/icon-option-walnut-light.webp?v=20260903-selected',
     label: 'Walnut · Lighter',
     alt: 'Lighter walnut app icon option',
     note: 'Natural grain · modest brightness lift',
@@ -2211,7 +2217,7 @@ const APP_ICON_OPTIONS = [
 
 function AppIconOptionsSection() {
   return (
-    <div className="grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {APP_ICON_OPTIONS.map((option) => (
         <figure key={option.src} className="rounded-2xl border border-cream-200 bg-white p-3 shadow-sm">
           <img
