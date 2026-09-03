@@ -9,7 +9,10 @@ git commits" rule does not apply here. Focused, reviewable commits still
 expected; no AI attribution trailers.
 
 **Always open a PR — don't merge to main directly.** Danny reviews the Vercel
-preview from the PR before merging. Default flow: branch, push, `gh pr create`,
+preview from the PR before merging. Previews run against **staging**
+(Supabase + Fly), never prod; a backend change only shows on a preview after
+"Deploy staging" is run for that branch (Actions → Deploy staging → Run
+workflow). Default flow: branch, push, `gh pr create`,
 hand back the PR link. Merge (or `gh pr merge --auto`) only when Danny asks for
 an auto-merge.
 
@@ -47,18 +50,25 @@ cd backend && uv run pytest -m integration
 ```
 
 ## Deployment
-Everything ships from GitHub on merge to main — no manual deploy steps:
-- `.github/workflows/deploy.yml` pushes migrations (`supabase db push`) then
-  deploys the backend to Fly, in that order, when `backend/**` or
-  `supabase/migrations/**` change. Secrets: `SUPABASE_DB_URL` (session
-  pooler, port 5432), `FLY_API_TOKEN`.
-- Frontend deploys via Vercel's GitHub integration on every merge.
+Two environments (#150). Staging is where bots, practice seasons, and test
+signups live; prod is the real league and only moves on a version tag.
+- **Staging** — merge to main runs `.github/workflows/deploy-staging.yml`:
+  migrations (`SUPABASE_DB_URL_STAGING`), then Fly app
+  `tribal-knowledge-staging`. Vercel builds main and every PR as a preview
+  pointed at staging. "Run workflow" puts any branch's backend on staging.
+- **Prod** — `gh release create vX.Y` runs `.github/workflows/deploy.yml`:
+  migrations (`SUPABASE_DB_URL`), Fly app `tribal-knowledge-app`, health
+  check, then fast-forwards the `production` branch that Vercel builds prod
+  from. Claude never tags; Danny promotes.
+- Laptop `backend/.env` points at staging. Prod credentials live in
+  `backend/.env.prod` (gitignored); pass `uv run --env-file .env.prod` to
+  opt a script into prod.
 - `supabase db push` / `fly deploy` remain available for emergencies, but
-  the workflow is the normal path.
+  the workflows are the normal path.
 
 ## Do Not
 - Never use supabase-py — psycopg2 only.
 - Never talk to the database from the frontend.
-- Never hardcode credentials — all secrets in backend/.env.
+- Never hardcode credentials — all secrets in backend/.env (staging) or backend/.env.prod.
 - Never cache computed scores.
 - Never add abstraction without a clear, immediate use case.
