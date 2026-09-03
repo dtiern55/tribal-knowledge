@@ -102,6 +102,7 @@ uv run python scripts/run_bots.py week 2 --league Bots --season 101
 uv run python scripts/run_bots.py ballot --league Bots --season 101
 ```
 
+Bots live on staging (#150); `backend/.env` already points there.
 Bots play in a league of their own (#595): create it on the Admin page, sign
 it up for the season, then `setup` enrolls the bots. Every writing command
 names the league and season, and refuses a league with any real player (the commissioner may join), so a
@@ -111,16 +112,42 @@ intended episode. They require an explicit commissioner
 read and must run before the outcome is known; do not use them as a production
 league-member workflow.
 
+## Environments
+
+| | Staging | Production |
+| --- | --- | --- |
+| Supabase | `tribal-knowledge-staging` | `tribal-knowledge` |
+| Backend | `https://tribal-knowledge-staging.fly.dev` | `https://tribal-knowledge-app.fly.dev` |
+| Frontend | `https://tribal-knowledge-git-main-dtiern55s-projects.vercel.app` (and every PR preview) | the Vercel production domain |
+| Deploys on | merge to `main`, or "Run workflow" on any branch | Actions → "Deploy production" → Run workflow with a version (or a `v*` tag) |
+| Holds | bots, practice seasons, test signups | the real league only |
+
+Scripts read `backend/.env`, which points at staging. Prod credentials live in
+`backend/.env.prod` (gitignored); opt a command into prod with
+`uv run --env-file .env.prod python scripts/...`. Free-tier Supabase pauses a
+project after a week idle — if staging returns errors, unpause it in the
+dashboard.
+
 ## Migrations and deployment
 
-The normal release path is a reviewed merge to `main`:
+1. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every PR:
+   backend formatting/lint/full local-Supabase tests and frontend
+   audit/lint/tests/build.
+2. Merging to `main` runs
+   [`deploy-staging.yml`](../.github/workflows/deploy-staging.yml): migrations
+   with `supabase db push`, then the staging Fly app and its `/health`. Vercel
+   rebuilds the main preview.
+3. When staging looks right, Actions → "Deploy production" → Run workflow,
+   type a version, and [`deploy.yml`](../.github/workflows/deploy.yml) runs:
+   prod migrations, prod Fly app, `/health`, a fast-forward of the
+   `production` branch (which Vercel builds the production frontend from),
+   then the GitHub release. Pushing a `v*` tag by hand does the same minus
+   the release step. Tags are dates or counters; nothing parses them.
 
-1. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs backend
-   formatting/lint/full local-Supabase tests and frontend audit/lint/tests/build.
-2. [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) applies
-   migrations with `supabase db push`, then deploys the Fly backend and checks
-   `/health`.
-3. Vercel's GitHub integration deploys the frontend.
+Reviewing a PR on its Vercel preview: the preview is the PR's frontend against
+staging's backend, which is whatever was deployed last (normally `main`). For a
+PR that changes backend code, run "Deploy staging" on that branch first, review,
+then re-run it on `main` so staging matches what's merged.
 
 Before merging a migration, reconstruct the local database and run the full
 suite. Migration filenames are ordered UTC timestamps; never edit a migration
@@ -133,5 +160,6 @@ supabase db push --db-url "$SUPABASE_DB_URL" --yes
 cd backend && fly deploy
 ```
 
-Use them only with the same migration-before-backend order as CI. Verify the
-workflow, Fly health endpoint, and frontend deployment after any release.
+Use them only with the same migration-before-backend order as CI, and against
+staging first. Verify the workflow, Fly health endpoint, and frontend deployment
+after any release.

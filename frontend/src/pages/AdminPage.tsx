@@ -2148,7 +2148,7 @@ function BrandingCompareSection() {
   const marks = [
     { src: '/icon-tribalknowledge.webp', caption: 'Before', word: <span className="text-forest-800">TRIBAL KNOWLEDGE</span> },
     {
-      src: '/icon-512.webp?v=20260902-tone',
+      src: '/icon-512.webp?v=20260903-locked',
       caption: 'After',
       dark: true,
       word: <BrandWordmark />,
@@ -2174,12 +2174,14 @@ function BrandingCompareSection() {
   )
 }
 
-// The four marks a preview can show: the new Snakes and Rats puzzle and the old
-// fire-ring one, each in the light (unlocked) and dark (locked) theme. `tileSrc`
-// undefined falls back to the theme's current art (the new mark).
+// Keep the prior canvas and fire-ring art here as comparisons while the real
+// loader defaults to the solid-wood treatment. `tileSrc` undefined falls back
+// to the current production art.
 const LOADER_VARIANTS = [
-  { key: 'new-unlocked', label: 'New · Unlocked', theme: 'unlocked', tileSrc: undefined },
-  { key: 'new-locked', label: 'New · Locked', theme: 'locked', tileSrc: undefined },
+  { key: 'wood-unlocked', label: 'Wood · Unlocked', theme: 'unlocked', tileSrc: undefined },
+  { key: 'wood-locked', label: 'Wood · Locked', theme: 'locked', tileSrc: undefined },
+  { key: 'canvas-unlocked', label: 'Canvas · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-flat-dark.webp?v=20260902-tone' },
+  { key: 'canvas-locked', label: 'Canvas · Locked', theme: 'locked', tileSrc: '/puzzle-flat-light.webp?v=20260902-tone' },
   { key: 'old-unlocked', label: 'Old · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-firering-dark.webp' },
   { key: 'old-locked', label: 'Old · Locked', theme: 'locked', tileSrc: '/puzzle-firering-light.webp' },
 ] as const
@@ -2199,7 +2201,7 @@ function LoaderPreviewSection() {
 // fresh quote inline — no need to close back to the admin page.
 function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
   const [show, setShow] = useState(false)
-  const [variantKey, setVariantKey] = useState<(typeof LOADER_VARIANTS)[number]['key']>('new-unlocked')
+  const [variantKey, setVariantKey] = useState<(typeof LOADER_VARIANTS)[number]['key']>('wood-unlocked')
   // Bumped to remount the loader, which re-picks its random quote (the loader
   // freezes the quote at mount).
   const [quoteNonce, setQuoteNonce] = useState(0)

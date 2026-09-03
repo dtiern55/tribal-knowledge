@@ -5,9 +5,8 @@
 The permanent identity moved to a **three-seat fire ring** after a fresh icon
 exploration. Three broad arcs surround the central flame: a gathering around
 the Tribal Council fire and the final three seats at Final Tribal Council.
-The production SVG lives at `frontend/public/favicon.svg`. Its forked outer
-silhouette keeps some of the hand-cut personality of the earlier tiki/fire
-hybrid while remaining legible at favicon size. The flame was also moved
+The production SVG at that time used a forked outer silhouette with some of the
+hand-cut personality of the earlier tiki/fire hybrid. The flame was also moved
 slightly left and down for optical centering. The concepts below remain the
 exploration history.
 
@@ -56,12 +55,21 @@ art is `snakes-and-rats-final.png`. Its snake keeps the more aggressive middle
 curve and green cut-through from the exploration while the last curve resolves
 directly into the flame base without the lower coil.
 
-The locked loading-screen palette lives in `snakes-and-rats-locked.png`: cream
-textured ground, forest-green rat, terracotta snake, and gold flame. Production
-favicon, app-icon, maskable-icon, and both current sliding-puzzle exports live
-under `frontend/public`; the earlier fire-ring puzzle exports remain there for
-the four-way admin preview.
+The locked palette lives in `snakes-and-rats-locked.png`: cream textured ground,
+forest-green rat, terracotta snake, and gold flame. It now supplies the installed
+app icon, maskable icon, and Apple touch icon. Production favicon and both
+current sliding-puzzle exports also live under `frontend/public`; the earlier
+fire-ring puzzle exports remain there for the four-way admin preview.
 
 The app wordmark follows those same roles on its dark surfaces: **SNAKES** is
 terracotta, **AND** is gold, and **RATS** is cream. Keeping the connector in its
 own flame color prevents it from reading as part of “RATS.”
+
+## 2026-09-03 simple-animal favicon
+
+The browser favicon is a separate flat identity. The full wood-burn
+illustration, reduced rat/snake/flame micro-mark, and detailed character snake
+all collapsed into indistinct color at 16px. The replacement uses the supplied
+simple rat silhouette: cream on a solid forest field, with the supplied simple
+snake retained as an alternate. The PNG and ICO exports share the same source;
+installed and maskable app icons remain separate.

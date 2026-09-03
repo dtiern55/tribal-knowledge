@@ -16,11 +16,14 @@ Ask Danny for: **US season number**, **episode number**, and the **league
 `season_number`**. Then confirm **which backend** you're scoring — this writes
 real data:
 
-- **Prod:** `API=https://tribal-knowledge-app.fly.dev`
+- **Prod:** `API=https://tribal-knowledge-app.fly.dev`, credentials in
+  `backend/.env.prod` (`uv run --env-file .env.prod ...` for scripts)
+- **Staging:** `API=https://tribal-knowledge-staging.fly.dev`, credentials in
+  `backend/.env` (the default — practice seasons live here, #150)
 - **Local:** `API=http://127.0.0.1:8000` (needs the local stack up — see the
-  `verify` skill for bring-up)
+  `verify` skill for bring-up), credentials in `.env.test`
 
-Credentials live in `backend/.env` (or `.env.test` for local): `SUPABASE_URL`,
+Credentials needed from whichever file: `SUPABASE_URL`,
 `SUPABASE_ANON_KEY`, `PRODUCER_EMAIL`, `PRODUCER_PASSWORD`. Get a producer JWT
 the same way `scripts/import_episode.py` does, and use it as `Bearer` on every
 call below:
