@@ -188,7 +188,7 @@ html.locked-night .app-shell {
 html.locked-night .app-header,
 html.locked-night .app-bottom-nav {
   border-color: rgb(242 233 219 / 8%);
-  background: rgb(10 22 19 / 94%);
+  background: #0e1f19;
 }
 
 html.locked-night .app-main h1 {
