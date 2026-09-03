@@ -7,3 +7,4 @@ supabase/.temp/
 !.claude/skills/
 *.Zone.Identifier
 node_modules/
+.env.prod

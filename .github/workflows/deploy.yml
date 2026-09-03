@@ -1,19 +1,26 @@
-name: Deploy
+name: Deploy production
 
-# Every merge to main ships automatically (decision 2026-07-15, from the
-# practice-season retro): migrations first, then the Fly backend. Frontend
-# deploys separately via Vercel's own GitHub integration.
+# Prod ships on a release, not on merge to main (issue #150, decided
+# 2026-09-02). Merges land on staging first (deploy-staging.yml). When
+# staging looks right, "Run workflow" here (or `gh release create vX`)
+# promotes main: migrations, then the Fly backend, then the `production`
+# branch that Vercel builds the frontend from. The button creates the
+# release last, so a failed deploy leaves no tag behind.
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag, e.g. v3'
+        required: true
   push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'supabase/migrations/**'
-      - '.github/workflows/deploy.yml'
+    tags: ['v*']
 
 concurrency:
-  group: deploy
+  group: deploy-production
   cancel-in-progress: false
+
+permissions:
+  contents: write # fast-forwards the production branch
 
 jobs:
   deploy:
@@ -21,6 +28,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the push below needs the history behind the tag
 
       - uses: supabase/setup-cli@v3
         with:
@@ -48,3 +57,16 @@ jobs:
           curl --fail --silent --show-error --max-time 30 \
             --retry 5 --retry-delay 5 --retry-all-errors \
             https://tribal-knowledge-app.fly.dev/health
+
+      # Vercel's production branch is `production`, so the frontend only
+      # moves once the backend behind it is healthy. Fast-forward only: a
+      # tag off a side branch is rejected here rather than shipped.
+      - name: Promote frontend
+        run: git push origin HEAD:refs/heads/production
+
+      # A tag made with GITHUB_TOKEN doesn't re-trigger this workflow.
+      - name: Create release
+        if: github.event_name == 'workflow_dispatch'
+        run: gh release create "${{ inputs.version }}" --target "$GITHUB_SHA" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
