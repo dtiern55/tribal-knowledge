@@ -2228,6 +2228,14 @@ export function AdminPage() {
       <Section id="branding-compare" title="Branding" description="The rebrand at a glance — old identity next to new.">
         <BrandingCompareSection />
       </Section>
+
+      <Section
+        id="app-icon-finalists"
+        title="App icon finalists"
+        description="Four saved directions to compare at full size and at the scale they will appear on a phone."
+      >
+        <AppIconOptionsSection />
+      </Section>
     </div>
   )
 }
@@ -2262,11 +2270,79 @@ function BrandingCompareSection() {
   )
 }
 
+const APP_ICON_OPTIONS = [
+  {
+    src: '/icon-option-canvas-woven.webp?v=20260903-selected',
+    label: 'Canvas · Woven',
+    alt: 'Woven canvas app icon option',
+    note: 'Fine texture · deep forest',
+  },
+  {
+    src: '/icon-option-canvas-heavy-dark.webp?v=20260903-selected',
+    label: 'Canvas · Heavy dark',
+    alt: 'Heavy brush dark canvas app icon option',
+    note: 'Heavy brush · deep forest',
+  },
+  {
+    src: '/icon-option-canvas-heavy-light.webp?v=20260903-selected',
+    label: 'Canvas · Heavy light',
+    alt: 'Heavy brush lighter canvas app icon option',
+    note: 'Heavy brush · lighter forest',
+  },
+  {
+    src: '/icon-option-walnut-dark.webp?v=20260903-selected',
+    label: 'Walnut · Dark',
+    alt: 'Dark walnut app icon option',
+    note: 'Natural grain · deep chocolate walnut',
+  },
+  {
+    src: '/icon-option-walnut-light.webp?v=20260903-selected',
+    label: 'Walnut · Lighter',
+    alt: 'Lighter walnut app icon option',
+    note: 'Natural grain · modest brightness lift',
+  },
+] as const
+
+function AppIconOptionsSection() {
+  return (
+    <div className="grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {APP_ICON_OPTIONS.map((option) => (
+        <figure key={option.src} className="rounded-2xl border border-cream-200 bg-white p-3 shadow-sm">
+          <img
+            src={option.src}
+            alt={option.alt}
+            width={640}
+            height={640}
+            loading="lazy"
+            className="aspect-square w-full rounded-[22%] ring-1 ring-black/10"
+          />
+          <figcaption className="mt-3">
+            <p className="font-display text-base font-semibold tracking-wide text-forest-900">{option.label}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{option.note}</p>
+            <div className="mt-3 flex items-end gap-2" aria-label={`${option.label} launcher-size previews`}>
+              {[48, 32, 24].map((size) => (
+                <img
+                  key={size}
+                  src={option.src}
+                  alt=""
+                  width={size}
+                  height={size}
+                  className="rounded-[22%] ring-1 ring-black/10"
+                />
+              ))}
+            </div>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  )
+}
+
 // Keep the prior canvas and fire-ring art here as comparisons while the real
 // loader defaults to the solid-wood treatment. `tileSrc` undefined falls back
 // to the current production art.
 const LOADER_VARIANTS = [
-  { key: 'wood-unlocked', label: 'Wood · Unlocked', theme: 'unlocked', tileSrc: undefined },
+  { key: 'wood-unlocked', label: 'Walnut · Lighter', theme: 'unlocked', tileSrc: undefined },
   { key: 'wood-locked', label: 'Wood · Locked', theme: 'locked', tileSrc: undefined },
   { key: 'canvas-unlocked', label: 'Canvas · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-flat-dark.webp?v=20260902-tone' },
   { key: 'canvas-locked', label: 'Canvas · Locked', theme: 'locked', tileSrc: '/puzzle-flat-light.webp?v=20260902-tone' },
