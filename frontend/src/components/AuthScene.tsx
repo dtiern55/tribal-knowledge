@@ -30,7 +30,7 @@ export function AuthScene({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <img
-            src="/icon-512.webp?v=20260903-locked"
+            src="/icon-512.webp?v=20260904-clean-woven-rust"
             alt=""
             width={92}
             height={92}

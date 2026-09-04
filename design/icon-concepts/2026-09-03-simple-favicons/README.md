@@ -1,5 +1,9 @@
 # Simple favicon set
 
+The simple rat remains the production browser favicon. A 2026-09-04 attempt to
+use the full clean-woven rat/snake/flame mark was reverted because the complete
+composition still became too complicated at 16–32 pixels.
+
 The browser favicon uses the supplied `rat-original.png` artwork. Its bold,
 single-color silhouette stays recognizable at 16px, unlike the full rat,
 snake, and flame illustration. The supplied `snake-original.png` is retained as

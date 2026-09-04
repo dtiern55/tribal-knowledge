@@ -7,7 +7,8 @@ These files are the exact versions selected from the design conversation on
 September 3, 2026. Do not regenerate them or make further geometry edits when
 rebuilding the gallery.
 
-`selected-canvas-heavy-dark.png` is also the production installed app icon.
+`selected-canvas-heavy-dark.png` was the production installed app icon from
+2026-09-03 until the clean-woven dark patchwork replacement on 2026-09-04.
 `selected-walnut-light.png` supplies the unlocked loading-screen puzzle. Their
 dedicated frontend exports are built by `../2026-09-02-wood-block-burn/export_app_icons.py`.
 
