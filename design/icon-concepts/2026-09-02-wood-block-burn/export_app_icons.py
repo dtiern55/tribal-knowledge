@@ -1,4 +1,4 @@
-"""Export the approved app icon, favicons, and loading-puzzle marks."""
+"""Export the approved app icon and loading-puzzle marks."""
 
 import argparse
 
@@ -27,22 +27,6 @@ def resized(source: Image.Image, size: int) -> Image.Image:
 
 def save_webp(image: Image.Image, name: str) -> None:
     image.save(PUBLIC / name, "WEBP", quality=92, method=6)
-
-
-def save_favicons(source: Image.Image) -> None:
-    """Use the approved full mark everywhere the browser shows app identity."""
-
-    for size in (16, 32, 48):
-        resized(source, size).save(
-            PUBLIC / f"favicon-{size}x{size}.png",
-            "PNG",
-            optimize=True,
-        )
-    resized(source, 256).save(
-        PUBLIC / "favicon.ico",
-        "ICO",
-        sizes=[(16, 16), (32, 32), (48, 48)],
-    )
 
 
 def maskable_icon(source: Image.Image) -> Image.Image:
@@ -79,7 +63,7 @@ def main() -> None:
     parser.add_argument(
         "--app-only",
         action="store_true",
-        help="Export app icons and favicons without rewriting slide-puzzle art.",
+        help="Export app icons without rewriting slide-puzzle art.",
     )
     args = parser.parse_args()
 
@@ -96,7 +80,6 @@ def main() -> None:
     save_webp(resized(app, 192), "icon-192.webp")
     save_webp(maskable_icon(app), "icon-512-maskable.webp")
     resized(app, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
-    save_favicons(app)
 
     if puzzle_sources:
         puzzle_unlocked, puzzle_light = puzzle_sources

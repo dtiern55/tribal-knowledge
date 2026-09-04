@@ -107,8 +107,10 @@ The earlier burnt-red woven pass and the literal stitched appliqué remain next
 to it as reference controls.
 
 That selected clean-woven source became the production identity on 2026-09-04:
-installed, maskable, Apple touch, browser favicon, and every in-app static icon
-now use it. The slide-puzzle images deliberately remain the earlier light-
-walnut and fine-light sources. The `SNAKES / AND / RATS` wordmark now uses
+installed, maskable, Apple touch, and every in-app static icon now use it. The
+slide-puzzle images deliberately remain the earlier light-walnut and fine-light
+sources. A brief attempt to use the full mark as the browser favicon was
+reverted the same day—the composition remained too complicated at 16–32px—so
+the simple cream rat stays there. The `SNAKES / AND / RATS` wordmark now uses
 bright source-image midtones (`#cd5e21` / `#f3b939` / `#f6e1ad`) for the snake,
 flame, and rat roles respectively.
