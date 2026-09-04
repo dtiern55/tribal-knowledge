@@ -58,8 +58,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The npm audit endpoint itself goes down now and then (#632); retry
+      # those, but a real high-severity finding still fails the job.
       - name: Audit dependencies
-        run: npm audit --audit-level=high
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm audit --audit-level=high 2>&1 | tee audit.log; then exit 0; fi
+            grep -q "audit endpoint returned an error" audit.log || exit 1
+            echo "npm audit endpoint error (attempt $attempt), retrying"
+            sleep 20
+          done
+          echo "::warning::npm audit endpoint unavailable after 3 attempts; skipped"
 
       - name: Lint
         run: npm run lint
