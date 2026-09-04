@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { api } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
@@ -39,6 +39,14 @@ export function JoinPage() {
 
   return (
     <AuthScene eyebrow="One last step">
+      {member && (
+        <Link
+          to="/"
+          className="mb-3 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700 hover:underline"
+        >
+          <span aria-hidden>‹</span> My Season
+        </Link>
+      )}
       <h2 className="font-display text-2xl tracking-wide text-forest-800">
         {member ? 'Join another league' : 'Join your league'}
       </h2>

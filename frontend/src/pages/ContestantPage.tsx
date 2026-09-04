@@ -142,7 +142,7 @@ export function ContestantPage() {
         <HeaderPager prev={href(prevC)} next={href(nextC)} prevLabel={prevC?.name} nextLabel={nextC?.name} />
       </div>
 
-      <header className="grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end md:grid-cols-[15rem_minmax(0,1fr)]">
+      <header className="grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start md:grid-cols-[15rem_minmax(0,1fr)]">
         {/* The mount frame carries the tribe color, the portrait's counterpart
             to the tribe-color ring on avatars elsewhere (#369/#212). Eliminated
             castaways fall back to the neutral paper edge — a vivid frame around
@@ -191,9 +191,7 @@ export function ContestantPage() {
           )}
           {perf.bio_qa && perf.bio_qa.length > 0 && (
             <details className="mt-5 max-w-xl">
-              <summary className="cursor-pointer text-sm font-medium text-forest-800">
-                CBS cast questionnaire
-              </summary>
+              <summary className="cursor-pointer text-sm font-medium text-forest-800">Bio</summary>
               <div className="mt-3 space-y-3">
                 {perf.bio_qa.map((qa) => (
                   <div key={qa.question}>
@@ -202,7 +200,6 @@ export function ContestantPage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-gray-400">Cast questionnaire from CBS.</p>
             </details>
           )}
           {!perf.bio && !perf.bio_qa?.length && (
