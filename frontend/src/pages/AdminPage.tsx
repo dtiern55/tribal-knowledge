@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
-import { BrandWordmark } from '../components/BrandWordmark'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { api, getActiveSeason } from '../lib/api'
@@ -2225,129 +2224,13 @@ export function AdminPage() {
         <LoaderPreviewSection />
       </Section>
 
-      <Section id="branding-compare" title="Branding" description="The rebrand at a glance — old identity next to new.">
-        <BrandingCompareSection />
-      </Section>
-
-      <Section
-        id="app-icon-finalists"
-        title="App icon finalists"
-        description="Four saved directions to compare at full size and at the scale they will appear on a phone."
-      >
-        <AppIconOptionsSection />
-      </Section>
     </div>
   )
 }
 
-function BrandingCompareSection() {
-  const marks = [
-    { src: '/icon-tribalknowledge.webp', caption: 'Before', word: <span className="text-forest-800">TRIBAL KNOWLEDGE</span> },
-    {
-      src: '/icon-512.webp?v=20260904-clean-woven-rust',
-      caption: 'After',
-      dark: true,
-      word: <BrandWordmark />,
-    },
-  ]
-  return (
-    <div className="grid max-w-md grid-cols-2 gap-3">
-      {marks.map((m) => (
-        <figure
-          key={m.src}
-          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center ${
-            m.dark ? 'border-forest-700 bg-forest-600' : 'border-cream-200 bg-white'
-          }`}
-        >
-          <img src={m.src} alt="" width={72} height={72} className="size-[72px] rounded-2xl ring-1 ring-black/10" />
-          <figcaption className="font-brand text-base font-bold leading-none tracking-wide">{m.word}</figcaption>
-          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${m.dark ? 'text-stone-300' : 'text-gray-400'}`}>
-            {m.caption}
-          </span>
-        </figure>
-      ))}
-    </div>
-  )
-}
-
-const APP_ICON_OPTIONS = [
-  {
-    src: '/icon-option-canvas-woven.webp?v=20260903-selected',
-    label: 'Canvas · Woven',
-    alt: 'Woven canvas app icon option',
-    note: 'Fine texture · deep forest',
-  },
-  {
-    src: '/icon-option-canvas-heavy-dark.webp?v=20260903-selected',
-    label: 'Canvas · Heavy dark',
-    alt: 'Heavy brush dark canvas app icon option',
-    note: 'Heavy brush · deep forest',
-  },
-  {
-    src: '/icon-option-canvas-heavy-light.webp?v=20260903-selected',
-    label: 'Canvas · Heavy light',
-    alt: 'Heavy brush lighter canvas app icon option',
-    note: 'Heavy brush · lighter forest',
-  },
-  {
-    src: '/icon-option-walnut-dark.webp?v=20260903-selected',
-    label: 'Walnut · Dark',
-    alt: 'Dark walnut app icon option',
-    note: 'Natural grain · deep chocolate walnut',
-  },
-  {
-    src: '/icon-option-walnut-light.webp?v=20260903-selected',
-    label: 'Walnut · Lighter',
-    alt: 'Lighter walnut app icon option',
-    note: 'Natural grain · modest brightness lift',
-  },
-] as const
-
-function AppIconOptionsSection() {
-  return (
-    <div className="grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {APP_ICON_OPTIONS.map((option) => (
-        <figure key={option.src} className="rounded-2xl border border-cream-200 bg-white p-3 shadow-sm">
-          <img
-            src={option.src}
-            alt={option.alt}
-            width={640}
-            height={640}
-            loading="lazy"
-            className="aspect-square w-full rounded-[22%] ring-1 ring-black/10"
-          />
-          <figcaption className="mt-3">
-            <p className="font-display text-base font-semibold tracking-wide text-forest-900">{option.label}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{option.note}</p>
-            <div className="mt-3 flex items-end gap-2" aria-label={`${option.label} launcher-size previews`}>
-              {[48, 32, 24].map((size) => (
-                <img
-                  key={size}
-                  src={option.src}
-                  alt=""
-                  width={size}
-                  height={size}
-                  className="rounded-[22%] ring-1 ring-black/10"
-                />
-              ))}
-            </div>
-          </figcaption>
-        </figure>
-      ))}
-    </div>
-  )
-}
-
-// Keep the prior canvas and fire-ring art here as comparisons while the real
-// loader defaults to the solid-wood treatment. `tileSrc` undefined falls back
-// to the current production art.
-const LOADER_VARIANTS = [
-  { key: 'wood-unlocked', label: 'Walnut · Lighter', theme: 'unlocked', tileSrc: undefined },
-  { key: 'wood-locked', label: 'Wood · Locked', theme: 'locked', tileSrc: undefined },
-  { key: 'canvas-unlocked', label: 'Canvas · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-flat-dark.webp?v=20260902-tone' },
-  { key: 'canvas-locked', label: 'Canvas · Locked', theme: 'locked', tileSrc: '/puzzle-flat-light.webp?v=20260902-tone' },
-  { key: 'old-unlocked', label: 'Old · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-firering-dark.webp' },
-  { key: 'old-locked', label: 'Old · Locked', theme: 'locked', tileSrc: '/puzzle-firering-light.webp' },
+const LOADER_THEMES = [
+  { key: 'unlocked', label: 'Unlocked' },
+  { key: 'locked', label: 'Locked' },
 ] as const
 
 function LoaderPreviewSection() {
@@ -2365,7 +2248,7 @@ function LoaderPreviewSection() {
 // fresh quote inline — no need to close back to the admin page.
 function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
   const [show, setShow] = useState(false)
-  const [variantKey, setVariantKey] = useState<(typeof LOADER_VARIANTS)[number]['key']>('wood-unlocked')
+  const [theme, setTheme] = useState<(typeof LOADER_THEMES)[number]['key']>('unlocked')
   // Bumped to remount the loader, which re-picks its random quote (the loader
   // freezes the quote at mount).
   const [quoteNonce, setQuoteNonce] = useState(0)
@@ -2373,22 +2256,21 @@ function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
     const t = setTimeout(() => setShow(true), LOADER_DELAY_MS)
     return () => clearTimeout(t)
   }, [])
-  const variant = LOADER_VARIANTS.find((v) => v.key === variantKey) ?? LOADER_VARIANTS[0]
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-auto">
       {show && (
         <div className="tk-loader-fade flex flex-1 flex-col [&>div]:flex-1">
-          <SlidePuzzleLoader key={quoteNonce} theme={variant.theme} tileSrc={variant.tileSrc} />
+          <SlidePuzzleLoader key={quoteNonce} theme={theme} />
         </div>
       )}
       <div className="fixed inset-x-0 bottom-0 z-10 flex flex-wrap items-center justify-center gap-2 bg-black/60 p-3 backdrop-blur">
-        {LOADER_VARIANTS.map((v) => (
+        {LOADER_THEMES.map((v) => (
           <button
             key={v.key}
-            onClick={() => setVariantKey(v.key)}
-            aria-pressed={v.key === variantKey}
+            onClick={() => setTheme(v.key)}
+            aria-pressed={v.key === theme}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              v.key === variantKey
+              v.key === theme
                 ? 'bg-terracotta-500 text-white'
                 : 'bg-white/15 text-white hover:bg-white/25'
             }`}

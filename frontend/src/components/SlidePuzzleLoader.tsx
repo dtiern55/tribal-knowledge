@@ -93,7 +93,6 @@ export function SlidePuzzleLoader({
   liftTiles = true,
   showLabel = true,
   label = 'Loading',
-  tileSrc,
 }: {
   theme?: Theme
   tempo?: number
@@ -101,9 +100,6 @@ export function SlidePuzzleLoader({
   liftTiles?: boolean
   showLabel?: boolean
   label?: string
-  // Override the theme's puzzle art (admin preview compares the old mark against
-  // the new one). A bare public path; falls back to the theme default.
-  tileSrc?: string
 }) {
   const [grid, setGrid] = useState<(number | null)[]>(INITIAL)
   const [movingId, setMovingId] = useState<number | null>(null)
@@ -245,7 +241,7 @@ export function SlidePuzzleLoader({
                   height: '112px',
                   borderRadius: '11px',
                   overflow: 'hidden',
-                  backgroundImage: tileSrc ? `url("${tileSrc}")` : TH.tileImg,
+                  backgroundImage: TH.tileImg,
                   backgroundSize: '384px 384px',
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: `${-((hc + 0.5) * 128 - 56)}px ${-((hr + 0.5) * 128 - 56)}px`,

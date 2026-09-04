@@ -8,3 +8,4 @@ supabase/.temp/
 *.Zone.Identifier
 node_modules/
 .env.prod
+supabase/.branches/
