@@ -190,15 +190,20 @@ export function ContestantPage() {
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-600">{perf.bio}</p>
           )}
           {perf.bio_qa && perf.bio_qa.length > 0 && (
-            <div className="mt-5 max-w-xl">
-              {perf.bio_qa.map((qa) => (
-                <details key={qa.question} className="border-t border-cream-200 py-2 last-of-type:border-b">
-                  <summary className="cursor-pointer text-sm font-medium text-forest-800">{qa.question}</summary>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-600">{qa.answer}</p>
-                </details>
-              ))}
-              <p className="mt-2 text-xs text-gray-400">Cast questionnaire from CBS.</p>
-            </div>
+            <details className="mt-5 max-w-xl">
+              <summary className="cursor-pointer text-sm font-medium text-forest-800">
+                CBS cast questionnaire
+              </summary>
+              <div className="mt-3 space-y-3">
+                {perf.bio_qa.map((qa) => (
+                  <div key={qa.question}>
+                    <p className="text-sm font-medium text-forest-800">{qa.question}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-600">{qa.answer}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-gray-400">Cast questionnaire from CBS.</p>
+            </details>
           )}
           {!perf.bio && !perf.bio_qa?.length && (
             <p className="mt-5 max-w-xl text-sm italic leading-relaxed text-gray-500">

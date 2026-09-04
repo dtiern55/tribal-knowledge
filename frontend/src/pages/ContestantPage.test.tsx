@@ -80,8 +80,8 @@ describe('ContestantPage roster context', () => {
     expect(await screen.findByRole('button', { name: 'Next: Venus' })).toBeVisible()
     expect(screen.queryByRole('button', { name: /Charlie/ })).not.toBeInTheDocument()
     expect(await screen.findByText(/\+30 for you/)).toBeVisible()
-    // The CBS questionnaire renders as native disclosure sections.
-    expect(screen.getByText('Pet Peeves')).toBeVisible()
-    expect(screen.getByText('Under seasoned food.').closest('details')).not.toBeNull()
+    // The CBS questionnaire renders as one native disclosure section, collapsed by default.
+    expect(screen.getByText('CBS cast questionnaire')).toBeVisible()
+    expect(screen.getByText('Pet Peeves').closest('details')).not.toBeNull()
   })
 })
