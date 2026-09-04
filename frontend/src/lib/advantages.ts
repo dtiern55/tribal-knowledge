@@ -1,9 +1,15 @@
 import idolImg from '../assets/weekly-advantage-idol-dimensional.webp'
+import medallionS27 from '../assets/weekly-advantage-medallion-s27.webp'
+import whaleS51 from '../assets/weekly-advantage-whale-s51.webp'
 
 /** Per-season ×2 art keyed by show season number (#642). Seasons not listed
- *  fall back to the carved skull idol. Drop the file in `src/assets` and add
- *  a line here, e.g. `51: whaleImg`. */
-const SEASON_IDOLS: Record<number, string> = {}
+ *  fall back to the carved skull idol. Source renders live in
+ *  design/source-art; export a 128px RGBA webp into `src/assets` and add a
+ *  line here. */
+const SEASON_IDOLS: Record<number, string> = {
+  27: medallionS27,
+  51: whaleS51,
+}
 
 export function advantageIdolFor(seasonNumber: number | null | undefined): string {
   return (seasonNumber != null && SEASON_IDOLS[seasonNumber]) || idolImg
