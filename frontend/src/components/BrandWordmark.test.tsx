@@ -11,7 +11,7 @@ describe('BrandWordmark', () => {
     expect(wordmark).toHaveTextContent('SNAKES AND RATS')
     expect(words).toHaveLength(3)
     expect(words?.[0]).toHaveClass('text-terracotta-300')
-    expect(words?.[1]).toHaveClass('text-gold-300')
+    expect(words?.[1]).toHaveClass('text-gold-500')
     expect(words?.[2]).toHaveClass('text-cream-50')
   })
 })
