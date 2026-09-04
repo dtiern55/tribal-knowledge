@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from psycopg2.extras import Json
 
 from app import database
 from app.auth import get_current_admin, get_current_user
@@ -122,7 +123,7 @@ def get_contestant_performance(
         with conn.cursor() as cur:
             cur.execute(
                 "select id, name, image_url, placement, season_id,"
-                " age, occupation, hometown, bio,"
+                " age, occupation, hometown, bio, bio_qa,"
                 " (select t.name from contestant_tribes ct"
                 "  join tribes t on t.id = ct.tribe_id"
                 "  where ct.contestant_id = contestants.id"
@@ -236,6 +237,7 @@ def get_contestant_performance(
                 "occupation": c["occupation"],
                 "hometown": c["hometown"],
                 "bio": c["bio"],
+                "bio_qa": c["bio_qa"],
                 "total_points": sum(e["points"] for e in episodes),
                 "episodes": episodes,
             }
@@ -288,6 +290,8 @@ def update_contestant(
     # Blank nickname clears it — else coalesce(nickname, name) would render "".
     if fields.get("nickname") == "":
         fields["nickname"] = None
+    if "bio_qa" in fields:
+        fields["bio_qa"] = Json(fields["bio_qa"])
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
