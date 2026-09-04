@@ -29,7 +29,7 @@ function arrange() {
       return {
         name: 'Kenzie', image_url: null, placement: null, eliminated_in_episode: null,
         tribe_name: 'Yanu', tribe_color: null, age: null, occupation: null,
-        hometown: null, bio: null, total_points: 15, episodes: [],
+        hometown: null, bio: null, bio_qa: [{ question: 'Pet Peeves', answer: 'Under seasoned food.' }], total_points: 15, episodes: [],
       }
     }
     if (path.endsWith('/cast')) return CAST
@@ -80,5 +80,8 @@ describe('ContestantPage roster context', () => {
     expect(await screen.findByRole('button', { name: 'Next: Venus' })).toBeVisible()
     expect(screen.queryByRole('button', { name: /Charlie/ })).not.toBeInTheDocument()
     expect(await screen.findByText(/\+30 for you/)).toBeVisible()
+    // The CBS questionnaire renders as native disclosure sections.
+    expect(screen.getByText('Pet Peeves')).toBeVisible()
+    expect(screen.getByText('Under seasoned food.').closest('details')).not.toBeNull()
   })
 })

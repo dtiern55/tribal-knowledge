@@ -186,9 +186,21 @@ export function ContestantPage() {
           {bioFacts.length > 0 && (
             <p className="mt-2 text-sm text-gray-600">{bioFacts.join(' · ')}</p>
           )}
-          {perf.bio ? (
+          {perf.bio && (
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-600">{perf.bio}</p>
-          ) : (
+          )}
+          {perf.bio_qa && perf.bio_qa.length > 0 && (
+            <div className="mt-5 max-w-xl">
+              {perf.bio_qa.map((qa) => (
+                <details key={qa.question} className="border-t border-cream-200 py-2 last-of-type:border-b">
+                  <summary className="cursor-pointer text-sm font-medium text-forest-800">{qa.question}</summary>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">{qa.answer}</p>
+                </details>
+              ))}
+              <p className="mt-2 text-xs text-gray-400">Cast questionnaire from CBS.</p>
+            </div>
+          )}
+          {!perf.bio && !perf.bio_qa?.length && (
             <p className="mt-5 max-w-xl text-sm italic leading-relaxed text-gray-500">
               Bio coming soon — {perf.name}'s background and story will live here once bios are added.
             </p>

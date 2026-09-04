@@ -45,6 +45,12 @@ uv run python scripts/load_headshots.py 50 --our-season 50 --apply
 # no importable source and stays hand-written.
 uv run python scripts/load_bios.py 50 --our-season 50
 uv run python scripts/load_bios.py 50 --our-season 50 --apply
+
+# Load the CBS cast questionnaire (expandable Q&A on the contestant page)
+# from the Survivor wiki. --skip TEXT drops questions by substring if one
+# needs holding back.
+uv run python scripts/load_bio_qa.py 50 --our-season 50
+uv run python scripts/load_bio_qa.py 50 --our-season 50 --apply
 ```
 
 These scripts authenticate through the normal producer account. Required

@@ -388,6 +388,7 @@ export interface ContestantPerformance {
   occupation: string | null
   hometown: string | null
   bio: string | null
+  bio_qa: { question: string; answer: string }[] | null
   total_points: number
   episodes: ContestantEpisodeStat[]
 }

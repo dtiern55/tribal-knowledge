@@ -80,6 +80,13 @@ class LeagueSeasonUpdateRequest(BaseModel):
     token_economy_enabled: Optional[bool] = None
 
 
+class BioQA(BaseModel):
+    """One entry of the CBS cast questionnaire (scripts/load_bio_qa.py)."""
+
+    question: str
+    answer: str
+
+
 class Contestant(BaseModel):
     id: UUID
     season_id: UUID
@@ -98,6 +105,7 @@ class Contestant(BaseModel):
     occupation: Optional[str] = None
     hometown: Optional[str] = None
     bio: Optional[str] = None
+    bio_qa: Optional[list[BioQA]] = None
     created_at: datetime
 
 
@@ -366,6 +374,7 @@ class ContestantPerformance(BaseModel):
     occupation: Optional[str] = None
     hometown: Optional[str] = None
     bio: Optional[str] = None
+    bio_qa: Optional[list[BioQA]] = None
     total_points: int
     episodes: list[ContestantEpisodeStat]
 
@@ -402,6 +411,7 @@ class ContestantUpdateRequest(BaseModel):
     occupation: Optional[str] = None
     hometown: Optional[str] = None
     bio: Optional[str] = None
+    bio_qa: Optional[list[BioQA]] = None
 
 
 class EpisodeCreateRequest(BaseModel):
