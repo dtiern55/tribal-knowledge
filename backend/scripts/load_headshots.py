@@ -105,11 +105,27 @@ def face_crop(img_bytes: bytes) -> bytes:
     img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         return img_bytes
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     faces = cv2.CascadeClassifier(
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    ).detectMultiScale(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 1.1, 6)
+    ).detectMultiScale(gray, 1.1, 6)
     ih, iw = img.shape[:2]
-    face = pick_face(faces, ih)
+    # Full-body promo shots on busy foliage throw up face-sized false
+    # positives, some bigger than the real face (#630). A real face has eyes
+    # in its upper half; prefer candidates that do, and only fall back to
+    # the unverified set when none pass (S27 Tina Wesson: eyes undetected,
+    # but the old pick was right).
+    eyes = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+    with_eyes = [
+        f
+        for f in faces
+        if len(
+            eyes.detectMultiScale(
+                gray[f[1] : f[1] + int(f[3] * 0.6), f[0] : f[0] + f[2]], 1.1, 3
+            )
+        )
+    ]
+    face = pick_face(with_eyes or faces, ih)
     crop = img
     if face is not None:
         x, y, w, h = face
