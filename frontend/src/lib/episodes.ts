@@ -48,15 +48,13 @@ export function advantagesLocked(ep: Episode, season: Season): boolean {
     : ep.is_finale
 }
 
-// Effective Sole Survivor lock mirrors the backend chain (2026-07-19
-// decision): explicit ss_lock_episode, else the advantage lock, else the
-// finale. Mirrors backend app/locking.py.
-export function ssLockEpisodeNumber(season: Season, episodes: Episode[]): number | null {
+// Effective swap lock: explicit swap_lock_episode, else merge + 3 (#84,
+// #163). Sole Survivor designation locks with the swaps (2026-09-03), so it
+// is the same number. Mirrors backend app/routers/roster.py.
+export function swapLockEpisodeNumber(season: Season): number | null {
   return (
-    season.ss_lock_episode ??
-    season.advantage_lock_episode ??
-    episodes.find((e) => e.is_finale)?.episode_number ??
-    null
+    season.swap_lock_episode ??
+    (season.merge_episode != null ? season.merge_episode + 3 : null)
   )
 }
 
@@ -76,12 +74,12 @@ export function ssWindowOpenYet(season: Season, episodes: Episode[]): boolean {
   return lockedThrough >= season.merge_episode
 }
 
-// The designation window opens at the merge and stays open until the effective
+// The designation window opens at the merge and stays open until the swap
 // lock episode locks picks or is scored.
 export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean {
   if (season.status === 'completed') return false
   if (!ssWindowOpenYet(season, episodes)) return false
-  const lockEp = ssLockEpisodeNumber(season, episodes)
+  const lockEp = swapLockEpisodeNumber(season)
   if (lockEp == null) return false
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   return (
@@ -91,16 +89,14 @@ export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean 
 }
 
 // Swaps lock once the next open episode reaches swap_lock_episode; unset falls
-// back to merge + 2, and the finale never accepts swaps (#84, #163). Mirrors
+// back to merge + 3, and the finale never accepts swaps (#84, #163). Mirrors
 // backend app/locking.py.
 export function swapsLocked(season: Season, episodes: Episode[]): boolean {
   const nextOpen = openEpisode(episodes, season)
   // No open episode means play is over (finale locked, or season ended), so
   // everything is locked — not unlocked (#283).
   if (!nextOpen) return true
-  const effectiveLock =
-    season.swap_lock_episode ??
-    (season.merge_episode != null ? season.merge_episode + 2 : null)
+  const effectiveLock = swapLockEpisodeNumber(season)
   return (
     (effectiveLock != null && nextOpen.episode_number >= effectiveLock) ||
     nextOpen.is_finale

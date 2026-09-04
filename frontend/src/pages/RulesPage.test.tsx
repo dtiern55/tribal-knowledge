@@ -16,7 +16,6 @@ const season = {
   roster_size: 5,
   roster_lock_episode: 2,
   merge_episode: 7,
-  ss_lock_episode: null,
   advantage_lock_episode: 12,
   swap_lock_episode: 10,
   swap_token_cost: 20,

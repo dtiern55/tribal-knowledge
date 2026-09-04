@@ -16,22 +16,23 @@ from app.schemas import (
 router = APIRouter(tags=["roster"])
 
 
-def _effective_ss_lock(cur, ls) -> int | None:
-    """The episode from which sole-survivor designation is locked (#164;
-    retimed 2026-07-19): explicit ss_lock_episode, else the advantage lock,
-    else the finale — designation stays open later than swaps, closing with
-    the rest of the advantage economy."""
-    if ls["ss_lock_episode"] is not None:
-        return ls["ss_lock_episode"]
-    if ls["advantage_lock_episode"] is not None:
-        return ls["advantage_lock_episode"]
-    cur.execute(
-        "select episode_number from episodes"
-        " where season_id = %s and is_finale = true limit 1",
-        [str(ls["season_id"])],
-    )
-    row = cur.fetchone()
-    return row["episode_number"] if row else None
+def _effective_swap_lock(ls) -> int | None:
+    """The episode from which roster swaps are locked (#84): explicit
+    swap_lock_episode, else three episodes past the merge (#163, widened
+    2026-09-03). None until the merge is known. The finale is refused
+    separately, regardless of this value."""
+    if ls["swap_lock_episode"] is not None:
+        return ls["swap_lock_episode"]
+    if ls["merge_episode"] is not None:
+        return ls["merge_episode"] + 3
+    return None
+
+
+def _effective_ss_lock(ls) -> int | None:
+    """Sole Survivor designation locks with the swaps (2026-09-03): once your
+    roster is final for the season, so is your pick of who wins on it. There
+    is deliberately no separate knob, so the two can never drift apart."""
+    return _effective_swap_lock(ls)
 
 
 def _episode_locked(cur, season_id, episode_number) -> bool:
@@ -119,7 +120,7 @@ def get_roster(
                 rows = visible
                 # Another player's designation is strategy until it locks (#164):
                 # the roster may already be visible, the flag is not.
-                ss_lock = _effective_ss_lock(cur, ls)
+                ss_lock = _effective_ss_lock(ls)
                 if ss_lock is None or not _episode_locked(
                     cur, ls["season_id"], ss_lock
                 ):
@@ -275,13 +276,9 @@ def swap_roster_pick(
                     detail="Swap episode must be after the contestant was added",
                 )
 
-            # Swaps lock late-game (issue #84). An unset lock falls back to
-            # two episodes past the merge (#163) so a fresh season can never
-            # swap a finalist in at final tribal; the finale itself is always
+            # Swaps lock late-game (issue #84); the finale itself is always
             # off-limits.
-            swap_lock = ls["swap_lock_episode"]
-            if swap_lock is None and ls["merge_episode"] is not None:
-                swap_lock = ls["merge_episode"] + 2
+            swap_lock = _effective_swap_lock(ls)
             if episode["is_finale"] or (
                 swap_lock is not None and swap_episode >= swap_lock
             ):
@@ -503,7 +500,7 @@ def designate_sole_survivor(
             if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
-            ss_lock = _effective_ss_lock(cur, ls)
+            ss_lock = _effective_ss_lock(ls)
             if ss_lock is None:
                 raise HTTPException(
                     status_code=400,
@@ -572,7 +569,7 @@ def clear_sole_survivor(
             database.require_member(cur, ls["league_id"], user_id)
             if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
-            ss_lock = _effective_ss_lock(cur, ls)
+            ss_lock = _effective_ss_lock(ls)
             if ss_lock is not None and _episode_locked(cur, ls["season_id"], ss_lock):
                 raise HTTPException(
                     status_code=400,

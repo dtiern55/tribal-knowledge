@@ -770,7 +770,7 @@ describe('MySeasonPage state shell', () => {
   // designate, so it gets a test of its own. #529 moved it from a select above
   // the roster onto the roster card's own ring; the guarantee is unchanged.
   it('names a Sole Survivor from the select once the merge is reached', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, ss_lock_episode: 9 })
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
