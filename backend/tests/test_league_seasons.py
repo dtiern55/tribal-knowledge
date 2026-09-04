@@ -24,7 +24,7 @@ def test_add_season_to_league_defaults_and_guards(client, db_conn):
     league = insert_league(db_conn, name="Camp B")
     ls = _ls(client, league["id"], season["id"])
     assert ls["roster_size"] == 5  # default
-    assert ls["roster_lock_episode"] == 1  # default (#152)
+    assert ls["roster_lock_episode"] == 2  # default: premiere watch-only (#152)
     assert ls["season_id"] == str(season["id"])
     assert ls["league_name"] == "Camp B"
     assert ls["name"] == season["name"]
@@ -39,9 +39,9 @@ def test_add_season_to_league_defaults_and_guards(client, db_conn):
     )
     assert r.status_code == 409  # already plays it
 
-    r = client.patch(f"/league-seasons/{ls['id']}", json={"roster_lock_episode": 2})
+    r = client.patch(f"/league-seasons/{ls['id']}", json={"roster_lock_episode": 3})
     assert r.status_code == 200
-    assert r.json()["roster_lock_episode"] == 2
+    assert r.json()["roster_lock_episode"] == 3
 
 
 @pytest.mark.integration
