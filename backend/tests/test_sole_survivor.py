@@ -27,7 +27,7 @@ def _ss_season(conn, **kwargs):
 def test_finale_double_and_additive_placements(client, db_conn, current_user):
     """Designee's finale contribution earns +50%: events and stacked placement
     values; the non-designated finalist earns base placement points."""
-    season = _ss_season(db_conn, ss_lock_episode=3)
+    season = _ss_season(db_conn, swap_lock_episode=3)
     insert_episode(db_conn, season["id"], episode_number=3)  # open: designation ok
     fin = insert_episode(
         db_conn, season["id"], episode_number=5, is_finale=True, picks_lock_at=PAST
@@ -62,7 +62,7 @@ def test_finale_double_and_additive_placements(client, db_conn, current_user):
 
 @pytest.mark.integration
 def test_designation_rules(client, db_conn, current_user):
-    season = _ss_season(db_conn, ss_lock_episode=3)
+    season = _ss_season(db_conn, swap_lock_episode=3)
     ep1 = insert_episode(db_conn, season["id"], episode_number=1, picks_lock_at=PAST)
     insert_episode(db_conn, season["id"], episode_number=3)
     a = insert_contestant(db_conn, season["id"], "A")
@@ -108,14 +108,14 @@ def test_designation_rules(client, db_conn, current_user):
 def test_designation_opens_at_merge(client, db_conn, current_user):
     """Designation is unavailable until the merge episode is the open one (#587)."""
     season = insert_season(
-        db_conn, roster_lock_episode=1, merge_episode=4, ss_lock_episode=8
+        db_conn, roster_lock_episode=1, merge_episode=4, swap_lock_episode=8
     )
     insert_episode(
         db_conn, season["id"], episode_number=1, status="scored", picks_lock_at=PAST
     )
     insert_episode(db_conn, season["id"], episode_number=2)  # open, pre-merge
     insert_episode(db_conn, season["id"], episode_number=4)  # the merge, still ahead
-    insert_episode(db_conn, season["id"], episode_number=8)  # ss lock
+    insert_episode(db_conn, season["id"], episode_number=8)  # swap lock
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
     url = f"/league-seasons/{season['league_season_id']}/sole-survivor"
@@ -139,9 +139,9 @@ def test_designation_opens_at_merge(client, db_conn, current_user):
 def test_designation_hidden_from_others_until_lock(client, db_conn, current_user):
     """The flag is strategy until the designation locks — the roster may be
     visible while the flag is masked."""
-    season = _ss_season(db_conn, ss_lock_episode=3)
+    season = _ss_season(db_conn, swap_lock_episode=3)
     insert_episode(db_conn, season["id"], episode_number=1, picks_lock_at=PAST)
-    insert_episode(db_conn, season["id"], episode_number=3)  # ss lock still open
+    insert_episode(db_conn, season["id"], episode_number=3)  # swap lock still open
     other = insert_user(db_conn, display_name="Other")
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, other["id"], season["id"], a["id"])
@@ -164,41 +164,22 @@ def test_designation_hidden_from_others_until_lock(client, db_conn, current_user
 
 
 @pytest.mark.integration
-def test_ss_lock_falls_back_to_advantage_lock(client, db_conn, current_user):
-    """Unset ss_lock defers to the advantage lock (2026-07-19 retiming)."""
+def test_ss_lock_follows_swap_lock_fallback(client, db_conn, current_user):
+    """No swap lock set: designation closes with the swaps at merge + 3, and
+    the advantage lock has no say."""
     season = insert_season(
         db_conn,
         roster_lock_episode=1,
         merge_episode=3,
-        advantage_lock_episode=6,
-    )
-    insert_episode(db_conn, season["id"], episode_number=6, picks_lock_at=PAST)
-    a = insert_contestant(db_conn, season["id"], "A")
-    insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
-    r = client.post(
-        f"/league-seasons/{season['league_season_id']}/sole-survivor",
-        json={"contestant_id": str(a["id"])},
-    )
-    assert r.status_code == 400
-    assert "closed" in r.json()["detail"]
-
-
-@pytest.mark.integration
-def test_ss_lock_falls_back_to_finale(client, db_conn, current_user):
-    """No ss lock, no advantage lock: designation stays open until the finale
-    locks — even past the swap lock."""
-    season = insert_season(
-        db_conn,
-        roster_lock_episode=1,
-        merge_episode=3,
-        swap_lock_episode=4,
+        advantage_lock_episode=9,
     )
     insert_episode(db_conn, season["id"], episode_number=5)
-    insert_episode(db_conn, season["id"], episode_number=6, is_finale=True)
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
-    r = client.post(
-        f"/league-seasons/{season['league_season_id']}/sole-survivor",
-        json={"contestant_id": str(a["id"])},
-    )
-    assert r.status_code == 200
+    url = f"/league-seasons/{season['league_season_id']}/sole-survivor"
+    assert client.post(url, json={"contestant_id": str(a["id"])}).status_code == 200
+
+    insert_episode(db_conn, season["id"], episode_number=6, picks_lock_at=PAST)
+    r = client.post(url, json={"contestant_id": str(a["id"])})
+    assert r.status_code == 400
+    assert "closed" in r.json()["detail"]

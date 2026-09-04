@@ -4,6 +4,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
+import { swapLockEpisodeNumber } from '../lib/episodes'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } from '../types'
 
 const CONTENTS = [
@@ -131,8 +132,7 @@ export function RulesPage() {
   const tokenEvents = scoring_events.filter((event) => event.point_value === 0 && event.token_value !== 0)
   const ballotScores = prediction_scores.filter((score) => score.key === 'correct_elimination')
   const finaleScores = prediction_scores.filter((score) => ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote'].includes(score.key))
-  const swapLock = season.swap_lock_episode ?? (season.merge_episode == null ? null : season.merge_episode + 3)
-  const soleSurvivorLock = season.ss_lock_episode ?? season.advantage_lock_episode
+  const swapLock = swapLockEpisodeNumber(season)
 
   return (
     <div className="max-w-3xl">
@@ -246,7 +246,7 @@ export function RulesPage() {
           <h3 className="font-semibold text-gray-900">Sole Survivor</h3>
           <RuleList>
             <li>Choose one castaway who is still in the game and on your active roster.</li>
-            <li>Available from the merge until {configuredEpisode(soleSurvivorLock)} locks — not while two tribes still stand.</li>
+            <li>Available from the merge until {configuredEpisode(swapLock)} locks, the same episode swaps lock — not while two tribes still stand.</li>
             <li>The choice adds 50% of that castaway's finale tribe points, rounded once.</li>
             <li>If the castaway earns no finale tribe points, the bonus is zero.</li>
           </RuleList>

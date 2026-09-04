@@ -93,7 +93,6 @@ def insert_season(conn, name="Survivor: Test Island", season_number=None, **kwar
         "advantage_lock_episode": kwargs.pop("advantage_lock_episode", None),
         "weekly_token_allocation": kwargs.pop("weekly_token_allocation", 10),
         "token_economy_enabled": kwargs.pop("token_economy_enabled", False),
-        "ss_lock_episode": kwargs.pop("ss_lock_episode", None),
     }
     show = {
         "name": name,

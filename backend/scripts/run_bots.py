@@ -554,16 +554,15 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
 
     swap_lock = season["swap_lock_episode"]
     if swap_lock is None and season["merge_episode"] is not None:
-        swap_lock = season["merge_episode"] + 2
+        swap_lock = season["merge_episode"] + 3
     swaps_open = not ep["is_finale"] and not (
         swap_lock is not None and episode_n >= swap_lock
     )
-    # Designation closes when episode ss_lock itself locks (app/routers/
-    # roster.py:_effective_ss_lock). Bots only ever run on the episode that
-    # still accepts picks, so that episode is by definition unlocked — which
-    # makes "ss_lock has not locked yet" simply ss_lock >= episode_n.
-    ss_lock = season["ss_lock_episode"] or season["advantage_lock_episode"]
-    ss_open = ss_lock is None or ss_lock >= episode_n
+    # Designation locks with the swaps (app/routers/roster.py:
+    # _effective_ss_lock). Bots only ever run on the episode that still
+    # accepts picks, so that episode is by definition unlocked — which makes
+    # "the lock has not locked yet" simply swap_lock >= episode_n.
+    ss_open = swap_lock is None or swap_lock >= episode_n
 
     cur.execute(
         """select contestant_id::text cid, count(*) n from roster_picks

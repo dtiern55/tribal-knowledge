@@ -44,7 +44,6 @@ class LeagueSeason(Season):
     swap_token_cost: int
     weekly_token_allocation: int
     token_economy_enabled: bool
-    ss_lock_episode: Optional[int]
     advantage_lock_episode: Optional[int]
 
 
@@ -57,7 +56,6 @@ class LeagueSeasonCreateRequest(BaseModel):
     free_swaps: int = Field(default=1, ge=0)
     swap_penalty_step: int = Field(default=-5, le=0)
     swap_penalty_floor: int = Field(default=-25, le=0)
-    ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
     # Tokens are retired (#307); kept so a league can switch the economy back
     # on deliberately.
@@ -73,7 +71,6 @@ class LeagueSeasonUpdateRequest(BaseModel):
     free_swaps: Optional[int] = Field(default=None, ge=0)
     swap_penalty_step: Optional[int] = Field(default=None, le=0)
     swap_penalty_floor: Optional[int] = Field(default=None, le=0)
-    ss_lock_episode: Optional[int] = Field(default=None, gt=0)
     advantage_lock_episode: Optional[int] = Field(default=None, gt=0)
     swap_token_cost: Optional[int] = Field(default=None, ge=0)
     weekly_token_allocation: Optional[int] = Field(default=None, ge=0)
