@@ -91,7 +91,7 @@ export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean 
 }
 
 // Swaps lock once the next open episode reaches swap_lock_episode; unset falls
-// back to merge + 2, and the finale never accepts swaps (#84, #163). Mirrors
+// back to merge + 3, and the finale never accepts swaps (#84, #163). Mirrors
 // backend app/locking.py.
 export function swapsLocked(season: Season, episodes: Episode[]): boolean {
   const nextOpen = openEpisode(episodes, season)
@@ -100,7 +100,7 @@ export function swapsLocked(season: Season, episodes: Episode[]): boolean {
   if (!nextOpen) return true
   const effectiveLock =
     season.swap_lock_episode ??
-    (season.merge_episode != null ? season.merge_episode + 2 : null)
+    (season.merge_episode != null ? season.merge_episode + 3 : null)
   return (
     (effectiveLock != null && nextOpen.episode_number >= effectiveLock) ||
     nextOpen.is_finale

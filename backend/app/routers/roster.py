@@ -276,12 +276,12 @@ def swap_roster_pick(
                 )
 
             # Swaps lock late-game (issue #84). An unset lock falls back to
-            # two episodes past the merge (#163) so a fresh season can never
-            # swap a finalist in at final tribal; the finale itself is always
-            # off-limits.
+            # three episodes past the merge (#163, widened 2026-09-03) so a
+            # fresh season can never swap a finalist in at final tribal; the
+            # finale itself is always off-limits.
             swap_lock = ls["swap_lock_episode"]
             if swap_lock is None and ls["merge_episode"] is not None:
-                swap_lock = ls["merge_episode"] + 2
+                swap_lock = ls["merge_episode"] + 3
             if episode["is_finale"] or (
                 swap_lock is not None and swap_episode >= swap_lock
             ):

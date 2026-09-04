@@ -364,12 +364,12 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
 
 
 @pytest.mark.integration
-def test_swap_lock_defaults_to_merge_plus_two(client, db_conn):
-    # Unset swap_lock_episode falls back to merge_episode + 2 (#163).
+def test_swap_lock_defaults_to_merge_plus_three(client, db_conn):
+    # Unset swap_lock_episode falls back to merge_episode + 3 (#163).
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2, merge_episode=3, swap_token_cost=0
     )
-    insert_episode(db_conn, season["id"], episode_number=5)
+    insert_episode(db_conn, season["id"], episode_number=6)
     new = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
         f"/league-seasons/{season['league_season_id']}/roster",
