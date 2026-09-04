@@ -107,8 +107,6 @@ export function TeamPage() {
         ])
         setContestants(cs)
         setEpisodes(episodeRows)
-        setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
-        setSiblings(standings)
         try {
           setRoster(await api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`))
           const breakdown = await api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`)
@@ -134,6 +132,12 @@ export function TeamPage() {
         // elimination picks; 404 when the player never filed one (they may only
         // have the Sole Survivor designation), 403 until the finale locks.
         setBracket(await api.get<FinalePrediction>(`/league-seasons/${leagueSeasonId}/finale-predictions/${userId}`).catch(() => null))
+        // The player lands last: the page renders the moment it has one, and
+        // the Ballot/Advantages shells latch their open state on that first
+        // render. Set earlier, they latched on empty votes and plays and
+        // started collapsed (#646).
+        setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
+        setSiblings(standings)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load team')
       } finally {
