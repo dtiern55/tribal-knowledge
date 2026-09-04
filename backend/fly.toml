@@ -9,7 +9,7 @@ primary_region = 'sjc'
 [build]
 
 [env]
-  CORS_ORIGIN_REGEX = 'https://tribal-knowledge-[a-z0-9]+-dtiern55s-projects\.vercel\.app|https://tribal-knowledge-git-[a-z0-9-]+-dtiern55s-projects\.vercel\.app'
+  CORS_ORIGIN_REGEX = 'https://(tribal-knowledge|snakes-and-rats)-[a-z0-9-]+-dtiern55s-projects\.vercel\.app'
 [http_service]
   internal_port = 8000
   force_https = true
