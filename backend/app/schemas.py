@@ -50,8 +50,11 @@ class LeagueSeason(Season):
 class LeagueSeasonCreateRequest(BaseModel):
     season_id: UUID
     roster_size: int = Field(default=5, ge=1, le=10)
-    # Required for a season to be playable (#152): default 1.
-    roster_lock_episode: int = Field(default=1, gt=0)
+    # Required for a season to be playable (#152). Defaults to 2 so the
+    # premiere is watch-only, which every season so far has wanted; 1 makes
+    # episode 1 pickable and the app asks for a tribe and votes before anyone
+    # has seen the cast.
+    roster_lock_episode: int = Field(default=2, gt=0)
     swap_lock_episode: Optional[int] = Field(default=None, gt=0)
     free_swaps: int = Field(default=1, ge=0)
     swap_penalty_step: int = Field(default=-5, le=0)
