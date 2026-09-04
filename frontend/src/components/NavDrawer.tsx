@@ -216,7 +216,7 @@ export function NavDrawer({
                     <DownloadIcon />
                     Add to home screen
                   </span>
-                  Tap{' '}
+                  In Safari, tap{' '}
                   <span className="inline-flex items-center gap-1 font-medium">
                     Share <ShareIcon className="h-4 w-4" />
                   </span>
