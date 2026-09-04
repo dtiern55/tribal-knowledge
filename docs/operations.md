@@ -124,7 +124,7 @@ league-member workflow.
 | --- | --- | --- |
 | Supabase | `tribal-knowledge-staging` | `tribal-knowledge` |
 | Backend | `https://tribal-knowledge-staging.fly.dev` | `https://tribal-knowledge-app.fly.dev` |
-| Frontend | `https://tribal-knowledge-git-main-dtiern55s-projects.vercel.app` (and every PR preview) | `https://snakesandrats.app` (old `tribal-knowledge-nu.vercel.app` stays live for existing PWA installs) |
+| Frontend | `https://snakes-and-rats-git-main-dtiern55s-projects.vercel.app` (and every PR preview) | `https://snakesandrats.app` (old `tribal-knowledge-nu.vercel.app` stays live for existing PWA installs) |
 | Deploys on | merge to `main`, or "Run workflow" on any branch | Actions → "Deploy production" → Run workflow with a version (or a `v*` tag) |
 | Holds | bots, practice seasons, test signups | the real league only |
 
