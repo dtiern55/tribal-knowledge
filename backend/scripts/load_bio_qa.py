@@ -4,14 +4,17 @@ into contestants.bio_qa, rendered as expandable sections on the contestant
 page. The text is the same everywhere it is published; the Survivor fandom
 wiki carries it per castaway in a parseable form, so that is the source.
 
+A castaway who played more than once has one profile tab per season on the
+wiki; the tab whose label appears in our season's name is read (override
+with --tab). Lines listing earlier finishes are always dropped: they spoil
+those seasons for anyone who hasn't watched them.
+
 Dry-runs by default; --apply writes. --skip drops any question whose text
-contains the given substring (repeatable) — e.g. the "previous player"
-question names past winners, which is a spoiler for anyone behind on
-seasons.
+contains the given substring (repeatable).
 
 Usage (from backend/):
     uv run python scripts/load_bio_qa.py 51 --our-season 51 [--apply]
-        [--replace] [--skip "previous player"]
+        [--replace] [--skip TEXT] [--tab "Blood vs. Water"]
 Env: SUPABASE_URL, SUPABASE_ANON_KEY, PRODUCER_EMAIL/PASSWORD (as
 scripts/load_bios.py).
 """
@@ -27,11 +30,30 @@ from dotenv import load_dotenv
 
 WIKI_API = "https://survivor.fandom.com/api.php"
 UA = {"User-Agent": "tribal-knowledge/1.0 (private fantasy league)"}
-# Identity lines the profile repeats; they live in their own columns already.
-NOT_QUESTIONS = {"age", "hometown", "current residence", "occupation", "birthdate"}
+# Identity lines the profile repeats (they live in their own columns already)
+# and the "previous ..." lines on returning players, which list finishes.
+NOT_QUESTIONS = {
+    "age",
+    "name",
+    "name (age)",
+    "hometown",
+    "current residence",
+    "occupation",
+    "birthdate",
+    "marital status",
+    "previous show",
+    "previous season",
+    "previous seasons",
+    "previous finish",
+    "previous finishes",
+}
 
 
 def _clean(s: str) -> str:
+    # {{tribehl5|galang|Galang|Returning Player}} -> "Galang, Returning Player";
+    # any other template keeps its last argument.
+    s = re.sub(r"\{\{tribehl\d*\|[^|}]*\|([^|}]+)\|([^|}]+)\}\}", r"\1, \2", s)
+    s = re.sub(r"\{\{[^{}]*\|([^|{}]+)\}\}", r"\1", s)
     s = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", r"\1", s)  # [[Link|Text]] -> Text
     s = re.sub(r"'''|''", "", s)
     s = re.sub(r"<ref>.*?</ref>", "", s, flags=re.S)
@@ -39,14 +61,28 @@ def _clean(s: str) -> str:
     return html.unescape(s).strip()
 
 
-def parse_profile(wikitext: str) -> list[dict]:
-    """The Q&A pairs from a castaway page's ==Profile== section, in order.
+def profile_tabs(wikitext: str) -> dict[str, str]:
+    """The ==Profile== section split by season. A castaway who played more
+    than once has one <tabber> tab per season, keyed by the season's subtitle
+    ("Blood vs. Water"); a one-season castaway has a single "" tab."""
+    profile = wikitext.split("==Profile==", 1)[1] if "==Profile==" in wikitext else ""
+    profile = profile.split("\n==", 1)[0]
+    m = re.search(r"<tabber>(.*?)</tabber>", profile, re.S)
+    if not m:
+        return {"": profile}
+    tabs = {}
+    for chunk in m.group(1).split("|-|"):
+        label, _, body = chunk.partition("=")
+        tabs[label.strip()] = body
+    return tabs
+
+
+def parse_profile(profile: str) -> list[dict]:
+    """The Q&A pairs from one season's profile text, in order.
 
     Lines look like `'''Question?:''' answer <br />`; the colon sometimes sits
     inside the bold and sometimes after it.
     """
-    profile = wikitext.split("==Profile==", 1)[1] if "==Profile==" in wikitext else ""
-    profile = profile.split("\n==", 1)[0]
     pairs = []
     for m in re.finditer(
         r"'''(.+?):?\s*'''\s*:?\s*(.*?)(?=<br\s*/?>|\n'''|\Z)", profile, re.S
@@ -92,6 +128,11 @@ def main() -> None:
         help="drop questions containing TEXT (case-insensitive; repeatable)",
     )
     parser.add_argument(
+        "--tab",
+        help="wiki profile tab to read for multi-season castaways; defaults to"
+        " the one whose label appears in our season's name",
+    )
+    parser.add_argument(
         "--apply", action="store_true", help="write the values (default: dry run)"
     )
     parser.add_argument(
@@ -133,7 +174,18 @@ def main() -> None:
         if c.get("nickname"):
             titles.append(f"{c['nickname']} {c['name'].split()[-1]}")
         text = next((t for t in (wikitext(x) for x in titles) if t), None)
-        pairs = parse_profile(text) if text else []
+        tabs = profile_tabs(text) if text else {}
+        if "" in tabs:
+            profile = tabs[""]
+        else:
+            tab = args.tab or next((t for t in tabs if t and t in season["name"]), None)
+            if tab not in tabs:
+                sys.exit(
+                    f"{c['name']}: no profile tab matches {season['name']!r};"
+                    f" pass --tab, one of {sorted(tabs)}"
+                )
+            profile = tabs[tab]
+        pairs = parse_profile(profile)
         pairs = [p for p in pairs if not any(s in p["question"].lower() for s in skips)]
         if not pairs:
             missing.append(c["name"])
