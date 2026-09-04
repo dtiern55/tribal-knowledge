@@ -15,6 +15,7 @@ import type {
   Episode,
   EpisodeInsightConfig,
   League,
+  LeagueMember,
   ShowSeason,
   ScoringEventType,
   Season,
@@ -1726,7 +1727,17 @@ function TokensSection({ season }: { season: Season }) {
 
 // ─── League settings section ───────────────────────────────────────────────────
 
-function LeagueRow({ league, onUpdated }: { league: League; onUpdated: (l: League) => void }) {
+function LeagueRow({
+  league,
+  seasons,
+  episodesBySeason,
+  onUpdated,
+}: {
+  league: League
+  seasons: Season[]
+  episodesBySeason: Record<string, Episode[]>
+  onUpdated: (l: League) => void
+}) {
   const [name, setName] = useState(league.name)
   const [joinCode, setJoinCode] = useState(league.join_code)
   const [saving, setSaving] = useState(false)
@@ -1749,6 +1760,7 @@ function LeagueRow({ league, onUpdated }: { league: League; onUpdated: (l: Leagu
 
   return (
     <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
+      <LeagueOverview league={league} seasons={seasons} episodesBySeason={episodesBySeason} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor={`league-name-${league.id}`} className="block text-xs text-gray-500 mb-1">Name</label>
@@ -1778,6 +1790,54 @@ function LeagueRow({ league, onUpdated }: { league: League; onUpdated: (l: Leagu
         {saving ? 'Saving…' : 'Save'}
       </ActionBtn>
       <AddSeasonToLeague league={league} />
+    </div>
+  )
+}
+
+/** Who is in this league and where each of its seasons stands, so the
+ * commissioner can tell the practice leagues apart at a glance. */
+function LeagueOverview({
+  league,
+  seasons,
+  episodesBySeason,
+}: {
+  league: League
+  seasons: Season[]
+  episodesBySeason: Record<string, Episode[]>
+}) {
+  const [members, setMembers] = useState<LeagueMember[] | null>(null)
+  useEffect(() => {
+    void api.get<LeagueMember[]>(`/leagues/${league.id}/members`).then(setMembers)
+  }, [league.id])
+
+  return (
+    <div className="space-y-2 rounded-lg bg-cream-50 p-3 text-sm">
+      <p className="font-display text-lg tracking-wide text-forest-900">{league.name}</p>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-forest-600">Seasons</p>
+        {seasons.length === 0 ? (
+          <p className="text-gray-500">Not playing any season yet.</p>
+        ) : (
+          <ul className="mt-1 space-y-0.5">
+            {seasons.map((s) => (
+              <li key={s.id}>
+                <span className="font-medium text-gray-800">{s.name}</span>
+                <span className="text-gray-500">
+                  {' '}· {s.status} · {commissionerContext(s, episodesBySeason[s.season_id] ?? []).title}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-forest-600">
+          Members ({league.member_count})
+        </p>
+        <p className="mt-1 text-gray-800">
+          {members === null ? 'Loading…' : members.length === 0 ? 'Nobody has joined yet.' : members.map((m) => m.display_name).join(', ')}
+        </p>
+      </div>
     </div>
   )
 }
@@ -1834,7 +1894,17 @@ function AddSeasonToLeague({ league }: { league: League }) {
   )
 }
 
-function LeaguesSection({ leagues, onChanged }: { leagues: League[]; onChanged: (ls: League[]) => void }) {
+function LeaguesSection({
+  leagues,
+  seasons,
+  episodesBySeason,
+  onChanged,
+}: {
+  leagues: League[]
+  seasons: Season[]
+  episodesBySeason: Record<string, Episode[]>
+  onChanged: (ls: League[]) => void
+}) {
   const [name, setName] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -1855,6 +1925,8 @@ function LeaguesSection({ leagues, onChanged }: { leagues: League[]; onChanged: 
         <LeagueRow
           key={l.id}
           league={l}
+          seasons={seasons.filter((s) => s.league_id === l.id)}
+          episodesBySeason={episodesBySeason}
           onUpdated={(u) => onChanged(leagues.map((x) => (x.id === u.id ? u : x)))}
         />
       ))}
@@ -2010,6 +2082,9 @@ export function AdminPage() {
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [eventTypes, setEventTypes] = useState<ScoringEventType[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
+  // Every league-season plus each show's episodes, for the Leagues overview.
+  const [allSeasons, setAllSeasons] = useState<Season[]>([])
+  const [episodesBySeason, setEpisodesBySeason] = useState<Record<string, Episode[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -2034,8 +2109,16 @@ export function AdminPage() {
       try {
         // Leagues load regardless of season: the cold-start create form needs
         // one to sign up, and the Leagues section manages them (#595).
-        const [active, ls] = await Promise.all([getActiveSeason(), api.get<League[]>('/leagues')])
+        const [active, ls, all] = await Promise.all([
+          getActiveSeason(),
+          api.get<League[]>('/leagues'),
+          api.get<Season[]>('/league-seasons'),
+        ])
         setLeagues(ls)
+        setAllSeasons(all)
+        const showIds = [...new Set(all.map((s) => s.season_id))]
+        const eps = await Promise.all(showIds.map((id) => api.get<Episode[]>(`/seasons/${id}/episodes`)))
+        setEpisodesBySeason(Object.fromEntries(showIds.map((id, i) => [id, eps[i]])))
         if (active) await loadSeason(active)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
@@ -2080,7 +2163,7 @@ export function AdminPage() {
         eyebrow="Commissioner"
         title="League operations"
         description="Schedule, review, score, and correct the active season. Changes here affect the whole league."
-        meta={<span className="rounded-full bg-forest-50 px-3 py-1 font-medium text-forest-800">{season.name}</span>}
+        meta={<span className="rounded-full bg-forest-50 px-3 py-1 font-medium text-forest-800">{season.league_name} · {season.name}</span>}
       />
 
       <section aria-labelledby="current-work-title" className={`rounded-2xl border p-5 sm:p-6 ${context.stage === 'review' ? 'border-gold-300 bg-gold-50' : context.stage === 'complete' ? 'border-jade-200 bg-jade-50' : 'border-forest-200 bg-forest-50'}`}>
@@ -2130,7 +2213,12 @@ export function AdminPage() {
       )}
 
       <Section id="league-settings" title="Leagues" description="Each league has its own join code and members.">
-        <LeaguesSection leagues={leagues} onChanged={setLeagues} />
+        <LeaguesSection
+          leagues={leagues}
+          seasons={allSeasons}
+          episodesBySeason={episodesBySeason}
+          onChanged={setLeagues}
+        />
       </Section>
 
       <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
@@ -2139,6 +2227,14 @@ export function AdminPage() {
 
       <Section id="branding-compare" title="Branding" description="The rebrand at a glance — old identity next to new.">
         <BrandingCompareSection />
+      </Section>
+
+      <Section
+        id="app-icon-finalists"
+        title="App icon finalists"
+        description="Four saved directions to compare at full size and at the scale they will appear on a phone."
+      >
+        <AppIconOptionsSection />
       </Section>
     </div>
   )
@@ -2174,11 +2270,79 @@ function BrandingCompareSection() {
   )
 }
 
+const APP_ICON_OPTIONS = [
+  {
+    src: '/icon-option-canvas-woven.webp?v=20260903-selected',
+    label: 'Canvas · Woven',
+    alt: 'Woven canvas app icon option',
+    note: 'Fine texture · deep forest',
+  },
+  {
+    src: '/icon-option-canvas-heavy-dark.webp?v=20260903-selected',
+    label: 'Canvas · Heavy dark',
+    alt: 'Heavy brush dark canvas app icon option',
+    note: 'Heavy brush · deep forest',
+  },
+  {
+    src: '/icon-option-canvas-heavy-light.webp?v=20260903-selected',
+    label: 'Canvas · Heavy light',
+    alt: 'Heavy brush lighter canvas app icon option',
+    note: 'Heavy brush · lighter forest',
+  },
+  {
+    src: '/icon-option-walnut-dark.webp?v=20260903-selected',
+    label: 'Walnut · Dark',
+    alt: 'Dark walnut app icon option',
+    note: 'Natural grain · deep chocolate walnut',
+  },
+  {
+    src: '/icon-option-walnut-light.webp?v=20260903-selected',
+    label: 'Walnut · Lighter',
+    alt: 'Lighter walnut app icon option',
+    note: 'Natural grain · modest brightness lift',
+  },
+] as const
+
+function AppIconOptionsSection() {
+  return (
+    <div className="grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {APP_ICON_OPTIONS.map((option) => (
+        <figure key={option.src} className="rounded-2xl border border-cream-200 bg-white p-3 shadow-sm">
+          <img
+            src={option.src}
+            alt={option.alt}
+            width={640}
+            height={640}
+            loading="lazy"
+            className="aspect-square w-full rounded-[22%] ring-1 ring-black/10"
+          />
+          <figcaption className="mt-3">
+            <p className="font-display text-base font-semibold tracking-wide text-forest-900">{option.label}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{option.note}</p>
+            <div className="mt-3 flex items-end gap-2" aria-label={`${option.label} launcher-size previews`}>
+              {[48, 32, 24].map((size) => (
+                <img
+                  key={size}
+                  src={option.src}
+                  alt=""
+                  width={size}
+                  height={size}
+                  className="rounded-[22%] ring-1 ring-black/10"
+                />
+              ))}
+            </div>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  )
+}
+
 // Keep the prior canvas and fire-ring art here as comparisons while the real
 // loader defaults to the solid-wood treatment. `tileSrc` undefined falls back
 // to the current production art.
 const LOADER_VARIANTS = [
-  { key: 'wood-unlocked', label: 'Wood · Unlocked', theme: 'unlocked', tileSrc: undefined },
+  { key: 'wood-unlocked', label: 'Walnut · Lighter', theme: 'unlocked', tileSrc: undefined },
   { key: 'wood-locked', label: 'Wood · Locked', theme: 'locked', tileSrc: undefined },
   { key: 'canvas-unlocked', label: 'Canvas · Unlocked', theme: 'unlocked', tileSrc: '/puzzle-flat-dark.webp?v=20260902-tone' },
   { key: 'canvas-locked', label: 'Canvas · Locked', theme: 'locked', tileSrc: '/puzzle-flat-light.webp?v=20260902-tone' },

@@ -44,6 +44,10 @@ describe('AdminPage current rules', () => {
       if (path === '/leagues') {
         return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
       }
+      if (path === '/league-seasons') return [season]
+      if (path === '/leagues/league-1/members') {
+        return [{ id: 'u-1', display_name: 'FINE', joined_at: '2026-01-02' }]
+      }
       return []
     })
 
@@ -52,11 +56,20 @@ describe('AdminPage current rules', () => {
     })
 
     expect(await screen.findByRole('heading', { name: 'League operations' })).toBeVisible()
+    // Leagues overview: who is in each league and where its seasons stand.
+    expect(await screen.findByText('FINE')).toBeVisible()
+    expect(screen.getByText(/active · Season setup/)).toBeVisible()
     // #404: swaps are priced in points now, not in the weekly play.
     expect(screen.getByText(/then -5\/swap escalating, floor -25/)).toBeVisible()
     expect(screen.queryByText(/weekly play/)).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /Tokens/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/weekly token allocation/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /App icon finalists/ })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Woven canvas app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Heavy brush dark canvas app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Heavy brush lighter canvas app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Dark walnut app icon option' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Lighter walnut app icon option' })).toBeVisible()
   })
 
   it('requires explicit confirmation before publishing episode scores', async () => {

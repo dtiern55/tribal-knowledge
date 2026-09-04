@@ -13,6 +13,12 @@ export interface League {
   created_at: string
 }
 
+export interface LeagueMember {
+  id: string
+  display_name: string
+  joined_at: string
+}
+
 /** The show season: shared by every league playing it (#595). */
 export interface ShowSeason {
   id: string
