@@ -14,7 +14,7 @@ import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge, LockLine } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
-import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, ssLockEpisodeNumber, swapsLocked } from '../lib/episodes'
+import { advantagesLocked, episodeClosed, isEpisodeOpen, openEpisode, ssDesignationOpen, swapLockEpisodeNumber, swapsLocked } from '../lib/episodes'
 import { EpisodeLabel } from '../components/EpisodeLabel'
 import { ColdStart } from '../components/ColdStart'
 import { RosterBreakdown } from '../components/RosterBreakdown'
@@ -4002,7 +4002,7 @@ function SoleSurvivorLine({
   }
   const designee = roster.find((p) => p.is_sole_survivor)
 
-  const lockEp = ssLockEpisodeNumber(season, episodes)
+  const lockEp = swapLockEpisodeNumber(season)
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   const windowOpen = ssDesignationOpen(season, episodes)
 

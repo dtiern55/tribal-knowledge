@@ -43,7 +43,7 @@ describe('sole survivor designation window', () => {
   const ssSeason = {
     roster_lock_episode: 2,
     merge_episode: 7,
-    ss_lock_episode: 9,
+    swap_lock_episode: 9,
     status: 'active',
   } as Season
 
@@ -79,7 +79,7 @@ describe('sole survivor designation window', () => {
   it('ignores the merge gate when no merge is set', () => {
     const noMerge = {
       roster_lock_episode: 2,
-      ss_lock_episode: 9,
+      swap_lock_episode: 9,
       status: 'active',
     } as Season
     vi.useFakeTimers()
