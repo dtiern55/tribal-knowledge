@@ -38,5 +38,10 @@ export function isInstalled(): boolean {
 }
 
 export function isIos(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+  return (
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    // iPadOS Safari asks for desktop sites, so its UA says "Macintosh"; a
+    // Mac with a touchscreen is an iPad.
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
 }

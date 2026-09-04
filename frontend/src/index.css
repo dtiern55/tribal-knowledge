@@ -99,11 +99,12 @@
 
 html {
   color-scheme: light;
-  /* Dynamic viewport, not 100%/100vh: on iOS Safari those resolve to the
-     large (toolbar-retracted) viewport, leaving the document taller than the
-     visible area so the page scrolls into empty filler past the fixed bottom
-     bar. dvh tracks the visible viewport and matches the rest of the shell. */
-  min-height: 100dvh;
+  /* No full-height floor on the shell (#518). 100%/100vh resolve to the
+     toolbar-retracted viewport on iOS Safari, and Chrome/Firefox on iOS get
+     dvh/svh wrong the same way, so any viewport-unit min-height leaves the
+     document taller than the visible area and the page scrolls into empty
+     filler past the fixed bottom bar. Instead the shell gradients end in the
+     html background colour, so a short page simply runs into the ground. */
   background: var(--color-ground);
   scroll-padding-top: 5rem;
 }
@@ -111,7 +112,6 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100dvh;
   background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-body);
@@ -139,11 +139,6 @@ body::after {
    override it. */
 :where(.font-display) {
   font-weight: 600;
-}
-
-#root,
-.app-shell {
-  min-height: 100dvh;
 }
 
 /* Firelight (#392): the unlocked state is the daylight side of the same room
