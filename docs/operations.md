@@ -47,10 +47,10 @@ uv run python scripts/load_bios.py 50 --our-season 50
 uv run python scripts/load_bios.py 50 --our-season 50 --apply
 
 # Load the CBS cast questionnaire (expandable Q&A on the contestant page)
-# from the Survivor wiki. --skip drops questions by substring; the "previous
-# player" one names past winners.
-uv run python scripts/load_bio_qa.py 50 --our-season 50 --skip "previous player"
-uv run python scripts/load_bio_qa.py 50 --our-season 50 --skip "previous player" --apply
+# from the Survivor wiki. --skip TEXT drops questions by substring if one
+# needs holding back.
+uv run python scripts/load_bio_qa.py 50 --our-season 50
+uv run python scripts/load_bio_qa.py 50 --our-season 50 --apply
 ```
 
 These scripts authenticate through the normal producer account. Required
