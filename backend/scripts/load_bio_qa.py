@@ -6,8 +6,9 @@ wiki carries it per castaway in a parseable form, so that is the source.
 
 A castaway who played more than once has one profile tab per season on the
 wiki; the tab whose label appears in our season's name is read (override
-with --tab). Lines listing earlier finishes are always dropped: they spoil
-those seasons for anyone who hasn't watched them.
+with --tab). Returning players' bios list how they finished earlier seasons;
+that loads as written, so pass --skip previous to hold it back for a league
+that hasn't watched them.
 
 Dry-runs by default; --apply writes. --skip drops any question whose text
 contains the given substring (repeatable).
@@ -30,8 +31,7 @@ from dotenv import load_dotenv
 
 WIKI_API = "https://survivor.fandom.com/api.php"
 UA = {"User-Agent": "tribal-knowledge/1.0 (private fantasy league)"}
-# Identity lines the profile repeats (they live in their own columns already)
-# and the "previous ..." lines on returning players, which list finishes.
+# Identity lines the profile repeats; they live in their own columns already.
 NOT_QUESTIONS = {
     "age",
     "name",
@@ -41,18 +41,11 @@ NOT_QUESTIONS = {
     "occupation",
     "birthdate",
     "marital status",
-    "previous show",
-    "previous season",
-    "previous seasons",
-    "previous finish",
-    "previous finishes",
 }
 
 
 def _clean(s: str) -> str:
-    # {{tribehl5|galang|Galang|Returning Player}} -> "Galang, Returning Player";
-    # any other template keeps its last argument.
-    s = re.sub(r"\{\{tribehl\d*\|[^|}]*\|([^|}]+)\|([^|}]+)\}\}", r"\1, \2", s)
+    # A template that survived expansion keeps its last argument.
     s = re.sub(r"\{\{[^{}]*\|([^|{}]+)\}\}", r"\1", s)
     s = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", r"\1", s)  # [[Link|Text]] -> Text
     s = re.sub(r"'''|''", "", s)
@@ -75,6 +68,28 @@ def profile_tabs(wikitext: str) -> dict[str, str]:
         label, _, body = chunk.partition("=")
         tabs[label.strip()] = body
     return tabs
+
+
+def expand(profile: str) -> str:
+    """Render the wiki's templates to plain wikitext so season names and
+    tribe labels come through as text. The tribe highlight template renders
+    to a styled link that loses the tribe name, so it is rewritten first."""
+    profile = re.sub(
+        r"\{\{tribehl\d*\|[^|}]*\|([^|}]+)\|([^|}]+)\}\}", r"\1, \2", profile
+    )
+    r = httpx.post(
+        WIKI_API,
+        data={
+            "action": "expandtemplates",
+            "text": profile,
+            "prop": "wikitext",
+            "format": "json",
+        },
+        headers=UA,
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()["expandtemplates"]["wikitext"]
 
 
 def parse_profile(profile: str) -> list[dict]:
@@ -185,7 +200,7 @@ def main() -> None:
                     f" pass --tab, one of {sorted(tabs)}"
                 )
             profile = tabs[tab]
-        pairs = parse_profile(profile)
+        pairs = parse_profile(expand(profile)) if profile.strip() else []
         pairs = [p for p in pairs if not any(s in p["question"].lower() for s in skips)]
         if not pairs:
             missing.append(c["name"])

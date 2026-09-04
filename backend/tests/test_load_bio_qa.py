@@ -23,6 +23,8 @@ WIKITEXT = """{{Infobox}}'''Michael "Mike" Pinsky''' is a castaway from {{S|51}}
 '''Not a question:''' this is outside the profile
 """
 
+# A returning player's page, as it reads after the wiki has expanded its
+# templates (scripts/load_bio_qa.expand): season links and a tribe label.
 TABBED = """==Profile==
 ''Retrieved from CBS.com''
 {|
@@ -31,9 +33,9 @@ TABBED = """==Profile==
 '''Hobbies:''' Backgammon<br />
 |-|Blood vs. Water=
 '''Name (Age):''' Tina Wesson (52)<br />
-'''Tribe Designation:''' {{tribehl5|galang|Galang|Returning Player}}<br />
+'''Tribe Designation:''' Galang, Returning Player<br />
 '''Relationship to Significant Castaway:''' [[Katie Collins|Katie]]'s Mother<br />
-'''Previous Season:''' {{S|alt2}} – winner<br />
+'''Previous Season:''' ''[[Survivor: Australia]]'' – winner<br />
 '''Why Did You Want to Return?:''' To play with Katie.<br />
 </tabber>
 |}
@@ -63,7 +65,7 @@ def test_parse_profile_without_profile_section():
     assert parse_profile("") == []
 
 
-def test_multi_season_page_reads_one_tab_and_drops_finishes():
+def test_multi_season_page_reads_one_tab():
     tabs = profile_tabs(TABBED)
     assert sorted(tabs) == ["All-Stars", "Blood vs. Water"]
     assert parse_profile(tabs["Blood vs. Water"]) == [
@@ -72,5 +74,6 @@ def test_multi_season_page_reads_one_tab_and_drops_finishes():
             "question": "Relationship to Significant Castaway",
             "answer": "Katie's Mother",
         },
+        {"question": "Previous Season", "answer": "Survivor: Australia – winner"},
         {"question": "Why Did You Want to Return?", "answer": "To play with Katie."},
     ]
