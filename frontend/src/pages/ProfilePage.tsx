@@ -12,6 +12,7 @@ import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
+import { ShareIcon } from '../components/icons'
 
 const inputCls =
   'min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm'
@@ -300,8 +301,11 @@ function InstallSection() {
         </>
       ) : (
         <p className="text-xs text-gray-500">
-          In Safari, tap <span className="font-medium">Share</span> →{' '}
-          <span className="font-medium">Add to Home Screen</span> to install
+          In Safari, tap{' '}
+          <span className="inline-flex items-center gap-1 font-medium">
+            Share <ShareIcon className="h-4 w-4" />
+          </span>
+          , then <span className="font-medium">Add to Home Screen</span> to install
           Snakes and Rats as an app.
         </p>
       )}

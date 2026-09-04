@@ -17,6 +17,7 @@ import {
   EnvelopeIcon,
   GearIcon,
   LogOutIcon,
+  ShareIcon,
   UserIcon,
 } from './icons'
 
@@ -215,8 +216,11 @@ export function NavDrawer({
                     <DownloadIcon />
                     Add to home screen
                   </span>
-                  In Safari, tap <span className="font-medium">Share</span> →{' '}
-                  <span className="font-medium">Add to Home Screen</span>.
+                  In Safari, tap{' '}
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    Share <ShareIcon className="h-4 w-4" />
+                  </span>
+                  , then <span className="font-medium">Add to Home Screen</span>.
                 </div>
               ))}
           </nav>
