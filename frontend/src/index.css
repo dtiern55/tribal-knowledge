@@ -74,6 +74,11 @@
   --color-cream-300: #d5c4ad;
   --color-ink: #1c1917;
 
+  /* Bright textile midtones sampled from the installed app icon. */
+  --color-brand-snake: #cd5e21;
+  --color-brand-flame: #f3b939;
+  --color-brand-rat: #f6e1ad;
+
   --font-display: "Rajdhani", system-ui, sans-serif;
   --font-brand: "Skranji", "Rajdhani", system-ui, sans-serif;
   --font-body: "Source Sans 3", system-ui, sans-serif;

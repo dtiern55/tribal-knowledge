@@ -1,10 +1,11 @@
 # Wood-block burn texture study
 
 Texture exploration for the production rat, snake, and flame mark. The selected
-solid-background revision is retained as the earlier installed app icon; the
-finer-grained dark and light revisions supply the sliding-puzzle loader. The
-installed app icons now use the locked-theme source from the parent directory,
-while browser favicons use a separate simple animal mark.
+solid-background revision is retained as an earlier installed app icon; the
+finer-grained dark and light revisions still supply the sliding-puzzle loader.
+As of 2026-09-04, this directory's export script builds the installed icons and
+browser favicons from the selected clean-woven dark patchwork source in
+`../2026-09-04-dark-stitch-textures/`. The puzzle sources remain independent.
 
 The production icon's composition and silhouettes are held fixed. Only the
 surface treatment changes, with the cream rat, terracotta snake, and gold flame
@@ -20,6 +21,10 @@ in this directory:
 uv run --with pillow python \
   design/icon-concepts/2026-09-02-wood-block-burn/export_app_icons.py
 ```
+
+Pass `--app-only` to rebuild the installed icons and browser favicons without
+rewriting either slide-puzzle image. This is the normal command for an icon-only
+identity update.
 
 ## Solid-background revision
 

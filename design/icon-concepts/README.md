@@ -76,3 +76,39 @@ all collapsed into indistinct color at 16px. The replacement uses the supplied
 simple rat silhouette: cream on a solid forest field, with the supplied simple
 snake retained as an alternate. The PNG and ICO exports share the same source;
 installed and maskable app icons remain separate.
+
+## 2026-09-04 brighter foreground study
+
+Small-size review showed that lightening the forest background was less
+effective than lifting the rat, flame, and snake themselves. The retained study
+under `2026-09-04-brighter-foreground/` includes balanced and vivid heavy-canvas
+passes plus coordinated dark and locked patchwork variants. The settled color
+direction is warm ivory, luminous gold, and earthy burnt red; the locked
+patchwork version keeps its green rat on the cream ground.
+
+The current preferred heavy-canvas study is
+`canvas-vivid-burnt-red-v2-lighter.png`. Its snake is a small value lift over
+the first burnt-red pass so it remains red—not orange—without sinking into the
+dark forest canvas. These are reference sources only; production exports were
+not replaced as part of the study.
+
+The follow-on `2026-09-04-dark-stitch-textures/` study revisits the dark
+patchwork source specifically. One candidate swaps the dense foreground
+micro-pattern for quiet woven textile relief while retaining the intricate
+green ground. The other makes the three foreground forms literal fabric
+appliqués with visible blanket stitching on a simpler dark-green weave. Both
+keep the ivory, gold, and burnt-red palette and are preserved with a launcher-
+size comparison board.
+
+The selected dark patchwork direction is the quiet woven treatment with a
+red-leaning burnt-orange/rust snake:
+`2026-09-04-dark-stitch-textures/dark-patchwork-clean-woven-burnt-orange.png`.
+The earlier burnt-red woven pass and the literal stitched appliqué remain next
+to it as reference controls.
+
+That selected clean-woven source became the production identity on 2026-09-04:
+installed, maskable, Apple touch, browser favicon, and every in-app static icon
+now use it. The slide-puzzle images deliberately remain the earlier light-
+walnut and fine-light sources. The `SNAKES / AND / RATS` wordmark now uses
+bright source-image midtones (`#cd5e21` / `#f3b939` / `#f6e1ad`) for the snake,
+flame, and rat roles respectively.

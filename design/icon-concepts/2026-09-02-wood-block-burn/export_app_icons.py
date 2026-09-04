@@ -1,4 +1,6 @@
-"""Export the approved app icon and loading-puzzle marks."""
+"""Export the approved app icon, favicons, and loading-puzzle marks."""
+
+import argparse
 
 from pathlib import Path
 
@@ -8,7 +10,11 @@ from PIL import Image, ImageFilter
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 SELECTED = HERE.parent / "2026-09-03-material-variants"
-SOURCE_APP = SELECTED / "selected-canvas-heavy-dark.png"
+SOURCE_APP = (
+    HERE.parent
+    / "2026-09-04-dark-stitch-textures"
+    / "dark-patchwork-clean-woven-burnt-orange.png"
+)
 PUZZLE_UNLOCKED = SELECTED / "selected-walnut-light.png"
 PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
 PUBLIC = REPO / "frontend" / "public"
@@ -21,6 +27,22 @@ def resized(source: Image.Image, size: int) -> Image.Image:
 
 def save_webp(image: Image.Image, name: str) -> None:
     image.save(PUBLIC / name, "WEBP", quality=92, method=6)
+
+
+def save_favicons(source: Image.Image) -> None:
+    """Use the approved full mark everywhere the browser shows app identity."""
+
+    for size in (16, 32, 48):
+        resized(source, size).save(
+            PUBLIC / f"favicon-{size}x{size}.png",
+            "PNG",
+            optimize=True,
+        )
+    resized(source, 256).save(
+        PUBLIC / "favicon.ico",
+        "ICO",
+        sizes=[(16, 16), (32, 32), (48, 48)],
+    )
 
 
 def maskable_icon(source: Image.Image) -> Image.Image:
@@ -53,20 +75,33 @@ def maskable_icon(source: Image.Image) -> Image.Image:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--app-only",
+        action="store_true",
+        help="Export app icons and favicons without rewriting slide-puzzle art.",
+    )
+    args = parser.parse_args()
+
     app = Image.open(SOURCE_APP).convert("RGB")
-    puzzle_unlocked = Image.open(PUZZLE_UNLOCKED).convert("RGB")
-    puzzle_light = Image.open(PUZZLE_LIGHT).convert("RGB")
-    for source in (app, puzzle_unlocked, puzzle_light):
+    puzzle_sources = [] if args.app_only else [
+        Image.open(PUZZLE_UNLOCKED).convert("RGB"),
+        Image.open(PUZZLE_LIGHT).convert("RGB"),
+    ]
+    for source in [app, *puzzle_sources]:
         if source.width != source.height:
             raise ValueError(f"Expected a square source, got {source.size}")
 
     save_webp(resized(app, 512), "icon-512.webp")
     save_webp(resized(app, 192), "icon-192.webp")
     save_webp(maskable_icon(app), "icon-512-maskable.webp")
-    save_webp(resized(puzzle_unlocked, 640), "puzzle-wood-solid.webp")
-    save_webp(resized(puzzle_light, 640), "puzzle-wood-light.webp")
-
     resized(app, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
+    save_favicons(app)
+
+    if puzzle_sources:
+        puzzle_unlocked, puzzle_light = puzzle_sources
+        save_webp(resized(puzzle_unlocked, 640), "puzzle-wood-solid.webp")
+        save_webp(resized(puzzle_light, 640), "puzzle-wood-light.webp")
 
 
 if __name__ == "__main__":
