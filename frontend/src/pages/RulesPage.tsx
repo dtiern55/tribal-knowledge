@@ -253,8 +253,8 @@ export function RulesPage() {
           <h3 className="mt-6 font-semibold text-gray-900">Finale ballot</h3>
           <RuleList>
             <li>The finale ballot replaces the weekly ballot.</li>
-            <li>Predict the first finale boot, the fire-making loser, and the season winner.</li>
-            <li>Each correct prediction scores separately.</li>
+            <li>Fill in a bracket: the Final 4, the Final 3, and the winner.</li>
+            <li>Each correct Final 4 and Final 3 pick scores separately. Naming the exact Final 3 earns a bonus, and the winner scores on top.</li>
           </RuleList>
           {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
         </RuleSection>
