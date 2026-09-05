@@ -599,6 +599,10 @@ class LeagueMember(BaseModel):
     joined_at: datetime
 
 
+class LeagueMemberAddRequest(BaseModel):
+    email: str = Field(min_length=3)
+
+
 class TokenTransaction(BaseModel):
     id: UUID
     user_id: UUID
