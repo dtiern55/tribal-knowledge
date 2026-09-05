@@ -43,7 +43,7 @@ export function PageLoader({
   const theme = document.documentElement.classList.contains('locked-night') ? 'locked' : 'unlocked'
   return (
     <div className="tk-loader-fade">
-      <SlidePuzzleLoader theme={theme} label={label} />
+      <SlidePuzzleLoader theme={theme} label={label} scene={false} />
     </div>
   )
 }
