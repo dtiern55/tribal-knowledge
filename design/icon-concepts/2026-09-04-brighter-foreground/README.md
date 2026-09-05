@@ -37,3 +37,12 @@ at 48, 64, 128, and 256 pixels. Rebuild it with:
 uv run --with pillow python \
   design/icon-concepts/2026-09-04-brighter-foreground/make_comparison.py
 ```
+
+## 2026-09-05 production refinement
+
+`canvas-vivid-burnt-red-flatter-background.png` keeps the selected vivid
+burnt-red foreground and heavy painted forms while reducing the green canvas
+background's relief and micro-contrast. This prevents the background from
+reading as fuzzy at launcher size while retaining a restrained textile grain.
+It is the current source for the installed, maskable, Apple touch, and in-app
+icon exports.
