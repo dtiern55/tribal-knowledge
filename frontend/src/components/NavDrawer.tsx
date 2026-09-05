@@ -15,8 +15,6 @@ import {
   BookIcon,
   CloseIcon,
   DownloadIcon,
-  EnvelopeIcon,
-  GearIcon,
   LogOutIcon,
   UserIcon,
 } from './icons'
@@ -184,13 +182,6 @@ export function NavDrawer({
               <BookIcon />
               Rules
             </NavLink>
-            <div className={`${rowCls} cursor-default text-forest-800/55 hover:bg-transparent`}>
-              <EnvelopeIcon />
-              <span className="flex-1">Treemail</span>
-              <span className="rounded-full bg-terracotta-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta-700">
-                Soon
-              </span>
-            </div>
             <NavLink to="/profile" onClick={onClose} className={rowCls}>
               <UserIcon />
               Profile
@@ -199,13 +190,6 @@ export function NavDrawer({
               <UserIcon />
               Join a league
             </NavLink>
-            <div className={`${rowCls} cursor-default text-forest-800/55 hover:bg-transparent`}>
-              <GearIcon />
-              <span className="flex-1">Settings</span>
-              <span className="rounded-full bg-terracotta-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta-700">
-                Soon
-              </span>
-            </div>
             {showInstall &&
               (canPrompt ? (
                 <button type="button" onClick={() => void promptInstall()} className={rowCls}>
