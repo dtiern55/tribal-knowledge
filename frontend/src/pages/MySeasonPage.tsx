@@ -10,7 +10,6 @@ import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.webp'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket } from '../components/FinaleBracket'
-import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge, LockLine } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
@@ -555,9 +554,7 @@ export function MySeasonPage() {
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
   useEffect(() => {
-    // Only swap uses the in-page stage lighting now; double picks in a focused
-    // sheet (#449), so it needs no scrim/halo behind it.
-    if (picking === 'swap') {
+    if (picking != null) {
       setStageOpen(true)
       return
     }
@@ -810,10 +807,10 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || picking === 'swap') && (
+      {state.kind === 'open' && (stageOpen || picking != null) && (
         <div
           className="stage-scrim"
-          data-on={picking === 'swap'}
+          data-on={picking != null}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
@@ -879,7 +876,7 @@ export function MySeasonPage() {
           <RecordPanel
             beat="roster"
             active={beat === 'roster'}
-            className={`stage-stage ${picking === 'swap' ? 'stage-lit' : ''}`}
+            className={`stage-stage ${picking != null ? 'stage-lit' : ''}`}
           >
             <div id="roster">
               <RosterSection
@@ -2776,40 +2773,18 @@ function RosterSection({
             : 'Choose a castaway to drop'}
         </p>
       )}
-      {picking === 'double' &&
-        createPortal(
-          <DoublePickSheet
-            candidates={[...activeRoster]
-              .sort(
-                (a, b) =>
-                  Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
-                  Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null),
-              )
-              .map((pick) => {
-                const c = contestantMap.get(pick.contestant_id)
-                return {
-                  contestantId: pick.contestant_id,
-                  name: c ? displayName(c) : '—',
-                  imageUrl: c?.image_url ?? null,
-                  tribeName: c?.tribe_name ?? null,
-                  tribeColor: c?.tribe_color ?? null,
-                  points: rosterPoints.get(pick.contestant_id),
-                  eliminated: c?.eliminated_in_episode != null,
-                }
-              })}
-            onPick={(id) => {
-              // Close the sheet now — the seal lands optimistically, so waiting
-              // for the delete+post round-trip left the castaway list lingering
-              // a beat after the pick already showed (#487).
-              onPickingDone?.()
-              void weekly.replace('double_roster_points', id)
-            }}
-            onCancel={() => onPickingDone?.()}
-            busy={weekly.busy}
-            error={weekly.error}
-          />,
-          document.body,
-        )}
+      {picking === 'double' && (
+        <p className="flex items-center justify-between gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
+          Choose a castaway to double
+          <button
+            type="button"
+            onClick={() => onPickingDone?.()}
+            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
+        </p>
+      )}
       {(error || weekly.error) && (
         <p role="alert" className="px-4 py-2 text-sm text-terracotta-600">
           {error ?? weekly.error}
@@ -2847,7 +2822,15 @@ function RosterSection({
                 onSelect={
                   picking === 'swap' && !swapping
                     ? () => setDropping(pick.contestant_id)
-                    : undefined
+                    : picking === 'double' && !weekly.busy
+                      ? () => {
+                          // Leave picking mode now — the seal lands
+                          // optimistically, so waiting for the round-trip
+                          // held the stage a beat past the pick (#487).
+                          onPickingDone?.()
+                          void weekly.replace('double_roster_points', pick.contestant_id)
+                        }
+                      : undefined
                 }
                 selected={
                   picking === 'swap'

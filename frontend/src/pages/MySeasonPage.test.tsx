@@ -435,11 +435,11 @@ describe('MySeasonPage state shell', () => {
     expect(within(menu).getByRole('menuitem', { name: 'Double your ballot' })).toBeVisible()
     expect(within(menu).queryByRole('menuitem', { name: /Swap/ })).not.toBeInTheDocument()
 
-    // Choosing "Double a castaway" opens the focused sheet to answer it.
+    // Choosing "Double a castaway" lights the roster: banner, tappable rows, Cancel.
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Double a castaway' }))
-    const sheet = screen.getByRole('dialog', { name: /Choose a castaway to double/ })
-    expect(within(sheet).getByText('Kenzie')).toBeVisible()
-    expect(within(sheet).getByRole('button', { name: 'Cancel' })).toBeVisible()
+    expect(screen.getByText('Choose a castaway to double')).toBeVisible()
+    expect(within(roster).getByRole('button', { name: /Kenzie/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
   })
 
   it('marks the selected roster card after Double Castaway Points is saved', async () => {
@@ -635,8 +635,8 @@ describe('MySeasonPage state shell', () => {
     fireEvent(window, new MouseEvent('pointermove', { clientX: 100, clientY: 20 }))
     fireEvent(window, new MouseEvent('pointerup', { clientX: 100, clientY: 20 }))
 
-    // Same as the Advantage → Roster ×2 flow: the double-pick sheet opens.
-    expect(await screen.findByRole('dialog', { name: 'Choose a castaway to double' })).toBeVisible()
+    // Same as the Advantage → Roster ×2 flow: the roster lights up for the pick.
+    expect(await screen.findByText('Choose a castaway to double')).toBeVisible()
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
