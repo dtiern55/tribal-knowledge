@@ -45,3 +45,9 @@ export function isIos(): boolean {
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   )
 }
+
+/** Android without beforeinstallprompt (Firefox): install lives in the
+ * browser's own menu, so we point there instead of showing nothing. */
+export function isAndroid(): boolean {
+  return /android/i.test(navigator.userAgent)
+}
