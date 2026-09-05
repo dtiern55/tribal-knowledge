@@ -134,6 +134,17 @@ Scripts read `backend/.env`, which points at staging. Prod credentials live in
 project after a week idle — if staging returns errors, unpause it in the
 dashboard.
 
+To give previews real castaways and teams, refresh staging from prod:
+
+```bash
+uv run python scripts/copy_prod_to_staging.py          # dry run: counts + id map
+uv run python scripts/copy_prod_to_staging.py --apply  # truncate staging, reload
+```
+
+It copies every public table and remaps user ids by email, so an account that
+exists in both projects keeps its staging login. Other players are visible
+data only; auth users are not copied.
+
 ## Migrations and deployment
 
 1. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every PR:
