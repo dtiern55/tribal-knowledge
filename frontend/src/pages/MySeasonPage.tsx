@@ -10,7 +10,6 @@ import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.webp'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket } from '../components/FinaleBracket'
-import { DoublePickSheet } from '../components/DoublePickSheet'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge, LockLine } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
@@ -386,6 +385,12 @@ export function MySeasonPage() {
   // down, the lane keeps the torch. Leaving the beat — or the page — brings it
   // back up, since the scrim only exists while this beat is showing.
   const ballotLit = beat === 'ballot' && picking == null
+  // Choosing a double borrows the same lamp, swung over to the roster: the
+  // room goes down and the Tribe lane is the one thing left lit. Swaps keep
+  // the flat stage scrim.
+  const doubleLit = picking === 'double'
+  const roomLit = ballotLit || doubleLit
+  const litPanel = doubleLit ? 'panel-roster' : 'panel-ballot'
   // Aim the lamp at the ballot. Reads the panel by id rather than threading a
   // ref through LaneStack and RecordPanel — the id is already there for aria,
   // and this is the only thing that needs the box. Tracks the panel's VISIBLE
@@ -395,8 +400,8 @@ export function MySeasonPage() {
   // page, and a room light that lived here would be cut off mid-dark instead
   // of coming back up behind you.
   useEffect(() => {
-    document.documentElement.classList.toggle('ballot-room', ballotLit)
-  }, [ballotLit])
+    document.documentElement.classList.toggle('ballot-room', roomLit)
+  }, [roomLit])
 
   // Leaving the page is not the same as leaving the beat. Empty deps, so this
   // cleanup runs on unmount only. A beat switch keeps the slow swell — the
@@ -449,8 +454,8 @@ export function MySeasonPage() {
   }, [])
 
   useEffect(() => {
-    if (!ballotLit) return
-    const panel = document.getElementById('panel-ballot')
+    if (!roomLit) return
+    const panel = document.getElementById(litPanel)
     if (!panel) return
     let frame = 0
     const aim = () => {
@@ -485,7 +490,7 @@ export function MySeasonPage() {
       window.removeEventListener('scroll', queue)
       window.removeEventListener('resize', queue)
     }
-  }, [ballotLit])
+  }, [roomLit, litPanel])
   // The recap overlay is driven by a `recap=<episode_id>` URL param (#479) so
   // Back closes it instead of leaving the page, and a refresh restores it.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -555,8 +560,7 @@ export function MySeasonPage() {
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
   useEffect(() => {
-    // Only swap uses the in-page stage lighting now; double picks in a focused
-    // sheet (#449), so it needs no scrim/halo behind it.
+    // Only swap uses the flat stage scrim; the double pick lights the room.
     if (picking === 'swap') {
       setStageOpen(true)
       return
@@ -872,14 +876,14 @@ export function MySeasonPage() {
           <LaneStack
             lane={beat === 'roster' ? 'jade' : 'terracotta'}
             glowOut={stageOpen}
-            lit={ballotLit}
+            lit={roomLit}
           >
           <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
 
           <RecordPanel
             beat="roster"
             active={beat === 'roster'}
-            className={`stage-stage ${picking === 'swap' ? 'stage-lit' : ''}`}
+            className={`stage-stage ${picking != null ? 'stage-lit' : ''}`}
           >
             <div id="roster">
               <RosterSection
@@ -2776,40 +2780,18 @@ function RosterSection({
             : 'Choose a castaway to drop'}
         </p>
       )}
-      {picking === 'double' &&
-        createPortal(
-          <DoublePickSheet
-            candidates={[...activeRoster]
-              .sort(
-                (a, b) =>
-                  Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) -
-                  Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null),
-              )
-              .map((pick) => {
-                const c = contestantMap.get(pick.contestant_id)
-                return {
-                  contestantId: pick.contestant_id,
-                  name: c ? displayName(c) : '—',
-                  imageUrl: c?.image_url ?? null,
-                  tribeName: c?.tribe_name ?? null,
-                  tribeColor: c?.tribe_color ?? null,
-                  points: rosterPoints.get(pick.contestant_id),
-                  eliminated: c?.eliminated_in_episode != null,
-                }
-              })}
-            onPick={(id) => {
-              // Close the sheet now — the seal lands optimistically, so waiting
-              // for the delete+post round-trip left the castaway list lingering
-              // a beat after the pick already showed (#487).
-              onPickingDone?.()
-              void weekly.replace('double_roster_points', id)
-            }}
-            onCancel={() => onPickingDone?.()}
-            busy={weekly.busy}
-            error={weekly.error}
-          />,
-          document.body,
-        )}
+      {picking === 'double' && (
+        <p className="flex items-center justify-between gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
+          Choose a castaway to double
+          <button
+            type="button"
+            onClick={() => onPickingDone?.()}
+            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
+        </p>
+      )}
       {(error || weekly.error) && (
         <p role="alert" className="px-4 py-2 text-sm text-terracotta-600">
           {error ?? weekly.error}
@@ -2847,7 +2829,15 @@ function RosterSection({
                 onSelect={
                   picking === 'swap' && !swapping
                     ? () => setDropping(pick.contestant_id)
-                    : undefined
+                    : picking === 'double' && !weekly.busy
+                      ? () => {
+                          // Leave picking mode now — the seal lands
+                          // optimistically, so waiting for the round-trip
+                          // held the stage a beat past the pick (#487).
+                          onPickingDone?.()
+                          void weekly.replace('double_roster_points', pick.contestant_id)
+                        }
+                      : undefined
                 }
                 selected={
                   picking === 'swap'
