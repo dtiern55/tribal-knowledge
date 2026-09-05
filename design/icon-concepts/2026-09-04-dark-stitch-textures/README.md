@@ -7,11 +7,12 @@ the animal and flame silhouettes at launcher size.
 - `dark-patchwork-clean-woven.png` retains the original intricate background
   but replaces the foreground interiors with quieter, low-contrast woven
   textile relief. Its snake is the first burnt-red colorway.
-- `dark-patchwork-clean-woven-burnt-orange.png` is the selected direction. It
+- `dark-patchwork-clean-woven-burnt-orange.png` was the selected direction. It
   keeps the clean woven treatment and moves only the snake to a slightly
   lighter, red-leaning burnt orange/rust, still well separated from the gold
   flame. As of 2026-09-04 it supplies the installed, maskable, Apple touch, and
-  in-app icon exports. The browser favicon remains the simple rat, and the
+  in-app icon exports until the 2026-09-05 flatter-canvas refinement. The
+  browser favicon remains the simple rat, and the
   slide-puzzle sources remain unchanged.
 - `dark-patchwork-stitched-applique.png` treats each foreground form as a
   separate, slightly raised fabric patch with visible blanket stitching. Its

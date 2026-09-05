@@ -12,8 +12,8 @@ REPO = HERE.parents[2]
 SELECTED = HERE.parent / "2026-09-03-material-variants"
 SOURCE_APP = (
     HERE.parent
-    / "2026-09-04-dark-stitch-textures"
-    / "dark-patchwork-clean-woven-burnt-orange.png"
+    / "2026-09-04-brighter-foreground"
+    / "canvas-vivid-burnt-red-flatter-background.png"
 )
 PUZZLE_UNLOCKED = SELECTED / "selected-walnut-light.png"
 PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
@@ -36,8 +36,10 @@ def maskable_icon(source: Image.Image) -> Image.Image:
     # low-contrast field keeps launcher masks from exposing a framed square.
     texture = source.crop((0, 0, 256, 256)).resize((512, 512), RESAMPLE)
     forest = Image.new("RGB", (512, 512), "#103c2b")
-    background = Image.blend(forest, texture, 0.42)
-    background = background.filter(ImageFilter.GaussianBlur(0.55))
+    # Keep a hint of the source weave without magnifying its corner texture
+    # into fuzzy launcher-scale relief around the safe-zone inset.
+    background = Image.blend(forest, texture, 0.16)
+    background = background.filter(ImageFilter.GaussianBlur(1.0))
 
     inset_size = 384
     inset = resized(source, inset_size)

@@ -2341,7 +2341,7 @@ function BrandingCompareSection() {
   const marks = [
     { src: '/icon-tribalknowledge.webp', caption: 'Before', word: <span className="text-forest-800">TRIBAL KNOWLEDGE</span> },
     {
-      src: '/icon-512.webp?v=20260904-clean-woven-rust',
+      src: '/icon-512.webp?v=20260905-flatter-canvas',
       caption: 'After',
       dark: true,
       word: <BrandWordmark />,
