@@ -130,6 +130,8 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
+  /* Same floor as .stage-scrim: inset alone can come up short of the viewport. */
+  min-height: 100vh;
   z-index: -1;
   pointer-events: none;
   background:
