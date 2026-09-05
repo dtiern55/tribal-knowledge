@@ -4,6 +4,7 @@ import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason, pinSeason } from '../lib/api'
 import {
   installAvailable,
+  isAndroid,
   isInstalled,
   isIos,
   onInstallAvailable,
@@ -15,9 +16,9 @@ import {
   CloseIcon,
   DownloadIcon,
   LogOutIcon,
-  ShareIcon,
   UserIcon,
 } from './icons'
+import { InstallSteps } from './InstallSteps'
 
 const rowCls =
   'flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-gray-700 hover:bg-cream-100'
@@ -109,7 +110,7 @@ export function NavDrawer({
     window.location.assign('/')
   }
 
-  const showInstall = !isInstalled() && (canPrompt || isIos())
+  const showInstall = !isInstalled() && (canPrompt || isIos() || isAndroid())
 
   return (
     <>
@@ -201,11 +202,7 @@ export function NavDrawer({
                     <DownloadIcon />
                     Add to home screen
                   </span>
-                  In Safari, tap{' '}
-                  <span className="inline-flex items-center gap-1 font-medium">
-                    Share <ShareIcon className="h-4 w-4" />
-                  </span>
-                  , then <span className="font-medium">Add to Home Screen</span>.
+                  <InstallSteps />
                 </div>
               ))}
           </nav>

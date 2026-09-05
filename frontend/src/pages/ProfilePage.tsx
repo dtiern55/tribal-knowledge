@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import {
   installAvailable,
+  isAndroid,
   isInstalled,
   isIos,
   onInstallAvailable,
@@ -12,7 +13,7 @@ import { useAuth } from '../auth/useAuth'
 import type { UserProfile } from '../types'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
-import { ShareIcon } from '../components/icons'
+import { InstallSteps } from '../components/InstallSteps'
 
 const inputCls =
   'min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm'
@@ -279,11 +280,11 @@ function InstallSection() {
   const [canPrompt, setCanPrompt] = useState(installAvailable())
   useEffect(() => onInstallAvailable(() => setCanPrompt(true)), [])
 
-  // Only show when there's an actionable path: a live install prompt, or iOS
-  // where we can give Share → Add to Home Screen steps. Otherwise the section
-  // (and its instructions) stays hidden rather than lingering as stale,
-  // button-less text on desktop (#223).
-  if (isInstalled() || (!canPrompt && !isIos())) return null
+  // Only show when there's an actionable path: a live install prompt, or a
+  // phone where we can give manual steps. Otherwise the section (and its
+  // instructions) stays hidden rather than lingering as stale, button-less
+  // text on desktop (#223).
+  if (isInstalled() || (!canPrompt && !isIos() && !isAndroid())) return null
 
   return (
     <section aria-labelledby="install-app-title" className="rounded-2xl border border-cream-200 bg-white p-5 shadow-sm sm:p-6">
@@ -301,12 +302,7 @@ function InstallSection() {
         </>
       ) : (
         <p className="text-xs text-gray-500">
-          In Safari, tap{' '}
-          <span className="inline-flex items-center gap-1 font-medium">
-            Share <ShareIcon className="h-4 w-4" />
-          </span>
-          , then <span className="font-medium">Add to Home Screen</span> to install
-          Snakes and Rats as an app.
+          <InstallSteps />
         </p>
       )}
     </section>
