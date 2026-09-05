@@ -1760,7 +1760,12 @@ function LeagueRow({
 
   return (
     <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
-      <LeagueOverview league={league} seasons={seasons} episodesBySeason={episodesBySeason} />
+      <LeagueOverview
+        league={league}
+        seasons={seasons}
+        episodesBySeason={episodesBySeason}
+        onMembersChanged={(member_count) => onUpdated({ ...league, member_count })}
+      />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor={`league-name-${league.id}`} className="block text-xs text-gray-500 mb-1">Name</label>
@@ -1800,15 +1805,41 @@ function LeagueOverview({
   league,
   seasons,
   episodesBySeason,
+  onMembersChanged,
 }: {
   league: League
   seasons: Season[]
   episodesBySeason: Record<string, Episode[]>
+  onMembersChanged: (count: number) => void
 }) {
   const [members, setMembers] = useState<LeagueMember[] | null>(null)
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     void api.get<LeagueMember[]>(`/leagues/${league.id}/members`).then(setMembers)
   }, [league.id])
+
+  function update(next: LeagueMember[]) {
+    setMembers(next)
+    onMembersChanged(next.length)
+  }
+
+  function add() {
+    void run(setBusy, setError, async () => {
+      const m = await api.post<LeagueMember>(`/leagues/${league.id}/members`, { email: email.trim() })
+      update([...(members ?? []), m])
+      setEmail('')
+    })
+  }
+
+  function remove(m: LeagueMember) {
+    if (!window.confirm(`Remove ${m.display_name} from ${league.name}?`)) return
+    void run(setBusy, setError, async () => {
+      await api.delete(`/leagues/${league.id}/members/${m.id}`)
+      update((members ?? []).filter((x) => x.id !== m.id))
+    })
+  }
 
   return (
     <div className="space-y-2 rounded-lg bg-cream-50 p-3 text-sm">
@@ -1832,11 +1863,44 @@ function LeagueOverview({
       </div>
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-forest-600">
-          Members ({league.member_count})
+          Members ({members?.length ?? league.member_count})
         </p>
-        <p className="mt-1 text-gray-800">
-          {members === null ? 'Loading…' : members.length === 0 ? 'Nobody has joined yet.' : members.map((m) => m.display_name).join(', ')}
-        </p>
+        {members === null ? (
+          <p className="mt-1 text-gray-800">Loading…</p>
+        ) : members.length === 0 ? (
+          <p className="mt-1 text-gray-800">Nobody has joined yet.</p>
+        ) : (
+          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            {members.map((m) => (
+              <li key={m.id} className="text-gray-800">
+                {m.display_name}
+                <button
+                  type="button"
+                  onClick={() => remove(m)}
+                  disabled={busy}
+                  aria-label={`Remove ${m.display_name}`}
+                  className="ml-1 text-terracotta-600 hover:underline disabled:opacity-50"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-2 flex gap-2">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Add by email"
+            aria-label={`Add member to ${league.name} by email`}
+            className="flex-1 rounded-lg border border-cream-200 px-3 py-1.5 text-sm"
+          />
+          <ActionBtn variant="secondary" onClick={add} disabled={busy || !email.trim()}>
+            Add
+          </ActionBtn>
+        </div>
+        <ErrorMsg msg={error} />
       </div>
     </div>
   )
