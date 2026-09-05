@@ -118,15 +118,6 @@ export function CloseIcon() {
   )
 }
 
-export function EnvelopeIcon() {
-  return (
-    <Svg>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m2 7 10 6 10-6" />
-    </Svg>
-  )
-}
-
 export function UserIcon() {
   return (
     <Svg>
