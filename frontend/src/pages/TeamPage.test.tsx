@@ -94,4 +94,43 @@ describe('TeamPage', () => {
     expect(screen.queryByText('Contestant page')).not.toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
   })
+
+  it('starts with only Tribe open; Expand all reveals the ballot and advantages (#646)', async () => {
+    const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
+      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie' }]
+      if (path.endsWith('/standings')) return [{ user_id: 'friend-1', display_name: 'Friend', roster_points: 0, elimination_points: 5, finale_points: 0, total_points: 5, trend: null, trend_delta: 0, last_episode_points: 5, active_survivors: [], recently_eliminated_survivors: [] }]
+      if (path.endsWith('/episodes')) return [episode]
+      if (path.includes('/roster/')) return []
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [], sole_survivor_contestant_id: null, sole_survivor_bonus: 0 }
+      if (path.includes('/advantage-plays/')) return [{ id: 'play-1', episode_id: 'ep-1', advantage_type: 'double_vote_points', target_contestant_id: null, points_earned: 5 }]
+      // A real network gap: instantly resolving mocks let React batch the whole
+      // load into one render, which hides the latch.
+      if (path.includes('/picks/')) {
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        return [{ id: 'pick-1', episode_id: 'ep-1', contestant_id: 'cast-1' }]
+      }
+      if (path.endsWith('/eliminations')) return [{ id: 'elim-1', episode_id: 'ep-1', contestant_id: 'cast-1', elimination_type: 'voted_out' }]
+      if (path.includes('/finale-predictions/')) throw new Error('404')
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1' },
+    )
+
+    expect(await screen.findByRole('button', { name: /^Tribe/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /^Ballot/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+
+    expect(screen.getByText('Ep 1')).toBeVisible()
+    expect(screen.getByText(/Double Ballot Points/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
+  })
 })

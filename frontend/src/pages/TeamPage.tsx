@@ -42,6 +42,9 @@ function Points({ value }: { value: number | undefined }) {
   return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value} pts</span>
 }
 
+type SectionKey = 'tribe' | 'finale' | 'ballot' | 'advantages' | 'swapped'
+const ALL_CLOSED: Record<SectionKey, boolean> = { tribe: false, finale: false, ballot: false, advantages: false, swapped: false }
+
 // The section's contribution to the season total, shown on the section header
 // so the breakdown lives with the detail instead of in a separate tile row.
 // Roster + Ballot (+ Finale) are the additive buckets that make up the total.
@@ -85,6 +88,9 @@ export function TeamPage() {
   const [hidden, setHidden] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // The page runs its own sections rather than letting them remember per
+  // title, which would share state with My Season's Tribe and Ballot (#646).
+  const [open, setOpen] = useState<Record<SectionKey, boolean>>(ALL_CLOSED)
   const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
 
   useEffect(() => {
@@ -107,8 +113,6 @@ export function TeamPage() {
         ])
         setContestants(cs)
         setEpisodes(episodeRows)
-        setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
-        setSiblings(standings)
         try {
           setRoster(await api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`))
           const breakdown = await api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`)
@@ -134,6 +138,14 @@ export function TeamPage() {
         // elimination picks; 404 when the player never filed one (they may only
         // have the Sole Survivor designation), 403 until the finale locks.
         setBracket(await api.get<FinalePrediction>(`/league-seasons/${leagueSeasonId}/finale-predictions/${userId}`).catch(() => null))
+        // The player lands last: the page renders the moment it has one, and
+        // the Ballot/Advantages shells latch their open state on that first
+        // render. Set earlier, they latched on empty votes and plays and
+        // started collapsed (#646).
+        // Tribe alone starts open; the rest are a tap or Expand all away.
+        setOpen({ ...ALL_CLOSED, tribe: true })
+        setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
+        setSiblings(standings)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load team')
       } finally {
@@ -173,6 +185,11 @@ export function TeamPage() {
   const weeklyBonus = scoredPlays.reduce((total, play) => total + (play.points_earned ?? 0), 0)
   const ranked = rankStandings(siblings).find(({ entry }) => entry.user_id === userId)
   const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
+  // Swapped-out castaways is a footnote inside Tribe: expand-all opens it,
+  // but its being closed doesn't make the page read as collapsed.
+  const sections: SectionKey[] = ['tribe', 'ballot', 'advantages', ...(finaleScored ? ['finale' as const] : [])]
+  const allOpen = sections.every((key) => open[key])
+  const toggleSection = (key: SectionKey) => () => setOpen((o) => ({ ...o, [key]: !o[key] }))
 
   // The finale isn't an elimination vote — a player's call is their Final 4/3/
   // winner bracket if they filed one, otherwise their Sole Survivor winner
@@ -208,34 +225,26 @@ export function TeamPage() {
             )}
           </span>
         }
-        title={player.display_name}
+        // Possessive against the nav's "My Season": the one cue that says whose
+        // record this is (#646).
+        title={`${player.display_name}'s Season`}
         description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
         actions={<HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
       />
 
-      {finaleScored && (
-        <div className="mt-8">
-          <SectionShell title="Finale" prominent>
-            {finaleBallot ? (
-              <div className="flex justify-center py-2">
-                <FinaleBracket
-                  finalFour={finaleBallot.finalFour}
-                  finalThree={finaleBallot.finalThree}
-                  winner={finaleBallot.winner}
-                  byId={contestantMap}
-                  actuals={finaleActuals}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">No finale ballot submitted.</p>
-            )}
-          </SectionShell>
-        </div>
-      )}
-
-      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
+      {/* One column at every width, in My Season's order (#646): this is the
+          same record read for someone else, not a dashboard beside it. */}
+      <div className="mt-8 flex justify-end">
+        <button
+          onClick={() => setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, advantages: true, swapped: true })}
+          className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+        >
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+      <div className="mt-2 space-y-8">
         <section>
-          <SectionShell title="Tribe" prominent right={<SectionPoints value={player.roster_points} />}>
+          <SectionShell title="Tribe" prominent open={open.tribe} onToggle={toggleSection('tribe')} right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
               <Notice title="Team details are still private">Tribe and weekly-play choices unlock when tribes lock.</Notice>
             ) : active.length === 0 ? (
@@ -268,7 +277,7 @@ export function TeamPage() {
                     roster card each — the points they banked while held, the
                     episodes they were yours for, and a tap into their scoped
                     per-episode breakdown. Not the flat out→into ledger. */}
-                <SectionShell title="Swapped-out castaways" defaultOpen={false}>
+                <SectionShell title="Swapped-out castaways" open={open.swapped} onToggle={toggleSection('swapped')}>
                   <RosterManifest>
                     {swappedOut.map((pick) => (
                       <RosterCard
@@ -302,8 +311,26 @@ export function TeamPage() {
           </SectionShell>
         </section>
 
+        {finaleScored && (
+          <SectionShell title="Finale" prominent open={open.finale} onToggle={toggleSection('finale')}>
+            {finaleBallot ? (
+              <div className="flex justify-center py-2">
+                <FinaleBracket
+                  finalFour={finaleBallot.finalFour}
+                  finalThree={finaleBallot.finalThree}
+                  winner={finaleBallot.winner}
+                  byId={contestantMap}
+                  actuals={finaleActuals}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No finale ballot submitted.</p>
+            )}
+          </SectionShell>
+        )}
+
         <div className="space-y-8">
-          <SectionShell title="Ballot" prominent defaultOpen={votes.length > 0} right={<SectionPoints value={player.elimination_points} />}>
+          <SectionShell title="Ballot" prominent open={open.ballot} onToggle={toggleSection('ballot')} right={<SectionPoints value={player.elimination_points} />}>
             {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
               // One ledger row per episode, matching the My Season History sheet:
               // "Ep N", the votes (correct ones pilled), a single idol if the
@@ -347,7 +374,7 @@ export function TeamPage() {
             )}
           </SectionShell>
 
-          <SectionShell title="Advantages" prominent defaultOpen={scoredPlays.length > 0} right={<AdvantageEarned value={weeklyBonus} />}>
+          <SectionShell title="Advantages" prominent open={open.advantages} onToggle={toggleSection('advantages')} right={<AdvantageEarned value={weeklyBonus} />}>
             {hidden ? (
               <p className="text-sm text-gray-500">Advantages unlock with the tribe.</p>
             ) : scoredPlays.length === 0 ? (

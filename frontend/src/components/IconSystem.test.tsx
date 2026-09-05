@@ -6,13 +6,13 @@ import { VoteMark } from './VoteMark'
 
 describe('approved icon system', () => {
   it('renders the Double Castaway Points idol as a sized, labelled image', () => {
-    const { container, getByRole, rerender } = render(<DoubleBadge />)
+    const { getByRole, rerender } = render(<DoubleBadge />)
 
     const badge = getByRole('img')
     expect(badge).toHaveAttribute('aria-label', 'Double Castaway Points this episode')
     expect(badge).toHaveStyle({ width: '22px', height: '22px' })
-    // The artwork itself is decorative — the label lives on the wrapper.
-    expect(container.querySelector('img')).toHaveAttribute('aria-hidden', 'true')
+    // Per-season art arrives via --advantage-idol; the skull is the fallback (#642).
+    expect(badge.style.backgroundImage).toContain('var(--advantage-idol, url(')
 
     rerender(<DoubleBadge size={60} title="Play your advantage" />)
     const big = getByRole('img')
