@@ -95,7 +95,7 @@ describe('TeamPage', () => {
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
   })
 
-  it('opens the Ballot and Advantages sections when the player has votes and plays (#646)', async () => {
+  it('starts with only Tribe open; Expand all reveals the ballot and advantages (#646)', async () => {
     const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
@@ -123,9 +123,14 @@ describe('TeamPage', () => {
       { route: '/league-seasons/season-1/team/friend-1' },
     )
 
-    // Both ledgers are visible without a click: the sections must not latch
-    // closed on the render that happens before votes and plays arrive.
-    expect(await screen.findByText('Ep 1')).toBeVisible()
+    expect(await screen.findByRole('button', { name: /^Tribe/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /^Ballot/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+
+    expect(screen.getByText('Ep 1')).toBeVisible()
     expect(screen.getByText(/Double Ballot Points/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
   })
 })

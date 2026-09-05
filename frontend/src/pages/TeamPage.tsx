@@ -142,7 +142,8 @@ export function TeamPage() {
         // the Ballot/Advantages shells latch their open state on that first
         // render. Set earlier, they latched on empty votes and plays and
         // started collapsed (#646).
-        setOpen({ tribe: true, finale: true, ballot: visible.length > 0, advantages: true, swapped: false })
+        // Tribe alone starts open; the rest are a tap or Expand all away.
+        setOpen({ ...ALL_CLOSED, tribe: true })
         setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
         setSiblings(standings)
       } catch (e) {
