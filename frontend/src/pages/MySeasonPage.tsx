@@ -385,6 +385,12 @@ export function MySeasonPage() {
   // down, the lane keeps the torch. Leaving the beat — or the page — brings it
   // back up, since the scrim only exists while this beat is showing.
   const ballotLit = beat === 'ballot' && picking == null
+  // Choosing a double borrows the same lamp, swung over to the roster: the
+  // room goes down and the Tribe lane is the one thing left lit. Swaps keep
+  // the flat stage scrim.
+  const doubleLit = picking === 'double'
+  const roomLit = ballotLit || doubleLit
+  const litPanel = doubleLit ? 'panel-roster' : 'panel-ballot'
   // Aim the lamp at the ballot. Reads the panel by id rather than threading a
   // ref through LaneStack and RecordPanel — the id is already there for aria,
   // and this is the only thing that needs the box. Tracks the panel's VISIBLE
@@ -394,8 +400,8 @@ export function MySeasonPage() {
   // page, and a room light that lived here would be cut off mid-dark instead
   // of coming back up behind you.
   useEffect(() => {
-    document.documentElement.classList.toggle('ballot-room', ballotLit)
-  }, [ballotLit])
+    document.documentElement.classList.toggle('ballot-room', roomLit)
+  }, [roomLit])
 
   // Leaving the page is not the same as leaving the beat. Empty deps, so this
   // cleanup runs on unmount only. A beat switch keeps the slow swell — the
@@ -448,8 +454,8 @@ export function MySeasonPage() {
   }, [])
 
   useEffect(() => {
-    if (!ballotLit) return
-    const panel = document.getElementById('panel-ballot')
+    if (!roomLit) return
+    const panel = document.getElementById(litPanel)
     if (!panel) return
     let frame = 0
     const aim = () => {
@@ -484,7 +490,7 @@ export function MySeasonPage() {
       window.removeEventListener('scroll', queue)
       window.removeEventListener('resize', queue)
     }
-  }, [ballotLit])
+  }, [roomLit, litPanel])
   // The recap overlay is driven by a `recap=<episode_id>` URL param (#479) so
   // Back closes it instead of leaving the page, and a refresh restores it.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -554,7 +560,8 @@ export function MySeasonPage() {
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
   useEffect(() => {
-    if (picking != null) {
+    // Only swap uses the flat stage scrim; the double pick lights the room.
+    if (picking === 'swap') {
       setStageOpen(true)
       return
     }
@@ -807,10 +814,10 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || picking != null) && (
+      {state.kind === 'open' && (stageOpen || picking === 'swap') && (
         <div
           className="stage-scrim"
-          data-on={picking != null}
+          data-on={picking === 'swap'}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
@@ -869,7 +876,7 @@ export function MySeasonPage() {
           <LaneStack
             lane={beat === 'roster' ? 'jade' : 'terracotta'}
             glowOut={stageOpen}
-            lit={ballotLit}
+            lit={roomLit}
           >
           <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
 
