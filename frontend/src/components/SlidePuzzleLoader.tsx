@@ -42,8 +42,7 @@ type PuzzleTheme = {
 
 const THEMES: Record<Theme, PuzzleTheme> = {
   unlocked: {
-    // Match the .app-shell ground gradient (index.css) so the loader blends
-    // into the sand page instead of reading as a white panel over it.
+    // The body::before ground wash (index.css), for the standalone preview.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
     tileImg: 'url("/puzzle-wood-solid.webp?v=20260903-walnut-lighter")',
     label: '#1e3a2f',
@@ -94,8 +93,12 @@ export function SlidePuzzleLoader({
   showLabel = true,
   label = 'Loading',
   tileSrc,
+  scene = true,
 }: {
   theme?: Theme
+  /** Paint the ground behind the puzzle. Off inside the app, where the page's
+   *  own wash is already there and a second copy showed as a box. */
+  scene?: boolean
   tempo?: number
   doubleChance?: number
   liftTiles?: boolean
@@ -181,7 +184,9 @@ export function SlidePuzzleLoader({
     alignItems: 'center',
     justifyContent: 'center',
     gap: '54px',
-    backgroundImage: TH.scene,
+    // The in-app loader sits on the page's own ground; only the admin preview
+    // paints the scene itself, so the two never show a seam at the box edge.
+    backgroundImage: scene ? TH.scene : undefined,
     fontFamily: 'var(--font-display, "Rajdhani", system-ui, sans-serif)',
   }
 

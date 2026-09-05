@@ -112,9 +112,31 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--color-ground);
+  /* Transparent so the fixed ground wash below shows through; html carries
+     the solid ground colour. */
+  background: transparent;
   color: var(--color-ink);
   font-family: var(--font-body);
+}
+
+/* The ground wash: a terracotta glow at the top-right over a faint vertical
+   lift. Fixed to the viewport rather than painted on the shell (#518 kept
+   the shell at content height, so on a short desktop page the glow's circle
+   ended at the shell's bottom edge and left a seam on the right). A fixed
+   pseudo-element adds no document height, so it dodges the iOS overscroll
+   problem that ruled out min-height, and it holds the same wash behind the
+   page loader and every page length. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  /* Same floor as .stage-scrim: inset alone can come up short of the viewport. */
+  min-height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(196 84 50 / 8%), transparent 62vw),
+    linear-gradient(180deg, var(--color-ground-lift), var(--color-ground));
 }
 
 /* Android edge-to-edge PWAs (Chrome 135+) draw under a TRANSPARENT bottom
@@ -147,21 +169,13 @@ body::after {
    so the bg-cream-50 utility on the same element keeps supplying the color
    underneath and locked-night's `background` shorthand still overrides both.
 
-   Anchored to the element exactly like locked-night's glow, which means it
-   scrolls with a long page. Deliberate: consistency between the two states is
-   the point, and background-attachment: fixed is unreliable on iOS Safari.
-   If a tall page reads wrong, move BOTH states to a fixed pseudo-element.
+   Both states live on body::before (see above), fixed to the viewport.
 
    The radius is viewport-relative on purpose. A fixed 14rem circle vanished on
    desktop: the sticky header covered the top of it and the rest sat out in the
    right margin, ~144px clear of the content column at 1440px wide. 62vw tracks
    the layout — ~240px on a phone, ~890px on a desktop — so the wash reaches the
    content at every width. */
-.app-shell {
-  background-image:
-    radial-gradient(circle at 100% 0%, rgb(196 84 50 / 8%), transparent 62vw),
-    linear-gradient(180deg, var(--color-ground-lift), var(--color-ground));
-}
 
 /* While an episode is locked and awaiting scoring, carry the torchlit night
    atmosphere across every route and loading state. */
@@ -170,8 +184,10 @@ html.locked-night {
   background: #0e1f19;
 }
 
-html.locked-night body {
-  background: #0e1f19;
+html.locked-night body::before {
+  background:
+    radial-gradient(circle at 78% 8%, rgb(196 84 50 / 18%), transparent 28rem),
+    linear-gradient(to bottom, #132e25, #0e1f19);
 }
 
 html.locked-night body::after {
@@ -179,9 +195,6 @@ html.locked-night body::after {
 }
 
 html.locked-night .app-shell {
-  background:
-    radial-gradient(circle at 78% 8%, rgb(196 84 50 / 18%), transparent 28rem),
-    linear-gradient(to bottom, #132e25, #0e1f19);
   color: #f2e9db;
 }
 
