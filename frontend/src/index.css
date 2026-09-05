@@ -75,7 +75,7 @@
   --color-ink: #1c1917;
 
   /* Bright textile midtones sampled from the installed app icon. */
-  --color-brand-snake: #cd5e21;
+  --color-brand-snake: #e0463a; /* the icon's burnt red, lifted just enough to hold 3:1 on forest-600 */
   --color-brand-flame: #f3b939;
   --color-brand-rat: #f6e1ad;
 
