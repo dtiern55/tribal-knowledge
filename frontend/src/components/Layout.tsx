@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
+import { advantageIdolFor } from '../lib/advantages'
 import { resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode } from '../types'
 import { BrandWordmark } from './BrandWordmark'
@@ -62,6 +63,7 @@ export function Layout() {
           if (live) setNightMode(false)
           return
         }
+        document.documentElement.style.setProperty('--advantage-idol', `url(${advantageIdolFor(season.season_number)})`)
         const episodes = await api.get<Episode[]>(`/seasons/${season.season_id}/episodes`)
         if (live) setNightMode(resolveMySeasonState(season, episodes).kind === 'locked')
       } catch {

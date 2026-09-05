@@ -5,6 +5,9 @@ import { useState } from 'react'
  * persist their open/closed choice per section. The weekly essentials — Weekly
  * Votes and My Roster — pass `collapsible={false}`: they're the reason you
  * opened the page, so there's nothing to gain from minimising them.
+ *
+ * Pass `open` + `onToggle` to run the section from the page instead (the team
+ * page's expand-all, #646); a controlled shell remembers nothing.
  */
 export function SectionShell({
   title,
@@ -12,6 +15,8 @@ export function SectionShell({
   defaultOpen = true,
   prominent = false,
   collapsible = true,
+  open: controlled,
+  onToggle,
   children,
 }: {
   title: string
@@ -19,15 +24,22 @@ export function SectionShell({
   defaultOpen?: boolean
   prominent?: boolean
   collapsible?: boolean
+  open?: boolean
+  onToggle?: () => void
   children: React.ReactNode
 }) {
   const storageKey = `mytribe.section.${title}`
-  const [open, setOpen] = useState(() => {
+  const [stored, setStored] = useState(() => {
     const saved = localStorage.getItem(storageKey)
     return saved == null ? defaultOpen : saved === '1'
   })
+  const open = controlled ?? stored
   function toggle() {
-    setOpen((o) => {
+    if (controlled != null) {
+      onToggle?.()
+      return
+    }
+    setStored((o) => {
       localStorage.setItem(storageKey, o ? '0' : '1')
       return !o
     })
