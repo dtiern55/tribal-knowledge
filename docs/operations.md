@@ -85,6 +85,20 @@ headshot upload additionally needs the service-role key for storage.
    the only open window. A delayed scoring job intentionally leaves the current
    episode locked and does not open the next one early.
 
+5. Back up prod. Free-tier Supabase keeps no backups, so this weekly dump is
+   the only copy of the league's picks:
+
+   ```bash
+   cd backend
+   uv run --env-file .env.prod python scripts/backup_db.py prod
+   ```
+
+   Writes `~/projects/survivor/backups/prod-<date>/{schema,data}.sql` (public
+   schema; public + auth data, minus session churn) via the Supabase CLI, which
+   needs Docker running. Without the env file it dumps staging. To restore into
+   a fresh project: `supabase db push` the migrations, then
+   `psql "$SESSION_POOLER_URL" -f data.sql`.
+
 The equivalent CLI importer is also dry-run-first and posts through the normal
 admin API:
 

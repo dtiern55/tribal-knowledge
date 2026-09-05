@@ -189,6 +189,13 @@ extra-vote plays never get auto-unplayed (#157). Do this **before** the bot week
 (step 11) — verify standings again after, since the trend arrows only become
 correct here. 409 "already scored" means it's done; picks must be locked first.
 
+## 9b. Back up prod (real seasons)
+
+Right after close-out, from `backend/`:
+`uv run --env-file .env.prod python scripts/backup_db.py prod`. Free tier has no
+backups; this weekly dump is the only copy. Needs Docker up. Details in
+`docs/operations.md` → Weekly airing and scoring, step 5.
+
 ## 10. Commissioner insight pass — the recap story (after scoring)
 
 Now that the episode is scored, the standings deltas are final and the reveal
