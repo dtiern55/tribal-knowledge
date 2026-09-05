@@ -21,12 +21,30 @@ import type {
   Season,
 } from '../types'
 
+// `value` is the select key; a Redemption Island boot is voted_out with
+// is_final false (#655), so the key carries both.
 const ELIMINATION_TYPES = [
-  { value: 'voted_out', label: 'Voted out' },
-  { value: 'medical_evacuation', label: 'Medical evacuation' },
-  { value: 'quit', label: 'Quit' },
-  { value: 'fire_making_loss', label: 'Fire-making loss' },
+  { value: 'voted_out', label: 'Voted out', elimination_type: 'voted_out', is_final: true },
+  {
+    value: 'voted_out:redemption',
+    label: 'Voted out → Redemption Island',
+    elimination_type: 'voted_out',
+    is_final: false,
+  },
+  {
+    value: 'redemption_loss',
+    label: 'Lost on Redemption Island',
+    elimination_type: 'redemption_loss',
+    is_final: true,
+  },
+  { value: 'medical_evacuation', label: 'Medical evacuation', elimination_type: 'medical_evacuation', is_final: true },
+  { value: 'quit', label: 'Quit', elimination_type: 'quit', is_final: true },
+  { value: 'fire_making_loss', label: 'Fire-making loss', elimination_type: 'fire_making_loss', is_final: true },
 ]
+
+function elimOptionKey(e: { elimination_type: string; is_final: boolean }) {
+  return e.is_final ? e.elimination_type : `${e.elimination_type}:redemption`
+}
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -523,11 +541,18 @@ interface EliminationRow {
   id: string
   contestant_id: string
   elimination_type: string
+  is_final: boolean
 }
 
 // Review-gated survivoR import (#132)
 interface ImportProposal {
-  eliminations: { contestant_id: string; name: string; elimination_type: string; result: string }[]
+  eliminations: {
+    contestant_id: string
+    name: string
+    elimination_type: string
+    result: string
+    is_final: boolean
+  }[]
   events: { contestant_id: string; name: string; event_type: string; quantity: number }[]
   placements: { contestant_id: string; name: string; placement: number }[]
   warnings: string[]
@@ -611,6 +636,7 @@ function ImportSection({
             els.map((e) => ({
               contestant_id: e.contestant_id,
               elimination_type: e.elimination_type,
+              is_final: e.is_final,
             })),
           )
         : []
@@ -1071,9 +1097,10 @@ function EpisodePanel({
     )
   }
 
-  function setElimType(contestantId: string, type: string) {
+  function setElimType(contestantId: string, optionKey: string) {
     const existing = elims.find((e) => e.contestant_id === contestantId)
-    if (!existing) return
+    const option = ELIMINATION_TYPES.find((t) => t.value === optionKey)
+    if (!existing || !option) return
     setElimBusy(contestantId)
     // No PATCH endpoint — replace the row (delete + re-add with the new type)
     void run(
@@ -1083,7 +1110,13 @@ function EpisodePanel({
         await api.delete(`/eliminations/${existing.id}`)
         const [row] = await api.post<EliminationRow[]>(
           `/episodes/${episode.id}/eliminations`,
-          [{ contestant_id: contestantId, elimination_type: type }],
+          [
+            {
+              contestant_id: contestantId,
+              elimination_type: option.elimination_type,
+              is_final: option.is_final,
+            },
+          ],
         )
         setElims((prev) => prev.map((e) => (e.id === existing.id ? row : e)))
       },
@@ -1221,7 +1254,7 @@ function EpisodePanel({
                   </label>
                   {isSelected && draft && (
                     <select
-                      value={draft.elimination_type}
+                      value={elimOptionKey(draft)}
                       disabled={elimBusy === c.id}
                       onChange={(e) => setElimType(c.id, e.target.value)}
                       className="border border-cream-200 rounded px-2 py-1 text-xs"

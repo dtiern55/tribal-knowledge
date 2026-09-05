@@ -32,6 +32,7 @@ _FILES = [
     "advantage_movement",
     "advantage_details",
     "castaways",
+    "tribe_mapping",
 ]
 _TTL_SECONDS = 3600
 
@@ -112,6 +113,7 @@ def get_import_proposal(
         advantage_movement=data["advantage_movement"],
         advantage_details=data["advantage_details"],
         castaways=data["castaways"],
+        tribe_mapping=data.get("tribe_mapping", []),
     )
 
     # castaway_id → contestant UUID by name, short OR full (as the CLI).

@@ -299,7 +299,7 @@ def swap_roster_pick(
                 )
 
             cur.execute(
-                "select id from eliminations where contestant_id = %s",
+                "select id from eliminations where contestant_id = %s and is_final",
                 [str(body.new_contestant_id)],
             )
             if cur.fetchone():
@@ -535,7 +535,7 @@ def designate_sole_survivor(
             # An eliminated castaway can linger on the roster if never swapped
             # out — they're not a valid designee (#180)
             cur.execute(
-                "select id from eliminations where contestant_id = %s",
+                "select id from eliminations where contestant_id = %s and is_final",
                 [str(body.contestant_id)],
             )
             if cur.fetchone():

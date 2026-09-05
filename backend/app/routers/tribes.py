@@ -113,10 +113,16 @@ def sync_tribes(
             for t in built["tribes"]:
                 cur.execute(
                     """
-                    insert into tribes (season_id, name, color, is_merge)
-                    values (%s, %s, %s, %s) returning id
+                    insert into tribes (season_id, name, color, is_merge, is_redemption)
+                    values (%s, %s, %s, %s, %s) returning id
                     """,
-                    [str(season_id), t["name"], t["color"], t["is_merge"]],
+                    [
+                        str(season_id),
+                        t["name"],
+                        t["color"],
+                        t["is_merge"],
+                        t.get("is_redemption", False),
+                    ],
                 )
                 tribe_id[t["name"]] = str(cur.fetchone()["id"])
             applied = 0

@@ -111,7 +111,7 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                       and not exists (
                         select 1 from eliminations e
                         join episodes ep on ep.id = e.episode_id
-                        where e.contestant_id = c.id
+                        where e.contestant_id = c.id and e.is_final
                           and {episode_locked_sql("ep")})
                     order by c.name
                     """,
@@ -142,7 +142,8 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                                ep.episode_number as eliminated_episode
                         from roster_picks rp
                         join contestants c on c.id = rp.contestant_id
-                        join eliminations el on el.contestant_id = c.id
+                        join eliminations el
+                          on el.contestant_id = c.id and el.is_final
                         join episodes ep on ep.id = el.episode_id
                         left join lateral (
                           select t.name, t.color

@@ -56,6 +56,7 @@ def build_proposal(
     advantage_movement: list[dict],
     advantage_details: list[dict],
     castaways: list[dict],
+    tribe_mapping: list[dict] | None = None,
 ) -> dict:
     """Build the proposed import for one episode.
 
@@ -91,12 +92,77 @@ def build_proposal(
                     "name": r["castaway"],
                     "elimination_type": etype,
                     "result": r["result"],
+                    "is_final": True,
                 }
             )
         if etype == "voted_out" and "eliminated" in r["result"].lower():
             warnings.append(
                 f"{r['castaway']}: result '{r['result']}' mapped to voted_out — verify"
             )
+        if etype is None and "switch" in r["result"].lower():
+            warnings.append(
+                f"{r['castaway']}: switched onto Redemption Island — no elimination,"
+                " sync tribes to place them"
+            )
+
+    # --- Redemption Island (#655) ---
+    # A boot who shows up on the island (this episode for a day-one vote, next
+    # episode for a normal tribal) is still in the game: the ballot scores the
+    # vote, but the row is not final. Losing a duel is the terminal exit, and
+    # someone on the island last episode who is on a tribe this episode came
+    # back. If survivoR has no next-episode mapping yet (live season), the
+    # commissioner flips is_final in the admin UI instead.
+    mapping = [
+        r for r in (tribe_mapping or []) if r.get("version_season") == season_key
+    ]
+
+    def on_island(cid: str, ep: int) -> bool:
+        return any(
+            r.get("castaway_id") == cid
+            and r.get("episode") == ep
+            and "redemption" in (r.get("tribe_status") or "").lower()
+            for r in mapping
+        )
+
+    def on_tribe(cid: str, ep: int) -> bool:
+        return any(
+            r.get("castaway_id") == cid
+            and r.get("episode") == ep
+            and r.get("tribe")
+            and "redemption" not in (r.get("tribe_status") or "").lower()
+            for r in mapping
+        )
+
+    if mapping:
+        for e in eliminations:
+            if e["elimination_type"] == "voted_out" and (
+                on_island(e["castaway_id"], episode)
+                or on_island(e["castaway_id"], episode + 1)
+            ):
+                e["is_final"] = False
+                e["result"] += " → Redemption Island"
+        for r in _ep(challenge_results, season_key, episode):
+            if (r.get("challenge_type") or "").lower() == "duel" and (
+                r.get("result") or ""
+            ).lower() == "lost":
+                eliminations.append(
+                    {
+                        "castaway_id": r["castaway_id"],
+                        "name": r["castaway"],
+                        "elimination_type": "redemption_loss",
+                        "result": "Lost Redemption Island duel",
+                        "is_final": True,
+                    }
+                )
+        returned = {
+            r["castaway_id"]: r["castaway"]
+            for r in mapping
+            if r.get("episode") == episode
+            and on_tribe(r["castaway_id"], episode)
+            and on_island(r["castaway_id"], episode - 1)
+        }
+        for cid, name in returned.items():
+            add_event(cid, name, "return_from_redemption")
 
     for r in _season(castaways, season_key):
         if r.get("episode") == episode and r.get("place"):

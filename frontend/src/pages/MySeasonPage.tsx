@@ -3451,10 +3451,13 @@ function PicksSection({
           // Only list castaways still in the game, grouped by tribe so the
           // field is easy to scan (#249). Already-eliminated players aren't
           // pickable, so they're hidden entirely rather than shown disabled.
+          // Redemption Island residents are in the game but can't be voted
+          // off a tribe, so they sit out the ballot too (#655).
           const byTribe = new Map<string, Contestant[]>()
           for (const c of contestants) {
             if (c.eliminated_in_episode != null && c.eliminated_in_episode < ep.episode_number)
               continue
+            if (c.on_redemption) continue
             const key = c.tribe_name ?? 'No tribe'
             const group = byTribe.get(key)
             if (group) group.push(c)

@@ -76,6 +76,8 @@ export interface Contestant {
   eliminated_in_episode: number | null
   tribe_name: string | null
   tribe_color: string | null
+  /** Sitting on Redemption Island (#655): still in, not a ballot target. */
+  on_redemption?: boolean
   created_at: string
 }
 
@@ -155,6 +157,8 @@ export interface Elimination {
   episode_id: string
   contestant_id: string
   elimination_type: string
+  /** False for a Redemption Island boot: the ballot scores it, the castaway stays in (#655). */
+  is_final: boolean
   created_at: string
 }
 

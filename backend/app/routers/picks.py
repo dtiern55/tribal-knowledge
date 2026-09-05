@@ -152,7 +152,8 @@ def submit_picks(
                 " where c.season_id = %s and not exists ("
                 "   select 1 from eliminations e"
                 "   join episodes ep on ep.id = e.episode_id"
-                "   where e.contestant_id = c.id and ep.episode_number < %s)",
+                "   where e.contestant_id = c.id and e.is_final"
+                "     and ep.episode_number < %s)",
                 [season_id, episode["episode_number"]],
             )
             still_in = cur.fetchone()["n"]
@@ -191,7 +192,7 @@ def submit_picks(
                 select e.contestant_id::text
                 from eliminations e
                 join episodes ep on e.episode_id = ep.id
-                where ep.season_id = %s
+                where ep.season_id = %s and e.is_final
                   and ep.episode_number < %s
                   and e.contestant_id::text = any(%s)
                 """,
@@ -202,6 +203,28 @@ def submit_picks(
                 raise HTTPException(
                     status_code=400,
                     detail=(f"Contestant(s) already eliminated: {already_eliminated}"),
+                )
+
+            # The ballot is who gets voted off a tribe; nobody on Redemption
+            # Island can be (#655). Tribe as of this episode, not later.
+            cur.execute(
+                """
+                select c.id::text as id from contestants c
+                join lateral (
+                  select t.is_redemption from contestant_tribes ct
+                  join tribes t on t.id = ct.tribe_id
+                  where ct.contestant_id = c.id and ct.from_episode <= %s
+                  order by ct.from_episode desc limit 1
+                ) tribe on true
+                where c.id::text = any(%s) and tribe.is_redemption
+                """,
+                [episode["episode_number"], ids],
+            )
+            on_redemption = [row["id"] for row in cur.fetchall()]
+            if on_redemption:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Contestant(s) on Redemption Island: {on_redemption}",
                 )
 
             # Replace existing picks for this user/episode. An empty list is

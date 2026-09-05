@@ -61,7 +61,7 @@ def set_eliminations(
                     select e.contestant_id::text
                     from eliminations e
                     join episodes ep on e.episode_id = ep.id
-                    where ep.season_id = %s
+                    where ep.season_id = %s and e.is_final
                       and e.contestant_id::text = any(%s)
                     """,
                     [str(episode["season_id"]), contestant_ids],
@@ -83,6 +83,7 @@ def set_eliminations(
                 "   select 1 from eliminations e"
                 "   join episodes ep on ep.id = e.episode_id"
                 "   where e.contestant_id = c.id and ep.season_id = c.season_id"
+                "     and e.is_final"
                 " )) as out"
                 " from contestants c where c.season_id = %s",
                 [str(episode["season_id"])],
@@ -94,11 +95,19 @@ def set_eliminations(
             for entry in body:
                 cur.execute(
                     "insert into eliminations"
-                    " (episode_id, contestant_id, elimination_type)"
-                    " values (%s, %s, %s) returning *",
-                    [str(episode_id), str(entry.contestant_id), entry.elimination_type],
+                    " (episode_id, contestant_id, elimination_type, is_final)"
+                    " values (%s, %s, %s, %s) returning *",
+                    [
+                        str(episode_id),
+                        str(entry.contestant_id),
+                        entry.elimination_type,
+                        entry.is_final,
+                    ],
                 )
                 rows.append(cur.fetchone())
+                # A Redemption Island boot is still playing: no placement yet.
+                if not entry.is_final:
+                    continue
                 # 1-3 are finale outcomes, not elimination outcomes — the
                 # commissioner or the import sets those. Minting them here
                 # would have sync_placement_events award won_season to
