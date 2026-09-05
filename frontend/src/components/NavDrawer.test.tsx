@@ -16,6 +16,7 @@ vi.mock('../lib/install', () => ({
   installAvailable: () => false,
   isInstalled: () => true,
   isIos: () => false,
+  isAndroid: () => false,
   onInstallAvailable: () => () => undefined,
   promptInstall: vi.fn(),
 }))
