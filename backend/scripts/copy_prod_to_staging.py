@@ -4,9 +4,9 @@ castaways, teams and ballots to look at.
 Every public table is truncated on staging and reloaded from prod with COPY,
 in foreign-key order, inside one transaction. User ids are remapped by email
 so an account that exists in both projects (yours, the producer) keeps its
-staging login and lands on its prod profile. Auth users are not copied:
-everyone else shows up in standings and on team pages but cannot sign in to
-staging.
+staging login and lands on its prod profile. Prod auth users are not copied:
+everyone else gets a placeholder auth user with no password, so they show up
+in standings and on team pages but cannot sign in to staging.
 
 Dry-runs by default (row counts and the id map); --apply writes.
 
@@ -112,12 +112,33 @@ def main() -> None:
         )
         triggered = [r[0] for r in src.fetchall() if r[0] in tables]
 
+        # profiles.id references auth.users. Players without a staging account
+        # get a placeholder auth user with no password, so their teams show
+        # but nobody can sign in as them.
+        src.execute("select id::text from profiles")
+        wanted = {ids.get(r[0], r[0]) for r in src.fetchall()}
+        dst.execute("select id::text from auth.users")
+        placeholders = sorted(wanted - {r[0] for r in dst.fetchall()})
+        print(f"  {len(placeholders)} placeholder auth users (no password)")
+
         if not args.apply:
             for t in tables:
                 src.execute(f"select count(*) from {t}")
                 print(f"  {t:<32} {src.fetchone()[0]:>6} rows")
             print("\ndry run — re-run with --apply to load staging")
             return
+
+        for uid in placeholders:
+            dst.execute(
+                """insert into auth.users (instance_id, id, aud, role, email,
+                       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                       created_at, updated_at)
+                   values ('00000000-0000-0000-0000-000000000000', %s,
+                       'authenticated', 'authenticated', %s, now(),
+                       '{"provider": "email", "providers": ["email"]}', '{}',
+                       now(), now())""",
+                (uid, f"{uid[:8]}@staging.invalid"),
+            )
 
         # Placement-sync triggers would rewrite scoring_events mid-load; the
         # rows they maintain are copied verbatim from prod anyway.

@@ -142,8 +142,8 @@ uv run python scripts/copy_prod_to_staging.py --apply  # truncate staging, reloa
 ```
 
 It copies every public table and remaps user ids by email, so an account that
-exists in both projects keeps its staging login. Other players are visible
-data only; auth users are not copied.
+exists in both projects keeps its staging login. Other players get placeholder
+auth users with no password: visible data only, no sign-in.
 
 ## Migrations and deployment
 
