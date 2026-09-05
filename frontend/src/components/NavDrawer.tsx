@@ -104,10 +104,11 @@ export function NavDrawer({
   function changeSeason(id: string) {
     if (id === activeId) return
     pinSeason(id, seasons)
-    // Every page reads the active season on mount; reloading makes the whole
-    // app follow the pick. Switching seasons is rare, so a reload is fine.
-    // ponytail: reload over a season context; revisit if switching gets hot.
-    window.location.reload()
+    // Every page reads the active season on mount, so a full navigation makes
+    // the whole app follow the pick. Land on My Season rather than reloading
+    // in place: the current URL (a castaway, a team) belongs to the old
+    // season (#644). ponytail: revisit if switching gets hot.
+    window.location.assign('/')
   }
 
   const showInstall = !isInstalled() && (canPrompt || isIos())

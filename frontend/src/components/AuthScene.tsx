@@ -2,19 +2,19 @@ import type { CSSProperties, ReactNode } from 'react'
 import { SUE_HAWK_QUOTE } from '../lib/quotes'
 import { BrandWordmark } from './BrandWordmark'
 
-// Camp-at-night front door (#508): the full-bleed dark canvas scene borrowed
-// from the loader, the embroidered mark glowing over it, and a floating cream
-// card. Shared by LoginPage and JoinPage so the two screens stay identical.
+// Camp-at-night front door (#508): the loader's canvas scene, the embroidered
+// mark glowing over it, and a floating cream card. Shared by LoginPage and
+// JoinPage so the two screens stay identical. Lifted to the header's
+// forest-600 so the front door matches the app chrome (#645).
 const CAMP: CSSProperties = {
-  backgroundColor: '#0e1f19',
+  backgroundColor: '#1e3a2f',
   backgroundImage: [
     // canvas weave
     'repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px)',
     'repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px)',
-    // firelight in the corner + the night ground — same values as the loader's
-    // locked scene, so the front door and the app read as one place.
+    // firelight in the corner + the ground, fading into the header green
     'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px)',
-    'linear-gradient(180deg, #132e25, #0e1f19)',
+    'linear-gradient(180deg, #25493b, #1e3a2f)',
   ].join(', '),
 }
 
