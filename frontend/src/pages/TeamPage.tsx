@@ -212,7 +212,9 @@ export function TeamPage() {
             )}
           </span>
         }
-        title={player.display_name}
+        // Possessive against the nav's "My Season": the one cue that says whose
+        // record this is (#646).
+        title={`${player.display_name}'s Season`}
         description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
         actions={<HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
       />
@@ -237,7 +239,9 @@ export function TeamPage() {
         </div>
       )}
 
-      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
+      {/* One column at every width, in My Season's order (#646): this is the
+          same record read for someone else, not a dashboard beside it. */}
+      <div className="mt-8 space-y-8">
         <section>
           <SectionShell title="Tribe" prominent right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
