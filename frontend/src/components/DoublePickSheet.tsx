@@ -42,7 +42,10 @@ export function DoublePickSheet({
   }, [onCancel])
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end" role="presentation">
+    // Bottom sheet on phones; from the tablet breakpoint up a sheet pinned to the
+    // bottom of a tall screen sits far from the roster the player is looking
+    // at, so the same panel centers over the dimmed page instead.
+    <div className="fixed inset-0 z-40 flex flex-col justify-end md:justify-center md:p-8" role="presentation">
       <div
         className="sheet-scrim absolute inset-0 bg-forest-900/60"
         onClick={onCancel}
@@ -54,7 +57,7 @@ export function DoublePickSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="double-pick-title"
-        className="sheet-panel relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none"
+        className="sheet-panel relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream-50 shadow-[0_-8px_40px_rgba(10,22,19,0.35)] outline-none md:max-h-[70vh] md:rounded-2xl md:shadow-[0_16px_48px_rgba(10,22,19,0.45)]"
       >
         <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-terracotta-200 bg-terracotta-50 px-4 py-3">
           <h2
@@ -78,7 +81,7 @@ export function DoublePickSheet({
           </p>
         )}
 
-        <ul className="min-h-0 flex-1 divide-y divide-paper-line overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+        <ul className="min-h-0 flex-1 divide-y divide-paper-line overflow-y-auto pb-[env(safe-area-inset-bottom)] md:rounded-b-2xl md:pb-0">
           {candidates.map((c) => (
             <li key={c.contestantId}>
               <button
