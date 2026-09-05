@@ -29,9 +29,25 @@ def _build(**overrides):
         "advantage_movement": [],
         "advantage_details": [],
         "castaways": [],
+        "tribe_mapping": [],
     }
     base.update(overrides)
     return build_proposal(S, 5, **base)
+
+
+def _tribe(cid, name, episode, tribe, status="Original"):
+    return {
+        "version_season": S,
+        "castaway_id": cid,
+        "castaway": name,
+        "episode": episode,
+        "tribe": tribe,
+        "tribe_status": status,
+    }
+
+
+def _island(cid, name, episode):
+    return _tribe(cid, name, episode, None, status="Redemption Island")
 
 
 def _events(proposal, event_type):
@@ -69,6 +85,7 @@ def test_votes_and_boot():
             "name": "Cat",
             "elimination_type": "voted_out",
             "result": "5th voted out",
+            "is_final": True,
         }
     ]
     correct = _events(p, "vote_correctly_at_tribal")
@@ -339,3 +356,73 @@ def test_nullifier_without_a_recorded_outcome_scores_the_play_alone():
     p = _nullifier()
     assert len(_events(p, "play_idol_nullifier")) == 1
     assert _events(p, "nullifier_played_successfully") == []
+
+
+def test_redemption_island_boot_is_not_final():
+    p = _build(
+        boot_order=[
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "a",
+                "castaway": "Ann",
+                "result": "5th voted out",
+            },
+        ],
+        tribe_mapping=[_tribe("a", "Ann", 5, "Luzon"), _island("a", "Ann", 6)],
+    )
+    [e] = p["eliminations"]
+    assert e["is_final"] is False
+    assert e["elimination_type"] == "voted_out"
+    assert "Redemption Island" in e["result"]
+
+
+def test_redemption_island_boot_stays_final_without_island_mapping():
+    p = _build(
+        boot_order=[
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "a",
+                "castaway": "Ann",
+                "result": "5th voted out",
+            },
+        ],
+        tribe_mapping=[_tribe("a", "Ann", 5, "Luzon"), _tribe("a", "Ann", 6, "Luzon")],
+    )
+    assert p["eliminations"][0]["is_final"] is True
+
+
+def test_duel_loss_and_return():
+    p = _build(
+        challenge_results=[
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "b",
+                "castaway": "Bob",
+                "challenge_type": "Duel",
+                "result": "Lost",
+            },
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "c",
+                "castaway": "Cat",
+                "challenge_type": "Duel",
+                "result": "Won",
+            },
+        ],
+        tribe_mapping=[
+            _island("b", "Bob", 4),
+            _island("c", "Cat", 4),
+            _tribe("c", "Cat", 5, "Solarrion", status="Merged"),
+        ],
+    )
+    [e] = p["eliminations"]
+    assert (e["castaway_id"], e["elimination_type"], e["is_final"]) == (
+        "b",
+        "redemption_loss",
+        True,
+    )
+    assert [x["castaway_id"] for x in _events(p, "return_from_redemption")] == ["c"]

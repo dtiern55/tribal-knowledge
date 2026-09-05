@@ -100,6 +100,8 @@ class Contestant(BaseModel):
     # Current tribe (#212): None until tribes are synced / for pre-import seasons
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
+    # Sitting on Redemption Island (#655): still in, not a ballot target.
+    on_redemption: bool = False
     # Cast bio (#262): imported from survivoR, except the hand-written blurb
     age: Optional[int] = None
     occupation: Optional[str] = None
@@ -246,6 +248,9 @@ class Elimination(BaseModel):
     episode_id: UUID
     contestant_id: UUID
     elimination_type: str
+    # False for a Redemption Island boot: the ballot scores it, but the
+    # castaway is still in the game (#655).
+    is_final: bool = True
     created_at: datetime
 
 
@@ -303,6 +308,7 @@ class ImportElimination(BaseModel):
     name: str
     elimination_type: str
     result: str
+    is_final: bool = True
 
 
 class ImportEvent(BaseModel):
@@ -392,6 +398,7 @@ class CastMember(BaseModel):
     final_episode: Optional[int] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
+    on_redemption: bool = False
     # Base gameplay score: raw scoring events only, no per-user advantage
     # doubling and no swap penalties (issue: full cast list).
     total_points: int
@@ -671,8 +678,13 @@ class FinalePredictionRequest(BaseModel):
 class EliminationEntry(BaseModel):
     contestant_id: UUID
     elimination_type: Literal[
-        "voted_out", "medical_evacuation", "quit", "fire_making_loss"
+        "voted_out",
+        "medical_evacuation",
+        "quit",
+        "fire_making_loss",
+        "redemption_loss",
     ]
+    is_final: bool = True
 
 
 class ScoringEventEntry(BaseModel):

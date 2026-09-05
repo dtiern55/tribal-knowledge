@@ -27,6 +27,10 @@ def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 """
                 select c.*, ep.episode_number as eliminated_in_episode,
+                       coalesce((select t.is_redemption from contestant_tribes ct
+                        join tribes t on t.id = ct.tribe_id
+                        where ct.contestant_id = c.id
+                        order by ct.from_episode desc limit 1), false) as on_redemption,
                        (select t.name from contestant_tribes ct
                         join tribes t on t.id = ct.tribe_id
                         where ct.contestant_id = c.id
@@ -36,7 +40,7 @@ def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
                         where ct.contestant_id = c.id
                         order by ct.from_episode desc limit 1) as tribe_color
                 from contestants c
-                left join eliminations e on e.contestant_id = c.id
+                left join eliminations e on e.contestant_id = c.id and e.is_final
                 left join episodes ep on ep.id = e.episode_id
                 where c.season_id = %s
                 order by c.name

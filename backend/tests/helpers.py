@@ -171,14 +171,17 @@ def insert_episode(
         return cur.fetchone()
 
 
-def insert_elimination(conn, episode_id, contestant_id, elimination_type="voted_out"):
+def insert_elimination(
+    conn, episode_id, contestant_id, elimination_type="voted_out", is_final=True
+):
     with conn.cursor() as cur:
         cur.execute(
             """
-            insert into eliminations (episode_id, contestant_id, elimination_type)
-            values (%s, %s, %s) returning *
+            insert into eliminations
+                (episode_id, contestant_id, elimination_type, is_final)
+            values (%s, %s, %s, %s) returning *
             """,
-            [str(episode_id), str(contestant_id), elimination_type],
+            [str(episode_id), str(contestant_id), elimination_type, is_final],
         )
         return cur.fetchone()
 
