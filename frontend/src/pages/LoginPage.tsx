@@ -3,6 +3,7 @@ import { Navigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { AuthScene } from '../components/AuthScene'
+import { InstallOffer } from '../components/InstallSteps'
 import { PageLoader } from '../components/PageLoader'
 
 export function LoginPage() {
@@ -178,6 +179,7 @@ export function LoginPage() {
       >
         {mode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}
       </button>
+      <InstallOffer />
     </AuthScene>
   )
 }
