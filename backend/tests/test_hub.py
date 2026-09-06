@@ -57,7 +57,9 @@ def test_hub_reveals_the_field_at_lock(client, db_conn, current_user):
 
     # Two players both vote the Boot; one also plays a roster double on it.
     p2 = insert_user(db_conn, display_name="Bianca")
-    insert_roster_pick(db_conn, current_user["id"], season["id"], boot["id"])
+    insert_roster_pick(
+        db_conn, current_user["id"], season["id"], boot["id"], is_sole_survivor=True
+    )
     insert_elimination_pick(db_conn, current_user["id"], ep["id"], boot["id"])
     insert_elimination_pick(db_conn, p2["id"], ep["id"], boot["id"])
     insert_elimination_pick(db_conn, p2["id"], ep["id"], other["id"])
@@ -79,6 +81,9 @@ def test_hub_reveals_the_field_at_lock(client, db_conn, current_user):
     assert {v["name"] for v in bianca["ballot"]} == {"Boot", "Other"}
     assert bianca["advantage_type"] == "double_roster_points"
     assert bianca["advantage_target"]["name"] == "Boot"
+    assert bianca["sole_survivor_contestant_id"] is None
+    me = by_name[current_user["display_name"]]
+    assert me["sole_survivor_contestant_id"] == str(boot["id"])
 
     # A player with only a roster and no ballot still appears; a no-show doesn't.
     insert_user(db_conn, display_name="NoShow")

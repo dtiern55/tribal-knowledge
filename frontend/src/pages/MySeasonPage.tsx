@@ -1250,11 +1250,7 @@ function LockedState({
                 <li
                   key={pick.id}
                   className={`flex items-center gap-2 rounded-lg border p-2 text-sm ${
-                    pick.is_sole_survivor
-                      ? `border-2 border-gold-500 ${broadcast ? 'bg-gold-500/10' : 'bg-gold-50'}`
-                      : broadcast
-                        ? 'border-white/15 bg-black/10'
-                        : 'border-cream-200 bg-cream-50'
+                    broadcast ? 'border-white/15 bg-black/10' : 'border-cream-200 bg-cream-50'
                   }`}
                 >
                   {/* My Roster behaves the same locked as unlocked (#451): it
@@ -1268,12 +1264,12 @@ function LockedState({
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    <span className="truncate font-medium">{name}</span>
-                    {pick.is_sole_survivor && (
-                      <span className="shrink-0 rounded-full bg-forest-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold-200">
-                        Sole Survivor
-                      </span>
-                    )}
+                    {/* The Sole Survivor pick is a gold name and no more: it
+                        does not matter to this episode (#685). */}
+                    <span className={`truncate font-medium ${pick.is_sole_survivor ? (broadcast ? 'text-gold-300' : 'text-gold-700') : ''}`}>
+                      {name}
+                      {pick.is_sole_survivor && <span className="sr-only"> · Sole Survivor</span>}
+                    </span>
                   </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
@@ -1345,47 +1341,33 @@ function LockedState({
             )}
           </div>
           {picks.length > 0 ? (
-            <ul className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
-              {picks.map((pick) => {
+            // The same handwritten slips you filed on the open ballot, so the
+            // ballot reads as votes and the roster above as people (#685).
+            <div className="mt-3 flex flex-wrap gap-3">
+              {picks.map((pick, index) => {
                 const contestant = contestantMap.get(pick.contestant_id)
                 const name = contestant ? displayName(contestant) : '—'
+                const doubled =
+                  played?.advantage_type === 'double_vote_points' &&
+                  played.target_contestant_id === pick.contestant_id
                 return (
-                  <li
+                  <VoteSlip
                     key={pick.id}
-                    className={`min-w-0 flex items-center gap-2 rounded-xl border p-2 text-sm font-medium ${
-                      broadcast ? 'border-white/20 bg-white/10' : 'border-cream-200 bg-cream-50'
-                    }`}
-                  >
-                    <ContestantAvatar
-                      name={name}
-                      imageUrl={contestant?.image_url ?? null}
-                      tribeColor={contestant?.tribe_color ?? null}
-                      tribeName={contestant?.tribe_name ?? null}
-                      size="sm"
-                    />
-                    {name}
-                    {played?.advantage_type === 'double_vote_points' &&
-                      played.target_contestant_id === pick.contestant_id && (
-                        <DoubleBadge size={20} title="Extra Vote ×2" />
-                      )}
-                  </li>
+                    name={name}
+                    doubled={doubled}
+                    tribeColor={contestant?.tribe_color}
+                    rotation={[-0.9, 0.6, -0.3][index % 3]}
+                    leading={doubled ? <DoubleBadge size={20} title="Extra Vote ×2" /> : null}
+                  />
                 )
               })}
-            </ul>
+            </div>
           ) : (
             <p className={`mt-2 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>No ballot was submitted.</p>
           )}
         </div>
         )}
 
-        <div className={`rounded-xl px-4 py-3 ${broadcast ? 'bg-black/15 ring-1 ring-white/10' : 'bg-forest-50 ring-1 ring-forest-100'}`}>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
-            {broadcast ? 'Scoring comes next' : 'Awaiting league scoring'}
-          </p>
-          <p className={`mt-1 text-sm ${broadcast ? 'text-white/75' : 'text-gray-600'}`}>
-            Results appear here after Episode {episode.episode_number} is scored.
-          </p>
-        </div>
       </div>
     </section>
 
@@ -1424,6 +1406,9 @@ function LeagueHub({
 }) {
   const [entries, setEntries] = useState<HubEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
+  // Which player rows are open. Native <details> keeps its own state, so this
+  // mirrors it through onToggle and lets one control open or close them all.
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let live = true
@@ -1467,13 +1452,16 @@ function LeagueHub({
     )
   }
 
-  // Consensus boot: most-voted castaways across every ballot.
-  const voteCount = new Map<string, { survivor: StandingSurvivor; n: number }>()
+  // Consensus boot: most-voted castaways across every ballot, and how many of
+  // those votes were the ×2 (#685).
+  const voteCount = new Map<string, { survivor: StandingSurvivor; n: number; doubled: number }>()
   for (const entry of entries) {
+    const x2 = entry.advantage_type === 'double_vote_points' ? entry.advantage_target?.contestant_id : null
     for (const vote of entry.ballot) {
-      const seen = voteCount.get(vote.contestant_id)
-      if (seen) seen.n += 1
-      else voteCount.set(vote.contestant_id, { survivor: vote, n: 1 })
+      const seen = voteCount.get(vote.contestant_id) ?? { survivor: vote, n: 0, doubled: 0 }
+      seen.n += 1
+      if (vote.contestant_id === x2) seen.doubled += 1
+      voteCount.set(vote.contestant_id, seen)
     }
   }
   const topBoots = [...voteCount.values()].sort((a, b) => b.n - a.n).slice(0, 5)
@@ -1492,6 +1480,7 @@ function LeagueHub({
   }
   const topRosterDoubles = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n).slice(0, 4)
 
+  const allOpen = entries.every((e) => openRows.has(e.user_id))
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
   // Tiles sit a step lighter than the card so their edges read: white on the
   // cream card (delayed), a brighter frost on the faint panel (broadcast).
@@ -1505,7 +1494,7 @@ function LeagueHub({
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Consensus boot</p>
           {topBoots.length > 0 ? (
             <ul className="mt-2 space-y-1.5">
-              {topBoots.map(({ survivor, n }) => (
+              {topBoots.map(({ survivor, n, doubled }) => (
                 <li key={survivor.contestant_id} className="flex items-center gap-2 text-sm">
                   <ContestantAvatar
                     name={survivor.name}
@@ -1515,6 +1504,12 @@ function LeagueHub({
                     size="sm"
                   />
                   <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
+                  {doubled > 0 && (
+                    <span className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold tabular-nums ${sub}`}>
+                      <DoubleBadge size={16} title="Extra Vote ×2" />
+                      {doubled}
+                    </span>
+                  )}
                   <span className={`shrink-0 text-xs font-semibold tabular-nums ${sub}`}>
                     {n} {n === 1 ? 'vote' : 'votes'}
                   </span>
@@ -1530,14 +1525,12 @@ function LeagueHub({
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
           <dl className="mt-2 space-y-3">
             <div className="flex items-center gap-2">
-              <DoubleBadge size={22} title="Extra Vote ×2" />
               <dt className="min-w-0 flex-1 truncate text-sm">Extra Vote ×2</dt>
               <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
             </div>
             {topRosterDoubles.length > 0 ? (
               topRosterDoubles.map(({ survivor, n }) => (
                 <div key={survivor.contestant_id} className="flex items-center gap-2">
-                  <DoubleBadge size={22} title="Double Castaway Points" />
                   <ContestantAvatar
                     name={survivor.name}
                     imageUrl={survivor.image_url}
@@ -1551,7 +1544,6 @@ function LeagueHub({
               ))
             ) : (
               <div className="flex items-center gap-2">
-                <DoubleBadge size={22} title="Double Castaway Points" />
                 <dt className={`flex-1 text-sm ${sub}`}>No roster doubles</dt>
               </div>
             )}
@@ -1560,12 +1552,34 @@ function LeagueHub({
       </div>
 
       {/* The full field — one collapsible row per player. */}
-      <ul className="mt-4 space-y-2">
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setOpenRows(allOpen ? new Set() : new Set(entries.map((e) => e.user_id)))}
+          className={`text-[11px] font-semibold uppercase tracking-wide underline underline-offset-2 ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}
+        >
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+      <ul className="mt-2 space-y-2">
         {entries.map((entry) => {
           const isMe = entry.user_id === userId
           return (
             <li key={entry.user_id}>
-              <details className={`group rounded-xl border ${chip}`}>
+              <details
+                className={`group rounded-xl border ${chip}`}
+                open={openRows.has(entry.user_id)}
+                onToggle={(e) => {
+                  const isOpen = (e.currentTarget as HTMLDetailsElement).open
+                  setOpenRows((cur) => {
+                    if (cur.has(entry.user_id) === isOpen) return cur
+                    const next = new Set(cur)
+                    if (isOpen) next.add(entry.user_id)
+                    else next.delete(entry.user_id)
+                    return next
+                  })
+                }}
+              >
                 <summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-sm">
                   <span className="min-w-0 flex-1 truncate font-semibold">
                     {entry.display_name}
@@ -1604,6 +1618,8 @@ function LeagueHub({
                         ? (entry.advantage_target?.contestant_id ?? null)
                         : null
                     }
+                    soleSurvivorId={entry.sole_survivor_contestant_id}
+                    broadcast={broadcast}
                   />
                 </div>
               </details>
@@ -1623,6 +1639,8 @@ function HubCastawayRow({
   doubled = false,
   doubledContestantId = null,
   doubledTitle = 'Double Castaway Points this episode',
+  soleSurvivorId = null,
+  broadcast = false,
 }: {
   label: string
   survivors: StandingSurvivor[]
@@ -1630,9 +1648,12 @@ function HubCastawayRow({
   empty: string
   /** Whole-row double (a #303-era doubled ballot): the idol next to the label. */
   doubled?: boolean
-  /** Single-target double: the idol on this castaway's chip. */
+  /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
   doubledTitle?: string
+  /** Their Sole Survivor pick: a gold name, nothing louder (#685). */
+  soleSurvivorId?: string | null
+  broadcast?: boolean
 }) {
   return (
     <div>
@@ -1641,20 +1662,34 @@ function HubCastawayRow({
         {doubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
       </div>
       {survivors.length > 0 ? (
-        <ul className="mt-1.5 flex flex-wrap gap-1.5">
-          {survivors.map((s) => (
-            <li key={s.contestant_id} className="flex items-center gap-1.5 text-xs">
-              <ContestantAvatar
-                name={s.name}
-                imageUrl={s.image_url}
-                tribeColor={s.tribe_color}
-                tribeName={s.tribe_name}
-                size="sm"
-              />
-              <span className="max-w-[7rem] truncate">{s.name}</span>
-              {s.contestant_id === doubledContestantId && <DoubleBadge size={18} title={doubledTitle} />}
-            </li>
-          ))}
+        // Five to a row so a full tribe sits on one line; portrait over name,
+        // the idol pinned to the portrait it doubled (#685).
+        <ul className="mt-1.5 grid grid-cols-5 gap-x-1 gap-y-2">
+          {survivors.map((s) => {
+            const isSS = s.contestant_id === soleSurvivorId
+            return (
+              <li key={s.contestant_id} className="flex min-w-0 flex-col items-center gap-1 text-center text-[11px]">
+                <span className="relative">
+                  <ContestantAvatar
+                    name={s.name}
+                    imageUrl={s.image_url}
+                    tribeColor={s.tribe_color}
+                    tribeName={s.tribe_name}
+                    size="sm"
+                  />
+                  {s.contestant_id === doubledContestantId && (
+                    <span className="absolute -right-1.5 -top-1.5">
+                      <DoubleBadge size={18} title={doubledTitle} />
+                    </span>
+                  )}
+                </span>
+                <span className={`w-full truncate leading-tight ${isSS ? (broadcast ? 'text-gold-300' : 'text-gold-700') : ''}`}>
+                  {s.name}
+                  {isSS && <span className="sr-only"> · Sole Survivor</span>}
+                </span>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <p className={`mt-1 text-xs ${sub}`}>{empty}</p>
@@ -3134,7 +3169,7 @@ function BallotRecord({
             ) : (
               <span
                 key={p.id}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
+                className={`ballot-chip inline-flex shrink-0 items-center gap-1 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
               >
                 {mark}
                 {name}

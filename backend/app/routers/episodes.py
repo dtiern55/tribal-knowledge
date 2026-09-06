@@ -265,7 +265,8 @@ def get_episode_hub(
                 f"""
                 select rp.user_id::text as user_id, c.id::text as contestant_id,
                        coalesce(c.nickname, c.name) as name, c.image_url,
-                       tribe.name as tribe_name, tribe.color as tribe_color
+                       tribe.name as tribe_name, tribe.color as tribe_color,
+                       rp.is_sole_survivor
                 from roster_picks rp
                 join contestants c on c.id = rp.contestant_id
                 {_TRIBE_LATERAL}
@@ -275,8 +276,12 @@ def get_episode_hub(
                 [lsid],
             )
             rosters: dict[str, list[dict]] = {}
+            sole_survivors: dict[str, str] = {}
             for row in cur.fetchall():
-                rosters.setdefault(row.pop("user_id"), []).append(row)
+                uid = row.pop("user_id")
+                if row.pop("is_sole_survivor"):
+                    sole_survivors[uid] = row["contestant_id"]
+                rosters.setdefault(uid, []).append(row)
 
             # This episode's ballots.
             cur.execute(
@@ -338,6 +343,7 @@ def get_episode_hub(
                         "ballot": ballot,
                         "advantage_type": adv["advantage_type"] if adv else None,
                         "advantage_target": adv["advantage_target"] if adv else None,
+                        "sole_survivor_contestant_id": sole_survivors.get(uid),
                     }
                 )
             # Standings order, not alphabetical (#490 follow-up): the lock

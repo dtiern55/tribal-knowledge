@@ -194,14 +194,15 @@ def insert_roster_pick(
     active_from_episode=1,
     active_until_episode=None,
     swap_penalty_points=0,
+    is_sole_survivor=False,
 ):
     with conn.cursor() as cur:
         cur.execute(
             """
             insert into roster_picks
                 (user_id, league_season_id, contestant_id, active_from_episode,
-                 active_until_episode, swap_penalty_points)
-            values (%s, %s, %s, %s, %s, %s) returning *
+                 active_until_episode, swap_penalty_points, is_sole_survivor)
+            values (%s, %s, %s, %s, %s, %s, %s) returning *
             """,
             [
                 str(user_id),
@@ -210,6 +211,7 @@ def insert_roster_pick(
                 active_from_episode,
                 active_until_episode,
                 swap_penalty_points,
+                is_sole_survivor,
             ],
         )
         return cur.fetchone()

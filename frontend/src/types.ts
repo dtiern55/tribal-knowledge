@@ -116,6 +116,8 @@ export interface HubEntry {
   ballot: StandingSurvivor[]
   advantage_type: string | null
   advantage_target: StandingSurvivor | null
+  // Their Sole Survivor pick, when it is on the active roster.
+  sole_survivor_contestant_id: string | null
 }
 
 export interface StandingEntry {
