@@ -3446,10 +3446,27 @@ function PicksSection({
     onOpenPicks?.(optimisticPicks)
 
     try {
-      const res = await api.post<{ picks: EliminationPick[]; play: AdvantagePlay | null }>(
-        `/league-seasons/${season.id}/episodes/${episodeId}/picks`,
-        { contestant_ids: [...names], doubled_contestant_id: doubled },
-      )
+      const raw = await api.post<
+        { picks: EliminationPick[]; play: AdvantagePlay | null } | EliminationPick[]
+      >(`/league-seasons/${season.id}/episodes/${episodeId}/picks`, {
+        contestant_ids: [...names],
+        doubled_contestant_id: doubled,
+      })
+      // A backend from before #682's response shape answers with the bare
+      // list; read the play back the old way rather than blank the page.
+      const res = Array.isArray(raw)
+        ? {
+            picks: raw,
+            play:
+              (
+                await api
+                  .get<AdvantagePlay[]>(`/league-seasons/${season.id}/advantage-plays/${userId}`)
+                  .catch(() => [] as AdvantagePlay[])
+              ).find(
+                (p) => p.episode_id === episodeId && p.advantage_type === 'double_vote_points',
+              ) ?? null,
+          }
+        : { picks: raw.picks ?? [], play: raw.play ?? null }
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, res.picks))
       setPlays((prev) => {
         // With a play back, the server replaced whatever held the week; with
