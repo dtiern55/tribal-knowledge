@@ -286,12 +286,29 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
 
             cur.execute("delete from advantage_plays where id = %s", [str(play_id)])
 
-            # The ballot doesn't shrink on its own (#673: the ×2 is a real
-            # extra vote now, movable between picks) — if taking this play
-            # back drops the limit below the picks already made, trim the
-            # newest ones down to it. Oldest picks survive; this also closes
-            # play-submit-4-take-back, since the ×2's own pick is the newest
-            # one whenever it was just added.
+            # Taking the ×2 back always drops the doubled pick itself — that
+            # vote was the deal, whichever pick currently holds it (#673).
+            if (
+                play["advantage_type"] == "double_vote_points"
+                and play["target_contestant_id"] is not None
+            ):
+                cur.execute(
+                    """
+                    delete from elimination_picks
+                    where user_id = %s and episode_id = %s and contestant_id = %s
+                    """,
+                    [
+                        str(user_id),
+                        str(play["episode_id"]),
+                        str(play["target_contestant_id"]),
+                    ],
+                )
+
+            # Safety net, not the normal path: the line above already brings
+            # a targeted ×2's ballot back within the lowered limit. This only
+            # bites for a legacy null-target play or an extra_vote take-back,
+            # where nothing above trimmed the ballot — trim the newest picks
+            # down to the limit, oldest first.
             ls = database.require_league_season(cur, play["league_season_id"])
             limit = pick_limit(cur, ls, episode, user_id)
             cur.execute(

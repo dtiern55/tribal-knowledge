@@ -373,9 +373,9 @@ def _submit(client, season_id, episode_id, contestant_ids, doubled=None, expect=
 
 
 @pytest.mark.integration
-def test_take_back_trims_the_newest_pick_over_the_limit(client, db_conn, current_user):
-    """The ×2 is a real extra vote now (#673) — taking it back drops the base
-    limit by one, and the newest pick (the one the play added) goes."""
+def test_take_back_drops_the_doubled_pick(client, db_conn, current_user):
+    """Taking the ×2 back always drops the doubled pick itself (Danny's call)
+    — not whichever is newest."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=1)
@@ -394,11 +394,9 @@ def test_take_back_trims_the_newest_pick_over_the_limit(client, db_conn, current
 
 
 @pytest.mark.integration
-def test_take_back_trims_by_creation_order_not_current_target(
-    client, db_conn, current_user
-):
-    """Moving the ×2 doesn't change which pick is newest — take-back still
-    drops B, the one actually added last."""
+def test_take_back_drops_the_doubled_pick_even_if_older(client, db_conn, current_user):
+    """The doubled pick goes even when it's the older of the two — creation
+    order doesn't matter any more, only which pick currently holds the ×2."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=1)
@@ -409,17 +407,21 @@ def test_take_back_trims_by_creation_order_not_current_target(
 
     _submit(client, ls, ep["id"], [a["id"]])
     play = _play(client, ls, "double_vote_points", target=b["id"])
-    # Move the ×2 to a via a ballot save (#673) — no separate move endpoint.
+    # Move the ×2 onto a, the older pick, via a ballot save (#673).
     _submit(client, ls, ep["id"], [a["id"], b["id"]], doubled=a["id"])
 
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
 
     picks = _picks(client, ls, ep["id"], current_user["id"])
-    assert [p["contestant_id"] for p in picks] == [str(a["id"])]
+    assert [p["contestant_id"] for p in picks] == [str(b["id"])]
 
 
 @pytest.mark.integration
-def test_take_back_drops_nothing_within_the_limit(client, db_conn, current_user):
+def test_take_back_null_target_play_drops_nothing_within_limit(
+    client, db_conn, current_user
+):
+    """A legacy whole-ballot double (#303, no target) has no single pick to
+    drop — the limit-trim safety net leaves an in-limit ballot alone."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=2)
@@ -427,8 +429,10 @@ def test_take_back_drops_nothing_within_the_limit(client, db_conn, current_user)
     b = insert_contestant(db_conn, season["id"], "B")
     insert_contestant(db_conn, season["id"], "C")
 
-    _submit(client, ls, ep["id"], [a["id"]])
-    play = _play(client, ls, "double_vote_points", target=b["id"])
+    _submit(client, ls, ep["id"], [a["id"], b["id"]])
+    play = insert_advantage_play(
+        db_conn, current_user["id"], ep["id"], "double_vote_points"
+    )
 
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
 
