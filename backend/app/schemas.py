@@ -466,6 +466,12 @@ class AdvantagePlayRequest(BaseModel):
     target_contestant_id: Optional[UUID] = None
 
 
+class AdvantagePlayMoveRequest(BaseModel):
+    """Moving Extra Vote ×2 to a different pick on the same ballot (#673)."""
+
+    target_contestant_id: UUID
+
+
 class EpisodeResultContestant(BaseModel):
     contestant_id: UUID
     name: str

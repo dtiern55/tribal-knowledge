@@ -76,8 +76,8 @@
 
   /* Bright textile midtones sampled from the installed app icon. */
   --color-brand-snake: #e0463a; /* the icon's burnt red, lifted just enough to hold 3:1 on forest-600 */
-  --color-brand-flame: #f3b939;
-  --color-brand-rat: #f6e1ad;
+  --color-brand-flame: #eea92f;
+  --color-brand-rat: #f5d99a;
 
   --font-display: "Rajdhani", system-ui, sans-serif;
   --font-brand: "Skranji", "Rajdhani", system-ui, sans-serif;

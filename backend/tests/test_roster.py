@@ -331,6 +331,7 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
     )
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
+    doubled = insert_contestant(db_conn, season["id"], "Doubled")
     client.post(
         f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
@@ -338,7 +339,10 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
     assert (
         client.post(
             f"/league-seasons/{season['league_season_id']}/advantage-plays",
-            json={"advantage_type": "double_vote_points"},
+            json={
+                "advantage_type": "double_vote_points",
+                "target_contestant_id": str(doubled["id"]),
+            },
         ).status_code
         == 201
     )
