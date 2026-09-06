@@ -3,9 +3,8 @@
 Texture exploration for the production rat, snake, and flame mark. The selected
 solid-background revision is retained as an earlier installed app icon; the
 finer-grained dark and light revisions still supply the sliding-puzzle loader.
-As of 2026-09-04, this directory's export script builds the installed icons
-from the selected clean-woven dark patchwork source in
-`../2026-09-04-dark-stitch-textures/`. The browser favicon remains the separate
+As of 2026-09-05, this directory's export script builds the installed icons
+from the modern-enamel sources in `../2026-09-05-modern-enamel/`. The browser favicon remains the separate
 simple rat, and the puzzle sources remain independent.
 
 The production icon's composition and silhouettes are held fixed. Only the
