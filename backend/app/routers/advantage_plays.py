@@ -11,12 +11,7 @@ from app.locking import (
     used_weekly_play,
 )
 from app.routers.picks import already_eliminated_ids, pick_limit, redemption_island_ids
-from app.schemas import (
-    AdvantagePlay,
-    AdvantagePlayMoveRequest,
-    AdvantagePlayRequest,
-    AdvantageType,
-)
+from app.schemas import AdvantagePlay, AdvantagePlayRequest, AdvantageType
 
 router = APIRouter(tags=["advantage_plays"])
 
@@ -260,61 +255,6 @@ def _get_own_play(cur, play_id: UUID, user_id: UUID) -> dict:
     if not play or str(play["user_id"]) != str(user_id):
         raise HTTPException(status_code=404, detail="Advantage not found")
     return play
-
-
-@router.patch("/advantage-plays/{play_id}", response_model=AdvantagePlay)
-def move_advantage_play(
-    play_id: UUID,
-    body: AdvantagePlayMoveRequest,
-    user_id: UUID = Depends(get_current_user),
-):
-    """Move Extra Vote ×2 to a different name on the same ballot (#673).
-
-    The ×2 is now a real extra vote, so the doubled pick can move between
-    the user's picks like the roster seal moves between roster members — no
-    pick side effects, since the target is already one of the picks made.
-    """
-    with database.get_db() as conn:
-        with conn.cursor() as cur:
-            play = _get_own_play(cur, play_id, user_id)
-
-            cur.execute("select * from episodes where id = %s", [play["episode_id"]])
-            episode = cur.fetchone()
-            if episode_locked(episode):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Episode has locked; the advantage is spent",
-                )
-
-            if play["advantage_type"] != "double_vote_points":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Only Extra Vote ×2 can be moved",
-                )
-
-            target_id = str(body.target_contestant_id)
-            cur.execute(
-                """
-                select 1 from elimination_picks
-                where user_id = %s and episode_id = %s and contestant_id = %s
-                """,
-                [str(user_id), str(play["episode_id"]), target_id],
-            )
-            if not cur.fetchone():
-                raise HTTPException(
-                    status_code=400,
-                    detail="Put the ×2 on a name that's on your ballot",
-                )
-
-            cur.execute(
-                """
-                update advantage_plays set target_contestant_id = %s
-                where id = %s
-                returning *
-                """,
-                [target_id, str(play_id)],
-            )
-            return cur.fetchone()
 
 
 @router.delete("/advantage-plays/{play_id}", status_code=204)
