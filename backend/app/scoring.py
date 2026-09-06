@@ -11,17 +11,18 @@ merge_episode (decision #10). When merge_episode is NULL, everything is pre-merg
 A scoring/prediction value uses postmerge_point_value when it is set and the
 episode is post-merge, otherwise point_value.
 
-Double Castaway Points / Double Vote Points (decision #12, 2026-07-06): a player
-spends tokens to double an episode's points. Double Roster names one rostered
-contestant; Double Vote covers the player's whole ballot for that episode
-(#303) and stores no target. Both are read from advantage_plays at scoring
-time rather than a stored flag — this survives elimination_picks being deleted
-and reinserted on every resubmission (decision #38).
+Double Castaway Points / Extra Vote ×2 (decision #12, 2026-07-06; ×2 redesigned
+#673): a player spends a weekly play to double points. Double Roster names one
+rostered contestant. Extra Vote ×2 (advantage_type double_vote_points) names
+one extra pick added to that episode's ballot and doubles only it. Both are
+read from advantage_plays at scoring time rather than a stored flag — this
+survives elimination_picks being deleted and reinserted on every resubmission
+(decision #38).
 
-Double Vote plays from before #303 DO carry a target_contestant_id and doubled
-only that pick. The joins branch on `target_contestant_id is null` so those
+Double Vote plays from before #303 doubled the whole ballot instead and
+stored no target; the joins branch on `target_contestant_id is null` so those
 seasons keep scoring exactly as they did — completed seasons are time capsules
-(#170).
+(#170). Every play made after #673 always carries a target.
 """
 
 from typing import Optional
@@ -61,10 +62,11 @@ DOUBLE_ROSTER_JOIN_SQL = """
      and dbl.target_contestant_id = se.contestant_id
 """
 
-# A played Double Vote Points that doubles this elimination pick. Needs `pick`
-# (elimination_picks); aliases the play as `dbl`, same doubling pattern as
-# DOUBLE_ROSTER_JOIN_SQL. Pre-#303 plays name a target and only double that
-# pick; #303 on doubles the whole ballot (target_contestant_id is null).
+# A played Extra Vote ×2 (advantage_type double_vote_points) that doubles this
+# elimination pick. Needs `pick` (elimination_picks); aliases the play as
+# `dbl`, same doubling pattern as DOUBLE_ROSTER_JOIN_SQL. Every play made
+# after #673 names a target and only doubles that pick; #303-era plays
+# doubled the whole ballot instead (target_contestant_id is null).
 DOUBLE_VOTE_JOIN_SQL = """
     left join advantage_plays dbl
       on dbl.advantage_type = 'double_vote_points'
@@ -187,8 +189,8 @@ def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
 
     A pick scores when the predicted contestant appears in that episode's
     eliminations; pre/post-merge rate comes from prediction_score_types, then
-    doubles if the user played Double Vote Points that episode (#303 — every
-    pick, or just the named one for pre-#303 plays). Finale episodes are
+    doubles if the user played Extra Vote ×2 on that pick that episode (#673
+    — every pick, for #303-era plays with no target). Finale episodes are
     excluded — there picks are scored as a winner vote instead (#19).
     """
     with conn.cursor() as cur:
@@ -424,9 +426,10 @@ def advantage_bonus_by_play(
 
     A double adds one extra copy of the doubled points for that episode, so
     the bonus equals the un-doubled base: roster-event points for
-    double_roster_points, and for double_vote_points every correct pick that
-    episode (#303; pre-#303 plays name a target, so just that one).
-    extra_vote isn't included — there's no single pick to attribute (#304).
+    double_roster_points, and for double_vote_points (Extra Vote ×2, #673)
+    the named pick's points (every correct pick, for #303-era plays with no
+    target). extra_vote isn't included — there's no single pick to attribute
+    (#304).
     Keyed by stringified advantage_plays.id.
 
     Mirrors the roster/pick joins of roster_points()/elimination_points():

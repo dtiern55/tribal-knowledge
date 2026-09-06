@@ -133,6 +133,52 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_targeted_double_vote_raises_pick_limit(client, db_conn, current_user):
+    """Extra Vote ×2's doubled name is an extra pick on top of the base limit
+    (#673), same as extra_vote."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"], max_picks=1)
+    c1 = insert_contestant(db_conn, season["id"], "Player A")
+    doubled = insert_contestant(db_conn, season["id"], "Doubled")
+    insert_contestant(db_conn, season["id"], "Player C")  # keeps cap above 2
+
+    insert_advantage_play(
+        db_conn, current_user["id"], ep["id"], "double_vote_points", doubled["id"]
+    )
+
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"]), str(doubled["id"])]},
+    )
+    assert r.status_code == 200, r.text
+    assert len(r.json()) == 2
+
+
+@pytest.mark.integration
+def test_submit_picks_without_double_vote_target_rejected(
+    client, db_conn, current_user
+):
+    """The doubled name is always a pick (#673) — dropping it off the ballot
+    would leave the play attached to nothing."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"], max_picks=1)
+    c1 = insert_contestant(db_conn, season["id"], "Player A")
+    doubled = insert_contestant(db_conn, season["id"], "Doubled")
+    insert_contestant(db_conn, season["id"], "Player C")  # keeps cap above 2
+
+    insert_advantage_play(
+        db_conn, current_user["id"], ep["id"], "double_vote_points", doubled["id"]
+    )
+
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"])]},
+    )
+    assert r.status_code == 400
+    assert "Extra Vote ×2" in r.json()["detail"]
+
+
+@pytest.mark.integration
 def test_cannot_pick_every_remaining_option(client, db_conn, current_user):
     """Extra votes never let you select every castaway still in — cap is
     (still in the game − 1), even with a high base limit (#240)."""

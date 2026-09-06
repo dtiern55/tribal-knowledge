@@ -59,6 +59,49 @@ def _require_episode_in(cur, ls: dict, episode_id: UUID) -> dict:
     return episode
 
 
+def already_eliminated_ids(
+    cur, season_id: str, episode_number: int, ids: list[str]
+) -> list[str]:
+    """Which of `ids` were finally eliminated before this episode.
+
+    Shared with advantage_plays.py: Extra Vote ×2's target must be as
+    pickable as any ballot name (#673).
+    """
+    cur.execute(
+        """
+        select e.contestant_id::text
+        from eliminations e
+        join episodes ep on e.episode_id = ep.id
+        where ep.season_id = %s and e.is_final
+          and ep.episode_number < %s
+          and e.contestant_id::text = any(%s)
+        """,
+        [season_id, episode_number, ids],
+    )
+    return [row["contestant_id"] for row in cur.fetchall()]
+
+
+def redemption_island_ids(cur, episode_number: int, ids: list[str]) -> list[str]:
+    """Which of `ids` sit on Redemption Island as of this episode (#655).
+
+    Shared with advantage_plays.py, see already_eliminated_ids.
+    """
+    cur.execute(
+        """
+        select c.id::text as id from contestants c
+        join lateral (
+          select t.is_redemption from contestant_tribes ct
+          join tribes t on t.id = ct.tribe_id
+          where ct.contestant_id = c.id and ct.from_episode <= %s
+          order by ct.from_episode desc limit 1
+        ) tribe on true
+        where c.id::text = any(%s) and tribe.is_redemption
+        """,
+        [episode_number, ids],
+    )
+    return [row["id"] for row in cur.fetchall()]
+
+
 @router.get(
     "/league-seasons/{league_season_id}/episodes/{episode_id}/picks/{user_id}",
     response_model=list[EliminationPick],
@@ -134,16 +177,22 @@ def submit_picks(
                     ),
                 )
 
-            # Extra Vote advantage raises this episode's pick limit by one
+            # Extra Vote, or a targeted Extra Vote x2 (#673), raises this
+            # episode's pick limit by one — only one play exists per episode
+            # (#307), so at most one of these rows can match.
             cur.execute(
                 """
-                select count(*) as n from advantage_plays
+                select target_contestant_id::text as target_contestant_id
+                from advantage_plays
                 where user_id = %s and league_season_id = %s and episode_id = %s
-                  and advantage_type = 'extra_vote'
+                  and (advantage_type = 'extra_vote'
+                       or (advantage_type = 'double_vote_points'
+                           and target_contestant_id is not null))
                 """,
                 [str(user_id), str(league_season_id), str(episode_id)],
             )
-            max_picks = episode["max_elimination_picks"] + cur.fetchone()["n"]
+            extra_pick_play = cur.fetchone()
+            max_picks = episode["max_elimination_picks"] + (1 if extra_pick_play else 0)
 
             # You can never pick every remaining option — extra votes only go up
             # to (contestants still in the game − 1) (#240).
@@ -174,6 +223,16 @@ def submit_picks(
                 )
 
             ids = [str(c) for c in body.contestant_ids]
+
+            # A targeted Extra Vote x2 is always a pick (#673) — dropping the
+            # name off the ballot would leave the play attached to nothing.
+            target = extra_pick_play and extra_pick_play["target_contestant_id"]
+            if target and target not in ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Your Extra Vote ×2 name must stay on the ballot",
+                )
+
             cur.execute(
                 "select id::text as id from contestants"
                 " where season_id = %s and id::text = any(%s)",
@@ -187,18 +246,9 @@ def submit_picks(
                     detail=f"Contestants not in this season: {invalid}",
                 )
 
-            cur.execute(
-                """
-                select e.contestant_id::text
-                from eliminations e
-                join episodes ep on e.episode_id = ep.id
-                where ep.season_id = %s and e.is_final
-                  and ep.episode_number < %s
-                  and e.contestant_id::text = any(%s)
-                """,
-                [season_id, episode["episode_number"], ids],
+            already_eliminated = already_eliminated_ids(
+                cur, season_id, episode["episode_number"], ids
             )
-            already_eliminated = [row["contestant_id"] for row in cur.fetchall()]
             if already_eliminated:
                 raise HTTPException(
                     status_code=400,
@@ -207,20 +257,7 @@ def submit_picks(
 
             # The ballot is who gets voted off a tribe; nobody on Redemption
             # Island can be (#655). Tribe as of this episode, not later.
-            cur.execute(
-                """
-                select c.id::text as id from contestants c
-                join lateral (
-                  select t.is_redemption from contestant_tribes ct
-                  join tribes t on t.id = ct.tribe_id
-                  where ct.contestant_id = c.id and ct.from_episode <= %s
-                  order by ct.from_episode desc limit 1
-                ) tribe on true
-                where c.id::text = any(%s) and tribe.is_redemption
-                """,
-                [episode["episode_number"], ids],
-            )
-            on_redemption = [row["id"] for row in cur.fetchall()]
+            on_redemption = redemption_island_ids(cur, episode["episode_number"], ids)
             if on_redemption:
                 raise HTTPException(
                     status_code=400,
