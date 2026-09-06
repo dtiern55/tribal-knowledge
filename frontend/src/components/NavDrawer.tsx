@@ -12,11 +12,11 @@ import {
 } from '../lib/install'
 import type { Season } from '../types'
 import {
-  BookIcon,
   CloseIcon,
   DownloadIcon,
   LogOutIcon,
-  UserIcon,
+  ProfileIcon,
+  RulesIcon,
 } from './icons'
 import { InstallSteps } from './InstallSteps'
 
@@ -179,11 +179,15 @@ export function NavDrawer({
 
           <nav aria-label="Account and help" className="py-1">
             <NavLink to="/rules" onClick={onClose} className={rowCls}>
-              <BookIcon />
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-terracotta-50 text-terracotta-700">
+                <RulesIcon />
+              </span>
               Rules
             </NavLink>
             <NavLink to="/profile" onClick={onClose} className={rowCls}>
-              <UserIcon />
+              <span className="drawer-destination-icon--profile inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-jade-50 text-jade-700">
+                <ProfileIcon />
+              </span>
               Profile
             </NavLink>
             {showInstall &&

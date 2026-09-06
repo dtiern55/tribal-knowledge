@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A castaway portrait with a tied buff, cut as one sturdy camp emblem. -->
+  <path
+    fill="#000"
+    fill-rule="evenodd"
+    d="M31 5c-9 0-15 6-15 15 0 6 3 11 8 14C13 37 7 45 7 58h50c0-13-7-21-18-24 5-3 8-8 8-14 0-9-7-15-16-15Zm-13 11c8-3 17-3 27 0l-1 5c-9-3-17-3-25 0l-1-5Zm28 0 11-3-5 7 6 5-12 1v-10ZM24 38l8 9 8-9 4 3-12 13-12-13 4-3Z"
+  />
+</svg>
