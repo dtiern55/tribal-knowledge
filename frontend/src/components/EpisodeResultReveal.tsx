@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ADV_LABELS } from '../lib/advantages'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
+import { DoubleBadge } from './DoubleBadge'
 
 /** Compact signed score used all over the card — no "pts" noise (#477). */
 function signed(value: number) {
@@ -70,7 +70,14 @@ export function EpisodeResultReveal({
     }
   }
 
-  const rosterLane = result.roster_points + result.roster_adjustment_points
+  // The week's play is not a lane of its own: its bonus rides the row it
+  // doubled, so Roster + Ballot is the whole episode and every number on the
+  // card is a row you can point at. A #303-era vote double has no target and
+  // doubled every correct vote, so its idol sits on the lane title instead.
+  const rosterDouble = result.weekly_plays.find((play) => play.advantage_type === 'double_roster_points')
+  const voteDouble = result.weekly_plays.find((play) => play.advantage_type === 'double_vote_points')
+  const rosterLane = result.roster_points + result.roster_adjustment_points + (rosterDouble?.bonus_points ?? 0)
+  const ballotLane = result.ballot_points + (voteDouble?.bonus_points ?? 0)
   const eliminatedIds = new Set(result.eliminated.map((e) => e.contestant_id))
   const insights = result.insights ?? []
   const delta = result.rank_delta
@@ -180,16 +187,24 @@ export function EpisodeResultReveal({
                 <LaneEmpty>Nobody in your tribe scored this episode.</LaneEmpty>
               ) : (
                 <>
-                  {result.roster.map((member) => (
-                    <ResultRow
-                      key={member.contestant_id}
-                      name={member.name}
-                      imageUrl={member.image_url}
-                      value={member.points}
-                      eliminated={eliminatedIds.has(member.contestant_id)}
-                      breakdown={member.breakdown}
-                    />
-                  ))}
+                  {result.roster.map((member) => {
+                    const doubled = rosterDouble?.target_contestant_id === member.contestant_id
+                    return (
+                      <ResultRow
+                        key={member.contestant_id}
+                        name={member.name}
+                        imageUrl={member.image_url}
+                        value={member.points + (doubled ? rosterDouble.bonus_points : 0)}
+                        eliminated={eliminatedIds.has(member.contestant_id)}
+                        icon={doubled ? <DoubleBadge size={20} title="Double Castaway Points" /> : null}
+                        breakdown={
+                          doubled && rosterDouble.bonus_points !== 0
+                            ? [...member.breakdown, { event_type: 'double_roster_points', label: 'Double Castaway Points', quantity: 1, points: rosterDouble.bonus_points }]
+                            : member.breakdown
+                        }
+                      />
+                    )
+                  })}
                   {result.roster_adjustment_points !== 0 && (
                     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm">
                       <span className="text-cream-100/70">Historical roster adjustment</span>
@@ -202,12 +217,20 @@ export function EpisodeResultReveal({
               )}
             </ResultLane>
 
-            <ResultLane title="Ballot" total={result.ballot_points} accent="ballot">
+            <ResultLane
+              title="Ballot"
+              total={ballotLane}
+              accent="ballot"
+              icon={voteDouble && voteDouble.target_contestant_id == null ? <DoubleBadge size={20} title="Extra Vote ×2 this episode" /> : null}
+            >
               {result.ballot.length === 0 ? (
                 <LaneEmpty>No ballot was submitted, so there are no ballot points.</LaneEmpty>
               ) : (
                 result.ballot.map((pick) => {
                   const label = ballotTypeLabel(pick.prediction_type)
+                  const doubled =
+                    voteDouble != null &&
+                    (voteDouble.target_contestant_id == null || voteDouble.target_contestant_id === pick.contestant_id)
                   return (
                     <div
                       key={`${pick.prediction_type}:${pick.contestant_id}`}
@@ -222,6 +245,7 @@ export function EpisodeResultReveal({
                         tribeName={null}
                         size="sm"
                       />
+                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Extra Vote ×2" />}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
                         {label && <span className="block text-xs text-cream-100/45">{label}</span>}
@@ -231,45 +255,21 @@ export function EpisodeResultReveal({
                           pick.correct ? 'text-jade-200' : 'text-cream-100/45'
                         }`}
                       >
-                        {signed(pick.points)}
+                        {signed(doubled && pick.correct ? pick.points * 2 : pick.points)}
                       </span>
                     </div>
                   )
                 })
               )}
             </ResultLane>
-
-            <ResultLane title="Advantage" total={result.weekly_play_bonus} accent="advantage">
-              {result.weekly_plays.length === 0 ? (
-                <LaneEmpty>No weekly play was used.</LaneEmpty>
-              ) : (
-                result.weekly_plays.map((play) => (
-                  <div key={play.advantage_play_id} className="flex min-w-0 items-center gap-3 px-3.5 py-2.5">
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-cream-100">
-                        {ADV_LABELS[play.advantage_type] ?? play.advantage_type.replace(/_/g, ' ')}
-                      </span>
-                      {play.target_name && (
-                        <span className="block truncate text-xs text-cream-100/45">{play.target_name}</span>
-                      )}
-                    </span>
-                    <span className="shrink-0 font-display font-semibold text-jade-200 tabular-nums">
-                      {play.advantage_type === 'roster_swap' ? '—' : signed(play.bonus_points)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </ResultLane>
           </div>
 
-          {/* ── Points buildup: Roster + Ballot + Advantage = total ── */}
+          {/* ── Points buildup: Roster + Ballot = total ── */}
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-white/10 bg-[#0d1c14] px-4 py-3">
             <div className="flex flex-wrap items-center gap-2 font-display font-semibold text-cream-100/75">
               <BuildTerm label="Roster" value={rosterLane} />
               <span className="text-white/25">+</span>
-              <BuildTerm label="Ballot" value={result.ballot_points} />
-              <span className="text-white/25">+</span>
-              <BuildTerm label="Adv" value={result.weekly_play_bonus} />
+              <BuildTerm label="Ballot" value={ballotLane} />
             </div>
             <div className="ml-auto flex items-baseline gap-2">
               <span className="font-display text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cream-100/55">
@@ -346,24 +346,27 @@ function LaneEmpty({ children }: { children: React.ReactNode }) {
 const LANE_EDGE = {
   roster: 'border-l-jade-600',
   ballot: 'border-l-terracotta-500',
-  advantage: 'border-l-gold-500',
 } as const
 
 function ResultLane({
   title,
   total,
   accent,
+  icon,
   children,
 }: {
   title: string
   total: number
   accent: keyof typeof LANE_EDGE
+  /** A whole-lane double (#303-era ballot) wears the idol by the title. */
+  icon?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <section className={`overflow-hidden rounded-xl border border-white/10 border-l-[3px] bg-[#18301f] ${LANE_EDGE[accent]}`}>
       <div className="flex items-baseline gap-3 border-b border-white/10 px-3.5 py-2.5">
         <h3 className="font-display text-sm font-bold uppercase tracking-[0.16em] text-cream-100/70">{title}</h3>
+        {icon}
         <span
           className={`ml-auto shrink-0 font-display text-lg font-bold tabular-nums ${
             total > 0 ? 'text-jade-200' : total < 0 ? 'text-terracotta-200' : 'text-cream-100/45'
@@ -382,12 +385,15 @@ function ResultRow({
   imageUrl,
   value,
   eliminated = false,
+  icon = null,
   breakdown = [],
 }: {
   name: string
   imageUrl: string | null
   value: number
   eliminated?: boolean
+  /** The idol on the castaway the week's double rode. */
+  icon?: React.ReactNode
   breakdown?: EpisodeResultBreakdownLine[]
 }) {
   const [open, setOpen] = useState(false)
@@ -408,6 +414,7 @@ function ResultRow({
         <span className={eliminated ? ELIMINATED_DIM : undefined}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
         </span>
+        {icon}
         <span
           className={`min-w-0 flex-1 truncate text-sm font-medium ${
             eliminated ? `text-cream-100/45 ${ELIMINATED_STRIKE}` : 'text-cream-100'

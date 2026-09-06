@@ -25,7 +25,6 @@ import {
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
-import { Times2 } from '../components/Times2'
 import { RuleLink } from '../components/RuleLink'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
@@ -48,7 +47,6 @@ import type {
   Season,
   StandingEntry,
   StandingSurvivor,
-  TokenLedgerEntry,
 } from '../types'
 
 // The ballot's weekly play is Extra Vote ×2 (#673): one extra vote, and the
@@ -1342,7 +1340,7 @@ function LockedState({
             <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
               Ballot
             </h3>
-            {played?.advantage_type === 'double_vote_points' && (
+            {played?.advantage_type === 'double_vote_points' && played.target_contestant_id == null && (
               <DoubleBadge size={24} title="Extra Vote ×2 this episode" />
             )}
           </div>
@@ -1368,7 +1366,7 @@ function LockedState({
                     {name}
                     {played?.advantage_type === 'double_vote_points' &&
                       played.target_contestant_id === pick.contestant_id && (
-                        <Times2 title="Extra Vote ×2" />
+                        <DoubleBadge size={20} title="Extra Vote ×2" />
                       )}
                   </li>
                 )
@@ -1630,9 +1628,9 @@ function HubCastawayRow({
   survivors: StandingSurvivor[]
   sub: string
   empty: string
-  /** Whole-row double (a #303-era doubled ballot): ×2 next to the label. */
+  /** Whole-row double (a #303-era doubled ballot): the idol next to the label. */
   doubled?: boolean
-  /** Single-target double: ×2 on this castaway's chip. */
+  /** Single-target double: the idol on this castaway's chip. */
   doubledContestantId?: string | null
   doubledTitle?: string
 }) {
@@ -1640,7 +1638,7 @@ function HubCastawayRow({
     <div>
       <div className="flex items-center gap-1.5">
         <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {doubled && <Times2 title="Extra Vote ×2 this episode" />}
+        {doubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
       </div>
       {survivors.length > 0 ? (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
@@ -1654,7 +1652,7 @@ function HubCastawayRow({
                 size="sm"
               />
               <span className="max-w-[7rem] truncate">{s.name}</span>
-              {s.contestant_id === doubledContestantId && <Times2 title={doubledTitle} />}
+              {s.contestant_id === doubledContestantId && <DoubleBadge size={18} title={doubledTitle} />}
             </li>
           ))}
         </ul>
@@ -1668,10 +1666,6 @@ function HubCastawayRow({
 
 /**
  * Everything you've already played, tucked out of the way (#307).
- *
- * The token ledger only renders for seasons that actually had one — tokens
- * are retired, but Cagayan/S49/S50 keep a real history and stay readable
- * forever (#170).
  */
 function HistorySection({
   season,
@@ -1694,7 +1688,6 @@ function HistorySection({
   replayLoading: string | null
   replayError: string | null
 }) {
-  const [ledger, setLedger] = useState<TokenLedgerEntry[] | null>(null)
   const [open, setOpen] = useState(false)
   // The card previews the last episode's result (#478 follow-on), so the tap
   // has something to promise. One extra fetch, only once there is a scored
@@ -1703,17 +1696,6 @@ function HistorySection({
   // Past ballots, fetched the first time the sheet is opened rather than on
   // every page load — they are reference, and nobody reads them most weeks.
   const [pastBallots, setPastBallots] = useState<Map<string, EliminationPick[]> | null>(null)
-
-  useEffect(() => {
-    let live = true
-    api
-      .get<TokenLedgerEntry[]>(`/league-seasons/${season.id}/tokens/${userId}/history`)
-      .then((h) => live && setLedger(h))
-      .catch(() => live && setLedger([]))
-    return () => {
-      live = false
-    }
-  }, [season.id, userId])
 
   // Weekly ballots only: the finale is its own 3-part ballot (#86), and
   // pre-roster-lock premieres accept no votes (#82).
@@ -1770,35 +1752,7 @@ function HistorySection({
     )
     .sort((a, b) => b.episode_number - a.episode_number)
 
-  // Spent advantages from closed episodes, folded in from the old standalone
-  // Past Plays section (#545). Resolved here so the sheet stays a dumb list.
-  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const spent: SpentPlay[] = plays
-    .flatMap((p) => {
-      const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-      if (ep == null || !episodeClosed(ep)) return []
-      const target = p.target_contestant_id ? contestantMap.get(p.target_contestant_id) : undefined
-      return [
-        {
-          id: p.id,
-          label: ADV_LABELS[p.advantage_type] ?? p.advantage_type,
-          target: target ? displayName(target) : null,
-          episodeLabel: ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`,
-          episodeNumber: ep.episode_number,
-          points: p.points_earned,
-        },
-      ]
-    })
-    .sort((a, b) => b.episodeNumber - a.episodeNumber)
-
-  if (
-    scoredEpisodes.length === 0 &&
-    closedBallots.length === 0 &&
-    spent.length === 0 &&
-    (ledger == null || ledger.length === 0)
-  )
-    return null
+  if (scoredEpisodes.length === 0 && closedBallots.length === 0) return null
 
   // "+64, up 3 spots" — what the last episode did to you, so the card says
   // what's behind it rather than just naming itself.
@@ -1821,7 +1775,7 @@ function HistorySection({
   return (
     <>
       {/* Promoted out of the record (#478 follow-on): a card of its own under
-          both lanes. The recap replays, spent plays and retired ledger still
+          both lanes. The recap replays and past ballots still
           open in a sheet, not an always-present page section. */}
       <button type="button" onClick={() => setOpen(true)} className="history-card">
         <span className="flex size-[34px] flex-none items-center justify-center rounded-lg bg-forest-600 text-gold-300">
@@ -1847,8 +1801,6 @@ function HistorySection({
             pickResults={pickResults}
             plays={plays}
             contestants={contestants}
-            spent={spent}
-            ledger={ledger ?? []}
             onReplay={(episode) => {
               setOpen(false)
               onReplay(episode)
@@ -1867,16 +1819,7 @@ function HistorySection({
   )
 }
 
-type SpentPlay = {
-  id: string
-  label: string
-  target: string | null
-  episodeLabel: string
-  episodeNumber: number
-  points: number | null
-}
-
-// The recap replays + spent plays + retired token ledger, in a bottom sheet
+// The recap replays + past ballots, in a bottom sheet
 // (#478) matching the app's other sheets. Replay closes the sheet; the recap
 // reveal opens over the page from MySeasonPage.
 function HistorySheet({
@@ -1886,8 +1829,6 @@ function HistorySheet({
   pickResults,
   plays,
   contestants,
-  spent,
-  ledger,
   onReplay,
   replayLoading,
   replayError,
@@ -1900,25 +1841,21 @@ function HistorySheet({
   pickResults: Map<string, PickResult>
   plays: AdvantagePlay[]
   contestants: Contestant[]
-  spent: SpentPlay[]
-  ledger: TokenLedgerEntry[]
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
   onClose: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  // Episodes and advantages were stacked blocks in one scroll (#545, #546),
-  // which made the plays and the retired ledger read as an appendix to the
-  // replays. They are two different questions, so they get two tabs.
-  // Your own record — ballots, then plays — comes before the recaps, which are
-  // about the episode rather than about you.
+  // Your own record (ballots) comes before the recaps, which are about the
+  // episode rather than about you. Played advantages have no tab of their own:
+  // the doubled castaway and the ×2 vote are read on the roster and the
+  // ballot, where the points they doubled already are.
   const TABS = [
     { key: 'ballots' as const, label: 'Ballots', count: closedBallots.length },
-    { key: 'advantages' as const, label: 'Advantages', count: spent.length },
     { key: 'recaps' as const, label: 'Recaps', count: scoredEpisodes.length },
   ]
-  const [tab, setTab] = useState<'ballots' | 'advantages' | 'recaps'>(
+  const [tab, setTab] = useState<'ballots' | 'recaps'>(
     () => (TABS.find((t) => t.count > 0) ?? TABS[0]).key,
   )
 
@@ -2026,63 +1963,6 @@ function HistorySheet({
                   contestants={contestants}
                 />
               ))
-            )}
-          </div>
-
-          <div
-            id="history-panel-advantages"
-            role="tabpanel"
-            aria-labelledby="history-tab-advantages"
-            hidden={tab !== 'advantages'}
-          >
-            {spent.length > 0 ? (
-              <ul className="space-y-1.5">
-                {spent.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm text-gray-600">
-                    <span>
-                      {p.label}
-                      {p.target && <span className="text-gray-400"> → {p.target}</span>}
-                      <span className="text-gray-400"> · {p.episodeLabel}</span>
-                    </span>
-                    {p.points != null && (
-                      <span className={p.points > 0 ? 'font-medium text-jade-700' : 'text-gray-500'}>
-                        {p.points > 0 ? '+' : ''}
-                        {p.points} pts
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-paper-ink-faded">You have not spent an advantage yet.</p>
-            )}
-
-
-            {ledger.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Token ledger (retired)
-                </p>
-                <ul className="space-y-1.5">
-                  {ledger.map((h, i) => (
-                    <li
-                      key={`${h.created_at}:${i}`}
-                      className="flex items-center justify-between text-sm text-gray-600"
-                    >
-                      <span>
-                        {h.description ?? h.transaction_type.replace(/_/g, ' ')}
-                        {h.episode_number != null && (
-                          <span className="text-gray-400"> · Ep {h.episode_number}</span>
-                        )}
-                      </span>
-                      <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
-                        {h.amount > 0 ? '+' : ''}
-                        {h.amount}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             )}
           </div>
 
@@ -3151,10 +3031,11 @@ function BallotRecord({
 }) {
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const scored = ep.status === 'scored'
-  // The ballot play wears the idol once (#484): a corner-seal stamp on the
-  // prominent current ballot, a small inline seal by the episode number on the
-  // compact past rows. Extra Vote ×2 names one pick (#673), which gets the ×2
-  // mark; a #303-era play has no target and doubled the whole ballot.
+  // The ballot play wears the idol once (#484). Extra Vote ×2 names one pick
+  // (#673), and the idol sits on that vote. A #303-era play has no target and
+  // doubled the whole ballot, so its idol stands apart: a corner-seal stamp on
+  // the prominent current ballot, a small seal by the episode number on the
+  // compact past rows.
   const ballotDouble = plays.find(
     (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
   )
@@ -3165,7 +3046,7 @@ function BallotRecord({
   if (current)
     return (
       <div className="ballot-sheet">
-        {ballotDoubled && <BallotStamp size={48} />}
+        {ballotDoubled && !x2 && <BallotStamp size={48} />}
         <BallotSheetHead ep={ep} />
         {picks.length > 0 ? (
           <div className="ballot-sheet__slips mb-4">
@@ -3176,30 +3057,29 @@ function BallotRecord({
               // Only scored episodes have a settled result. A correct vote gets
               // the CorrectVote pill; incorrect stays neutral, not red — most
               // votes miss and a wall of red feels bad (#53, #135).
-              const mark = p.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
+              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
               if (scored && result?.correct === true)
                 return (
-                  <span key={p.id} className="inline-flex items-center gap-1.5">
-                    <CorrectVote
-                      name={name}
-                      points={result.points > 0 ? result.points : undefined}
-                    />
-                    {mark}
-                  </span>
+                  <CorrectVote
+                    key={p.id}
+                    name={name}
+                    points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined}
+                    icon={mark}
+                  />
                 )
               return (
-                <span key={p.id} className="inline-flex items-center gap-1.5">
-                  <VoteSlip
-                    name={name}
-                    stale={
-                      pickC?.eliminated_in_episode != null &&
-                      pickC.eliminated_in_episode < ep.episode_number
-                    }
-                    tribeColor={pickC?.tribe_color}
-                    rotation={[-0.9, 0.6, -0.3][index % 3]}
-                  />
-                  {mark}
-                </span>
+                <VoteSlip
+                  key={p.id}
+                  name={name}
+                  stale={
+                    pickC?.eliminated_in_episode != null &&
+                    pickC.eliminated_in_episode < ep.episode_number
+                  }
+                  doubled={mark != null}
+                  tribeColor={pickC?.tribe_color}
+                  rotation={[-0.9, 0.6, -0.3][index % 3]}
+                  leading={mark}
+                />
               )
             })}
           </div>
@@ -3227,7 +3107,7 @@ function BallotRecord({
       <span className="shrink-0 text-sm font-medium text-gray-700">
         {ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`}
       </span>
-      {ballotDoubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+      {ballotDoubled && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
       {/* Overflows with two or three chips on a narrow phone, so it is a
           scroll container and has to be focusable — otherwise the votes past
           the fold are unreachable by keyboard or switch (WCAG 2.1.1). */}
@@ -3245,21 +3125,19 @@ function BallotRecord({
             const pickC = contestantMap.get(p.contestant_id)
             const name = pickC ? displayName(pickC) : '—'
             // Same rule as the prominent ballot: correct votes get the pill,
-            // misses stay neutral rather than red (#53, #135). The ×2 mark
-            // sits on the named pick.
-            const mark = p.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
+            // misses stay neutral rather than red (#53, #135). The idol sits
+            // on the named pick, and its pill carries the doubled points
+            // (pickResults are base values, #136).
+            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
             return scored && result?.correct === true ? (
-              <span key={p.id} className="inline-flex shrink-0 items-center gap-1">
-                <CorrectVote name={name} points={result.points > 0 ? result.points : undefined} />
-                {mark}
-              </span>
+              <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} icon={mark} />
             ) : (
               <span
                 key={p.id}
                 className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
               >
-                {name}
                 {mark}
+                {name}
               </span>
             )
           })

@@ -95,7 +95,7 @@ describe('TeamPage', () => {
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
   })
 
-  it('starts with only Tribe open; Expand all reveals the ballot and advantages (#646)', async () => {
+  it('starts with only Tribe open; Expand all reveals the ballot (#646)', async () => {
     const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
@@ -104,7 +104,7 @@ describe('TeamPage', () => {
       if (path.endsWith('/episodes')) return [episode]
       if (path.includes('/roster/')) return []
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [], sole_survivor_contestant_id: null, sole_survivor_bonus: 0 }
-      if (path.includes('/advantage-plays/')) return [{ id: 'play-1', episode_id: 'ep-1', advantage_type: 'double_vote_points', target_contestant_id: null, points_earned: 5 }]
+      if (path.includes('/advantage-plays/')) return [{ id: 'play-1', episode_id: 'ep-1', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1', points_earned: 5 }]
       // A real network gap: instantly resolving mocks let React batch the whole
       // load into one render, which hides the latch.
       if (path.includes('/picks/')) {
@@ -130,7 +130,12 @@ describe('TeamPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
 
     expect(screen.getByText('Ep 1')).toBeVisible()
-    expect(screen.getByText(/Extra Vote ×2/)).toBeVisible()
+    // The played ×2 reads on the ballot row itself: the idol sits on the
+    // doubled vote, whose green pill says it hit. No separate Advantages ledger.
+    const idol = screen.getByRole('img', { name: 'Extra Vote ×2' })
+    expect(idol).toBeVisible()
+    expect(idol.closest('span[class*="jade"]')).toHaveTextContent('Kenzie')
+    expect(screen.queryByRole('button', { name: /^Advantages/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
   })
 })

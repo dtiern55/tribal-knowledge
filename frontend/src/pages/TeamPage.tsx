@@ -10,8 +10,6 @@ import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { Times2 } from '../components/Times2'
-import { ADV_LABELS } from '../lib/advantages'
 import { api } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
@@ -43,8 +41,8 @@ function Points({ value }: { value: number | undefined }) {
   return <span className={`text-xs font-medium ${color}`}>{value > 0 ? '+' : ''}{value} pts</span>
 }
 
-type SectionKey = 'tribe' | 'finale' | 'ballot' | 'advantages' | 'swapped'
-const ALL_CLOSED: Record<SectionKey, boolean> = { tribe: false, finale: false, ballot: false, advantages: false, swapped: false }
+type SectionKey = 'tribe' | 'finale' | 'ballot' | 'swapped'
+const ALL_CLOSED: Record<SectionKey, boolean> = { tribe: false, finale: false, ballot: false, swapped: false }
 
 // The section's contribution to the season total, shown on the section header
 // so the breakdown lives with the detail instead of in a separate tile row.
@@ -58,22 +56,6 @@ function SectionPoints({ value }: { value: number }) {
   )
 }
 
-// Advantage bonus is a *subset* of the roster/ballot points, not a fourth
-// bucket. Shown in the same face as the Roster/Ballot totals so it doesn't clash,
-// but muted and labelled "included" so it plainly reads as already inside the
-// season score rather than a number that adds on top of it.
-function AdvantageEarned({ value }: { value: number }) {
-  if (value === 0) return null
-  return (
-    <span className="ml-auto flex items-baseline gap-1.5">
-      <strong className="font-display text-lg tabular-nums text-gray-500">
-        {value < 0 ? `−${Math.abs(value)}` : value}
-      </strong>
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">pts included</span>
-    </span>
-  )
-}
-
 export function TeamPage() {
   const { leagueSeasonId, userId } = useParams()
   const [siblings, setSiblings] = useState<StandingEntry[]>([])
@@ -81,6 +63,8 @@ export function TeamPage() {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
+  // `${episode_id}:${contestant_id}` -> base points of a correct vote.
+  const [pickPoints, setPickPoints] = useState<Map<string, number>>(new Map())
   const [ssBonus, setSsBonus] = useState(0)
   const [bracket, setBracket] = useState<FinalePrediction | null>(null)
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
@@ -118,6 +102,7 @@ export function TeamPage() {
           setRoster(await api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`))
           const breakdown = await api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`)
           setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
+          setPickPoints(new Map(breakdown.picks.map((row) => [`${row.episode_id}:${row.contestant_id}`, row.points])))
           setSsBonus(breakdown.sole_survivor_bonus)
           setPlays(await api.get<AdvantagePlay[]>(`/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`).catch(() => []))
         } catch {
@@ -140,8 +125,8 @@ export function TeamPage() {
         // have the Sole Survivor designation), 403 until the finale locks.
         setBracket(await api.get<FinalePrediction>(`/league-seasons/${leagueSeasonId}/finale-predictions/${userId}`).catch(() => null))
         // The player lands last: the page renders the moment it has one, and
-        // the Ballot/Advantages shells latch their open state on that first
-        // render. Set earlier, they latched on empty votes and plays and
+        // the Ballot shell latches its open state on that first render. Set
+        // earlier, it latched on empty votes and
         // started collapsed (#646).
         // Tribe alone starts open; the rest are a tap or Expand all away.
         setOpen({ ...ALL_CLOSED, tribe: true })
@@ -182,13 +167,11 @@ export function TeamPage() {
   const penaltyBooked = (pick: RosterPick) =>
     episodes.some((e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e))
   const doubles = plays.filter((play) => play.advantage_type === 'double_vote_points')
-  const scoredPlays = plays.filter((play) => play.episode_id !== null)
-  const weeklyBonus = scoredPlays.reduce((total, play) => total + (play.points_earned ?? 0), 0)
   const ranked = rankStandings(siblings).find(({ entry }) => entry.user_id === userId)
   const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
   // Swapped-out castaways is a footnote inside Tribe: expand-all opens it,
   // but its being closed doesn't make the page read as collapsed.
-  const sections: SectionKey[] = ['tribe', 'ballot', 'advantages', ...(finaleScored ? ['finale' as const] : [])]
+  const sections: SectionKey[] = ['tribe', 'ballot', ...(finaleScored ? ['finale' as const] : [])]
   const allOpen = sections.every((key) => open[key])
   const toggleSection = (key: SectionKey) => () => setOpen((o) => ({ ...o, [key]: !o[key] }))
 
@@ -237,7 +220,7 @@ export function TeamPage() {
           same record read for someone else, not a dashboard beside it. */}
       <div className="mt-8 flex justify-end">
         <button
-          onClick={() => setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, advantages: true, swapped: true })}
+          onClick={() => setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, swapped: true })}
           className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
         >
           {allOpen ? 'Collapse all' : 'Expand all'}
@@ -330,7 +313,6 @@ export function TeamPage() {
           </SectionShell>
         )}
 
-        <div className="space-y-8">
           <SectionShell title="Ballot" prominent open={open.ballot} onToggle={toggleSection('ballot')} right={<SectionPoints value={player.elimination_points} />}>
             {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
               // One ledger row per episode, matching the My Season History sheet:
@@ -340,15 +322,16 @@ export function TeamPage() {
               <div className="overflow-hidden rounded-xl border border-paper-edge record-paper">
                 {votes.map(({ episode, picks, eliminatedIds }) => {
                   const ballotDouble = doubles.find((play) => play.episode_id === episode.id)
-                  // Extra Vote ×2 names one pick (#673); a #303-era play has no target
-                  // and doubled the whole ballot, which the idol alone says.
+                  // Extra Vote ×2 names one pick (#673), and the idol sits on that
+                  // vote; a #303-era play has no target and doubled the whole
+                  // ballot, so its idol sits by the episode instead.
                   const x2 = ballotDouble?.target_contestant_id ?? null
                   return (
                     <div key={episode.id} className="flex items-center gap-2 border-b border-paper-line px-3.5 py-2 last:border-b-0">
                       <span className="shrink-0 text-sm font-medium text-paper-ink">
                         Ep {episode.episode_number}
                       </span>
-                      {ballotDouble && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+                      {ballotDouble && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
                       <span
                         role="group"
                         aria-label="Votes"
@@ -361,12 +344,14 @@ export function TeamPage() {
                           picks.map((pick) => {
                             const nameC = contestantMap.get(pick.contestant_id)
                             const name = nameC ? displayName(nameC) : '—'
-                            const mark = pick.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
+                            const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+                            // Pick results are base values (#136); the doubled vote shows what it paid.
+                            const points = (pickPoints.get(`${episode.id}:${pick.contestant_id}`) ?? 0) * (mark ? 2 : 1)
                             return eliminatedIds.has(pick.contestant_id) ? (
-                              <span key={pick.id} className="inline-flex shrink-0 items-center gap-1"><CorrectVote name={name} />{mark}</span>
+                              <CorrectVote key={pick.id} name={name} points={points > 0 ? points : undefined} icon={mark} />
                             ) : (
                               <span key={pick.id} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
-                                {name}{mark}
+                                {mark}{name}
                               </span>
                             )
                           })
@@ -378,36 +363,6 @@ export function TeamPage() {
               </div>
             )}
           </SectionShell>
-
-          <SectionShell title="Advantages" prominent open={open.advantages} onToggle={toggleSection('advantages')} right={<AdvantageEarned value={weeklyBonus} />}>
-            {hidden ? (
-              <p className="text-sm text-gray-500">Advantages unlock with the tribe.</p>
-            ) : scoredPlays.length === 0 ? (
-              <p className="text-sm text-gray-500">No advantages used yet.</p>
-            ) : (
-              // One concise row per play — label → target · Ep, points on the
-              // right — matching the History sheet's Advantages tab.
-              <ol className="overflow-hidden rounded-xl border border-paper-edge record-paper">
-                {scoredPlays
-                  .sort((a, b) => (episodes.find((episode) => episode.id === b.episode_id)?.episode_number ?? 0) - (episodes.find((episode) => episode.id === a.episode_id)?.episode_number ?? 0))
-                  .map((play) => {
-                    const episode = episodes.find((row) => row.id === play.episode_id)
-                    const target = play.target_contestant_id ? contestantMap.get(play.target_contestant_id)?.name : null
-                    return (
-                      <li key={play.id} className="flex items-center justify-between gap-3 border-b border-paper-line px-3.5 py-2 text-sm last:border-b-0">
-                        <span className="min-w-0 truncate text-paper-ink">
-                          {ADV_LABELS[play.advantage_type] ?? play.advantage_type}
-                          {target && <span className="text-paper-ink-faded"> → {target}</span>}
-                          <span className="text-paper-ink-faded"> · Ep {episode?.episode_number ?? '—'}</span>
-                        </span>
-                        <Points value={play.points_earned ?? undefined} />
-                      </li>
-                    )
-                  })}
-              </ol>
-            )}
-          </SectionShell>
-        </div>
       </div>
     </div>
   )
