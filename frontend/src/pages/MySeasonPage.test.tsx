@@ -658,6 +658,8 @@ describe('MySeasonPage state shell', () => {
 
   it('drags the ballot seal onto the Roster tab to pick a castaway to double (#487)', async () => {
     const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+    // The server drops the doubled vote when the ×2 leaves the ballot (#673).
+    let picks = [{ id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' }]
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
@@ -670,7 +672,7 @@ describe('MySeasonPage state shell', () => {
         // The ×2 rides its name on the open ballot (#673).
         return [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1' }]
       }
-      if (path.includes('/picks/')) return [{ id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' }]
+      if (path.includes('/picks/')) return picks
       if (path.includes('/roster/')) {
         return [
           { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
@@ -680,9 +682,15 @@ describe('MySeasonPage state shell', () => {
       if (path.endsWith('/reveal')) return undefined
       return []
     })
+    vi.mocked(api.delete).mockImplementation(async () => {
+      picks = []
+    })
+    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' })
 
     renderWithApp(<MySeasonPage />, { auth })
     const ballot = await openBeat('Ballot')
+    const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
+    expect(ballotTab).toHaveTextContent('1 of')
 
     // The seal only drags while the ballot is open for editing (#673), from
     // the "Double one vote" row.
@@ -697,6 +705,20 @@ describe('MySeasonPage state shell', () => {
 
     // Same as the Advantage → Roster ×2 flow: the roster lights up for the pick.
     expect(await screen.findByText('Choose a castaway to double')).toBeVisible()
+
+    // Picking the castaway swaps the play. The ballot re-reads only after the
+    // server has answered, so the dropped doubled vote shows up in the hero
+    // count instead of the stale four-vote ballot (#673 review).
+    const roster = await openBeat('Tribe')
+    await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
+        advantage_type: 'double_roster_points',
+        target_contestant_id: 'cast-1',
+      }),
+    )
+    await waitFor(() => expect(ballotTab).toHaveTextContent('None'))
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {

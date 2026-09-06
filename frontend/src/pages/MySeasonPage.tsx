@@ -3399,15 +3399,23 @@ function PicksSection({
         contestant_ids: [...names],
         doubled_contestant_id: wantsX2 ? (x2Override ?? x2For(names)) : null,
       })
-      setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
-      setEditing(false)
-      onBallotArmedChange?.(false)
       // The save may have created, moved, or (on an empty ballot) removed
-      // the ×2 play; the lane and the seal read it from the plays list.
+      // the ×2 play. Read it back BEFORE showing the sheet, so the doubled
+      // slip lands in place with the names instead of hopping there a beat
+      // later; the updates below batch into one render.
       const fresh = await api
         .get<AdvantagePlay[]>(`/league-seasons/${season.id}/advantage-plays/${userId}`)
         .catch(() => null)
-      if (fresh) setPlays(fresh)
+      if (fresh) {
+        setPlays(fresh)
+        // This ballot is already current: no re-read for the play change.
+        lastPlayId.current = fresh.find(
+          (p) => p.episode_id === episodeId && p.advantage_type === 'double_vote_points',
+        )?.id
+      }
+      setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
+      setEditing(false)
+      onBallotArmedChange?.(false)
       // The Ballot beat shows the saved count, so it follows the save.
       onBallotSaved?.()
     } catch (e) {
@@ -3425,10 +3433,12 @@ function PicksSection({
   pendingRef.current = pending
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
   const openEp = play.openEpisode
+  // A replace shows its optimistic row before the server has moved anything.
+  // Re-read only once the real row is back — a drag to the roster used to
+  // re-read while the delete was still in flight and keep the doubled vote.
+  const settled = !play.play?.id.startsWith('pending-')
   useEffect(() => {
-    // The optimistic row precedes the real one; wait for the real id.
-    if (!openEp || lastPlayId.current === ballotPlay?.id || ballotPlay?.id.startsWith('pending-'))
-      return
+    if (!openEp || !settled || lastPlayId.current === ballotPlay?.id) return
     lastPlayId.current = ballotPlay?.id
     const epId = openEp.id
     let stale = false
@@ -3458,7 +3468,7 @@ function PicksSection({
     return () => {
       stale = true
     }
-  }, [ballotPlay?.id, ballotPlay?.target_contestant_id, openEp, season.id, userId, contestants, onBallotSaved])
+  }, [ballotPlay?.id, ballotPlay?.target_contestant_id, settled, openEp, season.id, userId, contestants, onBallotSaved])
 
   // The seal rides the doubled slip. Drag it onto another slip to move the
   // ×2: while editing that only changes what Save sends (the slips in the
@@ -3604,8 +3614,8 @@ function PicksSection({
                     Ballot submitted
                   </p>
                   <div className="ballot-sheet__slips">
-                    {/* The doubled vote leads the pile, in gold, wearing the
-                        seal (#673). */}
+                    {/* The doubled vote sits alone on the top row, in gold,
+                        wearing the seal (#673). */}
                     {[...savedPicks]
                       .sort((a, b) => Number(b.contestant_id === x2Target) - Number(a.contestant_id === x2Target))
                       .map((p, index) => {
@@ -3620,7 +3630,7 @@ function PicksSection({
                         <span
                           key={p.id}
                           data-drop-id={x2Target && !isX2 ? p.contestant_id : undefined}
-                          className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                          className={`relative inline-flex items-center justify-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500 ${isX2 ? 'basis-full' : ''}`}
                         >
                           <VoteSlip
                             name={slipName}
@@ -3709,7 +3719,9 @@ function PicksSection({
                     <div className="mb-5">
                       <p className="ballot-sheet__count mb-3">Double one vote</p>
                       <div className="ballot-sheet__slips">
-                        {[...epPending].map((id, index) => {
+                        {[...epPending]
+                          .sort((a, b) => Number(b === x2) - Number(a === x2))
+                          .map((id, index) => {
                           const sc = contestantMap.get(id)
                           const slipName = sc ? displayName(sc) : '—'
                           const isX2 = id === x2
@@ -3717,7 +3729,7 @@ function PicksSection({
                             <span
                               key={id}
                               data-drop-id={!isX2 ? id : undefined}
-                              className="relative inline-flex rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                              className={`relative inline-flex justify-center rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500 ${isX2 ? 'basis-full' : ''}`}
                             >
                               <button
                                 type="button"
