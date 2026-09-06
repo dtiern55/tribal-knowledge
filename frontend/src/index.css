@@ -1380,3 +1380,17 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
   border-radius: 4px;
   animation: rule-flash 3s ease-out 1;
 }
+/* At night the ember is the accent, not gold: same hold and fade in torchlight. */
+@keyframes rule-flash-night {
+  0%, 45% {
+    background-color: rgb(196 84 50 / 45%);
+    box-shadow: 0 0 0 12px rgb(196 84 50 / 45%);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+html.locked-night .rule-flash {
+  animation-name: rule-flash-night;
+}
