@@ -1192,6 +1192,8 @@ html.locked-night .hero-points { filter: brightness(0.9); }
 }
 
 .hero-lane[data-muted] { opacity: 0.55; }
+.hero-lane[data-tappable] { cursor: pointer; }
+.hero-lane[data-tappable]:hover { background: rgb(212 145 58 / 26%); }
 
 .hero-lane__icon {
   display: inline-flex;

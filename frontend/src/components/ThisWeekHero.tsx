@@ -68,6 +68,7 @@ export function HeroLane({
   done = false,
   muted = false,
   action,
+  onClick,
 }: {
   label: string
   note: ReactNode
@@ -77,9 +78,12 @@ export function HeroLane({
   muted?: boolean
   /** Trailing control — Undo, once the play is spent. */
   action?: ReactNode
+  /** The whole lane is a tap target — players kept missing the 32px idol.
+   *  Keyboard access stays on the idol button inside, so this is pointer-only. */
+  onClick?: () => void
 }) {
   return (
-    <div className="hero-lane" data-muted={muted || undefined}>
+    <div className="hero-lane" data-muted={muted || undefined} data-tappable={onClick ? true : undefined} onClick={onClick}>
       <span className="hero-lane__icon">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="hero-lane__label">{label}</span>
