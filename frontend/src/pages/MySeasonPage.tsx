@@ -3390,7 +3390,8 @@ function PicksSection({
     return null
   }
 
-  async function submitPicks(episodeId: string, x2Override?: string) {
+  /** Save the ballot; true when it went through. */
+  async function submitPicks(episodeId: string, x2Override?: string): Promise<boolean> {
     setSubmitting(episodeId)
     setErrors((prev) => {
       const m = new Map(prev)
@@ -3402,7 +3403,7 @@ function PicksSection({
       const wantsX2 = (ballotArmed || ballotPlay != null) && names.size > 0
       // The week's play moves to the ballot: a roster double gives way first.
       if (wantsX2 && play.play && !ballotPlay) {
-        if (!(await play.takeBack(play.play))) return
+        if (!(await play.takeBack(play.play))) return false
       }
       const picks = await api.post<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks`, {
         contestant_ids: [...names],
@@ -3428,9 +3429,11 @@ function PicksSection({
       // The Ballot beat shows the saved count, so it follows the save.
       if (onOpenPicks) onOpenPicks(picks)
       else onBallotSaved?.()
+      return true
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Submit failed'
       setErrors((prev) => new Map(prev).set(episodeId, msg))
+      return false
     } finally {
       setSubmitting(null)
     }
@@ -3520,7 +3523,18 @@ function PicksSection({
         return
       }
       setPendingX2(id)
-      if (!editing && openEp) void submitPicks(openEp.id, id)
+      if (editing || !openEp) return
+      // Submitted sheet: move the seal now and let the save catch up, rolling
+      // back if it doesn't — waiting on the round trip read as a hang.
+      const previous = ballotPlay
+      if (previous) {
+        setPlays((prev) =>
+          prev.map((p) => (p.id === previous.id ? { ...p, target_contestant_id: id } : p)),
+        )
+      }
+      void submitPicks(openEp.id, id).then((ok) => {
+        if (!ok && previous) setPlays((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
+      })
     },
   })
   const seal = (
