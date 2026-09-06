@@ -63,6 +63,8 @@ export function TeamPage() {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [contestants, setContestants] = useState<Contestant[]>([])
   const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
+  // `${episode_id}:${contestant_id}` -> base points of a correct vote.
+  const [pickPoints, setPickPoints] = useState<Map<string, number>>(new Map())
   const [ssBonus, setSsBonus] = useState(0)
   const [bracket, setBracket] = useState<FinalePrediction | null>(null)
   const [plays, setPlays] = useState<AdvantagePlay[]>([])
@@ -100,6 +102,7 @@ export function TeamPage() {
           setRoster(await api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`))
           const breakdown = await api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`)
           setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
+          setPickPoints(new Map(breakdown.picks.map((row) => [`${row.episode_id}:${row.contestant_id}`, row.points])))
           setSsBonus(breakdown.sole_survivor_bonus)
           setPlays(await api.get<AdvantagePlay[]>(`/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`).catch(() => []))
         } catch {
@@ -342,8 +345,10 @@ export function TeamPage() {
                             const nameC = contestantMap.get(pick.contestant_id)
                             const name = nameC ? displayName(nameC) : '—'
                             const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+                            // Pick results are base values (#136); the doubled vote shows what it paid.
+                            const points = (pickPoints.get(`${episode.id}:${pick.contestant_id}`) ?? 0) * (mark ? 2 : 1)
                             return eliminatedIds.has(pick.contestant_id) ? (
-                              <CorrectVote key={pick.id} name={name} icon={mark} />
+                              <CorrectVote key={pick.id} name={name} points={points > 0 ? points : undefined} icon={mark} />
                             ) : (
                               <span key={pick.id} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
                                 {mark}{name}
