@@ -53,8 +53,9 @@ cd backend && uv run pytest -m integration
 ```
 
 ## Deployment
-Two environments (#150). Staging is where bots, practice seasons, and test
-signups live; prod is the real league and only moves on a version tag.
+Two environments (#150). Staging holds the frozen stage leagues (one per
+point in a season, `docs/operations.md`) plus the bots; prod is the real
+league and only moves on a version tag.
 - **Staging** — merge to main runs `.github/workflows/deploy-staging.yml`:
   migrations (`SUPABASE_DB_URL_STAGING`), then Fly app
   `tribal-knowledge-staging`. Vercel builds main and every PR as a preview

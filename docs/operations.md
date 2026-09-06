@@ -148,16 +148,34 @@ Scripts read `backend/.env`, which points at staging. Prod credentials live in
 project after a week idle — if staging returns errors, unpause it in the
 dashboard.
 
-To give previews real castaways and teams, refresh staging from prod:
+### Staging stages
+
+Staging holds one league per point in a season's life, all clones of the
+scored David vs. Goliath run, so a preview can be checked at any stage without
+waiting for a lock to pass. Open episodes lock in 2099, so the snapshots never
+decay. Danny, the producer, and the bots are the only accounts.
+
+| League | Scored | State on the preview |
+| --- | --- | --- |
+| Stage: pre-draft | none | Episode 1 open, rosters empty, join and draft flows |
+| Stage: before-ep2 | 1 | First recap and standings, roster editable until the lock at 2 |
+| Stage: swap-window | 1–5 | Roster locked, swaps and advantages live, pre-merge |
+| Stage: post-merge | 1–7 | Merge tribe, post-merge points, jury not seated |
+| Stage: locked-not-scored | 1–8 | Episode 9 locked but unscored; other players' picks visible |
+| Stage: jury-locked | 1–10 | Swaps closed (first juror + 2), ballot only |
+| Stage: finale | 1–12 | Finale open, bracket ballot |
+| Stage: complete | all | Season completed, final standings |
+
+Rebuild the set (it wipes everything else on staging, dry run by default):
 
 ```bash
-uv run python scripts/copy_prod_to_staging.py          # dry run: counts + id map
-uv run python scripts/copy_prod_to_staging.py --apply  # truncate staging, reload
+uv run python scripts/stage_staging.py          # dry run: per-stage counts
+uv run python scripts/stage_staging.py --apply  # rebuild
 ```
 
-It copies every public table and remaps user ids by email, so an account that
-exists in both projects keeps its staging login. Other players get placeholder
-auth users with no password: visible data only, no sign-in.
+The source season has to be on staging. If it isn't, copy prod first
+(`scripts/copy_prod_to_staging.py --apply`, which remaps user ids by email and
+gives everyone else a placeholder login), then run the stage script.
 
 ## Migrations and deployment
 
