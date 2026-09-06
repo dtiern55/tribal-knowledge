@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { ContestantPerformance } from '../types'
+import { DoubleBadge } from './DoubleBadge'
 import { EpisodeLabel } from './EpisodeLabel'
 
 /**
  * Per-episode breakdown for one rostered contestant (#257, #271): each episode
- * is its own collapsed row (total on the right, "2x Points" pill when you played
+ * is its own collapsed row (total on the right, the idol when you played
  * Double Castaway Points there); expanding it itemizes the scoring events plus a
  * final "Double Castaway Points bonus" line. Scoped to your active
  * range for the pick. A swap penalty gets its own row above the episodes —
@@ -85,7 +86,7 @@ export function RosterBreakdown({
               aria-expanded={open}
               className="w-full flex items-center gap-2 text-left font-medium text-gray-700"
             >
-              {/* The pill shares the episode's line; the title is what gives way. */}
+              {/* The idol shares the episode's line; the title is what gives way. */}
               <span className="flex min-w-0 items-center gap-1.5">
                 <EpisodeLabel
                   episode={{
@@ -95,11 +96,7 @@ export function RosterBreakdown({
                   className="min-w-0"
                   titleClassName="font-normal text-gray-500"
                 />
-                {bonus !== 0 && (
-                  <span className="shrink-0 rounded-full bg-forest-50 border border-forest-100 px-1.5 py-0.5 text-[11px] font-semibold text-forest-700">
-                    2x Points
-                  </span>
-                )}
+                {bonus !== 0 && <DoubleBadge size={18} title="Double Castaway Points this episode" />}
               </span>
               <span
                 className={`ml-auto ${

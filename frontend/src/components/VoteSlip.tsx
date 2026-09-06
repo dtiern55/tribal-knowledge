@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /**
  * One submitted vote, treated like a handwritten Tribal Council slip.
@@ -15,6 +15,7 @@ export function VoteSlip({
   doubled = false,
   tribeColor = null,
   rotation = 0,
+  trailing,
 }: {
   name: string
   stale?: boolean
@@ -23,6 +24,8 @@ export function VoteSlip({
   tribeColor?: string | null
   /** Supplied per slip and stable across renders, so the pile never reshuffles. */
   rotation?: number
+  /** Extra content on the slip after the name (the ×2 idol). */
+  trailing?: ReactNode
 }) {
   return (
     <span
@@ -35,6 +38,7 @@ export function VoteSlip({
       }
     >
       <span className={stale ? 'line-through' : undefined}>{name}</span>
+      {trailing}
     </span>
   )
 }

@@ -10,7 +10,6 @@ import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { Times2 } from '../components/Times2'
 import { api } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
@@ -320,15 +319,16 @@ export function TeamPage() {
               <div className="overflow-hidden rounded-xl border border-paper-edge record-paper">
                 {votes.map(({ episode, picks, eliminatedIds }) => {
                   const ballotDouble = doubles.find((play) => play.episode_id === episode.id)
-                  // Extra Vote ×2 names one pick (#673); a #303-era play has no target
-                  // and doubled the whole ballot, which the idol alone says.
+                  // Extra Vote ×2 names one pick (#673), and the idol sits on that
+                  // vote; a #303-era play has no target and doubled the whole
+                  // ballot, so its idol sits by the episode instead.
                   const x2 = ballotDouble?.target_contestant_id ?? null
                   return (
                     <div key={episode.id} className="flex items-center gap-2 border-b border-paper-line px-3.5 py-2 last:border-b-0">
                       <span className="shrink-0 text-sm font-medium text-paper-ink">
                         Ep {episode.episode_number}
                       </span>
-                      {ballotDouble && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+                      {ballotDouble && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
                       <span
                         role="group"
                         aria-label="Votes"
@@ -341,9 +341,9 @@ export function TeamPage() {
                           picks.map((pick) => {
                             const nameC = contestantMap.get(pick.contestant_id)
                             const name = nameC ? displayName(nameC) : '—'
-                            const mark = pick.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
+                            const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
                             return eliminatedIds.has(pick.contestant_id) ? (
-                              <span key={pick.id} className="inline-flex shrink-0 items-center gap-1"><CorrectVote name={name} />{mark}</span>
+                              <CorrectVote key={pick.id} name={name} trailing={mark} />
                             ) : (
                               <span key={pick.id} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
                                 {name}{mark}

@@ -25,7 +25,6 @@ import {
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
-import { Times2 } from '../components/Times2'
 import { RuleLink } from '../components/RuleLink'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
@@ -1341,7 +1340,7 @@ function LockedState({
             <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
               Ballot
             </h3>
-            {played?.advantage_type === 'double_vote_points' && (
+            {played?.advantage_type === 'double_vote_points' && played.target_contestant_id == null && (
               <DoubleBadge size={24} title="Extra Vote ×2 this episode" />
             )}
           </div>
@@ -1367,7 +1366,7 @@ function LockedState({
                     {name}
                     {played?.advantage_type === 'double_vote_points' &&
                       played.target_contestant_id === pick.contestant_id && (
-                        <Times2 title="Extra Vote ×2" />
+                        <DoubleBadge size={20} title="Extra Vote ×2" />
                       )}
                   </li>
                 )
@@ -1629,9 +1628,9 @@ function HubCastawayRow({
   survivors: StandingSurvivor[]
   sub: string
   empty: string
-  /** Whole-row double (a #303-era doubled ballot): ×2 next to the label. */
+  /** Whole-row double (a #303-era doubled ballot): the idol next to the label. */
   doubled?: boolean
-  /** Single-target double: ×2 on this castaway's chip. */
+  /** Single-target double: the idol on this castaway's chip. */
   doubledContestantId?: string | null
   doubledTitle?: string
 }) {
@@ -1639,7 +1638,7 @@ function HubCastawayRow({
     <div>
       <div className="flex items-center gap-1.5">
         <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {doubled && <Times2 title="Extra Vote ×2 this episode" />}
+        {doubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
       </div>
       {survivors.length > 0 ? (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
@@ -1653,7 +1652,7 @@ function HubCastawayRow({
                 size="sm"
               />
               <span className="max-w-[7rem] truncate">{s.name}</span>
-              {s.contestant_id === doubledContestantId && <Times2 title={doubledTitle} />}
+              {s.contestant_id === doubledContestantId && <DoubleBadge size={18} title={doubledTitle} />}
             </li>
           ))}
         </ul>
@@ -3032,10 +3031,11 @@ function BallotRecord({
 }) {
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const scored = ep.status === 'scored'
-  // The ballot play wears the idol once (#484): a corner-seal stamp on the
-  // prominent current ballot, a small inline seal by the episode number on the
-  // compact past rows. Extra Vote ×2 names one pick (#673), which gets the ×2
-  // mark; a #303-era play has no target and doubled the whole ballot.
+  // The ballot play wears the idol once (#484). Extra Vote ×2 names one pick
+  // (#673), and the idol sits on that vote. A #303-era play has no target and
+  // doubled the whole ballot, so its idol stands apart: a corner-seal stamp on
+  // the prominent current ballot, a small seal by the episode number on the
+  // compact past rows.
   const ballotDouble = plays.find(
     (pl) => pl.episode_id === ep.id && pl.advantage_type === 'double_vote_points',
   )
@@ -3046,7 +3046,7 @@ function BallotRecord({
   if (current)
     return (
       <div className="ballot-sheet">
-        {ballotDoubled && <BallotStamp size={48} />}
+        {ballotDoubled && !x2 && <BallotStamp size={48} />}
         <BallotSheetHead ep={ep} />
         {picks.length > 0 ? (
           <div className="ballot-sheet__slips mb-4">
@@ -3057,30 +3057,29 @@ function BallotRecord({
               // Only scored episodes have a settled result. A correct vote gets
               // the CorrectVote pill; incorrect stays neutral, not red — most
               // votes miss and a wall of red feels bad (#53, #135).
-              const mark = p.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
+              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
               if (scored && result?.correct === true)
                 return (
-                  <span key={p.id} className="inline-flex items-center gap-1.5">
-                    <CorrectVote
-                      name={name}
-                      points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined}
-                    />
-                    {mark}
-                  </span>
+                  <CorrectVote
+                    key={p.id}
+                    name={name}
+                    points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined}
+                    trailing={mark}
+                  />
                 )
               return (
-                <span key={p.id} className="inline-flex items-center gap-1.5">
-                  <VoteSlip
-                    name={name}
-                    stale={
-                      pickC?.eliminated_in_episode != null &&
-                      pickC.eliminated_in_episode < ep.episode_number
-                    }
-                    tribeColor={pickC?.tribe_color}
-                    rotation={[-0.9, 0.6, -0.3][index % 3]}
-                  />
-                  {mark}
-                </span>
+                <VoteSlip
+                  key={p.id}
+                  name={name}
+                  stale={
+                    pickC?.eliminated_in_episode != null &&
+                    pickC.eliminated_in_episode < ep.episode_number
+                  }
+                  doubled={mark != null}
+                  tribeColor={pickC?.tribe_color}
+                  rotation={[-0.9, 0.6, -0.3][index % 3]}
+                  trailing={mark}
+                />
               )
             })}
           </div>
@@ -3108,7 +3107,7 @@ function BallotRecord({
       <span className="shrink-0 text-sm font-medium text-gray-700">
         {ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`}
       </span>
-      {ballotDoubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+      {ballotDoubled && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
       {/* Overflows with two or three chips on a narrow phone, so it is a
           scroll container and has to be focusable — otherwise the votes past
           the fold are unreachable by keyboard or switch (WCAG 2.1.1). */}
@@ -3126,15 +3125,12 @@ function BallotRecord({
             const pickC = contestantMap.get(p.contestant_id)
             const name = pickC ? displayName(pickC) : '—'
             // Same rule as the prominent ballot: correct votes get the pill,
-            // misses stay neutral rather than red (#53, #135). The ×2 mark
-            // sits on the named pick, and its pill carries the doubled points
+            // misses stay neutral rather than red (#53, #135). The idol sits
+            // on the named pick, and its pill carries the doubled points
             // (pickResults are base values, #136).
-            const mark = p.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
+            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
             return scored && result?.correct === true ? (
-              <span key={p.id} className="inline-flex shrink-0 items-center gap-1">
-                <CorrectVote name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} />
-                {mark}
-              </span>
+              <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} trailing={mark} />
             ) : (
               <span
                 key={p.id}

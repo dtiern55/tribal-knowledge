@@ -104,7 +104,7 @@ describe('TeamPage', () => {
       if (path.endsWith('/episodes')) return [episode]
       if (path.includes('/roster/')) return []
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [], sole_survivor_contestant_id: null, sole_survivor_bonus: 0 }
-      if (path.includes('/advantage-plays/')) return [{ id: 'play-1', episode_id: 'ep-1', advantage_type: 'double_vote_points', target_contestant_id: null, points_earned: 5 }]
+      if (path.includes('/advantage-plays/')) return [{ id: 'play-1', episode_id: 'ep-1', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1', points_earned: 5 }]
       // A real network gap: instantly resolving mocks let React batch the whole
       // load into one render, which hides the latch.
       if (path.includes('/picks/')) {
@@ -130,10 +130,11 @@ describe('TeamPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
 
     expect(screen.getByText('Ep 1')).toBeVisible()
-    // The played ×2 reads on the ballot row itself: the idol by the episode,
-    // the correct vote pilled. There is no separate Advantages ledger.
-    expect(screen.getByTitle('Extra Vote ×2 this episode')).toBeVisible()
-    expect(screen.getByText('Kenzie')).toBeVisible()
+    // The played ×2 reads on the ballot row itself: the idol sits on the
+    // doubled vote, whose green pill says it hit. No separate Advantages ledger.
+    const idol = screen.getByRole('img', { name: 'Extra Vote ×2' })
+    expect(idol).toBeVisible()
+    expect(idol.closest('span[class*="jade"]')).toHaveTextContent('Kenzie')
     expect(screen.queryByRole('button', { name: /^Advantages/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
   })
