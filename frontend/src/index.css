@@ -1319,6 +1319,15 @@ html.locked-night .hero-points { filter: brightness(0.9); }
     inset 0 0 0 2px var(--color-gold-400),
     inset 0 -3px 0 0 var(--color-gold-100);
 }
+/* The outer tabs take the stack's corner (15px radius less its 1px border),
+   so the inset ring bends with the clip instead of being shaved at the top
+   corner. */
+.lane-tab:first-child {
+  border-top-left-radius: 14px;
+}
+.lane-tab:last-child {
+  border-top-right-radius: 14px;
+}
 
 html.locked-night .lane-tab:not([aria-selected='true']) {
   background: #132e25;
