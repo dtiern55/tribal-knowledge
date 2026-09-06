@@ -202,6 +202,8 @@ class HubEntry(BaseModel):
     # The advantage played this episode, if any.
     advantage_type: Optional[str] = None
     advantage_target: Optional[StandingSurvivor] = None
+    # Their Sole Survivor pick, when it is on the active roster.
+    sole_survivor_contestant_id: Optional[UUID] = None
 
 
 class ContestantPoints(BaseModel):
