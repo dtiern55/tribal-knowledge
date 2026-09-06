@@ -1,20 +1,17 @@
 """Export the approved app icon and loading-puzzle marks."""
 
 import argparse
-
 from pathlib import Path
 
-from PIL import Image, ImageFilter
-
+from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 SELECTED = HERE.parent / "2026-09-03-material-variants"
-SOURCE_APP = (
-    HERE.parent
-    / "2026-09-04-brighter-foreground"
-    / "canvas-vivid-burnt-red-flatter-background.png"
-)
+ENAMEL = HERE.parent / "2026-09-05-modern-enamel"
+SOURCE_APP = ENAMEL / "modern-enamel-approved.png"
+# The approved art shrunk into Android's maskable safe zone.
+SOURCE_MASKABLE = ENAMEL / "modern-enamel-maskable-source.png"
 PUZZLE_UNLOCKED = SELECTED / "selected-walnut-light.png"
 PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"
 PUBLIC = REPO / "frontend" / "public"
@@ -29,37 +26,6 @@ def save_webp(image: Image.Image, name: str) -> None:
     image.save(PUBLIC / name, "WEBP", quality=92, method=6)
 
 
-def maskable_icon(source: Image.Image) -> Image.Image:
-    """Keep the whole warm mark inside Android's central maskable safe zone."""
-
-    # Extend the source's forest canvas around a smaller copy of the mark. The
-    # low-contrast field keeps launcher masks from exposing a framed square.
-    texture = source.crop((0, 0, 256, 256)).resize((512, 512), RESAMPLE)
-    forest = Image.new("RGB", (512, 512), "#103c2b")
-    # Keep a hint of the source weave without magnifying its corner texture
-    # into fuzzy launcher-scale relief around the safe-zone inset.
-    background = Image.blend(forest, texture, 0.16)
-    background = background.filter(ImageFilter.GaussianBlur(1.0))
-
-    inset_size = 384
-    inset = resized(source, inset_size)
-    alpha = Image.new("L", (inset_size, inset_size), 0)
-    source_pixels = inset.load()
-    alpha_pixels = alpha.load()
-    for y in range(inset_size):
-        for x in range(inset_size):
-            red, green, blue = source_pixels[x, y]
-            # Cream, gold, and terracotta are all warmer than the green canvas.
-            # Grow the resulting mask slightly to retain their dry-brush edges.
-            warmth = min(1.0, max(0.0, (red - green + 4) / 28))
-            alpha_pixels[x, y] = round(255 * warmth)
-
-    alpha = alpha.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.GaussianBlur(0.65))
-
-    background.paste(inset, ((512 - inset_size) // 2,) * 2, alpha)
-    return background
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -70,17 +36,22 @@ def main() -> None:
     args = parser.parse_args()
 
     app = Image.open(SOURCE_APP).convert("RGB")
-    puzzle_sources = [] if args.app_only else [
-        Image.open(PUZZLE_UNLOCKED).convert("RGB"),
-        Image.open(PUZZLE_LIGHT).convert("RGB"),
-    ]
-    for source in [app, *puzzle_sources]:
+    maskable = Image.open(SOURCE_MASKABLE).convert("RGB")
+    puzzle_sources = (
+        []
+        if args.app_only
+        else [
+            Image.open(PUZZLE_UNLOCKED).convert("RGB"),
+            Image.open(PUZZLE_LIGHT).convert("RGB"),
+        ]
+    )
+    for source in [app, maskable, *puzzle_sources]:
         if source.width != source.height:
             raise ValueError(f"Expected a square source, got {source.size}")
 
     save_webp(resized(app, 512), "icon-512.webp")
     save_webp(resized(app, 192), "icon-192.webp")
-    save_webp(maskable_icon(app), "icon-512-maskable.webp")
+    save_webp(resized(maskable, 512), "icon-512-maskable.webp")
     resized(app, 180).save(PUBLIC / "apple-touch-icon.png", "PNG", optimize=True)
 
     if puzzle_sources:

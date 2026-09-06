@@ -121,3 +121,17 @@ burnt-red heavy-canvas foreground and lowers only the background texture's
 relief and micro-contrast so it reads cleanly on an app launcher. Installed,
 maskable, Apple touch, and in-app icon exports use this source; the simple-rat
 favicon and slide-puzzle sources remain unchanged.
+
+## 2026-09-05 modern enamel surface
+
+Later the same day the heavy-canvas surface gave way to the
+`2026-09-05-modern-enamel/` treatment: smooth saturated gradients, a restrained
+center glow, and a soft grounding shadow under each form, with no canvas or
+brush relief. The approved image is
+`modern-enamel-approved.png`, the generated concept selected in chat; it is
+exported as-is. Its rat, three-part flame, and snake were segmented once by hue
+and frozen as masks under `masks/` so later surface work cannot reshape them.
+The maskable export is the approved art shrunk into the safe zone over its own
+reconstructed background instead of a warmth cut-out of the flat icon. Installed, maskable, Apple touch, and in-app icon exports use
+the enamel source; the simple-rat favicon and slide-puzzle sources remain
+unchanged.
