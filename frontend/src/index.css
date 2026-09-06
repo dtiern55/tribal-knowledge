@@ -1363,6 +1363,6 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
   from { background-color: var(--color-gold-100); }
   to { background-color: transparent; }
 }
-.rule-section:target {
+.rule-flash {
   animation: rule-flash 2.5s ease-out 1;
 }

@@ -105,6 +105,16 @@ describe('RulesPage', () => {
     expect(screen.getByText(/counts as the boot on your ballot but is still in the game/)).toBeVisible()
   })
 
+  it('scrolls to and flashes the section a deep link names', async () => {
+    vi.mocked(api.get).mockResolvedValue(response())
+    Element.prototype.scrollIntoView = vi.fn()
+    renderWithApp(<RulesPage />, { route: '/rules#swaps' })
+
+    const section = (await screen.findByRole('heading', { name: 'Swaps' })).closest('section')
+    expect(section).toHaveClass('rule-flash')
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
   it('keeps token events and costs readable for historical token seasons', async () => {
     vi.mocked(api.get).mockResolvedValue(response({}, true))
     renderWithApp(<RulesPage />)

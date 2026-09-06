@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -107,14 +108,8 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
 }
 
 function RuleSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  // A deep link lands mid-page, so the targeted section flashes gold for a
-  // moment to say "this one" (.rule-section:target in index.css).
   return (
-    <section
-      id={id}
-      aria-labelledby={`${id}-title`}
-      className="rule-section scroll-mt-24 border-b border-cream-200 pb-8 last:border-0"
-    >
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-24 border-b border-cream-200 pb-8 last:border-0">
       <h2 id={`${id}-title`} className="font-display text-2xl tracking-wide text-forest-900">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
@@ -152,6 +147,7 @@ export function RulesPage() {
   const [rules, setRules] = useState<RulesResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const { hash } = useLocation()
 
   useEffect(() => {
     async function load() {
@@ -167,10 +163,18 @@ export function RulesPage() {
     void load()
   }, [])
 
+  // A deep link lands mid-page: scroll to the section and flash it. Done
+  // with a class, not :target, because the router pushes the URL and
+  // browsers only re-evaluate :target on a real fragment navigation.
   useEffect(() => {
-    if (!rules || !window.location.hash) return
-    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'start' })
-  }, [rules])
+    if (!rules || !hash) return
+    const el = document.getElementById(hash.slice(1))
+    if (!el) return
+    el.scrollIntoView({ block: 'start' })
+    el.classList.remove('rule-flash')
+    void el.offsetWidth // restart the animation when the hash changes in place
+    el.classList.add('rule-flash')
+  }, [rules, hash])
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load the rules">{error}</Notice>
