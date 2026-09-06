@@ -45,6 +45,9 @@ class LeagueSeason(Season):
     weekly_token_allocation: int
     token_economy_enabled: bool
     advantage_lock_episode: Optional[int]
+    # Episode the first juror was voted out in, read off the earliest
+    # `join_jury` scoring event (#672). None until it has been scored.
+    jury_start_episode: Optional[int] = None
 
 
 class LeagueSeasonCreateRequest(BaseModel):
@@ -241,6 +244,9 @@ class SoleSurvivorRequest(BaseModel):
 
 class EliminationPickSubmitRequest(BaseModel):
     contestant_ids: list[UUID]
+    # Which pick Extra Vote ×2 doubles, if the play is in for this episode
+    # (#673) — the ballot save carries the ×2 placement, no separate step.
+    doubled_contestant_id: Optional[UUID] = None
 
 
 class Elimination(BaseModel):
@@ -461,6 +467,18 @@ class AdvantagePlayRequest(BaseModel):
 
     advantage_type: str
     target_contestant_id: Optional[UUID] = None
+
+
+class EliminationPickSubmitResponse(BaseModel):
+    """The ballot save's result: picks plus the ×2 play, if any (#673).
+
+    One round trip instead of a POST + a separate GET for the play — a
+    staging round trip runs ~0.8s even for /health, and the old ballot save
+    chained three of them.
+    """
+
+    picks: list[EliminationPick]
+    play: Optional[AdvantagePlay] = None
 
 
 class EpisodeResultContestant(BaseModel):

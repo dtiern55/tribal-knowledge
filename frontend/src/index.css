@@ -76,8 +76,8 @@
 
   /* Bright textile midtones sampled from the installed app icon. */
   --color-brand-snake: #e0463a; /* the icon's burnt red, lifted just enough to hold 3:1 on forest-600 */
-  --color-brand-flame: #f3b939;
-  --color-brand-rat: #f6e1ad;
+  --color-brand-flame: #eea92f;
+  --color-brand-rat: #f5d99a;
 
   --font-display: "Rajdhani", system-ui, sans-serif;
   --font-brand: "Skranji", "Rajdhani", system-ui, sans-serif;
@@ -711,9 +711,17 @@ html.locked-night .tribal-border {
   }
 
   /* The drop target leans toward the idol, so the play looks like it lands
-     where you pointed rather than snapping in from nowhere. */
-  [data-drop-id^="beat:"][data-drag-over] {
+     where you pointed rather than snapping in from nowhere. A beat tab sits
+     inside the stack's clip, so it grows its contents, not its box (see
+     .lane-tab[data-drag-over]); anything else grows as a whole. */
+  [data-drop-id^="beat:"][data-drag-over]:not(.lane-tab) {
     transform: scale(1.06);
+  }
+  .lane-tab > * {
+    transition: transform 225ms ease;
+  }
+  .lane-tab[data-drag-over] > * {
+    transform: scale(1.12);
   }
 
   /* The unplayed advantage idol gives a slow, occasional nudge so a player who
@@ -819,6 +827,14 @@ html.locked-night .tribal-border {
   font-size: 16px;
   line-height: 1.25;
   transform: rotate(var(--ballot-rotation, 0deg));
+}
+
+/* The vote wearing the Extra Vote ×2 (#673): gold wash under the seal. */
+.ballot-slip--doubled {
+  border-color: var(--color-gold-600);
+  background: var(--color-gold-50);
+  color: var(--color-forest-900);
+  box-shadow: 0 1px 2px rgb(28 25 23 / 0.12);
 }
 
 /* A vote for someone already out. The slip stays; the name is struck. */
@@ -1288,9 +1304,22 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   color: #fff;
 }
 
+/* The stack clips its overflow for the rounded corners, so the lit tab keeps
+   its box where it is (its icon and label do the pop) and wears the ring as
+   an inset shadow, which the clip can't cut off. */
 .lane-tab[data-drag-over] {
-  outline: 2px solid var(--color-gold-400);
-  outline-offset: -3px;
+  box-shadow:
+    inset 0 0 0 2px var(--color-gold-400),
+    inset 0 -3px 0 0 var(--color-gold-100);
+}
+/* The outer tabs take the stack's corner (15px radius less its 1px border),
+   so the inset ring bends with the clip instead of being shaved at the top
+   corner. */
+.lane-tab:first-child {
+  border-top-left-radius: 14px;
+}
+.lane-tab:last-child {
+  border-top-right-radius: 14px;
 }
 
 html.locked-night .lane-tab:not([aria-selected='true']) {

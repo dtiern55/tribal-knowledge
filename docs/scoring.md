@@ -76,10 +76,12 @@ contestant appears in that episode's `eliminations`. The point value comes from
 the season's `correct_elimination` snapshot and uses its pre/post-merge branch.
 Incorrect picks score zero.
 
-An untargeted Double Vote Points play adds one extra copy of the entire correct
-ballot total, including multiple correct picks. Old targeted plays retain their
-original one-pick behavior, which is why `advantage_plays.target_contestant_id`
-remains meaningful.
+Extra Vote ×2 (advantage_type `double_vote_points`, redesigned #673) adds one
+extra pick to that episode's ballot, named by `target_contestant_id`, and adds
+one extra copy of that pick's points if it hits — every other pick on the
+ballot scores at its normal rate. Pre-#673 plays (#303) carry no target and
+instead double the entire correct ballot total, including multiple correct
+picks; those completed seasons keep scoring that way (#170).
 
 ### Finale ballot points
 
@@ -113,11 +115,7 @@ supported facts are:
   the share of submitted ballots that included them.
 - Submitted ballots with at least two correct elimination picks.
 - The viewer's episode score versus the median among season participants.
-<<<<<<< HEAD
-- League usage of Double Castaway Points, Double Vote Points, or Roster Swap.
-=======
-- League usage of Double Castaway Points, Double Vote Points, or Tribe Swap.
->>>>>>> a1f58fa (Speak tribe, not roster, everywhere the player reads it)
+- League usage of Double Castaway Points, Extra Vote ×2, or Tribe Swap.
 
 Configuration contains no aggregate values. Facts are calculated only through
 the authenticated scored-result endpoint and expose counts or percentages,

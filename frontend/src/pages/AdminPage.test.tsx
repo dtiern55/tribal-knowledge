@@ -27,6 +27,7 @@ const season = {
   swap_penalty_step: -5,
   swap_penalty_floor: -25,
   swap_lock_episode: 10,
+  jury_start_episode: null,
   advantage_lock_episode: 12,
   weekly_token_allocation: 0,
   token_economy_enabled: false,
@@ -130,7 +131,7 @@ describe('AdminPage current rules', () => {
     expect(await screen.findByText('Reveal Insights')).toBeVisible()
     await user.click(screen.getByLabelText(/Vote popularity: Kenzie/))
     await user.click(screen.getByLabelText(/Player vs league median/))
-    await user.click(screen.getByLabelText(/Double Ballot Points usage/))
+    await user.click(screen.getByLabelText(/Extra Vote ×2 usage/))
     expect(screen.getByText('3/3 added')).toBeVisible()
     expect(screen.getByLabelText(/Tribe Swap usage/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Save reveal insights' }))

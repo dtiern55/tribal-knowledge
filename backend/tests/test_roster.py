@@ -8,6 +8,7 @@ from tests.helpers import (
     insert_elimination,
     insert_episode,
     insert_roster_pick,
+    insert_scoring_event,
     insert_season,
     insert_user,
 )
@@ -330,6 +331,7 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
     )
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
+    doubled = insert_contestant(db_conn, season["id"], "Doubled")
     client.post(
         f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
@@ -337,7 +339,10 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
     assert (
         client.post(
             f"/league-seasons/{season['league_season_id']}/advantage-plays",
-            json={"advantage_type": "double_vote_points"},
+            json={
+                "advantage_type": "double_vote_points",
+                "target_contestant_id": str(doubled["id"]),
+            },
         ).status_code
         == 201
     )
@@ -364,12 +369,17 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
 
 
 @pytest.mark.integration
-def test_swap_lock_defaults_to_merge_plus_three(client, db_conn):
-    # Unset swap_lock_episode falls back to merge_episode + 3 (#163).
+def test_swap_lock_defaults_to_first_juror_plus_two(client, db_conn):
+    # Unset swap_lock_episode falls back to the first juror's episode + 2
+    # (#672): a juror out in episode 3 leaves episode 4 swappable, not 5.
+    # The merge alone (episode 3 here) does not lock anything.
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2, merge_episode=3, swap_token_cost=0
     )
-    insert_episode(db_conn, season["id"], episode_number=6)
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
+    juror = insert_contestant(db_conn, season["id"], "First Juror")
+    insert_scoring_event(db_conn, ep3["id"], juror["id"], "join_jury")
+    insert_episode(db_conn, season["id"], episode_number=5)
     new = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
         f"/league-seasons/{season['league_season_id']}/roster",

@@ -51,6 +51,9 @@ export interface Season {
   swap_penalty_step: number
   swap_penalty_floor: number
   swap_lock_episode: number | null
+  // Episode the first juror was voted out in, from the earliest join_jury
+  // event (#672); null until scored. The swap-lock fallback keys off it.
+  jury_start_episode: number | null
   advantage_lock_episode: number | null
   weekly_token_allocation: number
   token_economy_enabled: boolean

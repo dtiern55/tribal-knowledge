@@ -48,13 +48,14 @@ export function advantagesLocked(ep: Episode, season: Season): boolean {
     : ep.is_finale
 }
 
-// Effective swap lock: explicit swap_lock_episode, else merge + 3 (#84,
-// #163). Sole Survivor designation locks with the swaps (2026-09-03), so it
-// is the same number. Mirrors backend app/routers/roster.py.
+// Effective swap lock: explicit swap_lock_episode, else two past the episode
+// the first juror went out in (#672), so the episode after that boot is the
+// last you can swap for. Sole Survivor designation locks with the swaps
+// (2026-09-03), so it is the same number. Mirrors backend app/routers/roster.py.
 export function swapLockEpisodeNumber(season: Season): number | null {
   return (
     season.swap_lock_episode ??
-    (season.merge_episode != null ? season.merge_episode + 3 : null)
+    (season.jury_start_episode != null ? season.jury_start_episode + 2 : null)
   )
 }
 
@@ -88,9 +89,8 @@ export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean 
   )
 }
 
-// Swaps lock once the next open episode reaches swap_lock_episode; unset falls
-// back to merge + 3, and the finale never accepts swaps (#84, #163). Mirrors
-// backend app/locking.py.
+// Swaps lock once the next open episode reaches the effective swap lock, and
+// the finale never accepts swaps (#84, #163, #672).
 export function swapsLocked(season: Season, episodes: Episode[]): boolean {
   const nextOpen = openEpisode(episodes, season)
   // No open episode means play is over (finale locked, or season ended), so

@@ -130,7 +130,7 @@ describe('TeamPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
 
     expect(screen.getByText('Ep 1')).toBeVisible()
-    expect(screen.getByText(/Double Ballot Points/)).toBeVisible()
+    expect(screen.getByText(/Extra Vote ×2/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
   })
 })

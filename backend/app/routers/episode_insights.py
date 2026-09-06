@@ -12,7 +12,7 @@ router = APIRouter(tags=["episode insights"])
 
 PLAY_LABELS = {
     "double_roster_points": "Double Castaway Points",
-    "double_vote_points": "Double Ballot Points",
+    "double_vote_points": "Extra Vote ×2",
     "roster_swap": "Tribe Swap",
 }
 
