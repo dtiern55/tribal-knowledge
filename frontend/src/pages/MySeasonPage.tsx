@@ -51,10 +51,11 @@ import type {
   TokenLedgerEntry,
 } from '../types'
 
-// The ballot's weekly play is Extra Vote ×2 (#673): one extra name that pays
-// double. The carved idol is stamped once on the ballot's corner as the play's
-// mark and drag handle (#484); the ×2 slot inside names which vote it is.
-// Corner press: the host container must be `relative`.
+// The ballot's weekly play is Extra Vote ×2 (#673): one extra vote, and the
+// ×2 sits on whichever of your names you put it on. On a locked ballot the
+// carved idol is stamped once on the corner as the play's mark (#484); on the
+// open ballot it rides the doubled name and drags between names like the
+// roster seal. Corner press: the host container must be `relative`.
 // Bumped on every MySeasonPage mount so a curtain poll left running by a
 // previous unmount can tell it has been superseded. Module scope rather than a
 // ref: a genuine remount gets a fresh ref, which is the very case that has to
@@ -650,9 +651,19 @@ export function MySeasonPage() {
     // pick; "done" still waits on a locked-in ballot, like the weekly one.
     const isFinale = openEp.is_finale
     const finaleFilled = finaleProgress?.filled ?? 0
+    // Extra Vote ×2 adds one vote on top of the schedule (#673).
+    const extraVote = d.plays.some(
+      (p) =>
+        p.episode_id === openEp.id &&
+        p.advantage_type === 'double_vote_points' &&
+        p.target_contestant_id != null,
+    )
     const maxPicks = isFinale
       ? 8
-      : Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
+      : Math.max(
+          0,
+          Math.min(openEp.max_elimination_picks + (extraVote ? 1 : 0), stillIn - 1),
+        )
     const saved = isFinale ? finaleFilled : d.openPicks.length
 
     // Holding a dead slot is a position, not a chore: sitting on an eliminated
@@ -3366,88 +3377,139 @@ function PicksSection({
 
   const play = useWeeklyPlay(season, episodes, plays, setPlays)
 
-  // Extra Vote ×2 (#673): the ballot play names one extra pick that pays
-  // double. The server writes that name onto the ballot when the play lands
-  // and drops it when the play is taken back, so after either the saved picks
-  // are re-read and the editable set follows.
+  // Extra Vote ×2 (#673): the ballot play adds one vote and doubles the name
+  // it sits on — the extra vote at first, any of your names after that. The
+  // server writes the chosen name onto the ballot when the play lands and
+  // trims the newest name past the limit when the play is taken back, so
+  // whenever the play changes the saved ballot is re-read and the editable set
+  // follows it (this also covers Undo from the Advantage lane).
   const ballotPlay = play.play?.advantage_type === 'double_vote_points' ? play.play : undefined
   const x2Target = ballotPlay?.target_contestant_id ?? null
-  // Opening the slot means editing: the name goes on this ballot.
+  // Moving the ×2: tap the seal (or its name), then the name it goes to.
+  const [placing, setPlacing] = useState(false)
+  // Arming means editing: the extra vote goes on this ballot.
   useEffect(() => {
     if (ballotArmed) setEditing(true)
   }, [ballotArmed])
-
-  /** Re-read the saved ballot after the server moved the ×2 name on or off it,
-   *  and apply the same move to the editable set. With `settle`, leaves edit
-   *  mode when the two now agree — the change is already saved, so there is
-   *  nothing to submit. */
-  async function followX2(
-    episodeId: string,
-    remove: string | null,
-    add: string | null,
-    settle: boolean,
-  ) {
-    const next = new Set(pending.get(episodeId) ?? [])
-    if (remove) next.delete(remove)
-    if (add) next.add(add)
-    setPending((prev) => new Map(prev).set(episodeId, next))
-    const picks = await api
-      .get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks/${userId}`)
-      .catch(() => null)
-    if (!picks) return
-    setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
-    const saved = new Set(picks.map((p) => p.contestant_id))
-    if (settle && next.size === saved.size && [...next].every((id) => saved.has(id)))
-      setEditing(false)
-    onBallotSaved?.()
-  }
-
-  async function chooseX2(episodeId: string, contestantId: string) {
-    const previous = x2Target
-    const ok = await play.replace('double_vote_points', contestantId)
-    onBallotArmedChange?.(false)
-    if (ok) await followX2(episodeId, previous, contestantId, true)
-  }
-
-  /** Take the ×2 back; `rearm` keeps the slot open for another name. */
-  async function removeX2(episodeId: string, rearm: boolean) {
-    if (!ballotPlay) {
-      onBallotArmedChange?.(false)
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+  const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
+  const openEp = play.openEpisode
+  useEffect(() => {
+    // The optimistic row precedes the real one; wait for the real id.
+    if (!openEp || lastPlayId.current === ballotPlay?.id || ballotPlay?.id.startsWith('pending-'))
       return
+    lastPlayId.current = ballotPlay?.id
+    const epId = openEp.id
+    let stale = false
+    void api
+      .get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${epId}/picks/${userId}`)
+      .then((picks) => {
+        if (stale) return
+        setPicksByEpisode((prev) => new Map(prev).set(epId, picks))
+        // Same seed as the first load: a name already voted out can't come
+        // true, so it doesn't take a slot in the editable set (#96).
+        const saved = new Set(
+          picks
+            .filter((p) => {
+              const out = contestants.find((c) => c.id === p.contestant_id)?.eliminated_in_episode
+              return out == null || out >= openEp.episode_number
+            })
+            .map((p) => p.contestant_id),
+        )
+        // Nothing unsaved left over: the paper is the record again.
+        const was = pendingRef.current.get(epId) ?? new Set<string>()
+        if ([...was].every((id) => saved.has(id))) setEditing(false)
+        setPending((prev) => new Map(prev).set(epId, saved))
+        onBallotSaved?.()
+      })
+      .catch(() => undefined)
+    return () => {
+      stale = true
     }
-    const ok = await play.takeBack(ballotPlay)
-    if (!ok) return
-    onBallotArmedChange?.(rearm)
-    // A re-armed slot needs the cast grid, so stay in edit mode for it.
-    await followX2(episodeId, x2Target, null, !rearm)
+  }, [ballotPlay?.id, openEp, season.id, userId, contestants, onBallotSaved])
+
+  /** The armed ballot's next new name is the extra vote: it lands as the ×2
+   *  pick (movable afterwards). Unsaved names are saved first so they survive
+   *  the re-read that follows the play. */
+  async function chooseExtra(episodeId: string, contestantId: string, dirty: boolean) {
+    if (dirty) await submitPicks(episodeId)
+    const ok = await play.replace('double_vote_points', contestantId)
+    if (ok) onBallotArmedChange?.(false)
   }
-  // The ballot seal is a drag handle back to roster (#487); its only valid drop
-  // is the Roster tab, where you then pick who to double.
+
+  /** Move the ×2 onto another name on the ballot (#673). An unsaved name is
+   *  saved first; the server only lets the ×2 sit on a pick it holds. */
+  async function moveX2(episodeId: string, contestantId: string, saved: boolean) {
+    if (!ballotPlay) return
+    setPlacing(false)
+    if (!saved) await submitPicks(episodeId)
+    const previous = ballotPlay
+    setPlays((prev) =>
+      prev.map((p) => (p.id === previous.id ? { ...p, target_contestant_id: contestantId } : p)),
+    )
+    try {
+      const moved = await api.patch<AdvantagePlay>(`/advantage-plays/${previous.id}`, {
+        target_contestant_id: contestantId,
+      })
+      setPlays((prev) => prev.map((p) => (p.id === moved.id ? moved : p)))
+    } catch (e) {
+      setPlays((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
+      setErrors((prev) =>
+        new Map(prev).set(episodeId, e instanceof Error ? e.message : 'Move failed'),
+      )
+    }
+  }
+
+  // The ballot seal rides the doubled name. Drag it onto another of your names
+  // to move the ×2, or onto the Roster tab to double a castaway instead
+  // (#487); a tap opens move mode for the non-drag path.
+  const openPending = openEp ? (pending.get(openEp.id) ?? new Set<string>()) : new Set<string>()
+  const openSaved = new Set(
+    (openEp ? (picksByEpisode.get(openEp.id) ?? []) : []).map((p) => p.contestant_id),
+  )
   const {
     drag: ballotDrag,
     dragging: ballotDragging,
     start: startBallotDrag,
   } = useSealDrag({
     disabled: play.locked || play.busy,
-    canDropOn: (id) => id === 'beat:roster',
+    canDropOn: (id) =>
+      id === 'beat:roster' ||
+      (id !== x2Target && (openPending.has(id) || openSaved.has(id))),
     onDrop: (id) => {
-      if (resolveDrop('ballot', id).kind === 'to_roster_picking') onDragToRoster?.()
+      if (id === 'beat:roster') {
+        onDragToRoster?.()
+        return
+      }
+      if (openEp) void moveX2(openEp.id, id, openSaved.has(id))
+    },
+    onTap: () => {
+      setEditing(true)
+      setPlacing(true)
     },
   })
-  // Stamp the ballot seal as the double lands on it (#487) — on the flip to
-  // doubled, not on first paint.
-  const ballotIsDoubled = play.play?.advantage_type === 'double_vote_points'
-  const [ballotStamped, setBallotStamped] = useState(false)
-  const prevBallotDoubled = useRef<boolean | undefined>(undefined)
-  useEffect(() => {
-    const prev = prevBallotDoubled.current
-    prevBallotDoubled.current = ballotIsDoubled
-    if (prev === false && ballotIsDoubled) {
-      setBallotStamped(true)
-      const timer = setTimeout(() => setBallotStamped(false), 790)
-      return () => clearTimeout(timer)
-    }
-  }, [ballotIsDoubled])
+  const seal = (
+    <button
+      type="button"
+      onPointerDown={startBallotDrag}
+      // Keyboard activation only (detail 0); pointer taps come through the
+      // drag's onTap so move mode doesn't double-toggle.
+      onClick={(e) => {
+        if (e.detail === 0) {
+          setEditing(true)
+          setPlacing(true)
+        }
+      }}
+      disabled={play.locked || play.busy}
+      aria-label="Move the ×2 to another name"
+      title="Drag onto another name to move the ×2"
+      className="absolute -right-2 -top-3 z-10 rotate-[9deg] cursor-grab touch-none drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] active:cursor-grabbing"
+      style={{ opacity: ballotDragging ? 0.3 : 1 }}
+    >
+      <DoubleBadge size={34} title="Extra Vote ×2" />
+    </button>
+  )
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
   // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
@@ -3507,73 +3569,29 @@ function PicksSection({
             [...epPending].some((contestantId) => !savedIds.has(contestantId))
 
           // One play per episode (#307); on the ballot it is Extra Vote ×2
-          // (#673): one name beyond the schedule, held in its own slot. The
-          // slot is "armed" while it waits for a name — the next tap on the
-          // cast fills it, even a name already on the ballot (it moves).
-          const armed = ballotArmed || (ballotPlay != null && x2Target == null)
-          const x2C = x2Target ? contestantMap.get(x2Target) : undefined
+          // (#673): one vote beyond the schedule, and the ×2 sits on any one
+          // of your names — the extra one until you move it. "Armed" is the
+          // stretch between choosing the play and naming the extra vote.
+          const armed = ballotArmed && !ballotPlay
           // You can never vote for every remaining castaway — cap at
-          // (still in the game − 1), the ×2 name included (#240).
+          // (still in the game − 1), the extra vote included (#240).
           const stillIn = contestants.filter(
             (c) =>
               c.eliminated_in_episode == null ||
               c.eliminated_in_episode >= ep.episode_number,
           ).length
-          // The schedule counts the normal votes; the ×2 name is on top.
           const maxPicks = Math.max(
             0,
-            Math.min(ep.max_elimination_picks, stillIn - 1 - (x2Target ? 1 : 0)),
+            Math.min(ep.max_elimination_picks + (armed || x2Target ? 1 : 0), stillIn - 1),
           )
-          const normalPending = [...epPending].filter((id) => id !== x2Target)
-          const normalSaved = savedPicks.filter((p) => p.contestant_id !== x2Target)
-          const x2Slot = (armed || x2Target) && (
-            <div
-              data-testid="x2-slot"
-              className="mb-4 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed border-gold-500/70 bg-gold-50/60 px-3 py-2 text-sm text-paper-ink"
+          const cancelLink = (label: string, onClick: () => void) => (
+            <button
+              type="button"
+              onClick={onClick}
+              className="ml-3 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
             >
-              <DoubleBadge size={26} title="Extra Vote ×2" />
-              <span className="font-semibold">Extra Vote ×2</span>
-              {x2C && !armed ? (
-                <>
-                  <VoteSlip name={displayName(x2C)} tribeColor={x2C.tribe_color} />
-                  {!confirmed && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onBallotArmedChange?.(true)}
-                        className="text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
-                      >
-                        Change
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void removeX2(ep.id, false)}
-                        disabled={play.busy}
-                        className="text-[11px] uppercase tracking-wide text-terracotta-700 underline underline-offset-2 disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="text-paper-ink-faded">
-                    {x2C ? `Tap a name to replace ${displayName(x2C)}` : 'Tap a name below'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      x2Target ? onBallotArmedChange?.(false) : void removeX2(ep.id, false)
-                    }
-                    disabled={play.busy}
-                    className="text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
-                  >
-                    Cancel
-                  </button>
-                </>
-              )}
-            </div>
+              {label}
+            </button>
           )
 
           // Only list castaways still in the game, grouped by tribe so the
@@ -3594,15 +3612,7 @@ function PicksSection({
 
           return (
             <div className="ballot-sheet">
-              {ballotPlay && (
-                <BallotStamp
-                  onPointerDown={onDragToRoster ? startBallotDrag : undefined}
-                  lifted={ballotDragging}
-                  stamp={ballotStamped}
-                />
-              )}
               <BallotSheetHead ep={ep} prompt={confirmed ? undefined : 'Who goes home tonight?'} />
-              {x2Slot}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
@@ -3615,15 +3625,21 @@ function PicksSection({
                     Ballot submitted
                   </p>
                   <div className="ballot-sheet__slips">
-                    {normalSaved.map((p, index) => {
+                    {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
                       const stale =
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       const slipName = sc ? displayName(sc) : '—'
+                      const isX2 = p.contestant_id === x2Target
+                      // Every other slip is a drop target for the ×2 seal.
                       return (
-                        <span key={p.id} className="inline-flex items-center gap-1.5">
+                        <span
+                          key={p.id}
+                          data-drop-id={x2Target && !isX2 ? p.contestant_id : undefined}
+                          className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                        >
                           <VoteSlip
                             name={slipName}
                             stale={stale}
@@ -3631,25 +3647,31 @@ function PicksSection({
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
                           />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
+                          {isX2 && seal}
                         </span>
                       )
                     })}
                   </div>
-                  {normalSaved.length < maxPicks && (
+                  {savedPicks.length < maxPicks && (
                     <p className="mt-3 text-xs text-jade-700">
-                      {normalSaved.length} of {maxPicks} votes used — Edit below to add{' '}
-                      {maxPicks - normalSaved.length} more before lock.
+                      {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
+                      {maxPicks - savedPicks.length} more before lock.
                     </p>
                   )}
                 </div>
               ) : (
                 <>
                   <p aria-live="polite" className="ballot-sheet__count mb-5">
-                    {armed ? (
-                      <>Choose your Extra Vote ×2</>
+                    {placing ? (
+                      <>
+                        Tap a name to move the ×2
+                        {cancelLink('Cancel', () => setPlacing(false))}
+                      </>
                     ) : (
                       <>
-                        <b>{normalPending.length}</b> of {maxPicks} names written
+                        {armed && 'Pick your extra vote — '}
+                        <b>{epPending.size}</b> of {maxPicks} names written
+                        {armed && cancelLink('Cancel', () => onBallotArmedChange?.(false))}
                       </>
                     )}
                   </p>
@@ -3671,49 +3693,52 @@ function PicksSection({
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {members.map((c) => {
+                            const name = displayName(c)
                             const isSelected = epPending.has(c.id)
                             const isX2 = c.id === x2Target
-                            // While the slot is armed every name is a valid ×2,
-                            // including one already voted for — it moves.
-                            const maxed =
-                              !armed && !isSelected && normalPending.length >= maxPicks
-                            const label = armed
-                              ? `Extra Vote ×2 on ${displayName(c)}`
+                            // In move mode only your other names take the ×2.
+                            const moveHere = placing && isSelected && !isX2
+                            const maxed = !isSelected && epPending.size >= maxPicks
+                            const disabled = play.busy || (placing ? !moveHere : maxed)
+                            const label = moveHere
+                              ? `Move the ×2 to ${name}`
                               : isX2
-                                ? `Remove your Extra Vote ×2 from ${displayName(c)}`
+                                ? `Move the ×2 off ${name} first`
                                 : isSelected
-                                  ? `Remove vote for ${displayName(c)}`
-                                  : `Vote for ${displayName(c)}`
+                                  ? `Remove vote for ${name}`
+                                  : armed
+                                    ? `Extra vote for ${name}`
+                                    : `Vote for ${name}`
                             return (
-                              <button
+                              <div
                                 key={c.id}
+                                data-drop-id={isSelected && !isX2 ? c.id : undefined}
+                                className="relative rounded-xl data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                              >
+                              <button
                                 type="button"
                                 onClick={() => {
-                                  if (armed) void chooseX2(ep.id, c.id)
-                                  else if (isX2) void removeX2(ep.id, true)
+                                  if (placing) void moveX2(ep.id, c.id, savedIds.has(c.id))
+                                  else if (isX2) setPlacing(true)
+                                  else if (armed && !isSelected) void chooseExtra(ep.id, c.id, dirty)
                                   else togglePick(ep.id, c.id, maxPicks)
                                 }}
-                                disabled={maxed || play.busy}
+                                disabled={disabled}
                                 aria-pressed={isSelected}
                                 aria-label={label}
                                 className={[
-                                  'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
+                                  'relative flex min-h-16 w-full min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
                                   isX2
                                     ? 'border-gold-500 bg-gold-50 text-forest-900 shadow-sm ring-1 ring-gold-300'
                                     : isSelected
                                       ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
-                                      : maxed
+                                      : disabled
                                         ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
                                         : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
                                 ].join(' ')}
                               >
-                                <ContestantAvatar name={displayName(c)} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                                <span className="min-w-0 leading-tight">{displayName(c)}</span>
-                                {isX2 && (
-                                  <span className="absolute right-1.5 top-1.5">
-                                    <Times2 title="Extra Vote ×2" />
-                                  </span>
-                                )}
+                                <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                                <span className="min-w-0 leading-tight">{name}</span>
                                 {isSelected && !isX2 && (
                                   <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
@@ -3722,6 +3747,8 @@ function PicksSection({
                                   </span>
                                 )}
                               </button>
+                              {isX2 && seal}
+                              </div>
                             )
                           })}
                         </div>
