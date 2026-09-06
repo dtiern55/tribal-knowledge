@@ -343,10 +343,10 @@ export function TeamPage() {
                             const name = nameC ? displayName(nameC) : '—'
                             const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
                             return eliminatedIds.has(pick.contestant_id) ? (
-                              <CorrectVote key={pick.id} name={name} trailing={mark} />
+                              <CorrectVote key={pick.id} name={name} icon={mark} />
                             ) : (
                               <span key={pick.id} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
-                                {name}{mark}
+                                {mark}{name}
                               </span>
                             )
                           })

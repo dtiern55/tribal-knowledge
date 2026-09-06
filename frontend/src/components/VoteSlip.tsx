@@ -15,7 +15,7 @@ export function VoteSlip({
   doubled = false,
   tribeColor = null,
   rotation = 0,
-  trailing,
+  leading,
 }: {
   name: string
   stale?: boolean
@@ -24,8 +24,8 @@ export function VoteSlip({
   tribeColor?: string | null
   /** Supplied per slip and stable across renders, so the pile never reshuffles. */
   rotation?: number
-  /** Extra content on the slip after the name (the ×2 idol). */
-  trailing?: ReactNode
+  /** Content on the slip before the name: the ×2 idol on a doubled vote. */
+  leading?: ReactNode
 }) {
   return (
     <span
@@ -37,8 +37,8 @@ export function VoteSlip({
         } as CSSProperties
       }
     >
+      {leading}
       <span className={stale ? 'line-through' : undefined}>{name}</span>
-      {trailing}
     </span>
   )
 }

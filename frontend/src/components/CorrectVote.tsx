@@ -13,36 +13,38 @@ import type { ReactNode } from 'react'
 export function CorrectVote({
   name,
   points,
-  trailing,
+  icon,
 }: {
   name: ReactNode
   /** Points this correct vote earned, shown as a `+N` chip when non-zero. */
   points?: number | null
-  /** Extra content inside the pill after the name (e.g. a ×2 marker). */
-  trailing?: ReactNode
+  /** Takes the check's place: the ×2 idol on a doubled vote that hit. The
+   *  green pill already says it was correct. */
+  icon?: ReactNode
 }) {
   return (
     <span className="relative inline-flex items-center gap-1.5 rounded-md border border-jade-600/30 bg-jade-600/10 px-2 py-1 text-sm text-jade-800">
-      <span className="flex size-5 items-center justify-center rounded-full bg-jade-600 text-white">
-        <svg
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="size-3"
-          aria-hidden="true"
-        >
-          <path d="m3 8.5 3 3 7-8" />
-        </svg>
-      </span>
+      {icon ?? (
+        <span className="flex size-5 items-center justify-center rounded-full bg-jade-600 text-white">
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-3"
+            aria-hidden="true"
+          >
+            <path d="m3 8.5 3 3 7-8" />
+          </svg>
+        </span>
+      )}
       <span className="sr-only">Correct — </span>
       {name}
       {points != null && points !== 0 && (
         <span className="text-xs font-semibold text-jade-700">+{points}</span>
       )}
-      {trailing}
     </span>
   )
 }

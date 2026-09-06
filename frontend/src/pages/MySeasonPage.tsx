@@ -3064,7 +3064,7 @@ function BallotRecord({
                     key={p.id}
                     name={name}
                     points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined}
-                    trailing={mark}
+                    icon={mark}
                   />
                 )
               return (
@@ -3078,7 +3078,7 @@ function BallotRecord({
                   doubled={mark != null}
                   tribeColor={pickC?.tribe_color}
                   rotation={[-0.9, 0.6, -0.3][index % 3]}
-                  trailing={mark}
+                  leading={mark}
                 />
               )
             })}
@@ -3130,14 +3130,14 @@ function BallotRecord({
             // (pickResults are base values, #136).
             const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
             return scored && result?.correct === true ? (
-              <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} trailing={mark} />
+              <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} icon={mark} />
             ) : (
               <span
                 key={p.id}
                 className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
               >
-                {name}
                 {mark}
+                {name}
               </span>
             )
           })
