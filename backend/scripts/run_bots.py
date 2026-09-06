@@ -335,9 +335,11 @@ def draft(cur, league_name: str, season_number: int):
     ]
     middle = [c for c in everyone if c not in wanted and c not in shunned]
     pool = wanted + middle + shunned
+    floor = float(read.get("spread", 0))
 
     n = 0
     for a, bot in zip(arche, bots):
+        spread = max(a["spread"], floor)
         cur.execute(
             "select count(*) n from roster_picks"
             " where user_id=%s and league_season_id=%s",
@@ -345,9 +347,7 @@ def draft(cur, league_name: str, season_number: int):
         )
         if cur.fetchone()["n"]:
             continue
-        picks = biased_order(pool, a["spread"], bot["id"], "draft")[
-            : season["roster_size"]
-        ]
+        picks = biased_order(pool, spread, bot["id"], "draft")[: season["roster_size"]]
         for cid in picks:
             cur.execute(
                 """insert into roster_picks
@@ -577,6 +577,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     owned = {r["cid"]: r["n"] for r in cur.fetchall()}
 
     by_name = {a["name"]: a for a in archetypes()}
+    floor = float(ep_read.get("spread", read.get("spread", 0)))
     picks_made = swaps_made = plays_made = ss_made = 0
     # roster_swap counts PAID swaps now, not advantage plays (#404).
     tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
@@ -597,6 +598,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         if not a:
             continue
         uid = bot["id"]
+        spread = max(a["spread"], floor)
 
         # --- swap out dead weight (an eliminated castaway) ---
         # No longer gated on the weekly play (#404) — swaps have their own
@@ -625,7 +627,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 pool = [c for c in add_pool if c not in shunned] or add_pool
                 want = [c for c in pool if c in targets] or pool
                 want = sorted(want, key=lambda c: owned.get(c, 0))
-                new = biased_order(want, a["spread"], uid, episode_n, "swapin")[0]
+                new = biased_order(want, spread, uid, episode_n, "swapin")[0]
                 owned[new] = owned.get(new, 0) + 1
                 do_swap(cur, uid, lsid, ep, out, new, penalty)
                 swaps_made += 1
@@ -644,20 +646,18 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 # commissioner's split holds; overflow to the field if the caps
                 # empty before this bot is served.
                 avail = [c for c in boots if caps.get(c, 0) > 0]
-                chosen = biased_order(avail, a["spread"], uid, episode_n, "pick")[
-                    :max_picks
-                ]
+                chosen = biased_order(avail, spread, uid, episode_n, "pick")[:max_picks]
                 if len(chosen) < max_picks:
-                    chosen += biased_order(others, a["spread"], uid, episode_n, "fill")[
+                    chosen += biased_order(others, spread, uid, episode_n, "fill")[
                         : max_picks - len(chosen)
                     ]
                 for c in chosen:
                     if c in caps:
                         caps[c] -= 1
             else:
-                chosen = biased_order(
-                    boots + others, a["spread"], uid, episode_n, "pick"
-                )[:max_picks]
+                chosen = biased_order(boots + others, spread, uid, episode_n, "pick")[
+                    :max_picks
+                ]
             for cid in chosen:
                 cur.execute(
                     "insert into elimination_picks"
