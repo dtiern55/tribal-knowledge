@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
@@ -3447,6 +3447,25 @@ function PicksSection({
   // Re-read only once the real row is back — a drag to the roster used to
   // re-read while the delete was still in flight and keep the doubled vote.
   const settled = !play.play?.id.startsWith('pending-')
+  // Taking the ×2 back drops the doubled vote on the server. Drop it here in
+  // the same paint the seal disappears, so Undo reads as one change rather
+  // than the idol going, then the vote a beat later when the re-read lands.
+  const lastTarget = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (!settled || !openEp) return
+    const gone = lastTarget.current
+    lastTarget.current = ballotPlay?.target_contestant_id ?? null
+    if (!gone || ballotPlay) return
+    const epId = openEp.id
+    const kept = (picksByEpisode.get(epId) ?? []).filter((p) => p.contestant_id !== gone)
+    setPicksByEpisode((prev) => new Map(prev).set(epId, kept))
+    setPending((prev) => {
+      const next = new Set(prev.get(epId) ?? [])
+      next.delete(gone)
+      return new Map(prev).set(epId, next)
+    })
+    onOpenPicks?.(kept)
+  }, [ballotPlay, settled, openEp, picksByEpisode, onOpenPicks])
   useEffect(() => {
     if (!openEp || !settled || lastPlayId.current === ballotPlay?.id) return
     lastPlayId.current = ballotPlay?.id
@@ -3625,11 +3644,9 @@ function PicksSection({
                     Ballot submitted
                   </p>
                   <div className="ballot-sheet__slips">
-                    {/* The doubled vote leads the pile, in gold, wearing the
-                        seal on its corner (#673). */}
-                    {[...savedPicks]
-                      .sort((a, b) => Number(b.contestant_id === x2Target) - Number(a.contestant_id === x2Target))
-                      .map((p, index) => {
+                    {/* The doubled vote keeps its place in the pile, in gold,
+                        wearing the seal on its corner (#673). */}
+                    {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
                       const stale =
