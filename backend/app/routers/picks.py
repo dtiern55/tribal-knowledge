@@ -9,9 +9,12 @@ from app.locking import (
     advantages_locked,
     episode_locked,
     next_open_episode,
-    used_weekly_play,
 )
-from app.schemas import EliminationPick, EliminationPickSubmitRequest
+from app.schemas import (
+    EliminationPick,
+    EliminationPickSubmitRequest,
+    EliminationPickSubmitResponse,
+)
 
 router = APIRouter(tags=["picks"])
 
@@ -189,7 +192,7 @@ def get_picks(
 
 @router.post(
     "/league-seasons/{league_season_id}/episodes/{episode_id}/picks",
-    response_model=list[EliminationPick],
+    response_model=EliminationPickSubmitResponse,
 )
 def submit_picks(
     league_season_id: UUID,
@@ -270,11 +273,29 @@ def submit_picks(
                         status_code=400,
                         detail="Advantages can no longer be played this season",
                     )
-                if used_weekly_play(cur, user_id, league_season_id, episode_id):
-                    raise HTTPException(
-                        status_code=409,
-                        detail="You have already used your advantage this episode",
-                    )
+                cur.execute(
+                    "select id::text as id, advantage_type from advantage_plays"
+                    " where user_id = %s and league_season_id = %s"
+                    " and episode_id = %s",
+                    [str(user_id), str(league_season_id), str(episode_id)],
+                )
+                other_play = cur.fetchone()
+                if other_play is not None:
+                    # A roster double is fungible with the ballot's ×2 — the
+                    # week's one play just moves, same as a manual take-back
+                    # then play (#673). roster_swap and extra_vote aren't:
+                    # the swap already happened (#394) and extra_vote has no
+                    # take-back path of its own.
+                    if other_play["advantage_type"] == "double_roster_points":
+                        cur.execute(
+                            "delete from advantage_plays where id = %s",
+                            [other_play["id"]],
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="You have already used your advantage this episode",
+                        )
 
             max_picks = pick_limit(cur, ls, episode, user_id, creating_play)
 
@@ -383,4 +404,17 @@ def submit_picks(
                 """,
                 [str(league_season_id), str(episode_id), str(user_id)],
             )
-            return cur.fetchall()
+            picks = cur.fetchall()
+
+            # The play, post-save, in the same response — the caller used to
+            # GET it separately, chaining a third round trip onto the ballot
+            # save (#673).
+            cur.execute(
+                """
+                select * from advantage_plays
+                where user_id = %s and league_season_id = %s and episode_id = %s
+                  and advantage_type = 'double_vote_points'
+                """,
+                [str(user_id), str(league_season_id), str(episode_id)],
+            )
+            return {"picks": picks, "play": cur.fetchone()}

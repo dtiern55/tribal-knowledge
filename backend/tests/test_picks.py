@@ -54,7 +54,9 @@ def test_submit_picks(client, db_conn, current_user):
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
     )
     assert r.status_code == 200
-    assert len(r.json()) == 2
+    body = r.json()
+    assert len(body["picks"]) == 2
+    assert body["play"] is None
 
 
 @pytest.mark.integration
@@ -160,7 +162,7 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
         json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
     )
     assert r.status_code == 200
-    assert len(r.json()) == 2
+    assert len(r.json()["picks"]) == 2
 
 
 @pytest.mark.integration
@@ -186,7 +188,9 @@ def test_targeted_double_vote_raises_pick_limit(client, db_conn, current_user):
         },
     )
     assert r.status_code == 200, r.text
-    assert len(r.json()) == 2
+    body = r.json()
+    assert len(body["picks"]) == 2
+    assert body["play"]["target_contestant_id"] == str(doubled["id"])
 
 
 @pytest.mark.integration
@@ -229,14 +233,11 @@ def test_ballot_save_creates_double_vote_play(client, db_conn, current_user):
         },
     )
     assert r.status_code == 200, r.text
-    assert len(r.json()) == 4
-
-    plays = client.get(
-        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
-    ).json()
-    assert len(plays) == 1
-    assert plays[0]["advantage_type"] == "double_vote_points"
-    assert plays[0]["target_contestant_id"] == str(names[0]["id"])
+    body = r.json()
+    assert len(body["picks"]) == 4
+    # The play comes back in the same response — no separate GET (#673).
+    assert body["play"]["advantage_type"] == "double_vote_points"
+    assert body["play"]["target_contestant_id"] == str(names[0]["id"])
 
 
 @pytest.mark.integration
@@ -270,13 +271,11 @@ def test_ballot_save_moves_double_vote_target(client, db_conn, current_user):
     assert r.status_code == 200, r.text
     second = r.json()
     # Same two picks, same created_at/id — only the play's target moved.
-    assert {p["id"] for p in second} == {p["id"] for p in first}
-    assert {p["created_at"] for p in second} == {p["created_at"] for p in first}
-
-    plays = client.get(
-        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
-    ).json()
-    assert plays[0]["target_contestant_id"] == str(b["id"])
+    assert {p["id"] for p in second["picks"]} == {p["id"] for p in first["picks"]}
+    assert {p["created_at"] for p in second["picks"]} == {
+        p["created_at"] for p in first["picks"]
+    }
+    assert second["play"]["target_contestant_id"] == str(b["id"])
 
 
 @pytest.mark.integration
@@ -301,12 +300,7 @@ def test_ballot_save_empty_deletes_play_and_picks(client, db_conn, current_user)
         json={"contestant_ids": []},
     )
     assert r.status_code == 200, r.text
-    assert r.json() == []
-
-    plays = client.get(
-        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
-    ).json()
-    assert plays == []
+    assert r.json() == {"picks": [], "play": None}
 
 
 @pytest.mark.integration
@@ -328,11 +322,12 @@ def test_ballot_save_doubled_not_on_ballot_rejected(client, db_conn, current_use
 
 
 @pytest.mark.integration
-def test_ballot_save_conflicts_with_a_weekly_play_already_spent(
+def test_ballot_save_replaces_a_roster_double_with_the_ballot_play(
     client, db_conn, current_user
 ):
-    """Choosing the ×2 on the ballot is spending the week's one play (#307)
-    — it can't create a second play behind one already made."""
+    """A roster double is fungible with the ballot's ×2 — choosing the ×2
+    moves the week's one play (#307) instead of 409ing, same as a manual
+    take-back then play (#673)."""
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"], max_picks=2)
     a = insert_contestant(db_conn, season["id"], "A")
@@ -345,6 +340,31 @@ def test_ballot_save_conflicts_with_a_weekly_play_already_spent(
         "double_roster_points",
         rostered["id"],
     )
+
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(a["id"])], "doubled_contestant_id": str(a["id"])},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["play"]["advantage_type"] == "double_vote_points"
+
+    plays = client.get(
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    assert [p["advantage_type"] for p in plays] == ["double_vote_points"]
+
+
+@pytest.mark.integration
+def test_ballot_save_conflicts_with_a_roster_swap_already_spent(
+    client, db_conn, current_user
+):
+    """roster_swap can't be undone (#394, take_back_advantage) — the ballot
+    save can't silently drop it the way it can a roster double."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"], max_picks=2)
+    a = insert_contestant(db_conn, season["id"], "A")
+
+    insert_advantage_play(db_conn, current_user["id"], ep["id"], "roster_swap")
 
     r = client.post(
         f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
@@ -517,7 +537,7 @@ def test_submit_empty_picks(client, db_conn):
         json={"contestant_ids": []},
     )
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json() == {"picks": [], "play": None}
 
 
 @pytest.mark.integration
