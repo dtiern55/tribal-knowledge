@@ -47,7 +47,11 @@ NOT_QUESTIONS = {
 def _clean(s: str) -> str:
     # A template that survived expansion keeps its last argument.
     s = re.sub(r"\{\{[^{}]*\|([^|{}]+)\}\}", r"\1", s)
-    s = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", r"\1", s)  # [[Link|Text]] -> Text
+    # [[Link|Text]] -> Text. The text runs to the closing ]] rather than the
+    # first ], since a label can hold a bracketed "[sic]" (S51, Eric). That
+    # mark is the wiki editor's, not CBS's, so it goes too.
+    s = re.sub(r"\[\[(?:[^|\]]*\|)?(.+?)\]\]", r"\1", s)
+    s = re.sub(r"\s*\[sic\]", "", s)
     s = re.sub(r"'''|''", "", s)
     s = re.sub(r"<ref>.*?</ref>", "", s, flags=re.S)
     s = re.sub(r"<[^>]+>", "", s)
