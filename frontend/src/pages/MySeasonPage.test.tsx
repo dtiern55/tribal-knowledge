@@ -92,13 +92,13 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
       {
         advantage_play_id: 'play-1',
         advantage_type: 'double_vote_points',
-        target_contestant_id: null,
-        target_name: null,
-        bonus_points: 30,
+        target_contestant_id: 'cast-1',
+        target_name: 'Kenzie',
+        bonus_points: 15,
       },
     ],
-    weekly_play_bonus: 30,
-    total_points: 75,
+    weekly_play_bonus: 15,
+    total_points: 60,
     current_rank: 2,
     prior_rank: 5,
     rank_delta: 3,
@@ -1047,13 +1047,18 @@ describe('MySeasonPage state shell', () => {
     expect(dialog).toHaveTextContent('Two torches snuffed')
     expect(screen.getByRole('heading', { name: 'Tribe' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Ballot' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Advantage' })).toBeVisible()
+    // The play is not a lane of its own: the idol rides the doubled vote, at
+    // what it paid, and the Ballot lane total carries the bonus.
+    expect(screen.queryByRole('heading', { name: 'Advantage' })).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('img', { name: 'Extra Vote ×2' })).toBeVisible()
+    expect(dialog).toHaveTextContent(/Kenzie\+30/)
     expect(dialog).toHaveTextContent(/Up 3.*#2/)
     expect(screen.getByRole('heading', { name: 'Episode insight' })).toBeVisible()
     expect(dialog).toHaveTextContent('72%')
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
-    // Points buildup (Roster + Ballot + Advantage = total) replaces the old sum line.
-    expect(dialog).toHaveTextContent('+75')
+    // Points buildup (Roster + Ballot = total) replaces the old sum line.
+    expect(dialog).toHaveTextContent('+45Ballot')
+    expect(dialog).toHaveTextContent('+60')
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Still saving')
@@ -1119,7 +1124,6 @@ describe('MySeasonPage state shell', () => {
 
     expect(await screen.findByText('No one was voted out')).toBeVisible()
     expect(screen.getByText('No ballot was submitted, so there are no ballot points.')).toBeVisible()
-    expect(screen.getByText('No weekly play was used.')).toBeVisible()
     expect(screen.getByText('#1')).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Episode insight' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue' }))
