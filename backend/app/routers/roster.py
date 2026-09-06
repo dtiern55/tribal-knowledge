@@ -18,13 +18,14 @@ router = APIRouter(tags=["roster"])
 
 def _effective_swap_lock(ls) -> int | None:
     """The episode from which roster swaps are locked (#84): explicit
-    swap_lock_episode, else three episodes past the merge (#163, widened
-    2026-09-03). None until the merge is known. The finale is refused
-    separately, regardless of this value."""
+    swap_lock_episode, else two past the episode the first juror went out in
+    (#672), so the last swappable episode is the one after that boot. None
+    until a juror has been scored. The finale is refused separately,
+    regardless of this value."""
     if ls["swap_lock_episode"] is not None:
         return ls["swap_lock_episode"]
-    if ls["merge_episode"] is not None:
-        return ls["merge_episode"] + 3
+    if ls["jury_start_episode"] is not None:
+        return ls["jury_start_episode"] + 2
     return None
 
 

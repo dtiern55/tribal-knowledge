@@ -186,7 +186,11 @@ def league_season(cur, league_name: str, season_number: int) -> dict:
     if cur.fetchone():
         sys.exit(f"{league_name!r} has real players — bots only play bot leagues")
     cur.execute(
-        "select ls.*, s.name, s.season_number, s.merge_episode, s.status"
+        "select ls.*, s.name, s.season_number, s.merge_episode, s.status,"
+        " (select min(ep.episode_number) from scoring_events se"
+        "  join episodes ep on ep.id = se.episode_id"
+        "  where ep.season_id = s.id and se.event_type = 'join_jury')"
+        " as jury_start_episode"
         " from league_seasons ls join seasons s on s.id = ls.season_id"
         " where ls.league_id = %s and s.season_number = %s",
         [league["id"], season_number],
@@ -552,9 +556,10 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     # Can never vote for every remaining castaway (#240)
     max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
 
+    # Mirrors roster.py _effective_swap_lock (#672).
     swap_lock = season["swap_lock_episode"]
-    if swap_lock is None and season["merge_episode"] is not None:
-        swap_lock = season["merge_episode"] + 3
+    if swap_lock is None and season["jury_start_episode"] is not None:
+        swap_lock = season["jury_start_episode"] + 2
     swaps_open = not ep["is_finale"] and not (
         swap_lock is not None and episode_n >= swap_lock
     )

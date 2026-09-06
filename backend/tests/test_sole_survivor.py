@@ -165,14 +165,17 @@ def test_designation_hidden_from_others_until_lock(client, db_conn, current_user
 
 @pytest.mark.integration
 def test_ss_lock_follows_swap_lock_fallback(client, db_conn, current_user):
-    """No swap lock set: designation closes with the swaps at merge + 3, and
-    the advantage lock has no say."""
+    """No swap lock set: designation closes with the swaps two past the first
+    juror's episode (#672), and the advantage lock has no say."""
     season = insert_season(
         db_conn,
         roster_lock_episode=1,
         merge_episode=3,
         advantage_lock_episode=9,
     )
+    ep4 = insert_episode(db_conn, season["id"], episode_number=4, status="scored")
+    juror = insert_contestant(db_conn, season["id"], "First Juror")
+    insert_scoring_event(db_conn, ep4["id"], juror["id"], "join_jury")
     insert_episode(db_conn, season["id"], episode_number=5)
     a = insert_contestant(db_conn, season["id"], "A")
     insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])

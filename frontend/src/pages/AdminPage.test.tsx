@@ -27,6 +27,7 @@ const season = {
   swap_penalty_step: -5,
   swap_penalty_floor: -25,
   swap_lock_episode: 10,
+  jury_start_episode: null,
   advantage_lock_episode: 12,
   weekly_token_allocation: 0,
   token_economy_enabled: false,
