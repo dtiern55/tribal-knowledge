@@ -9,7 +9,7 @@ import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.webp'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
-import { FinaleBracket } from '../components/FinaleBracket'
+import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
 import { LockBadge, LockLine } from '../components/LockBadge'
 import { Notice } from '../components/Notice'
@@ -993,6 +993,9 @@ export function MySeasonPage() {
           rosterPoints={rosterPoints}
           plays={d.plays}
           soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
+          standing={d.standing}
+          rank={d.rank}
+          playerCount={d.playerCount}
         />
       )}
 
@@ -1050,6 +1053,9 @@ function CompleteState({
   rosterPoints,
   plays,
   soleSurvivorBonus,
+  standing,
+  rank,
+  playerCount,
 }: {
   season: Season
   contestants: Contestant[]
@@ -1059,11 +1065,20 @@ function CompleteState({
   rosterPoints: Map<string, number>
   plays: AdvantagePlay[]
   soleSurvivorBonus: number
+  standing: StandingEntry | null
+  rank: number | null
+  playerCount: number
 }) {
   const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
+  // The bracket is marked against the real placements, as on the Team page.
+  const finaleActuals: FinaleActuals = {
+    finalFour: new Set(contestants.filter((c) => c.placement != null && c.placement <= 4).map((c) => c.id)),
+    finalThree: new Set(contestants.filter((c) => c.placement != null && c.placement <= 3).map((c) => c.id)),
+    winner: contestants.find((c) => c.placement === 1)?.id ?? null,
+  }
   const active = roster.filter((pick) => pick.active_until_episode === null)
   const swappedOut = roster
     .filter((pick) => pick.active_until_episode !== null)
@@ -1077,10 +1092,27 @@ function CompleteState({
     <div className="space-y-8">
       <section className="p-5 bg-white border border-cream-200 rounded-xl">
         <h2 className="font-display text-xl tracking-wide text-forest-800">Season complete</h2>
+        {/* The result, not a tour of the page (#686): where you finished and
+            where the points came from. The episode history is the card above. */}
         <p className="mt-1 text-sm text-gray-600">
-          Final standings are settled. Here's how your season finished — your tribe and
-          finale ballot below, and your full episode history under it.
+          {standing && rank != null
+            ? `You finished ${ordinal(rank)} of ${playerCount} with ${standing.total_points} points.`
+            : 'Final standings are settled.'}
         </p>
+        {standing && (
+          <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
+            {[
+              ['Tribe', standing.roster_points],
+              ['Ballot', standing.elimination_points],
+              ['Finale', standing.finale_points],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-cream-200 bg-cream-50 px-2 py-2">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</dt>
+                <dd className="font-display text-xl tabular-nums text-forest-800">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </section>
 
       <section>
@@ -1138,8 +1170,11 @@ function CompleteState({
 
       {finaleEp && (
         <section>
-          <h3 className="mb-3 font-display text-lg tracking-wide text-forest-800">Your finale ballot</h3>
-          <FinaleBallot season={season} contestants={contestants} episodes={episodes} finaleEp={finaleEp} userId={userId} />
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h3 className="font-display text-lg tracking-wide text-forest-800">Your finale ballot</h3>
+            {standing && <TeamPoints value={standing.finale_points} />}
+          </div>
+          <FinaleBallot season={season} contestants={contestants} episodes={episodes} finaleEp={finaleEp} userId={userId} actuals={finaleActuals} />
         </section>
       )}
     </div>
@@ -3834,6 +3869,7 @@ function FinaleBallot({
   userId,
   onBallotSaved,
   onProgress,
+  actuals,
 }: {
   season: Season
   contestants: Contestant[]
@@ -3841,6 +3877,8 @@ function FinaleBallot({
   finaleEp: Episode
   userId: string
   onBallotSaved?: () => void
+  /** Real placements, once the finale is scored: the bracket marks each pick. */
+  actuals?: FinaleActuals
   /** Report bracket progress up so the hero tracks picks live. `saved` is true
    *  only while showing a locked-in ballot (not a live draft). */
   onProgress?: (p: { filled: number; saved: boolean }) => void
@@ -3969,6 +4007,7 @@ function FinaleBallot({
             finalThree={finalThree}
             winner={winner}
             byId={byId}
+            actuals={actuals}
           />
           {!locked && (
             <div className="text-center">
