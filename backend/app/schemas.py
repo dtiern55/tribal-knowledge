@@ -244,6 +244,9 @@ class SoleSurvivorRequest(BaseModel):
 
 class EliminationPickSubmitRequest(BaseModel):
     contestant_ids: list[UUID]
+    # Which pick Extra Vote ×2 doubles, if the play is in for this episode
+    # (#673) — the ballot save carries the ×2 placement, no separate step.
+    doubled_contestant_id: Optional[UUID] = None
 
 
 class Elimination(BaseModel):
@@ -466,10 +469,16 @@ class AdvantagePlayRequest(BaseModel):
     target_contestant_id: Optional[UUID] = None
 
 
-class AdvantagePlayMoveRequest(BaseModel):
-    """Moving Extra Vote ×2 to a different pick on the same ballot (#673)."""
+class EliminationPickSubmitResponse(BaseModel):
+    """The ballot save's result: picks plus the ×2 play, if any (#673).
 
-    target_contestant_id: UUID
+    One round trip instead of a POST + a separate GET for the play — a
+    staging round trip runs ~0.8s even for /health, and the old ballot save
+    chained three of them.
+    """
+
+    picks: list[EliminationPick]
+    play: Optional[AdvantagePlay] = None
 
 
 class EpisodeResultContestant(BaseModel):

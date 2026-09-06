@@ -6,7 +6,6 @@ locks. Spend it on a double, or on a roster swap past the free one
 (tests/test_roster.py covers the swap side).
 """
 
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -362,19 +361,21 @@ def _picks(client, season_id, episode_id, user_id):
     ).json()
 
 
-def _submit(client, season_id, episode_id, contestant_ids, expect=200):
+def _submit(client, season_id, episode_id, contestant_ids, doubled=None, expect=200):
+    body = {"contestant_ids": [str(c) for c in contestant_ids]}
+    if doubled is not None:
+        body["doubled_contestant_id"] = str(doubled)
     r = client.post(
-        f"/league-seasons/{season_id}/episodes/{episode_id}/picks",
-        json={"contestant_ids": [str(c) for c in contestant_ids]},
+        f"/league-seasons/{season_id}/episodes/{episode_id}/picks", json=body
     )
     assert r.status_code == expect, r.text
     return r.json()
 
 
 @pytest.mark.integration
-def test_take_back_trims_the_newest_pick_over_the_limit(client, db_conn, current_user):
-    """The ×2 is a real extra vote now (#673) — taking it back drops the base
-    limit by one, and the newest pick (the one the play added) goes."""
+def test_take_back_drops_the_doubled_pick(client, db_conn, current_user):
+    """Taking the ×2 back always drops the doubled pick itself (Danny's call)
+    — not whichever is newest."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=1)
@@ -393,11 +394,9 @@ def test_take_back_trims_the_newest_pick_over_the_limit(client, db_conn, current
 
 
 @pytest.mark.integration
-def test_take_back_trims_by_creation_order_not_current_target(
-    client, db_conn, current_user
-):
-    """Moving the ×2 doesn't change which pick is newest — take-back still
-    drops B, the one actually added last."""
+def test_take_back_drops_the_doubled_pick_even_if_older(client, db_conn, current_user):
+    """The doubled pick goes even when it's the older of the two — creation
+    order doesn't matter any more, only which pick currently holds the ×2."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=1)
@@ -408,21 +407,21 @@ def test_take_back_trims_by_creation_order_not_current_target(
 
     _submit(client, ls, ep["id"], [a["id"]])
     play = _play(client, ls, "double_vote_points", target=b["id"])
-    r = client.patch(
-        f"/advantage-plays/{play['id']}",
-        json={"target_contestant_id": str(a["id"])},
-    )
-    assert r.status_code == 200, r.text
-    assert r.json()["target_contestant_id"] == str(a["id"])
+    # Move the ×2 onto a, the older pick, via a ballot save (#673).
+    _submit(client, ls, ep["id"], [a["id"], b["id"]], doubled=a["id"])
 
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
 
     picks = _picks(client, ls, ep["id"], current_user["id"])
-    assert [p["contestant_id"] for p in picks] == [str(a["id"])]
+    assert [p["contestant_id"] for p in picks] == [str(b["id"])]
 
 
 @pytest.mark.integration
-def test_take_back_drops_nothing_within_the_limit(client, db_conn, current_user):
+def test_take_back_null_target_play_drops_nothing_within_limit(
+    client, db_conn, current_user
+):
+    """A legacy whole-ballot double (#303, no target) has no single pick to
+    drop — the limit-trim safety net leaves an in-limit ballot alone."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=2)
@@ -430,110 +429,15 @@ def test_take_back_drops_nothing_within_the_limit(client, db_conn, current_user)
     b = insert_contestant(db_conn, season["id"], "B")
     insert_contestant(db_conn, season["id"], "C")
 
-    _submit(client, ls, ep["id"], [a["id"]])
-    play = _play(client, ls, "double_vote_points", target=b["id"])
+    _submit(client, ls, ep["id"], [a["id"], b["id"]])
+    play = insert_advantage_play(
+        db_conn, current_user["id"], ep["id"], "double_vote_points"
+    )
 
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
 
     picks = _picks(client, ls, ep["id"], current_user["id"])
     assert {p["contestant_id"] for p in picks} == {str(a["id"]), str(b["id"])}
-
-
-# --- moving the x2 -------------------------------------------------------
-
-
-@pytest.mark.integration
-def test_move_double_vote_target(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    ls = season["league_season_id"]
-    ep = _open_episode(db_conn, season["id"], max_picks=2)
-    a = insert_contestant(db_conn, season["id"], "A")
-    b = insert_contestant(db_conn, season["id"], "B")
-
-    _submit(client, ls, ep["id"], [a["id"]])
-    play = _play(client, ls, "double_vote_points", target=b["id"])
-
-    r = client.patch(
-        f"/advantage-plays/{play['id']}",
-        json={"target_contestant_id": str(a["id"])},
-    )
-    assert r.status_code == 200, r.text
-    assert r.json()["target_contestant_id"] == str(a["id"])
-    # No pick side effects — both names stay on the ballot.
-    picks = _picks(client, ls, ep["id"], current_user["id"])
-    assert {p["contestant_id"] for p in picks} == {str(a["id"]), str(b["id"])}
-
-
-@pytest.mark.integration
-def test_move_double_vote_requires_the_name_on_the_ballot(
-    client, db_conn, current_user
-):
-    season = insert_season(db_conn)
-    ls = season["league_season_id"]
-    _open_episode(db_conn, season["id"])
-    b = insert_contestant(db_conn, season["id"], "B")
-    off_ballot = insert_contestant(db_conn, season["id"], "OffBallot")
-    play = _play(client, ls, "double_vote_points", target=b["id"])
-
-    r = client.patch(
-        f"/advantage-plays/{play['id']}",
-        json={"target_contestant_id": str(off_ballot["id"])},
-    )
-    assert r.status_code == 400
-    assert "on your ballot" in r.json()["detail"]
-
-
-@pytest.mark.integration
-def test_move_rejected_for_a_roster_double(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    ls = season["league_season_id"]
-    _open_episode(db_conn, season["id"])
-    c = _rostered(db_conn, season["id"], current_user["id"])
-    play = _play(client, ls, "double_roster_points", target=c["id"])
-
-    r = client.patch(
-        f"/advantage-plays/{play['id']}",
-        json={"target_contestant_id": str(c["id"])},
-    )
-    assert r.status_code == 400
-    assert "Only Extra Vote ×2 can be moved" in r.json()["detail"]
-
-
-@pytest.mark.integration
-def test_move_rejected_after_lock(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    ls = season["league_season_id"]
-    ep = _open_episode(db_conn, season["id"])
-    a = insert_contestant(db_conn, season["id"], "A")
-    b = insert_contestant(db_conn, season["id"], "B")
-    _submit(client, ls, ep["id"], [a["id"]])
-    play = _play(client, ls, "double_vote_points", target=b["id"])
-    with db_conn.cursor() as cur:
-        cur.execute(
-            "update episodes set picks_lock_at = %s where id = %s",
-            [datetime.now(timezone.utc) - timedelta(hours=1), str(ep["id"])],
-        )
-
-    r = client.patch(
-        f"/advantage-plays/{play['id']}",
-        json={"target_contestant_id": str(a["id"])},
-    )
-    assert r.status_code == 400
-    assert "spent" in r.json()["detail"]
-
-
-@pytest.mark.integration
-def test_move_other_users_play_not_found(client, db_conn, current_user):
-    season = insert_season(db_conn)
-    ep = _open_episode(db_conn, season["id"])
-    other = insert_user(db_conn, display_name="Other")
-    play = insert_advantage_play(db_conn, other["id"], ep["id"], "double_vote_points")
-
-    r = client.patch(
-        f"/advantage-plays/{play['id']}",
-        json={"target_contestant_id": str(uuid.uuid4())},
-    )
-    assert r.status_code == 404
 
 
 @pytest.mark.integration
