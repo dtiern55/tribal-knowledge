@@ -2307,11 +2307,13 @@ function AdvantageLane({
     : undefined
   const targetName = targetContestant ? displayName(targetContestant) : null
 
+  // Say where the ×2 sits, not just on whom: the same castaway can be on
+  // your tribe and on your ballot (#673).
   const note = play
     ? rosterDouble
-      ? `×2 · ${targetName ?? 'Roster'}`
+      ? `×2 · Tribe · ${targetName ?? '—'}`
       : play.advantage_type === 'double_vote_points'
-        ? `×2 · ${targetName ?? 'Ballot'}`
+        ? `×2 · Ballot · ${targetName ?? '—'}`
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
     : weekly.locked
       ? 'Not played'

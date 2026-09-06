@@ -481,7 +481,7 @@ describe('MySeasonPage state shell', () => {
 
     // The hero's Advantage tile is the played state now: checked, and naming
     // where the ×2 landed.
-    expect(screen.getByText('×2 · Kenzie')).toBeVisible()
+    expect(screen.getByText('×2 · Tribe · Kenzie')).toBeVisible()
   })
 
   it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
@@ -539,7 +539,7 @@ describe('MySeasonPage state shell', () => {
     expect(rosterTab).not.toHaveTextContent('×2')
     // The move is optimistic across the board (#487/#399): the hero's Advantage
     // tile names the new target immediately, not only after delete+post lands.
-    expect(screen.getByText('×2 · Charlie')).toBeVisible()
+    expect(screen.getByText('×2 · Tribe · Charlie')).toBeVisible()
 
     // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
     finishDelete()
