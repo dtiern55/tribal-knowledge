@@ -10,6 +10,10 @@ leagues, and every account that isn't Danny, the producer, or a bot.
 
 Dry-runs by default; --apply commits.
 Usage (from backend/): uv run python scripts/stage_staging.py [--apply]
+
+Adding one stage later, once the source is gone, clones it from the
+"complete" stage instead (a full copy of the source) and deletes nothing:
+  uv run python scripts/stage_staging.py --add finale-locked [--apply]
 """
 
 import sys
@@ -34,6 +38,8 @@ STAGES = [
     ("jury-locked", 10, False),
     ("finale", 12, False),
     ("complete", 13, False),
+    # Finale night after the lock: bracket frozen, nothing scored (#685).
+    ("finale-locked", 12, True),
 ]
 
 FROZEN = datetime(2099, 1, 6, 1, 0, tzinfo=timezone.utc)  # a Wednesday 7pm Central
@@ -82,10 +88,17 @@ def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_lock
         (src_season,),
         {},
         # season_number is unique; 37xx reads as "David vs. Goliath, stage xx".
+        # The source may itself be a stage (--add), so strip its suffix first.
         lambda r: {
-            "name": f"{r['name']} ({slug})",
+            "name": f"{r['name'].split(' (')[0]} ({slug})",
             "status": status,
-            "season_number": r["season_number"] * 100 + index,
+            "season_number": (
+                r["season_number"] // 100
+                if r["season_number"] >= 100
+                else r["season_number"]
+            )
+            * 100
+            + index,
         },
     )
     season = seasons[src_season]
@@ -219,7 +232,42 @@ def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_lock
     return season, league, ls
 
 
+def add_stage(slug: str) -> None:
+    """Clone one stage from the "complete" stage, leaving the rest untouched."""
+    index = [s for s, _, _ in STAGES].index(slug) + 1
+    _, scored, next_locked = STAGES[index - 1]
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "select ls.id, ls.season_id from league_seasons ls"
+            " join leagues l on l.id = ls.league_id where l.name = %s",
+            ("Stage: complete",),
+        )
+        src = cur.fetchone()
+        cur.execute(
+            "select lm.user_id from league_members lm"
+            " join leagues l on l.id = lm.league_id where l.name = %s",
+            ("Stage: complete",),
+        )
+        members = [r["user_id"] for r in cur.fetchall()]
+        cur.execute("select 1 from leagues where name = %s", (f"Stage: {slug}",))
+        assert cur.fetchone() is None, f"Stage: {slug} already exists"
+        clone_stage(
+            cur, src["season_id"], src["id"], members, index, slug, scored, next_locked
+        )
+        print(f"Stage: {slug} cloned from Stage: complete")
+        if "--apply" in sys.argv:
+            conn.commit()
+            print("APPLIED")
+        else:
+            conn.rollback()
+            print("DRY RUN, rolled back")
+
+
 def main() -> None:
+    if "--add" in sys.argv:
+        add_stage(sys.argv[sys.argv.index("--add") + 1])
+        return
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("select id from seasons where name = %s", (SOURCE_SEASON,))

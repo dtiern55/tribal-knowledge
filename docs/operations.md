@@ -165,6 +165,7 @@ decay. Danny, the producer, and the bots are the only accounts.
 | Stage: jury-locked | 1–10 | Swaps closed (first juror + 2), ballot only |
 | Stage: finale | 1–12 | Finale open, bracket ballot |
 | Stage: complete | all | Season completed, final standings |
+| Stage: finale-locked | 1–12 | Finale locked but unscored; the Locked page on finale night |
 
 Rebuild the set (it wipes everything else on staging, dry run by default):
 
@@ -176,6 +177,18 @@ uv run python scripts/stage_staging.py --apply  # rebuild
 The source season has to be on staging. If it isn't, copy prod first
 (`scripts/copy_prod_to_staging.py --apply`, which remaps user ids by email and
 gives everyone else a placeholder login), then run the stage script.
+
+To add one stage without a rebuild, clone it from "Stage: complete" (a full
+copy of the source), which deletes nothing:
+
+```bash
+uv run python scripts/stage_staging.py --add finale-locked --apply
+```
+
+After any rebuild, re-run the data seeds the stages depend on:
+`scripts/seed_x2_targets.py --apply` (bots' ×2 plays get a named pick) and
+`scripts/seed_locked_stage.py --apply` (the locked-not-scored stage's empty
+states and Danny's named ×2).
 
 ## Migrations and deployment
 
