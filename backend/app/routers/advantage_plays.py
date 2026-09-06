@@ -10,13 +10,22 @@ from app.locking import (
     next_open_episode,
     used_weekly_play,
 )
-from app.schemas import AdvantagePlay, AdvantagePlayRequest, AdvantageType
+from app.routers.picks import already_eliminated_ids, pick_limit, redemption_island_ids
+from app.schemas import (
+    AdvantagePlay,
+    AdvantagePlayMoveRequest,
+    AdvantagePlayRequest,
+    AdvantageType,
+)
 
 router = APIRouter(tags=["advantage_plays"])
 
-# The only advantage that names a target. double_vote_points covers the whole
-# ballot (#303) and extra_vote raises the pick limit — neither takes one.
-_TARGETED_TYPES = {"double_roster_points"}
+# Advantages that name a target. double_roster_points names a rostered
+# contestant; double_vote_points ("Extra Vote ×2", #673) names one extra pick
+# for this episode's ballot that pays double — it does not need to be
+# rostered, only still pickable. extra_vote raises the pick limit and takes
+# no target at all.
+_TARGETED_TYPES = {"double_roster_points", "double_vote_points"}
 
 
 @router.get("/advantage-types", response_model=list[AdvantageType])
@@ -145,23 +154,50 @@ def play_advantage(
                             f"{body.advantage_type} requires a" " target_contestant_id"
                         ),
                     )
-                cur.execute(
-                    """
-                    select 1 from roster_picks
-                    where user_id = %s and league_season_id = %s
-                      and contestant_id = %s and active_until_episode is null
-                    """,
-                    [
-                        str(user_id),
-                        str(league_season_id),
-                        str(body.target_contestant_id),
-                    ],
-                )
-                if not cur.fetchone():
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Target contestant is not on your active roster",
+                target_id = str(body.target_contestant_id)
+                if body.advantage_type == "double_roster_points":
+                    cur.execute(
+                        """
+                        select 1 from roster_picks
+                        where user_id = %s and league_season_id = %s
+                          and contestant_id = %s and active_until_episode is null
+                        """,
+                        [str(user_id), str(league_season_id), target_id],
                     )
+                    if not cur.fetchone():
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Target contestant is not on your active roster",
+                        )
+                else:  # double_vote_points ("Extra Vote ×2", #673)
+                    # The doubled name doesn't need to be rostered — only
+                    # pickable, same rule submit_picks enforces on the ballot.
+                    cur.execute(
+                        "select 1 from contestants where id = %s and season_id = %s",
+                        [target_id, str(ls["season_id"])],
+                    )
+                    if not cur.fetchone():
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Target contestant is not in this season",
+                        )
+                    if already_eliminated_ids(
+                        cur,
+                        str(ls["season_id"]),
+                        episode["episode_number"],
+                        [target_id],
+                    ):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Target contestant is already eliminated",
+                        )
+                    if redemption_island_ids(
+                        cur, episode["episode_number"], [target_id]
+                    ):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Target contestant is on Redemption Island",
+                        )
             elif body.target_contestant_id is not None:
                 raise HTTPException(
                     status_code=400,
@@ -190,7 +226,31 @@ def play_advantage(
                     ),
                 ],
             )
-            return cur.fetchone()
+            play = cur.fetchone()
+
+            # Extra Vote ×2's name is always a pick (#673) — add it to the
+            # ballot here if it isn't already there, so playing it never
+            # leaves the doubled slot empty. clock_timestamp(), not now(): see
+            # the matching insert in picks.submit_picks for why.
+            if body.advantage_type == "double_vote_points":
+                cur.execute(
+                    """
+                    insert into elimination_picks
+                        (user_id, league_season_id, episode_id, contestant_id,
+                         created_at)
+                    values (%s, %s, %s, %s, clock_timestamp())
+                    on conflict (user_id, league_season_id, episode_id, contestant_id)
+                        do nothing
+                    """,
+                    [
+                        str(user_id),
+                        str(league_season_id),
+                        episode["id"],
+                        target_id,
+                    ],
+                )
+
+            return play
 
 
 def _get_own_play(cur, play_id: UUID, user_id: UUID) -> dict:
@@ -200,6 +260,61 @@ def _get_own_play(cur, play_id: UUID, user_id: UUID) -> dict:
     if not play or str(play["user_id"]) != str(user_id):
         raise HTTPException(status_code=404, detail="Advantage not found")
     return play
+
+
+@router.patch("/advantage-plays/{play_id}", response_model=AdvantagePlay)
+def move_advantage_play(
+    play_id: UUID,
+    body: AdvantagePlayMoveRequest,
+    user_id: UUID = Depends(get_current_user),
+):
+    """Move Extra Vote ×2 to a different name on the same ballot (#673).
+
+    The ×2 is now a real extra vote, so the doubled pick can move between
+    the user's picks like the roster seal moves between roster members — no
+    pick side effects, since the target is already one of the picks made.
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            play = _get_own_play(cur, play_id, user_id)
+
+            cur.execute("select * from episodes where id = %s", [play["episode_id"]])
+            episode = cur.fetchone()
+            if episode_locked(episode):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Episode has locked; the advantage is spent",
+                )
+
+            if play["advantage_type"] != "double_vote_points":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only Extra Vote ×2 can be moved",
+                )
+
+            target_id = str(body.target_contestant_id)
+            cur.execute(
+                """
+                select 1 from elimination_picks
+                where user_id = %s and episode_id = %s and contestant_id = %s
+                """,
+                [str(user_id), str(play["episode_id"]), target_id],
+            )
+            if not cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Put the ×2 on a name that's on your ballot",
+                )
+
+            cur.execute(
+                """
+                update advantage_plays set target_contestant_id = %s
+                where id = %s
+                returning *
+                """,
+                [target_id, str(play_id)],
+            )
+            return cur.fetchone()
 
 
 @router.delete("/advantage-plays/{play_id}", status_code=204)
@@ -230,3 +345,29 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
                 )
 
             cur.execute("delete from advantage_plays where id = %s", [str(play_id)])
+
+            # The ballot doesn't shrink on its own (#673: the ×2 is a real
+            # extra vote now, movable between picks) — if taking this play
+            # back drops the limit below the picks already made, trim the
+            # newest ones down to it. Oldest picks survive; this also closes
+            # play-submit-4-take-back, since the ×2's own pick is the newest
+            # one whenever it was just added.
+            ls = database.require_league_season(cur, play["league_season_id"])
+            limit = pick_limit(cur, ls, episode, user_id)
+            cur.execute(
+                """
+                delete from elimination_picks
+                where id in (
+                    select id from elimination_picks
+                    where league_season_id = %s and episode_id = %s and user_id = %s
+                    order by created_at, id
+                    offset %s
+                )
+                """,
+                [
+                    str(play["league_season_id"]),
+                    str(play["episode_id"]),
+                    str(user_id),
+                    limit,
+                ],
+            )
