@@ -664,8 +664,12 @@ describe('MySeasonPage state shell', () => {
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
       if (path.endsWith('/contestants')) {
+        // Enough still in that the pick limit is above zero (#240).
         return [
           { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Maria', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-4', name: 'Tiffany', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
         ]
       }
       if (path.includes('/advantage-plays/')) {
@@ -690,7 +694,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
     const ballot = await openBeat('Ballot')
     const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
-    expect(ballotTab).toHaveTextContent('1 of')
+    expect(ballotTab).toHaveTextContent('1 of 3')
 
     // The seal only drags while the ballot is open for editing (#673), from
     // the "Double one vote" row.
