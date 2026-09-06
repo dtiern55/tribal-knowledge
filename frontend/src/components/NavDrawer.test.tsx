@@ -43,18 +43,6 @@ describe('NavDrawer', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('uses painted Survivor-specific artwork for Rules and Profile', () => {
-    renderWithApp(<NavDrawer open onClose={() => undefined} />)
-
-    for (const name of ['Rules', 'Profile']) {
-      const link = screen.getByRole('link', { name })
-      const icon = link.querySelector('span[aria-hidden="true"]')
-      expect(icon).toHaveClass('inline-block', 'h-6', 'w-6')
-      expect(icon?.getAttribute('style')).toContain('mask-image: url(')
-      expect(icon?.getAttribute('style')).toContain('.svg')
-    }
-  })
-
   it('removes a closed drawer from the accessibility tree', () => {
     renderWithApp(<NavDrawer open={false} onClose={() => undefined} />)
 

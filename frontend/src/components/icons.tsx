@@ -1,9 +1,5 @@
 import castMask from '../assets/cast-icon-mask.png'
 import palmMask from '../assets/icon-palm-mask.webp'
-// Keep the SVGs as files: an inlined data URI is not a reliable CSS mask URL
-// once React serializes it into an element's style attribute.
-import profileMask from '../assets/icon-profile-mask.svg?no-inline'
-import rulesMask from '../assets/icon-rules-mask.svg?no-inline'
 import torchMask from '../assets/icon-torch-mask.webp'
 import tallyMask from '../assets/icon-tally-mask.webp'
 
@@ -85,9 +81,13 @@ export function BuffPairIcon() {
   return <MaskIcon src={castMask} size="128%" />
 }
 
-/** Rules: a ragged camp charter branded with the Tribal Council fire. */
-export function RulesIcon({ className = 'w-6 h-6' }: { className?: string } = {}) {
-  return <MaskIcon src={rulesMask} className={className} />
+export function BookIcon() {
+  return (
+    <Svg>
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </Svg>
+  )
 }
 
 export function GearIcon() {
@@ -118,9 +118,13 @@ export function CloseIcon() {
   )
 }
 
-/** Profile: a castaway portrait, marked by the tied buff across the brow. */
-export function ProfileIcon({ className = 'w-6 h-6' }: { className?: string } = {}) {
-  return <MaskIcon src={profileMask} className={className} />
+export function UserIcon() {
+  return (
+    <Svg>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </Svg>
+  )
 }
 
 export function DownloadIcon() {

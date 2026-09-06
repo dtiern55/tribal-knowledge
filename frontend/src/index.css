@@ -267,13 +267,6 @@ html.locked-night .app-shell .text-gray-400 {
   color: rgb(242 233 219 / 35%);
 }
 
-/* The Profile drawer tile uses a jade wash by day. That wash becomes a dark
-   raised surface under lock, so lift its painted castaway mark into firelight
-   instead of leaving dark jade on dark forest. */
-html.locked-night .app-shell .drawer-destination-icon--profile {
-  color: #9cc2ac;
-}
-
 /* The Admin console themes under lock now (#519). These status-banner and stray
    grey utilities live mostly on that page and aren't in the rules above, so
    cover them here to keep the console from going dark-on-dark. */

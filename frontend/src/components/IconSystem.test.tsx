@@ -1,13 +1,6 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import {
-  BuffPairIcon,
-  PalmIcon,
-  ProfileIcon,
-  RankedTorchesIcon,
-  RulesIcon,
-  TeamBuffPairIcon,
-} from './icons'
+import { BuffPairIcon, PalmIcon, RankedTorchesIcon, TeamBuffPairIcon } from './icons'
 import { DoubleBadge } from './DoubleBadge'
 import { VoteMark } from './VoteMark'
 
@@ -68,24 +61,6 @@ describe('approved icon system', () => {
     expect(icons[0].getAttribute('style')).toContain('mask-size: 100%')
     expect(icons[1].getAttribute('style')).toContain('mask-size: 100%')
     expect(icons[2].getAttribute('style')).toContain('mask-size: 128%')
-  })
-
-  it('gives Rules and Profile the same painted weight as the primary artwork', () => {
-    const { container } = render(
-      <>
-        <RulesIcon />
-        <ProfileIcon />
-      </>,
-    )
-
-    const icons = container.querySelectorAll('span[aria-hidden="true"]')
-    expect(icons).toHaveLength(2)
-    for (const icon of icons) {
-      expect(icon).toHaveClass('inline-block', 'h-6', 'w-6')
-      expect(icon.getAttribute('style')).toContain('background-color: currentcolor')
-      expect(icon.getAttribute('style')).toContain('mask-image: url(')
-      expect(icon.getAttribute('style')).toContain('.svg')
-    }
   })
 
   it('uses the recovered buff-pair drawing for the My Team lane', () => {
