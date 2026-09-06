@@ -3381,7 +3381,7 @@ function PicksSection({
     return null
   }
 
-  async function submitPicks(episodeId: string) {
+  async function submitPicks(episodeId: string, x2Override?: string) {
     setSubmitting(episodeId)
     setErrors((prev) => {
       const m = new Map(prev)
@@ -3397,7 +3397,7 @@ function PicksSection({
       }
       const picks = await api.post<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks`, {
         contestant_ids: [...names],
-        doubled_contestant_id: wantsX2 ? x2For(names) : null,
+        doubled_contestant_id: wantsX2 ? (x2Override ?? x2For(names)) : null,
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
       setEditing(false)
@@ -3460,10 +3460,11 @@ function PicksSection({
     }
   }, [ballotPlay?.id, ballotPlay?.target_contestant_id, openEp, season.id, userId, contestants, onBallotSaved])
 
-  // While editing, the seal rides the slip that will wear the ×2 in the
-  // "Double one vote" row. Drag it onto another slip there to move it (the
-  // slips are buttons for the tap and keyboard path), or onto the Roster tab
-  // to double a castaway instead (#487). Both only change what Save sends.
+  // The seal rides the doubled slip. Drag it onto another slip to move the
+  // ×2: while editing that only changes what Save sends (the slips in the
+  // "Double one vote" row are buttons for the tap and keyboard path); on the
+  // submitted sheet it saves straight away. The Roster tab is the other drop,
+  // to double a castaway instead (#487).
   const openPending = openEp ? (pending.get(openEp.id) ?? new Set<string>()) : new Set<string>()
   const openX2 = x2For(openPending)
   const {
@@ -3471,11 +3472,15 @@ function PicksSection({
     dragging: ballotDragging,
     start: startBallotDrag,
   } = useSealDrag({
-    disabled: play.locked || play.busy,
+    disabled: play.locked || play.busy || submitting != null,
     canDropOn: (id) => id === 'beat:roster' || (id !== openX2 && openPending.has(id)),
     onDrop: (id) => {
-      if (id === 'beat:roster') onDragToRoster?.()
-      else setPendingX2(id)
+      if (id === 'beat:roster') {
+        onDragToRoster?.()
+        return
+      }
+      setPendingX2(id)
+      if (!editing && openEp) void submitPicks(openEp.id, id)
     },
   })
   const seal = (
@@ -3599,27 +3604,33 @@ function PicksSection({
                     Ballot submitted
                   </p>
                   <div className="ballot-sheet__slips">
-                    {savedPicks.map((p, index) => {
+                    {/* The doubled vote leads the pile, in gold, wearing the
+                        seal (#673). */}
+                    {[...savedPicks]
+                      .sort((a, b) => Number(b.contestant_id === x2Target) - Number(a.contestant_id === x2Target))
+                      .map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
                       const stale =
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       const slipName = sc ? displayName(sc) : '—'
+                      const isX2 = p.contestant_id === x2Target
                       return (
-                        <span key={p.id} className="relative inline-flex items-center gap-1.5">
+                        <span
+                          key={p.id}
+                          data-drop-id={x2Target && !isX2 ? p.contestant_id : undefined}
+                          className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                        >
                           <VoteSlip
                             name={slipName}
                             stale={stale}
+                            doubled={isX2}
                             tribeColor={sc?.tribe_color}
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
                           />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
-                          {p.contestant_id === x2Target && (
-                            <span className="absolute -right-2 -top-3 rotate-[9deg]">
-                              <DoubleBadge size={34} title={`Extra Vote ×2 on ${slipName}`} />
-                            </span>
-                          )}
+                          {isX2 && seal}
                         </span>
                       )
                     })}
@@ -3717,6 +3728,7 @@ function PicksSection({
                               >
                                 <VoteSlip
                                   name={slipName}
+                                  doubled={isX2}
                                   tribeColor={sc?.tribe_color}
                                   rotation={[-0.7, 0.5, -0.2][index % 3]}
                                 />

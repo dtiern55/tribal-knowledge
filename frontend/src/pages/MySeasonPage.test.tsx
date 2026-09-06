@@ -632,7 +632,28 @@ describe('MySeasonPage state shell', () => {
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
-    expect(screen.getByTitle('Extra Vote ×2 on Kenzie')).toBeVisible()
+    // The doubled vote leads the pile in gold, wearing the seal.
+    const sheet = screen.getByText('Ballot submitted').closest('.ballot-sheet') as HTMLElement
+    const kenzieSlip = within(sheet).getByText('Kenzie').closest('.ballot-slip')
+    expect(kenzieSlip).toHaveClass('ballot-slip--doubled')
+    const x2 = screen.getByTitle('Drag onto another name to move the ×2')
+
+    // On the submitted sheet the seal still drags; dropping it on another
+    // slip saves the move straight away.
+    const charlieDrop = within(sheet).getByText('Charlie').closest('[data-drop-id]') as Element
+    document.elementFromPoint = () => charlieDrop
+    fireEvent.pointerDown(x2, { clientX: 100, clientY: 100 })
+    fireEvent(window, new MouseEvent('pointermove', { clientX: 140, clientY: 100 }))
+    fireEvent(window, new MouseEvent('pointerup', { clientX: 140, clientY: 100 }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-1', 'cast-2'],
+        doubled_contestant_id: 'cast-2',
+      }),
+    )
+    await waitFor(() =>
+      expect(within(sheet).getByText('Charlie').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled'),
+    )
   })
 
   it('drags the ballot seal onto the Roster tab to pick a castaway to double (#487)', async () => {

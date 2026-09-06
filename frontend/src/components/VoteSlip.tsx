@@ -12,18 +12,21 @@ import type { CSSProperties } from 'react'
 export function VoteSlip({
   name,
   stale = false,
+  doubled = false,
   tribeColor = null,
   rotation = 0,
 }: {
   name: string
   stale?: boolean
+  /** The vote wearing the Extra Vote ×2 (#673): gold, so it reads at a glance. */
+  doubled?: boolean
   tribeColor?: string | null
   /** Supplied per slip and stable across renders, so the pile never reshuffles. */
   rotation?: number
 }) {
   return (
     <span
-      className={`ballot-slip ${stale ? 'ballot-slip--stale' : ''}`}
+      className={`ballot-slip ${stale ? 'ballot-slip--stale' : ''} ${doubled ? 'ballot-slip--doubled' : ''}`}
       style={
         {
           '--ballot-tribe-color': tribeColor ?? 'var(--color-gold-500)',
