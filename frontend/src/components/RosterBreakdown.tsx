@@ -85,17 +85,18 @@ export function RosterBreakdown({
               aria-expanded={open}
               className="w-full flex items-center gap-2 text-left font-medium text-gray-700"
             >
-              <span className="flex min-w-0 flex-col items-start gap-0.5">
+              {/* The pill shares the episode's line; the title is what gives way. */}
+              <span className="flex min-w-0 items-center gap-1.5">
                 <EpisodeLabel
                   episode={{
                     episode_number: ep.episode_number,
                     title: episodeTitles?.get(ep.episode_number) ?? null,
                   }}
-                  className="max-w-full"
+                  className="min-w-0"
                   titleClassName="font-normal text-gray-500"
                 />
                 {bonus !== 0 && (
-                  <span className="rounded-full bg-forest-50 border border-forest-100 px-1.5 py-0.5 text-[11px] font-semibold text-forest-700">
+                  <span className="shrink-0 rounded-full bg-forest-50 border border-forest-100 px-1.5 py-0.5 text-[11px] font-semibold text-forest-700">
                     2x Points
                   </span>
                 )}
