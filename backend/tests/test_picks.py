@@ -98,6 +98,37 @@ def test_submit_picks_replaces_existing(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_resubmit_keeps_existing_picks_created_at(client, db_conn, current_user):
+    """#673: take-back trims the *newest* picks, which only means something if
+    resubmitting the same name doesn't reinsert it with a fresh timestamp."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"])
+    c1 = insert_contestant(db_conn, season["id"], "Player A")
+    c2 = insert_contestant(db_conn, season["id"], "Player B")
+    insert_contestant(db_conn, season["id"], "Player C")  # keep cap above 2
+    client.post(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"])]},
+    )
+    first = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{current_user['id']}"
+    ).json()
+
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks",
+        json={"contestant_ids": [str(c1["id"]), str(c2["id"])]},
+    )
+    assert r.status_code == 200, r.text
+    second = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks/{current_user['id']}"
+    ).json()
+
+    kept = next(p for p in second if p["contestant_id"] == str(c1["id"]))
+    assert kept["created_at"] == first[0]["created_at"]
+    assert kept["id"] == first[0]["id"]
+
+
+@pytest.mark.integration
 def test_submit_picks_too_many(client, db_conn):
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"], max_picks=1)

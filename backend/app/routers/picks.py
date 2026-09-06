@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
@@ -79,6 +78,42 @@ def already_eliminated_ids(
         [season_id, episode_number, ids],
     )
     return [row["contestant_id"] for row in cur.fetchall()]
+
+
+def pick_limit(cur, ls: dict, episode: dict, user_id) -> int:
+    """This user's pick cap for one episode (#673 extends #240).
+
+    max_elimination_picks, plus one for an extra_vote play or a targeted
+    Extra Vote ×2 play that episode (#307: at most one such play exists),
+    capped at (contestants still in the game − 1) so a big base limit never
+    lets you pick every remaining option. Shared by submit_picks (to reject
+    an over-long ballot) and take_back_advantage (to trim one down after a
+    ×2 play is undone).
+    """
+    cur.execute(
+        """
+        select 1 from advantage_plays
+        where user_id = %s and league_season_id = %s and episode_id = %s
+          and (advantage_type = 'extra_vote'
+               or (advantage_type = 'double_vote_points'
+                   and target_contestant_id is not null))
+        limit 1
+        """,
+        [str(user_id), str(ls["id"]), str(episode["id"])],
+    )
+    extra = 1 if cur.fetchone() else 0
+
+    cur.execute(
+        "select count(*) as n from contestants c"
+        " where c.season_id = %s and not exists ("
+        "   select 1 from eliminations e"
+        "   join episodes ep on ep.id = e.episode_id"
+        "   where e.contestant_id = c.id and e.is_final"
+        "     and ep.episode_number < %s)",
+        [str(ls["season_id"]), episode["episode_number"]],
+    )
+    still_in = cur.fetchone()["n"]
+    return min(episode["max_elimination_picks"] + extra, max(still_in - 1, 0))
 
 
 def redemption_island_ids(cur, episode_number: int, ids: list[str]) -> list[str]:
@@ -177,36 +212,7 @@ def submit_picks(
                     ),
                 )
 
-            # Extra Vote, or a targeted Extra Vote x2 (#673), raises this
-            # episode's pick limit by one — only one play exists per episode
-            # (#307), so at most one of these rows can match.
-            cur.execute(
-                """
-                select target_contestant_id::text as target_contestant_id
-                from advantage_plays
-                where user_id = %s and league_season_id = %s and episode_id = %s
-                  and (advantage_type = 'extra_vote'
-                       or (advantage_type = 'double_vote_points'
-                           and target_contestant_id is not null))
-                """,
-                [str(user_id), str(league_season_id), str(episode_id)],
-            )
-            extra_pick_play = cur.fetchone()
-            max_picks = episode["max_elimination_picks"] + (1 if extra_pick_play else 0)
-
-            # You can never pick every remaining option — extra votes only go up
-            # to (contestants still in the game − 1) (#240).
-            cur.execute(
-                "select count(*) as n from contestants c"
-                " where c.season_id = %s and not exists ("
-                "   select 1 from eliminations e"
-                "   join episodes ep on ep.id = e.episode_id"
-                "   where e.contestant_id = c.id and e.is_final"
-                "     and ep.episode_number < %s)",
-                [season_id, episode["episode_number"]],
-            )
-            still_in = cur.fetchone()["n"]
-            max_picks = min(max_picks, max(still_in - 1, 0))
+            max_picks = pick_limit(cur, ls, episode, user_id)
 
             if len(body.contestant_ids) > max_picks:
                 raise HTTPException(
@@ -226,7 +232,18 @@ def submit_picks(
 
             # A targeted Extra Vote x2 is always a pick (#673) — dropping the
             # name off the ballot would leave the play attached to nothing.
-            target = extra_pick_play and extra_pick_play["target_contestant_id"]
+            cur.execute(
+                """
+                select target_contestant_id::text as target_contestant_id
+                from advantage_plays
+                where user_id = %s and league_season_id = %s and episode_id = %s
+                  and advantage_type = 'double_vote_points'
+                  and target_contestant_id is not null
+                """,
+                [str(user_id), str(league_season_id), str(episode_id)],
+            )
+            doubled = cur.fetchone()
+            target = doubled and doubled["target_contestant_id"]
             if target and target not in ids:
                 raise HTTPException(
                     status_code=400,
@@ -264,35 +281,43 @@ def submit_picks(
                     detail=f"Contestant(s) on Redemption Island: {on_redemption}",
                 )
 
-            # Replace existing picks for this user/episode. An empty list is
+            # Drop picks that fell off the ballot and add new ones, leaving
+            # unchanged picks (and their created_at) alone — take_back_advantage
+            # trims the newest picks first when a ×2 play is undone, so
+            # "newest" has to mean something (#673). An empty list is
             # intentionally allowed and clears the user's picks for the episode.
             cur.execute(
-                "delete from elimination_picks"
-                " where league_season_id = %s and episode_id = %s and user_id = %s",
+                """
+                delete from elimination_picks
+                where league_season_id = %s and episode_id = %s and user_id = %s
+                  and not (contestant_id::text = any(%s))
+                """,
+                [str(league_season_id), str(episode_id), str(user_id), ids],
+            )
+            for cid in ids:
+                # clock_timestamp(), not the created_at column's now() default:
+                # take_back_advantage orders by created_at to find the
+                # "newest" pick, and now() is fixed for a whole transaction —
+                # indistinguishable from a pick made in the same request as an
+                # earlier one otherwise (#673).
+                cur.execute(
+                    """
+                    insert into elimination_picks
+                        (user_id, league_season_id, episode_id, contestant_id,
+                         created_at)
+                    values (%s, %s, %s, %s, clock_timestamp())
+                    on conflict (user_id, league_season_id, episode_id, contestant_id)
+                        do nothing
+                    """,
+                    [str(user_id), str(league_season_id), str(episode_id), cid],
+                )
+
+            cur.execute(
+                """
+                select * from elimination_picks
+                where league_season_id = %s and episode_id = %s and user_id = %s
+                order by created_at
+                """,
                 [str(league_season_id), str(episode_id), str(user_id)],
             )
-
-            rows = []
-            try:
-                for cid in body.contestant_ids:
-                    cur.execute(
-                        """
-                        insert into elimination_picks
-                            (user_id, league_season_id, episode_id, contestant_id)
-                        values (%s, %s, %s, %s)
-                        returning *
-                        """,
-                        [
-                            str(user_id),
-                            str(league_season_id),
-                            str(episode_id),
-                            str(cid),
-                        ],
-                    )
-                    rows.append(cur.fetchone())
-            except pg_errors.UniqueViolation:
-                # Concurrent double-submit raced past the delete above (#120)
-                raise HTTPException(
-                    status_code=409, detail="Picks already submitted — try again"
-                )
-            return rows
+            return cur.fetchall()
