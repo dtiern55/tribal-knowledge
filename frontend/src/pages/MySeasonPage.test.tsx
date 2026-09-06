@@ -190,7 +190,8 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByText('No ballot was submitted.')).toBeVisible()
     // #451: the redundant standalone Advantage section is dropped while locked.
     expect(screen.queryByRole('heading', { name: 'Advantage' })).not.toBeInTheDocument()
-    expect(screen.getByText('Awaiting league scoring')).toBeVisible()
+    // No "awaiting scoring" footer: the lock itself says results are pending (#685).
+    expect(screen.queryByText(/awaiting league scoring/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/episode is over/i)).not.toBeInTheDocument()
     const lockedState = screen.getByRole('region', { name: 'Results are pending' })
     expect(lockedState).toHaveAttribute('data-variant', 'delayed')
@@ -904,7 +905,7 @@ describe('MySeasonPage state shell', () => {
 
     expect(await screen.findByRole('heading', { name: 'Tribal Council' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'Tribal Council' })).toHaveAttribute('data-variant', 'broadcast')
-    expect(screen.getByText('Scoring comes next')).toBeVisible()
+    expect(screen.queryByText('Scoring comes next')).not.toBeInTheDocument()
     expect(screen.queryByText(/ballot, roster, and weekly play are final/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Read only')).not.toBeInTheDocument()
   })
@@ -937,7 +938,9 @@ describe('MySeasonPage state shell', () => {
 
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.getByText('Charlie')).toBeVisible()
-    expect(screen.getByRole('img', { name: 'Kenzie' })).toHaveAttribute('src', '/kenzie.jpg')
+    // The locked ballot is the same handwritten slips as the open one, no
+    // portraits: the roster above is where the people are (#685).
+    expect(screen.getByText('Kenzie').closest('.ballot-slip')).not.toBeNull()
     // #451: My Roster behaves the same locked — scores in place, no jump to the
     // Cast page — so the locked roster no longer links out.
     expect(screen.getByText('Charlie').closest('a')).toBeNull()
@@ -1020,8 +1023,10 @@ describe('MySeasonPage state shell', () => {
     // locked roster drops him.
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument()
-    // Kenzie is the designated Sole Survivor — the locked roster tags her.
-    expect(screen.getByText('Sole Survivor')).toBeVisible()
+    // Kenzie is the designated Sole Survivor: a gold name with a screen-reader
+    // label, nothing louder (#685).
+    expect(screen.getByText('Kenzie')).toHaveClass('text-gold-700')
+    expect(screen.getByText('· Sole Survivor')).toBeInTheDocument()
   })
 
   it('shows the latest automatic reveal and retries acknowledgement before continuing to Open', async () => {

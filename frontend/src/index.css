@@ -314,6 +314,27 @@ html.locked-night .app-shell .text-paper-ink-faded {
   color: rgb(242 233 219 / 45%);
 }
 
+/* Ballot rows under lock (#685). A correct vote's jade ink and a handwritten
+   slip's forest ink are both dark-on-dark once the paper goes night, and the
+   muted grey of a missed vote drops below reading. Lift each to cream or its
+   pale tint; the pill's translucent jade fill still says "correct". */
+html.locked-night .app-shell .text-jade-800,
+html.locked-night .app-shell .text-jade-700 {
+  color: var(--color-jade-200);
+}
+html.locked-night .app-shell .ballot-chip {
+  color: rgb(242 233 219 / 75%);
+}
+html.locked-night .app-shell .ballot-slip {
+  border-color: rgb(242 233 219 / 45%);
+  color: rgb(242 233 219 / 90%);
+}
+html.locked-night .app-shell .ballot-slip--doubled {
+  border-color: var(--color-gold-400);
+  background: rgb(214 178 92 / 14%);
+  color: #f2e9db;
+}
+
 html.locked-night .app-shell input,
 html.locked-night .app-shell select,
 html.locked-night .app-shell textarea {
