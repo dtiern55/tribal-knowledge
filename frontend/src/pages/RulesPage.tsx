@@ -107,13 +107,13 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
 }
 
 function RuleSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  // A deep link lands mid-page, so the targeted section gets a gold rule down
-  // its left edge to say "this one".
+  // A deep link lands mid-page, so the targeted section flashes gold for a
+  // moment to say "this one" (.rule-section:target in index.css).
   return (
     <section
       id={id}
       aria-labelledby={`${id}-title`}
-      className="scroll-mt-24 border-b border-cream-200 pb-8 last:border-0 target:-ml-4 target:border-l-4 target:border-l-gold-500 target:pl-3"
+      className="rule-section scroll-mt-24 border-b border-cream-200 pb-8 last:border-0"
     >
       <h2 id={`${id}-title`} className="font-display text-2xl tracking-wide text-forest-900">{title}</h2>
       <div className="mt-4">{children}</div>
@@ -222,6 +222,12 @@ export function RulesPage() {
               Pick {season.roster_size} castaways. Your tribe locks before Episode {season.roster_lock_episode ?? 2}. Until then you can change it freely.
             </li>
             <li>A castaway scores for you only while they are on your tribe. A voted-out castaway stays on your tribe until you swap them out.</li>
+            <li>The finale is worth a lot. Finalists score big for making final tribal, finishing runner-up, and winning.</li>
+          </RuleList>
+        </RuleSection>
+
+        <RuleSection id="swaps" title="Swaps">
+          <RuleList>
             {usesTokens ? (
               <li>A swap costs {season.swap_token_cost} tokens.</li>
             ) : (
@@ -235,7 +241,6 @@ export function RulesPage() {
               Swaps close after the episode that follows the first juror being voted out.
               {lastSwapEpisode != null && ` Episode ${lastSwapEpisode} is the last one you can swap for.`} No swaps on the finale.
             </li>
-            <li>The finale is worth a lot. Finalists score big for making final tribal, finishing runner-up, and winning.</li>
           </RuleList>
         </RuleSection>
 

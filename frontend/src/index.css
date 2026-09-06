@@ -1357,3 +1357,12 @@ html.locked-night .app-shell .history-card .text-jade-700 { color: #9cc2ac; }
 html.locked-night .app-shell .history-card .text-jade-600 { color: var(--color-jade-400); }
 html.locked-night .app-shell .history-card .text-stone-500 { color: rgb(242 233 219 / 50%); }
 html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0a1613; }
+
+/* Rules deep link: the targeted section flashes so the eye lands on it (#661). */
+@keyframes rule-flash {
+  from { background-color: var(--color-gold-100); }
+  to { background-color: transparent; }
+}
+.rule-section:target {
+  animation: rule-flash 2.5s ease-out 1;
+}

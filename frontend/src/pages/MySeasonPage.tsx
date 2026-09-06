@@ -2778,7 +2778,7 @@ function RosterSection({
                 return droppingC ? displayName(droppingC) : 'them'
               })()}`
             : 'Choose a castaway to drop'}
-          <span className="ml-3 font-normal"><RuleLink anchor="tribe">How swaps work</RuleLink></span>
+          <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
         </p>
       )}
       {picking === 'double' && (

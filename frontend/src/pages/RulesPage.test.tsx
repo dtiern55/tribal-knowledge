@@ -63,7 +63,7 @@ describe('RulesPage', () => {
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'How it works' })).toBeVisible()
-    for (const name of ['Tribe', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings']) {
+    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings']) {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
