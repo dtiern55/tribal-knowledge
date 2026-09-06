@@ -51,9 +51,16 @@ def get_rules(league_season_id: UUID, user_id: UUID = Depends(get_current_user))
                 [season["token_economy_enabled"]],
             )
             advantages = cur.fetchall()
+            cur.execute(
+                "select exists(select 1 from tribes where season_id = %s"
+                " and is_redemption) as has_redemption",
+                [season_id],
+            )
+            has_redemption = cur.fetchone()["has_redemption"]
     return {
         "season": season,
         "scoring_events": scoring_events,
         "prediction_scores": prediction_scores,
         "advantages": advantages,
+        "has_redemption": has_redemption,
     }
