@@ -130,7 +130,10 @@ export function ContestantPage() {
   const allEpsOpen = sortedEps.length > 0 && sortedEps.every((e) => openEps.has(e.episode_number))
 
   return (
-    <div aria-busy={loading} className={`transition-opacity duration-150 ${loading ? 'opacity-60' : ''}`}>
+    // No transition on the dim: animating opacity promotes this subtree to its
+    // own layer on iOS Safari, and when the incoming castaway's bio is shorter
+    // the old text stayed painted behind the episodes that moved up into it.
+    <div aria-busy={loading} className={loading ? 'opacity-60' : ''}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link
           to={backHref}

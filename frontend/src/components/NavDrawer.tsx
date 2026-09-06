@@ -186,10 +186,6 @@ export function NavDrawer({
               <UserIcon />
               Profile
             </NavLink>
-            <NavLink to="/join" onClick={onClose} className={rowCls}>
-              <UserIcon />
-              Join a league
-            </NavLink>
             {showInstall &&
               (canPrompt ? (
                 <button type="button" onClick={() => void promptInstall()} className={rowCls}>
@@ -242,12 +238,6 @@ export function NavDrawer({
             <LogOutIcon />
             Sign out
           </button>
-          <p className="px-4 pb-3 text-[10px] text-gray-400">
-            TV data from{' '}
-            <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer" className="underline hover:text-gray-600">
-              TVMaze
-            </a>
-          </p>
         </div>
       </aside>
     </>
