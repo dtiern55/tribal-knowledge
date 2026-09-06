@@ -2245,6 +2245,7 @@ function AdvantageLane({
         label="Advantage"
         done={play != null}
         muted={weekly.locked && play == null}
+        onClick={idle ? () => setMenuOpen((o) => !o) : undefined}
         action={
           play != null && !weekly.locked ? (
             <button
@@ -2272,6 +2273,9 @@ function AdvantageLane({
               type="button"
               onPointerDown={start}
               onClick={(e) => {
+                // The lane around the idol toggles the menu too; a tap on the
+                // idol already opened it through the drag's onTap.
+                e.stopPropagation()
                 // Keyboard activation only (detail 0); pointer taps come
                 // through the drag's onTap so the menu doesn't double-toggle.
                 if (e.detail === 0) setMenuOpen((o) => !o)
