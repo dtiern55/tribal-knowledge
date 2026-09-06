@@ -611,14 +611,16 @@ describe('MySeasonPage state shell', () => {
     expect(api.post).not.toHaveBeenCalled()
     expect(api.delete).not.toHaveBeenCalled()
 
-    // Vote as normal. The newest name wears the ×2 by default; the small ×2 on
-    // the other names moves it.
+    // Vote as normal, then the ×2 is its own step: the ballot's slips under
+    // the names, tap one. Nothing is doubled by default, so Save waits.
     await userEvent.click(screen.getByRole('button', { name: 'Vote for Charlie' }))
     expect(screen.getByText(/names written/)).toHaveTextContent('2 of 4 names written')
-    expect(screen.getByRole('button', { name: 'Double the vote for Kenzie' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Double the vote for Charlie' })).toBeNull()
+    expect(screen.getByText('Double one vote')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Save ballot' })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Double the vote for Kenzie' }))
+    expect(screen.getByRole('button', { name: 'Kenzie is doubled' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Double the vote for Charlie' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Save ballot' })).toBeEnabled()
 
     // One save: the roster double gives way, the ballot goes up with the ×2.
     await userEvent.click(screen.getByRole('button', { name: 'Save ballot' }))
@@ -661,7 +663,8 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
     const ballot = await openBeat('Ballot')
 
-    // The seal only drags while the ballot is open for editing (#673).
+    // The seal only drags while the ballot is open for editing (#673), from
+    // the "Double one vote" row.
     await userEvent.click(await within(ballot).findByRole('button', { name: 'Edit ballot' }))
     const seal = await within(ballot).findByTitle('Drag onto another name to move the ×2')
     const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })

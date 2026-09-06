@@ -3357,7 +3357,8 @@ function PicksSection({
   // saved, "armed" is the ballot open for the extra vote.
   const ballotPlay = play.play?.advantage_type === 'double_vote_points' ? play.play : undefined
   const x2Target = ballotPlay?.target_contestant_id ?? null
-  // Where the ×2 goes on save; null falls back to the newest name written.
+  // Where the ×2 goes on save. Chosen in its own step after the names; there
+  // is no default, so a saved ballot keeps its ×2 and a new one waits for it.
   const [pendingX2, setPendingX2] = useState<string | null>(null)
   // Arming means editing: the extra vote goes on this ballot.
   useEffect(() => {
@@ -3373,11 +3374,11 @@ function PicksSection({
   }
 
   /** The ×2 for one editable set: the explicit choice while it is still on
-   *  the ballot, else where it is saved, else the newest name written. */
+   *  the ballot, else where it is saved, else nothing yet. */
   function x2For(names: Set<string>): string | null {
     if (pendingX2 && names.has(pendingX2)) return pendingX2
     if (x2Target && names.has(x2Target)) return x2Target
-    return [...names].at(-1) ?? null
+    return null
   }
 
   async function submitPicks(episodeId: string) {
@@ -3459,10 +3460,10 @@ function PicksSection({
     }
   }, [ballotPlay?.id, ballotPlay?.target_contestant_id, openEp, season.id, userId, contestants, onBallotSaved])
 
-  // While editing, the seal rides the name that will wear the ×2. Drag it onto
-  // another of your names to move it (a small ×2 on each name is the tap and
-  // keyboard path), or onto the Roster tab to double a castaway instead (#487).
-  // Both only change what the next Save sends.
+  // While editing, the seal rides the slip that will wear the ×2 in the
+  // "Double one vote" row. Drag it onto another slip there to move it (the
+  // slips are buttons for the tap and keyboard path), or onto the Roster tab
+  // to double a castaway instead (#487). Both only change what Save sends.
   const openPending = openEp ? (pending.get(openEp.id) ?? new Set<string>()) : new Set<string>()
   const openX2 = x2For(openPending)
   const {
@@ -3655,35 +3656,28 @@ function PicksSection({
                           {members.map((c) => {
                             const name = displayName(c)
                             const isSelected = epPending.has(c.id)
-                            const isX2 = c.id === x2
                             const maxed = !isSelected && epPending.size >= maxPicks
                             const disabled = play.busy || maxed
                             return (
-                              <div
-                                key={c.id}
-                                data-drop-id={isSelected && !isX2 ? c.id : undefined}
-                                className="relative rounded-xl data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
-                              >
                               <button
+                                key={c.id}
                                 type="button"
                                 onClick={() => togglePick(ep.id, c.id, maxPicks)}
                                 disabled={disabled}
                                 aria-pressed={isSelected}
                                 aria-label={isSelected ? `Remove vote for ${name}` : `Vote for ${name}`}
                                 className={[
-                                  'relative flex min-h-16 w-full min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
-                                  isX2
-                                    ? 'border-gold-500 bg-gold-50 text-forest-900 shadow-sm ring-1 ring-gold-300'
-                                    : isSelected
-                                      ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
-                                      : disabled
-                                        ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                        : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                                  'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
+                                  isSelected
+                                    ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
+                                    : disabled
+                                      ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
+                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
                                 ].join(' ')}
                               >
                                 <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                                 <span className="min-w-0 leading-tight">{name}</span>
-                                {isSelected && !isX2 && (
+                                {isSelected && (
                                   <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M5 13l4 4L19 7" />
@@ -3691,25 +3685,49 @@ function PicksSection({
                                   </span>
                                 )}
                               </button>
-                              {isX2 && seal}
-                              {x2Active && isSelected && !isX2 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingX2(c.id)}
-                                  aria-label={`Double the vote for ${name}`}
-                                  title="Put the ×2 here"
-                                  className="absolute -right-1.5 -top-2 z-10 rounded bg-white/90 px-1 text-[10px] font-bold leading-tight text-gold-700 ring-1 ring-gold-400 hover:bg-gold-50"
-                                >
-                                  ×2
-                                </button>
-                              )}
-                              </div>
                             )
                           })}
                         </div>
                       </div>
                     ))}
                   </div>
+                  {/* The ×2 is its own step once the names are down (#673):
+                      the ballot's slips, tap one to double it. No default —
+                      Save waits until one is chosen. */}
+                  {x2Active && epPending.size > 0 && (
+                    <div className="mb-5">
+                      <p className="ballot-sheet__count mb-3">Double one vote</p>
+                      <div className="ballot-sheet__slips">
+                        {[...epPending].map((id, index) => {
+                          const sc = contestantMap.get(id)
+                          const slipName = sc ? displayName(sc) : '—'
+                          const isX2 = id === x2
+                          return (
+                            <span
+                              key={id}
+                              data-drop-id={!isX2 ? id : undefined}
+                              className="relative inline-flex rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setPendingX2(id)}
+                                aria-pressed={isX2}
+                                aria-label={isX2 ? `${slipName} is doubled` : `Double the vote for ${slipName}`}
+                                className={isX2 ? '' : 'opacity-60 hover:opacity-100'}
+                              >
+                                <VoteSlip
+                                  name={slipName}
+                                  tribeColor={sc?.tribe_color}
+                                  rotation={[-0.7, 0.5, -0.2][index % 3]}
+                                />
+                              </button>
+                              {isX2 && seal}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -3729,7 +3747,9 @@ function PicksSection({
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}
-                    disabled={submitting === ep.id || !dirty}
+                    disabled={
+                      submitting === ep.id || !dirty || (x2Active && epPending.size > 0 && !x2)
+                    }
                     className="min-h-11 flex-1 rounded-lg bg-jade-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jade-700 disabled:opacity-40"
                   >
                     {submitting === ep.id ? (
