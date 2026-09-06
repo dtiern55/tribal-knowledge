@@ -1406,6 +1406,9 @@ function LeagueHub({
 }) {
   const [entries, setEntries] = useState<HubEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
+  // Which player rows are open. Native <details> keeps its own state, so this
+  // mirrors it through onToggle and lets one control open or close them all.
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let live = true
@@ -1477,6 +1480,7 @@ function LeagueHub({
   }
   const topRosterDoubles = [...rosterDoubleCount.values()].sort((a, b) => b.n - a.n).slice(0, 4)
 
+  const allOpen = entries.every((e) => openRows.has(e.user_id))
   const sub = broadcast ? 'text-white/60' : 'text-gray-500'
   // Tiles sit a step lighter than the card so their edges read: white on the
   // cream card (delayed), a brighter frost on the faint panel (broadcast).
@@ -1548,12 +1552,34 @@ function LeagueHub({
       </div>
 
       {/* The full field — one collapsible row per player. */}
-      <ul className="mt-4 space-y-2">
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setOpenRows(allOpen ? new Set() : new Set(entries.map((e) => e.user_id)))}
+          className={`text-[11px] font-semibold uppercase tracking-wide underline underline-offset-2 ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}
+        >
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+      <ul className="mt-2 space-y-2">
         {entries.map((entry) => {
           const isMe = entry.user_id === userId
           return (
             <li key={entry.user_id}>
-              <details className={`group rounded-xl border ${chip}`}>
+              <details
+                className={`group rounded-xl border ${chip}`}
+                open={openRows.has(entry.user_id)}
+                onToggle={(e) => {
+                  const isOpen = (e.currentTarget as HTMLDetailsElement).open
+                  setOpenRows((cur) => {
+                    if (cur.has(entry.user_id) === isOpen) return cur
+                    const next = new Set(cur)
+                    if (isOpen) next.add(entry.user_id)
+                    else next.delete(entry.user_id)
+                    return next
+                  })
+                }}
+              >
                 <summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-sm">
                   <span className="min-w-0 flex-1 truncate font-semibold">
                     {entry.display_name}
