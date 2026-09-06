@@ -9,8 +9,8 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 SELECTED = HERE.parent / "2026-09-03-material-variants"
 ENAMEL = HERE.parent / "2026-09-05-modern-enamel"
-SOURCE_APP = ENAMEL / "modern-enamel-source.png"
-# Same frozen masks and gradients, shrunk into Android's maskable safe zone.
+SOURCE_APP = ENAMEL / "modern-enamel-approved.png"
+# The approved art shrunk into Android's maskable safe zone.
 SOURCE_MASKABLE = ENAMEL / "modern-enamel-maskable-source.png"
 PUZZLE_UNLOCKED = SELECTED / "selected-walnut-light.png"
 PUZZLE_LIGHT = HERE / "wood-block-burn-v5-fine-light.png"

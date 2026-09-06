@@ -45,5 +45,4 @@ burnt-red foreground and heavy painted forms while reducing the green canvas
 background's relief and micro-contrast. This prevents the background from
 reading as fuzzy at launcher size while retaining a restrained textile grain.
 It supplied the installed, maskable, Apple touch, and in-app icon exports until
-the modern-enamel surface replaced it the same day; its rat, flame, and snake
-regions are the frozen geometry under `../2026-09-05-modern-enamel/masks/`.
+the modern-enamel surface replaced it the same day.
