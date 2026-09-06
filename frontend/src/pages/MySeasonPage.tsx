@@ -880,6 +880,7 @@ export function MySeasonPage() {
                 setBeat('roster')
               }}
               onOpenBallotDouble={openBallotDouble}
+              ballotArmed={ballotArmed}
             />
           </ThisWeekHero>
 
@@ -2253,6 +2254,7 @@ function AdvantageLane({
   onBeatChange,
   onOpenRosterDouble,
   onOpenBallotDouble,
+  ballotArmed = false,
 }: {
   season: Season
   episodes: Episode[]
@@ -2264,8 +2266,10 @@ function AdvantageLane({
   onBeatChange: (beat: BeatKey) => void
   // Open the double-pick sheet on the Roster beat (the Advantage → Roster flow).
   onOpenRosterDouble: () => void
-  // Open the ×2 slot on the Ballot beat (the Advantage → Ballot flow, #673).
+  // Open the ballot for the extra vote (the Advantage → Ballot flow, #673).
   onOpenBallotDouble: () => void
+  // The ballot is open for the ×2 but not saved yet (#673).
+  ballotArmed?: boolean
 }) {
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -2306,7 +2310,9 @@ function AdvantageLane({
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
     : weekly.locked
       ? 'Not played'
-      : 'Drag or tap to play your ×2'
+      : ballotArmed
+        ? '×2 · Ballot — save your ballot'
+        : 'Drag or tap to play your ×2'
 
   const idle = play == null && !weekly.locked
 
@@ -3101,20 +3107,17 @@ function RosterSection({
  * piece of paper rather than two cards that happen to be adjacent.
  */
 function BallotSheetHead({ ep, prompt }: { ep: Episode; prompt?: string }) {
+  // Just the episode and the question: the hero above already says when it
+  // locks and what the episode is called, and the rules link lives in the
+  // Advantage menu (#673 review — the sheet read as a wall of text).
   return (
     <>
-      <p className="ballot-sheet__eyebrow">
-        <LockLine lockAt={ep.picks_lock_at} />
-      </p>
       {/* Prose spells the word out, per the EpisodeLabel rule — this is a
           title, not a chip. */}
       <h3 className="ballot-sheet__title">
         {ep.is_finale ? 'The Finale' : `Episode ${ep.episode_number}`}
       </h3>
-      {ep.title && <p className="ballot-sheet__subtitle">{ep.title}</p>}
-      <span className="ballot-sheet__rule" aria-hidden="true" />
       {prompt && <p className="ballot-sheet__prompt">{prompt}</p>}
-      <p className="mt-1"><RuleLink anchor="ballot">How the ballot works</RuleLink></p>
     </>
   )
 }
@@ -3346,10 +3349,35 @@ function PicksSection({
     })
   }
 
+  const play = useWeeklyPlay(season, episodes, plays, setPlays)
+
+  // Extra Vote ×2 (#673): the ballot play adds one vote and doubles the name
+  // it sits on. It travels with the ballot save — vote as normal, pick which
+  // name wears the ×2, press Save — so nothing is written until then. Until
+  // saved, "armed" is the ballot open for the extra vote.
+  const ballotPlay = play.play?.advantage_type === 'double_vote_points' ? play.play : undefined
+  const x2Target = ballotPlay?.target_contestant_id ?? null
+  // Where the ×2 goes on save; null falls back to the newest name written.
+  const [pendingX2, setPendingX2] = useState<string | null>(null)
+  // Arming means editing: the extra vote goes on this ballot.
+  useEffect(() => {
+    if (ballotArmed) setEditing(true)
+  }, [ballotArmed])
+
   function cancelEdit(episodeId: string) {
     const saved = picksByEpisode.get(episodeId) ?? []
     setPending((prev) => new Map(prev).set(episodeId, new Set(saved.map((p) => p.contestant_id))))
+    setPendingX2(x2Target)
+    onBallotArmedChange?.(false)
     setEditing(false)
+  }
+
+  /** The ×2 for one editable set: the explicit choice while it is still on
+   *  the ballot, else where it is saved, else the newest name written. */
+  function x2For(names: Set<string>): string | null {
+    if (pendingX2 && names.has(pendingX2)) return pendingX2
+    if (x2Target && names.has(x2Target)) return x2Target
+    return [...names].at(-1) ?? null
   }
 
   async function submitPicks(episodeId: string) {
@@ -3360,11 +3388,25 @@ function PicksSection({
       return m
     })
     try {
+      const names = pending.get(episodeId) ?? new Set<string>()
+      const wantsX2 = (ballotArmed || ballotPlay != null) && names.size > 0
+      // The week's play moves to the ballot: a roster double gives way first.
+      if (wantsX2 && play.play && !ballotPlay) {
+        if (!(await play.takeBack(play.play))) return
+      }
       const picks = await api.post<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks`, {
-        contestant_ids: [...(pending.get(episodeId) ?? [])],
+        contestant_ids: [...names],
+        doubled_contestant_id: wantsX2 ? x2For(names) : null,
       })
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
       setEditing(false)
+      onBallotArmedChange?.(false)
+      // The save may have created, moved, or (on an empty ballot) removed
+      // the ×2 play; the lane and the seal read it from the plays list.
+      const fresh = await api
+        .get<AdvantagePlay[]>(`/league-seasons/${season.id}/advantage-plays/${userId}`)
+        .catch(() => null)
+      if (fresh) setPlays(fresh)
       // The Ballot beat shows the saved count, so it follows the save.
       onBallotSaved?.()
     } catch (e) {
@@ -3375,22 +3417,9 @@ function PicksSection({
     }
   }
 
-  const play = useWeeklyPlay(season, episodes, plays, setPlays)
-
-  // Extra Vote ×2 (#673): the ballot play adds one vote and doubles the name
-  // it sits on — the extra vote at first, any of your names after that. The
-  // server writes the chosen name onto the ballot when the play lands and
-  // trims the newest name past the limit when the play is taken back, so
-  // whenever the play changes the saved ballot is re-read and the editable set
-  // follows it (this also covers Undo from the Advantage lane).
-  const ballotPlay = play.play?.advantage_type === 'double_vote_points' ? play.play : undefined
-  const x2Target = ballotPlay?.target_contestant_id ?? null
-  // Moving the ×2: tap the seal (or its name), then the name it goes to.
-  const [placing, setPlacing] = useState(false)
-  // Arming means editing: the extra vote goes on this ballot.
-  useEffect(() => {
-    if (ballotArmed) setEditing(true)
-  }, [ballotArmed])
+  // Whenever the play changes underneath the ballot — saved here, or undone
+  // from the Advantage lane, which trims the newest name past the limit —
+  // the saved ballot is re-read and the editable set follows it.
   const pendingRef = useRef(pending)
   pendingRef.current = pending
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
@@ -3421,94 +3450,42 @@ function PicksSection({
         const was = pendingRef.current.get(epId) ?? new Set<string>()
         if ([...was].every((id) => saved.has(id))) setEditing(false)
         setPending((prev) => new Map(prev).set(epId, saved))
+        setPendingX2(ballotPlay?.target_contestant_id ?? null)
         onBallotSaved?.()
       })
       .catch(() => undefined)
     return () => {
       stale = true
     }
-  }, [ballotPlay?.id, openEp, season.id, userId, contestants, onBallotSaved])
+  }, [ballotPlay?.id, ballotPlay?.target_contestant_id, openEp, season.id, userId, contestants, onBallotSaved])
 
-  /** The armed ballot's next new name is the extra vote: it lands as the ×2
-   *  pick (movable afterwards). Unsaved names are saved first so they survive
-   *  the re-read that follows the play. */
-  async function chooseExtra(episodeId: string, contestantId: string, dirty: boolean) {
-    if (dirty) await submitPicks(episodeId)
-    const ok = await play.replace('double_vote_points', contestantId)
-    if (ok) onBallotArmedChange?.(false)
-  }
-
-  /** Move the ×2 onto another name on the ballot (#673). An unsaved name is
-   *  saved first; the server only lets the ×2 sit on a pick it holds. */
-  async function moveX2(episodeId: string, contestantId: string, saved: boolean) {
-    if (!ballotPlay) return
-    setPlacing(false)
-    if (!saved) await submitPicks(episodeId)
-    const previous = ballotPlay
-    setPlays((prev) =>
-      prev.map((p) => (p.id === previous.id ? { ...p, target_contestant_id: contestantId } : p)),
-    )
-    try {
-      const moved = await api.patch<AdvantagePlay>(`/advantage-plays/${previous.id}`, {
-        target_contestant_id: contestantId,
-      })
-      setPlays((prev) => prev.map((p) => (p.id === moved.id ? moved : p)))
-    } catch (e) {
-      setPlays((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
-      setErrors((prev) =>
-        new Map(prev).set(episodeId, e instanceof Error ? e.message : 'Move failed'),
-      )
-    }
-  }
-
-  // The ballot seal rides the doubled name. Drag it onto another of your names
-  // to move the ×2, or onto the Roster tab to double a castaway instead
-  // (#487); a tap opens move mode for the non-drag path.
+  // While editing, the seal rides the name that will wear the ×2. Drag it onto
+  // another of your names to move it (a small ×2 on each name is the tap and
+  // keyboard path), or onto the Roster tab to double a castaway instead (#487).
+  // Both only change what the next Save sends.
   const openPending = openEp ? (pending.get(openEp.id) ?? new Set<string>()) : new Set<string>()
-  const openSaved = new Set(
-    (openEp ? (picksByEpisode.get(openEp.id) ?? []) : []).map((p) => p.contestant_id),
-  )
+  const openX2 = x2For(openPending)
   const {
     drag: ballotDrag,
     dragging: ballotDragging,
     start: startBallotDrag,
   } = useSealDrag({
     disabled: play.locked || play.busy,
-    canDropOn: (id) =>
-      id === 'beat:roster' ||
-      (id !== x2Target && (openPending.has(id) || openSaved.has(id))),
+    canDropOn: (id) => id === 'beat:roster' || (id !== openX2 && openPending.has(id)),
     onDrop: (id) => {
-      if (id === 'beat:roster') {
-        onDragToRoster?.()
-        return
-      }
-      if (openEp) void moveX2(openEp.id, id, openSaved.has(id))
-    },
-    onTap: () => {
-      setEditing(true)
-      setPlacing(true)
+      if (id === 'beat:roster') onDragToRoster?.()
+      else setPendingX2(id)
     },
   })
   const seal = (
-    <button
-      type="button"
+    <span
       onPointerDown={startBallotDrag}
-      // Keyboard activation only (detail 0); pointer taps come through the
-      // drag's onTap so move mode doesn't double-toggle.
-      onClick={(e) => {
-        if (e.detail === 0) {
-          setEditing(true)
-          setPlacing(true)
-        }
-      }}
-      disabled={play.locked || play.busy}
-      aria-label="Move the ×2 to another name"
       title="Drag onto another name to move the ×2"
       className="absolute -right-2 -top-3 z-10 rotate-[9deg] cursor-grab touch-none drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] active:cursor-grabbing"
       style={{ opacity: ballotDragging ? 0.3 : 1 }}
     >
       <DoubleBadge size={34} title="Extra Vote ×2" />
-    </button>
+    </span>
   )
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
@@ -3564,15 +3541,20 @@ function PicksSection({
           const hasSavedPicks = savedPicks.length > 0
           const confirmed = hasSavedPicks && !editing
           const savedIds = new Set(savedPicks.map((pick) => pick.contestant_id))
-          const dirty =
-            epPending.size !== savedIds.size ||
-            [...epPending].some((contestantId) => !savedIds.has(contestantId))
-
           // One play per episode (#307); on the ballot it is Extra Vote ×2
           // (#673): one vote beyond the schedule, and the ×2 sits on any one
-          // of your names — the extra one until you move it. "Armed" is the
-          // stretch between choosing the play and naming the extra vote.
-          const armed = ballotArmed && !ballotPlay
+          // of your names. It saves with the ballot, so until then "armed"
+          // is the ballot open for the extra vote.
+          const x2Active = ballotArmed || ballotPlay != null
+          const x2 = x2Active ? x2For(epPending) : null
+          const namesDirty =
+            epPending.size !== savedIds.size ||
+            [...epPending].some((contestantId) => !savedIds.has(contestantId))
+          // The ×2 counts as a change too: a new play, or a moved one.
+          const dirty =
+            namesDirty ||
+            (ballotArmed && !ballotPlay && epPending.size > 0) ||
+            (ballotPlay != null && epPending.size > 0 && x2 !== x2Target)
           // You can never vote for every remaining castaway — cap at
           // (still in the game − 1), the extra vote included (#240).
           const stillIn = contestants.filter(
@@ -3582,16 +3564,7 @@ function PicksSection({
           ).length
           const maxPicks = Math.max(
             0,
-            Math.min(ep.max_elimination_picks + (armed || x2Target ? 1 : 0), stillIn - 1),
-          )
-          const cancelLink = (label: string, onClick: () => void) => (
-            <button
-              type="button"
-              onClick={onClick}
-              className="ml-3 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
-            >
-              {label}
-            </button>
+            Math.min(ep.max_elimination_picks + (x2Active ? 1 : 0), stillIn - 1),
           )
 
           // Only list castaways still in the game, grouped by tribe so the
@@ -3632,14 +3605,8 @@ function PicksSection({
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       const slipName = sc ? displayName(sc) : '—'
-                      const isX2 = p.contestant_id === x2Target
-                      // Every other slip is a drop target for the ×2 seal.
                       return (
-                        <span
-                          key={p.id}
-                          data-drop-id={x2Target && !isX2 ? p.contestant_id : undefined}
-                          className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
-                        >
+                        <span key={p.id} className="relative inline-flex items-center gap-1.5">
                           <VoteSlip
                             name={slipName}
                             stale={stale}
@@ -3647,7 +3614,11 @@ function PicksSection({
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
                           />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
-                          {isX2 && seal}
+                          {p.contestant_id === x2Target && (
+                            <span className="absolute -right-2 -top-3 rotate-[9deg]">
+                              <DoubleBadge size={34} title={`Extra Vote ×2 on ${slipName}`} />
+                            </span>
+                          )}
                         </span>
                       )
                     })}
@@ -3662,18 +3633,7 @@ function PicksSection({
               ) : (
                 <>
                   <p aria-live="polite" className="ballot-sheet__count mb-5">
-                    {placing ? (
-                      <>
-                        Tap a name to move the ×2
-                        {cancelLink('Cancel', () => setPlacing(false))}
-                      </>
-                    ) : (
-                      <>
-                        {armed && 'Pick your extra vote — '}
-                        <b>{epPending.size}</b> of {maxPicks} names written
-                        {armed && cancelLink('Cancel', () => onBallotArmedChange?.(false))}
-                      </>
-                    )}
+                    <b>{epPending.size}</b> of {maxPicks} names written
                   </p>
                   <div className="mb-5 space-y-6">
                     {[...byTribe.entries()].map(([tribeName, members]) => (
@@ -3695,20 +3655,9 @@ function PicksSection({
                           {members.map((c) => {
                             const name = displayName(c)
                             const isSelected = epPending.has(c.id)
-                            const isX2 = c.id === x2Target
-                            // In move mode only your other names take the ×2.
-                            const moveHere = placing && isSelected && !isX2
+                            const isX2 = c.id === x2
                             const maxed = !isSelected && epPending.size >= maxPicks
-                            const disabled = play.busy || (placing ? !moveHere : maxed)
-                            const label = moveHere
-                              ? `Move the ×2 to ${name}`
-                              : isX2
-                                ? `Move the ×2 off ${name} first`
-                                : isSelected
-                                  ? `Remove vote for ${name}`
-                                  : armed
-                                    ? `Extra vote for ${name}`
-                                    : `Vote for ${name}`
+                            const disabled = play.busy || maxed
                             return (
                               <div
                                 key={c.id}
@@ -3717,15 +3666,10 @@ function PicksSection({
                               >
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (placing) void moveX2(ep.id, c.id, savedIds.has(c.id))
-                                  else if (isX2) setPlacing(true)
-                                  else if (armed && !isSelected) void chooseExtra(ep.id, c.id, dirty)
-                                  else togglePick(ep.id, c.id, maxPicks)
-                                }}
+                                onClick={() => togglePick(ep.id, c.id, maxPicks)}
                                 disabled={disabled}
                                 aria-pressed={isSelected}
-                                aria-label={label}
+                                aria-label={isSelected ? `Remove vote for ${name}` : `Vote for ${name}`}
                                 className={[
                                   'relative flex min-h-16 w-full min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
                                   isX2
@@ -3748,6 +3692,17 @@ function PicksSection({
                                 )}
                               </button>
                               {isX2 && seal}
+                              {x2Active && isSelected && !isX2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingX2(c.id)}
+                                  aria-label={`Double the vote for ${name}`}
+                                  title="Put the ×2 here"
+                                  className="absolute -right-1.5 -top-2 z-10 rounded bg-white/90 px-1 text-[10px] font-bold leading-tight text-gold-700 ring-1 ring-gold-400 hover:bg-gold-50"
+                                >
+                                  ×2
+                                </button>
+                              )}
                               </div>
                             )
                           })}
@@ -3774,7 +3729,7 @@ function PicksSection({
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}
-                    disabled={submitting === ep.id || epPending.size === 0 || !dirty}
+                    disabled={submitting === ep.id || !dirty}
                     className="min-h-11 flex-1 rounded-lg bg-jade-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jade-700 disabled:opacity-40"
                   >
                     {submitting === ep.id ? (
@@ -3785,7 +3740,7 @@ function PicksSection({
                       </span>
                     )}
                   </button>
-                  {hasSavedPicks && (
+                  {(hasSavedPicks || ballotArmed) && (
                     <button
                       type="button"
                       onClick={() => cancelEdit(ep.id)}
