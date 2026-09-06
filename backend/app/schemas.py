@@ -244,6 +244,9 @@ class SoleSurvivorRequest(BaseModel):
 
 class EliminationPickSubmitRequest(BaseModel):
     contestant_ids: list[UUID]
+    # Which pick Extra Vote ×2 doubles, if the play is in for this episode
+    # (#673) — the ballot save carries the ×2 placement, no separate step.
+    doubled_contestant_id: Optional[UUID] = None
 
 
 class Elimination(BaseModel):
@@ -464,12 +467,6 @@ class AdvantagePlayRequest(BaseModel):
 
     advantage_type: str
     target_contestant_id: Optional[UUID] = None
-
-
-class AdvantagePlayMoveRequest(BaseModel):
-    """Moving Extra Vote ×2 to a different pick on the same ballot (#673)."""
-
-    target_contestant_id: UUID
 
 
 class EpisodeResultContestant(BaseModel):
