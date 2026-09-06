@@ -1298,6 +1298,27 @@ html.locked-night .lane-tab:not([aria-selected='true']) {
   color: rgb(242 233 219 / 50%);
 }
 
+/* Players never see the lane stack under lock (#577); the admin night preview
+   (#468) does, and with the ink repainted cream a white stack was unreadable.
+   Take the stack, its footer, and the picking rows dark like the rest. */
+html.locked-night .app-shell .lane-stack {
+  border-color: rgb(242 233 219 / 12%);
+  background: #132e25;
+}
+html.locked-night .app-shell .lane-card__foot {
+  border-top-color: rgb(242 233 219 / 12%);
+  background: rgb(242 233 219 / 4%);
+}
+html.locked-night .app-shell .stage-lit .stage-row:not(.stage-pick):not(.stage-held) {
+  background-color: #183a2e;
+}
+html.locked-night .app-shell :is(.stage-pick, .stage-held) .text-paper-ink {
+  color: var(--color-paper-ink);
+}
+html.locked-night .app-shell .lane-stack .text-jade-700 {
+  color: #8fc7ad;
+}
+
 /* ── Lane footers ──────────────────────────────────────────────────────── */
 
 .lane-card__foot {
