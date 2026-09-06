@@ -2335,7 +2335,7 @@ function AdvantageLane({
             <button
               type="button"
               onClick={() => void weekly.takeBack(play)}
-              disabled={weekly.busy}
+              disabled={weekly.busy || play.id.startsWith('pending-')}
               className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2 disabled:opacity-40"
             >
               Undo
@@ -3392,7 +3392,14 @@ function PicksSection({
     return null
   }
 
-  /** Save the ballot; true when it went through. */
+  /** Save the ballot; true when it went through.
+   *
+   *  One request: the picks POST carries the ×2 and answers with the play
+   *  (created, moved, or dropped — a roster double gives way server-side).
+   *  The saved sheet shows at once and the round trip catches up; a trip to
+   *  the API is most of a second even when nothing goes wrong, and the
+   *  roster path already reads that way. On failure the edit sheet comes
+   *  back with the error. */
   async function submitPicks(episodeId: string, x2Override?: string): Promise<boolean> {
     setSubmitting(episodeId)
     setErrors((prev) => {
@@ -3400,39 +3407,70 @@ function PicksSection({
       m.delete(episodeId)
       return m
     })
+    const names = pending.get(episodeId) ?? new Set<string>()
+    const wantsX2 = (ballotArmed || ballotPlay != null) && names.size > 0
+    const doubled = wantsX2 ? (x2Override ?? x2For(names)) : null
+
+    const before = { picks: picksByEpisode.get(episodeId) ?? [], plays }
+    const optimisticPicks: EliminationPick[] = [...names].map((id) => ({
+      id: `pending-${id}`,
+      user_id: userId,
+      episode_id: episodeId,
+      contestant_id: id,
+      created_at: '',
+    }))
+    setPicksByEpisode((prev) => new Map(prev).set(episodeId, optimisticPicks))
+    setPlays((prev) => {
+      const ballot = (p: AdvantagePlay) =>
+        p.episode_id === episodeId && p.advantage_type === 'double_vote_points'
+      if (!doubled) return prev.filter((p) => !ballot(p))
+      // The ×2 lands on the ballot; any other play this episode gives way.
+      const base: AdvantagePlay = ballotPlay ?? {
+        id: `pending-save-${episodeId}`,
+        user_id: userId,
+        season_id: season.id,
+        episode_id: episodeId,
+        advantage_type: 'double_vote_points',
+        target_contestant_id: null,
+        token_cost: 0,
+        points_earned: null,
+        created_at: '',
+      }
+      return [
+        ...prev.filter((p) => p.episode_id !== episodeId),
+        { ...base, target_contestant_id: doubled },
+      ]
+    })
+    setEditing(false)
+    onBallotArmedChange?.(false)
+    onOpenPicks?.(optimisticPicks)
+
     try {
-      const names = pending.get(episodeId) ?? new Set<string>()
-      const wantsX2 = (ballotArmed || ballotPlay != null) && names.size > 0
-      // The week's play moves to the ballot: a roster double gives way first.
-      if (wantsX2 && play.play && !ballotPlay) {
-        if (!(await play.takeBack(play.play))) return false
-      }
-      const picks = await api.post<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks`, {
-        contestant_ids: [...names],
-        doubled_contestant_id: wantsX2 ? (x2Override ?? x2For(names)) : null,
+      const res = await api.post<{ picks: EliminationPick[]; play: AdvantagePlay | null }>(
+        `/league-seasons/${season.id}/episodes/${episodeId}/picks`,
+        { contestant_ids: [...names], doubled_contestant_id: doubled },
+      )
+      setPicksByEpisode((prev) => new Map(prev).set(episodeId, res.picks))
+      setPlays((prev) => {
+        // With a play back, the server replaced whatever held the week; with
+        // none, only a ballot play (or our placeholder) can have gone.
+        const keep = (p: AdvantagePlay) =>
+          p.episode_id !== episodeId ||
+          (res.play == null && p.advantage_type !== 'double_vote_points' && !p.id.startsWith('pending-'))
+        return res.play ? [...prev.filter(keep), res.play] : prev.filter(keep)
       })
-      // The save may have created, moved, or (on an empty ballot) removed
-      // the ×2 play. Read it back BEFORE showing the sheet, so the doubled
-      // slip lands in place with the names instead of hopping there a beat
-      // later; the updates below batch into one render.
-      const fresh = await api
-        .get<AdvantagePlay[]>(`/league-seasons/${season.id}/advantage-plays/${userId}`)
-        .catch(() => null)
-      if (fresh) {
-        setPlays(fresh)
-        // This ballot is already current: no re-read for the play change.
-        lastPlayId.current = fresh.find(
-          (p) => p.episode_id === episodeId && p.advantage_type === 'double_vote_points',
-        )?.id
-      }
-      setPicksByEpisode((prev) => new Map(prev).set(episodeId, picks))
-      setEditing(false)
-      onBallotArmedChange?.(false)
+      // This ballot is already current: no re-read for the play change.
+      lastPlayId.current = res.play?.id
+      lastTarget.current = res.play?.target_contestant_id ?? null
       // The Ballot beat shows the saved count, so it follows the save.
-      if (onOpenPicks) onOpenPicks(picks)
+      if (onOpenPicks) onOpenPicks(res.picks)
       else onBallotSaved?.()
       return true
     } catch (e) {
+      setPicksByEpisode((prev) => new Map(prev).set(episodeId, before.picks))
+      setPlays(before.plays)
+      onOpenPicks?.(before.picks)
+      setEditing(true)
       const msg = e instanceof Error ? e.message : 'Submit failed'
       setErrors((prev) => new Map(prev).set(episodeId, msg))
       return false
@@ -3447,6 +3485,7 @@ function PicksSection({
   const pendingRef = useRef(pending)
   pendingRef.current = pending
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
+  const lastTarget = useRef<string | null>(null)
   const openEp = play.openEpisode
   // A replace shows its optimistic row before the server has moved anything.
   // Re-read only once the real row is back — a drag to the roster used to
@@ -3455,7 +3494,6 @@ function PicksSection({
   // Taking the ×2 back drops the doubled vote on the server. Drop it here in
   // the same paint the seal disappears, so Undo reads as one change rather
   // than the idol going, then the vote a beat later when the re-read lands.
-  const lastTarget = useRef<string | null>(null)
   useLayoutEffect(() => {
     if (!settled || !openEp) return
     const gone = lastTarget.current
@@ -3525,18 +3563,8 @@ function PicksSection({
         return
       }
       setPendingX2(id)
-      if (editing || !openEp) return
-      // Submitted sheet: move the seal now and let the save catch up, rolling
-      // back if it doesn't — waiting on the round trip read as a hang.
-      const previous = ballotPlay
-      if (previous) {
-        setPlays((prev) =>
-          prev.map((p) => (p.id === previous.id ? { ...p, target_contestant_id: id } : p)),
-        )
-      }
-      void submitPicks(openEp.id, id).then((ok) => {
-        if (!ok && previous) setPlays((prev) => prev.map((p) => (p.id === previous.id ? previous : p)))
-      })
+      // Submitted sheet: the save moves the seal at once and catches up.
+      if (!editing && openEp) void submitPicks(openEp.id, id)
     },
   })
   const seal = (

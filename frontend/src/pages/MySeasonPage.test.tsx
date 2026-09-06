@@ -304,10 +304,13 @@ describe('MySeasonPage state shell', () => {
       if (path.endsWith('/reveal')) return undefined
       return []
     })
-    vi.mocked(api.post).mockResolvedValue([
-      { id: 'pick-1', contestant_id: 'cast-1' },
-      { id: 'pick-2', contestant_id: 'cast-2' },
-    ])
+    vi.mocked(api.post).mockResolvedValue({
+      picks: [
+        { id: 'pick-1', contestant_id: 'cast-1' },
+        { id: 'pick-2', contestant_id: 'cast-2' },
+      ],
+      play: null,
+    })
 
     renderWithApp(<MySeasonPage />, { auth })
 
@@ -586,7 +589,8 @@ describe('MySeasonPage state shell', () => {
       plays = doubled_contestant_id
         ? [{ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: doubled_contestant_id }]
         : []
-      return picks
+      // The save answers with the play; a roster double gave way server-side.
+      return { picks, play: plays[0] ?? null }
     })
     vi.mocked(api.delete).mockImplementation(async () => {
       plays = []
@@ -622,7 +626,8 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('button', { name: 'Double the vote for Charlie' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Save ballot' })).toBeEnabled()
 
-    // One save: the roster double gives way, the ballot goes up with the ×2.
+    // One request: the ballot goes up with the ×2 and the roster double gives
+    // way server-side. No separate take-back.
     await userEvent.click(screen.getByRole('button', { name: 'Save ballot' }))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
@@ -630,7 +635,7 @@ describe('MySeasonPage state shell', () => {
         doubled_contestant_id: 'cast-1',
       }),
     )
-    expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
+    expect(api.delete).not.toHaveBeenCalled()
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
     // The doubled vote leads the pile in gold, wearing the seal.
     const sheet = screen.getByText('Ballot submitted').closest('.ballot-sheet') as HTMLElement
