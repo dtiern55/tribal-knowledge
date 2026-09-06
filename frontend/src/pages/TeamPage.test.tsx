@@ -95,7 +95,7 @@ describe('TeamPage', () => {
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
   })
 
-  it('starts with only Tribe open; Expand all reveals the ballot and advantages (#646)', async () => {
+  it('starts with only Tribe open; Expand all reveals the ballot (#646)', async () => {
     const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
@@ -130,7 +130,11 @@ describe('TeamPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
 
     expect(screen.getByText('Ep 1')).toBeVisible()
-    expect(screen.getByText(/Extra Vote ×2/)).toBeVisible()
+    // The played ×2 reads on the ballot row itself: the idol by the episode,
+    // the correct vote pilled. There is no separate Advantages ledger.
+    expect(screen.getByTitle('Extra Vote ×2 this episode')).toBeVisible()
+    expect(screen.getByText('Kenzie')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /^Advantages/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
   })
 })

@@ -48,7 +48,6 @@ import type {
   Season,
   StandingEntry,
   StandingSurvivor,
-  TokenLedgerEntry,
 } from '../types'
 
 // The ballot's weekly play is Extra Vote ×2 (#673): one extra vote, and the
@@ -1668,10 +1667,6 @@ function HubCastawayRow({
 
 /**
  * Everything you've already played, tucked out of the way (#307).
- *
- * The token ledger only renders for seasons that actually had one — tokens
- * are retired, but Cagayan/S49/S50 keep a real history and stay readable
- * forever (#170).
  */
 function HistorySection({
   season,
@@ -1694,7 +1689,6 @@ function HistorySection({
   replayLoading: string | null
   replayError: string | null
 }) {
-  const [ledger, setLedger] = useState<TokenLedgerEntry[] | null>(null)
   const [open, setOpen] = useState(false)
   // The card previews the last episode's result (#478 follow-on), so the tap
   // has something to promise. One extra fetch, only once there is a scored
@@ -1703,17 +1697,6 @@ function HistorySection({
   // Past ballots, fetched the first time the sheet is opened rather than on
   // every page load — they are reference, and nobody reads them most weeks.
   const [pastBallots, setPastBallots] = useState<Map<string, EliminationPick[]> | null>(null)
-
-  useEffect(() => {
-    let live = true
-    api
-      .get<TokenLedgerEntry[]>(`/league-seasons/${season.id}/tokens/${userId}/history`)
-      .then((h) => live && setLedger(h))
-      .catch(() => live && setLedger([]))
-    return () => {
-      live = false
-    }
-  }, [season.id, userId])
 
   // Weekly ballots only: the finale is its own 3-part ballot (#86), and
   // pre-roster-lock premieres accept no votes (#82).
@@ -1770,35 +1753,7 @@ function HistorySection({
     )
     .sort((a, b) => b.episode_number - a.episode_number)
 
-  // Spent advantages from closed episodes, folded in from the old standalone
-  // Past Plays section (#545). Resolved here so the sheet stays a dumb list.
-  const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const spent: SpentPlay[] = plays
-    .flatMap((p) => {
-      const ep = p.episode_id ? episodeMap.get(p.episode_id) : undefined
-      if (ep == null || !episodeClosed(ep)) return []
-      const target = p.target_contestant_id ? contestantMap.get(p.target_contestant_id) : undefined
-      return [
-        {
-          id: p.id,
-          label: ADV_LABELS[p.advantage_type] ?? p.advantage_type,
-          target: target ? displayName(target) : null,
-          episodeLabel: ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`,
-          episodeNumber: ep.episode_number,
-          points: p.points_earned,
-        },
-      ]
-    })
-    .sort((a, b) => b.episodeNumber - a.episodeNumber)
-
-  if (
-    scoredEpisodes.length === 0 &&
-    closedBallots.length === 0 &&
-    spent.length === 0 &&
-    (ledger == null || ledger.length === 0)
-  )
-    return null
+  if (scoredEpisodes.length === 0 && closedBallots.length === 0) return null
 
   // "+64, up 3 spots" — what the last episode did to you, so the card says
   // what's behind it rather than just naming itself.
@@ -1821,7 +1776,7 @@ function HistorySection({
   return (
     <>
       {/* Promoted out of the record (#478 follow-on): a card of its own under
-          both lanes. The recap replays, spent plays and retired ledger still
+          both lanes. The recap replays and past ballots still
           open in a sheet, not an always-present page section. */}
       <button type="button" onClick={() => setOpen(true)} className="history-card">
         <span className="flex size-[34px] flex-none items-center justify-center rounded-lg bg-forest-600 text-gold-300">
@@ -1847,8 +1802,6 @@ function HistorySection({
             pickResults={pickResults}
             plays={plays}
             contestants={contestants}
-            spent={spent}
-            ledger={ledger ?? []}
             onReplay={(episode) => {
               setOpen(false)
               onReplay(episode)
@@ -1867,16 +1820,7 @@ function HistorySection({
   )
 }
 
-type SpentPlay = {
-  id: string
-  label: string
-  target: string | null
-  episodeLabel: string
-  episodeNumber: number
-  points: number | null
-}
-
-// The recap replays + spent plays + retired token ledger, in a bottom sheet
+// The recap replays + past ballots, in a bottom sheet
 // (#478) matching the app's other sheets. Replay closes the sheet; the recap
 // reveal opens over the page from MySeasonPage.
 function HistorySheet({
@@ -1886,8 +1830,6 @@ function HistorySheet({
   pickResults,
   plays,
   contestants,
-  spent,
-  ledger,
   onReplay,
   replayLoading,
   replayError,
@@ -1900,25 +1842,21 @@ function HistorySheet({
   pickResults: Map<string, PickResult>
   plays: AdvantagePlay[]
   contestants: Contestant[]
-  spent: SpentPlay[]
-  ledger: TokenLedgerEntry[]
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
   onClose: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  // Episodes and advantages were stacked blocks in one scroll (#545, #546),
-  // which made the plays and the retired ledger read as an appendix to the
-  // replays. They are two different questions, so they get two tabs.
-  // Your own record — ballots, then plays — comes before the recaps, which are
-  // about the episode rather than about you.
+  // Your own record (ballots) comes before the recaps, which are about the
+  // episode rather than about you. Played advantages have no tab of their own:
+  // the doubled castaway and the ×2 vote are read on the roster and the
+  // ballot, where the points they doubled already are.
   const TABS = [
     { key: 'ballots' as const, label: 'Ballots', count: closedBallots.length },
-    { key: 'advantages' as const, label: 'Advantages', count: spent.length },
     { key: 'recaps' as const, label: 'Recaps', count: scoredEpisodes.length },
   ]
-  const [tab, setTab] = useState<'ballots' | 'advantages' | 'recaps'>(
+  const [tab, setTab] = useState<'ballots' | 'recaps'>(
     () => (TABS.find((t) => t.count > 0) ?? TABS[0]).key,
   )
 
@@ -2026,63 +1964,6 @@ function HistorySheet({
                   contestants={contestants}
                 />
               ))
-            )}
-          </div>
-
-          <div
-            id="history-panel-advantages"
-            role="tabpanel"
-            aria-labelledby="history-tab-advantages"
-            hidden={tab !== 'advantages'}
-          >
-            {spent.length > 0 ? (
-              <ul className="space-y-1.5">
-                {spent.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm text-gray-600">
-                    <span>
-                      {p.label}
-                      {p.target && <span className="text-gray-400"> → {p.target}</span>}
-                      <span className="text-gray-400"> · {p.episodeLabel}</span>
-                    </span>
-                    {p.points != null && (
-                      <span className={p.points > 0 ? 'font-medium text-jade-700' : 'text-gray-500'}>
-                        {p.points > 0 ? '+' : ''}
-                        {p.points} pts
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-paper-ink-faded">You have not spent an advantage yet.</p>
-            )}
-
-
-            {ledger.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Token ledger (retired)
-                </p>
-                <ul className="space-y-1.5">
-                  {ledger.map((h, i) => (
-                    <li
-                      key={`${h.created_at}:${i}`}
-                      className="flex items-center justify-between text-sm text-gray-600"
-                    >
-                      <span>
-                        {h.description ?? h.transaction_type.replace(/_/g, ' ')}
-                        {h.episode_number != null && (
-                          <span className="text-gray-400"> · Ep {h.episode_number}</span>
-                        )}
-                      </span>
-                      <span className={h.amount > 0 ? 'text-gray-700' : 'text-gray-500'}>
-                        {h.amount > 0 ? '+' : ''}
-                        {h.amount}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             )}
           </div>
 
@@ -3182,7 +3063,7 @@ function BallotRecord({
                   <span key={p.id} className="inline-flex items-center gap-1.5">
                     <CorrectVote
                       name={name}
-                      points={result.points > 0 ? result.points : undefined}
+                      points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined}
                     />
                     {mark}
                   </span>
@@ -3246,11 +3127,12 @@ function BallotRecord({
             const name = pickC ? displayName(pickC) : '—'
             // Same rule as the prominent ballot: correct votes get the pill,
             // misses stay neutral rather than red (#53, #135). The ×2 mark
-            // sits on the named pick.
+            // sits on the named pick, and its pill carries the doubled points
+            // (pickResults are base values, #136).
             const mark = p.contestant_id === x2 ? <Times2 title="Extra Vote ×2" /> : null
             return scored && result?.correct === true ? (
               <span key={p.id} className="inline-flex shrink-0 items-center gap-1">
-                <CorrectVote name={name} points={result.points > 0 ? result.points : undefined} />
+                <CorrectVote name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} />
                 {mark}
               </span>
             ) : (
