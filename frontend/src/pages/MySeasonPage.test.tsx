@@ -432,7 +432,7 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(screen.getByRole('button', { name: /Play your advantage/ }))
     const menu = screen.getByRole('menu')
     expect(within(menu).getByRole('menuitem', { name: 'Double a castaway' })).toBeVisible()
-    expect(within(menu).getByRole('menuitem', { name: 'Double your ballot' })).toBeVisible()
+    expect(within(menu).getByRole('menuitem', { name: 'Extra Vote ×2' })).toBeVisible()
     expect(within(menu).queryByRole('menuitem', { name: /Swap/ })).not.toBeInTheDocument()
 
     // Choosing "Double a castaway" lights the roster: banner, tappable rows, Cancel.
@@ -551,7 +551,7 @@ describe('MySeasonPage state shell', () => {
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
   })
 
-  it('drags the roster seal onto the Ballot tab to make it a ballot double (#487)', async () => {
+  it('drags the roster seal onto the Ballot tab to open the ×2 slot, then names it (#487, #673)', async () => {
     const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -560,6 +560,8 @@ describe('MySeasonPage state shell', () => {
         return [
           { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
           { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Maria', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-4', name: 'Tiffany', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
         ]
       }
       if (path.includes('/advantage-plays/')) {
@@ -574,7 +576,7 @@ describe('MySeasonPage state shell', () => {
       if (path.endsWith('/reveal')) return undefined
       return []
     })
-    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: null })
+    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: 'cast-2' })
     vi.mocked(api.delete).mockResolvedValue(undefined)
 
     renderWithApp(<MySeasonPage />, { auth })
@@ -589,16 +591,35 @@ describe('MySeasonPage state shell', () => {
     fireEvent(window, new MouseEvent('pointermove', { clientX: 100, clientY: 20 }))
     fireEvent(window, new MouseEvent('pointerup', { clientX: 100, clientY: 20 }))
 
-    // The play converts to a targetless ballot double, and we auto-switch to the
-    // Ballot beat so its landing is visible.
+    // The ballot play needs a name (#673): the drop opens the ×2 slot on the
+    // Ballot beat and nothing is played until a name is tapped. The roster
+    // double stays put meanwhile.
+    await waitFor(() => expect(ballotTab).toHaveAttribute('aria-selected', 'true'))
+    const slot = await screen.findByTestId('x2-slot')
+    expect(slot).toHaveTextContent('Tap a name below')
+    expect(api.post).not.toHaveBeenCalled()
+    expect(api.delete).not.toHaveBeenCalled()
+
+    // Tapping a castaway names the ×2: the roster double is swapped for a
+    // ballot play targeting that name.
+    await userEvent.click(screen.getByRole('button', { name: 'Extra Vote ×2 on Charlie' }))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_vote_points',
-        target_contestant_id: null,
+        target_contestant_id: 'cast-2',
       }),
     )
     expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
-    await waitFor(() => expect(ballotTab).toHaveAttribute('aria-selected', 'true'))
+    expect(await screen.findByTestId('x2-slot')).toHaveTextContent('Charlie')
+    // The named pick wears the ×2 on the cast; the normal count leaves it out
+    // (four still in, so the cap is three names and the ×2 takes one).
+    expect(screen.getByRole('button', { name: 'Remove your Extra Vote ×2 from Charlie' })).toBeVisible()
+    expect(screen.getByText(/names written/)).toHaveTextContent('0 of 2 names written')
+
+    // Tapping it again takes the play back and reopens the slot.
+    await userEvent.click(screen.getByRole('button', { name: 'Remove your Extra Vote ×2 from Charlie' }))
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-2'))
+    expect(await screen.findByTestId('x2-slot')).toHaveTextContent('Tap a name below')
   })
 
   it('drags the ballot seal onto the Roster tab to pick a castaway to double (#487)', async () => {
@@ -851,7 +872,7 @@ describe('MySeasonPage state shell', () => {
     // Cast page — so the locked roster no longer links out.
     expect(screen.getByText('Charlie').closest('a')).toBeNull()
     // #451: a played ballot double now reads as the idol ×2 mark on the Ballot heading.
-    expect(screen.getByTitle('Double Ballot Points this episode')).toBeVisible()
+    expect(screen.getByTitle('Extra Vote ×2 this episode')).toBeVisible()
   })
 
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {
