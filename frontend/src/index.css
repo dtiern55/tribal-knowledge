@@ -1360,9 +1360,9 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
 
 /* Rules deep link: the targeted section flashes so the eye lands on it (#661). */
 @keyframes rule-flash {
-  0%, 35% {
-    background-color: var(--color-gold-300);
-    box-shadow: 0 0 0 12px var(--color-gold-300);
+  0%, 45% {
+    background-color: var(--color-gold-500);
+    box-shadow: 0 0 0 12px var(--color-gold-500);
   }
   100% {
     background-color: transparent;
@@ -1371,5 +1371,5 @@ html.locked-night .app-shell .history-card .bg-forest-600 { background-color: #0
 }
 .rule-flash {
   border-radius: 4px;
-  animation: rule-flash 2.5s ease-out 1;
+  animation: rule-flash 3s ease-out 1;
 }
