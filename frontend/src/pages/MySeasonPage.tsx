@@ -2778,6 +2778,7 @@ function RosterSection({
                 return droppingC ? displayName(droppingC) : 'them'
               })()}`
             : 'Choose a castaway to drop'}
+          <span className="ml-3 font-normal"><RuleLink anchor="tribe">How swaps work</RuleLink></span>
         </p>
       )}
       {picking === 'double' && (
@@ -3090,6 +3091,7 @@ function BallotSheetHead({ ep, prompt }: { ep: Episode; prompt?: string }) {
       {ep.title && <p className="ballot-sheet__subtitle">{ep.title}</p>}
       <span className="ballot-sheet__rule" aria-hidden="true" />
       {prompt && <p className="ballot-sheet__prompt">{prompt}</p>}
+      <p className="mt-1"><RuleLink anchor="ballot">How the ballot works</RuleLink></p>
     </>
   )
 }
@@ -3757,6 +3759,7 @@ function FinaleBallot({
           scored={finaleEp.status === 'scored'}
         />
       </div>
+      <p className="mb-2"><RuleLink anchor="finale">How the bracket scores</RuleLink></p>
 
       {locked && !hasSaved ? (
         <p className="text-sm text-gray-600 mt-2">
@@ -4103,7 +4106,7 @@ function SoleSurvivorLine({
         {lockEpisode && (
           <LockBadge lockAt={lockEpisode.picks_lock_at} scored={lockEpisode.status === 'scored'} />
         )}
-        <RuleLink anchor="finale">How it works</RuleLink>
+        <RuleLink anchor="sole-survivor">How it works</RuleLink>
       </div>
       {error && <p className="mt-1 text-xs text-terracotta-600">{error}</p>}
     </div>

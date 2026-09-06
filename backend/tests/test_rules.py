@@ -12,6 +12,7 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     assert data["season"]["id"] == season["league_season_id"]
     assert data["season"]["swap_token_cost"] == 30
     assert data["season"]["token_economy_enabled"] is False
+    assert data["has_redemption"] is False
 
     # scoring events carry their values (seeded config)
     by_type = {e["event_type"]: e for e in data["scoring_events"]}

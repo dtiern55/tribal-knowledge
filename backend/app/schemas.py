@@ -577,6 +577,8 @@ class RulesResponse(BaseModel):
     scoring_events: list[RuleScoringEvent]
     prediction_scores: list[RulePredictionScore]
     advantages: list[AdvantageType]
+    # Redemption Island rules only matter on seasons that have the tribe (#657).
+    has_redemption: bool
 
 
 class LeagueRef(BaseModel):

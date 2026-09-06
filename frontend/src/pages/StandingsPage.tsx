@@ -6,6 +6,7 @@ import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { RuleLink } from '../components/RuleLink'
 import { api, getActiveSeason } from '../lib/api'
 import { rankStandings } from '../lib/standings'
 import type { Season, StandingEntry, StandingSurvivor } from '../types'
@@ -189,6 +190,7 @@ export function StandingsPage() {
           <StandingHero entry={mine.entry} rank={mine.rank} tied={mine.tied} count={ranked.length} />
         </Link>
       )}
+      <p className="mt-3"><RuleLink anchor="scoring">How scoring works</RuleLink></p>
 
       {ranked.length === 0 ? (
         <Notice title="No players yet">The standings will appear after players join this season.</Notice>
