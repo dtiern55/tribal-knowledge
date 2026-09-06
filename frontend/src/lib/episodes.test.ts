@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Episode, Season } from '../types'
-import { airingEpisode, openEpisode, ssDesignationOpen, ssWindowOpenYet } from './episodes'
+import { airingEpisode, openEpisode, ssDesignationOpen, ssWindowOpenYet, swapLockEpisodeNumber } from './episodes'
 
 const season = { roster_lock_episode: 2 } as Season
 
@@ -36,6 +36,14 @@ describe('episode lifecycle helpers', () => {
     expect(openEpisode(episodes, season)).toBeUndefined()
     expect(airingEpisode(episodes, season)?.episode_number).toBe(2)
     vi.useRealTimers()
+  })
+})
+
+describe('swapLockEpisodeNumber', () => {
+  it('prefers the explicit lock, else two past the first juror, else nothing', () => {
+    expect(swapLockEpisodeNumber({ swap_lock_episode: 9, jury_start_episode: 7 } as Season)).toBe(9)
+    expect(swapLockEpisodeNumber({ swap_lock_episode: null, jury_start_episode: 7 } as Season)).toBe(9)
+    expect(swapLockEpisodeNumber({ swap_lock_episode: null, jury_start_episode: null, merge_episode: 7 } as Season)).toBeNull()
   })
 })
 

@@ -61,7 +61,12 @@ def require_season(cur, season_id) -> dict:
 LEAGUE_SEASON_SQL = """
     select ls.*, l.name as league_name,
            s.name, s.season_number, s.merge_episode, s.status,
-           s.elimination_pick_schedule, s.created_at as season_created_at
+           s.elimination_pick_schedule, s.created_at as season_created_at,
+           (select min(ep.episode_number)
+              from scoring_events se
+              join episodes ep on ep.id = se.episode_id
+             where ep.season_id = s.id and se.event_type = 'join_jury')
+             as jury_start_episode
     from league_seasons ls
     join leagues l on l.id = ls.league_id
     join seasons s on s.id = ls.season_id

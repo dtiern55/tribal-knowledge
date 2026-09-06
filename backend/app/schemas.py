@@ -45,6 +45,9 @@ class LeagueSeason(Season):
     weekly_token_allocation: int
     token_economy_enabled: bool
     advantage_lock_episode: Optional[int]
+    # Episode the first juror was voted out in, read off the earliest
+    # `join_jury` scoring event (#672). None until it has been scored.
+    jury_start_episode: Optional[int] = None
 
 
 class LeagueSeasonCreateRequest(BaseModel):
