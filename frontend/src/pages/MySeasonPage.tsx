@@ -3377,22 +3377,29 @@ function PicksSection({
   // Re-read only once the real row is back — a move to the roster used to
   // re-read while the delete was still in flight and keep the doubled vote.
   const settled = !play.play?.id.startsWith('pending-')
-  // Taking the Power Vote back drops its vote on the server. Drop it here in
-  // the same paint the sheet empties, so it reads as one change rather than
-  // the name going, then the vote a beat later when the re-read lands.
+  // Taking the Power Vote back drops its name to the top rung and the ladder
+  // shifts down; whatever falls past the last rung leaves (#694). The server
+  // does the same; this shows it in the paint the play disappears, so it
+  // reads as one change rather than a beat later when the re-read lands.
   useLayoutEffect(() => {
     if (!settled || !openEp) return
     const gone = lastTarget.current
     lastTarget.current = ballotPlay?.target_contestant_id ?? null
     if (!gone || ballotPlay) return
     const epId = openEp.id
-    const kept = (picksByEpisode.get(epId) ?? []).filter((p) => p.contestant_id !== gone)
+    const rows = picksByEpisode.get(epId) ?? []
+    const goneRow = rows.find((p) => p.contestant_id === gone)
+    const others = rows.filter((p) => p.contestant_id !== gone)
+    const kept = (goneRow ? [goneRow, ...others] : others)
+      .slice(0, openMax)
+      .map((p, index) => ({ ...p, rank: index + 1 }))
     setPicksByEpisode((prev) => new Map(prev).set(epId, kept))
-    setPending((prev) =>
-      new Map(prev).set(epId, (prev.get(epId) ?? []).filter((id) => id !== gone)),
-    )
+    setPending((prev) => {
+      const list = (prev.get(epId) ?? []).filter((id) => id !== gone)
+      return new Map(prev).set(epId, (goneRow ? [gone, ...list] : list).slice(0, openMax))
+    })
     onOpenPicks?.(kept)
-  }, [ballotPlay, settled, openEp, picksByEpisode, onOpenPicks])
+  }, [ballotPlay, settled, openEp, openMax, picksByEpisode, onOpenPicks])
   useEffect(() => {
     if (!openEp || !settled || lastPlayId.current === ballotPlay?.id) return
     lastPlayId.current = ballotPlay?.id
@@ -3961,11 +3968,11 @@ function PicksSection({
                 <div className="mx-auto flex max-w-xs gap-2">
                   <button
                     type="button"
-                    onClick={() => submitPicks(ep.id)}
-                    disabled={submitting === ep.id || !dirty}
+                    onClick={() => (dirty ? void submitPicks(ep.id) : setEditing(false))}
+                    disabled={submitting === ep.id || (!dirty && !hasSavedPicks)}
                     className="min-h-11 flex-1 rounded-lg bg-jade-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jade-700 disabled:opacity-40"
                   >
-                    {submitting === ep.id ? 'Saving…' : 'Save ballot'}
+                    {submitting === ep.id ? 'Saving…' : dirty || !hasSavedPicks ? 'Save ballot' : 'Done'}
                   </button>
                   {hasSavedPicks && (
                     <button

@@ -199,7 +199,11 @@ function arrangePlayWorld(initial: {
     const gone = state.plays[0]
     state.plays = []
     if (gone?.advantage_type === 'double_vote_points') {
-      state.picks = state.picks.filter((p) => p.contestant_id !== gone.target_contestant_id)
+      // The name drops to the top rung; the ladder shifts down and trims to
+      // the limit (#694).
+      const top = state.picks.filter((p) => p.contestant_id === gone.target_contestant_id)
+      const rest = state.picks.filter((p) => p.contestant_id !== gone.target_contestant_id)
+      state.picks = [...top, ...rest].slice(0, 3).map((p, i) => ({ ...p, rank: i + 1 }))
     }
   })
   return state
@@ -431,9 +435,12 @@ describe('MySeasonPage state shell', () => {
       doubled_contestant_id: null,
     })
 
+    // Reopened with nothing changed, the button is Done: it closes the sheet
+    // rather than sitting disabled (#694 review).
     await user.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
     expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
-    expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
+    await user.click(within(ballot).getByRole('button', { name: 'Done' }))
+    expect(await screen.findByText('Ballot submitted')).toBeVisible()
   })
 
   it('lights the room on the Ballot beat and puts it out on the way off the page', async () => {
@@ -747,11 +754,12 @@ describe('MySeasonPage state shell', () => {
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
 
-    // Undo, in the hero, drops the Power Vote's pick with it.
+    // Undo, in the hero, drops the name to the top rung: Kenzie leads again.
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
     expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
-    await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
+    await waitFor(() => expect(ballotTab).toHaveTextContent('2 of 3'))
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' })).toHaveTextContent('Top pick')
     expect(within(ballot).getByRole('button', { name: 'Play it here' })).toBeVisible()
   })
 
@@ -778,8 +786,8 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
-    // The Power Vote's pick left with the play; the ballot never counted it.
-    await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('None'))
+    // The Power Vote's name dropped to the top rung when the play left.
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('1 of 3'))
     const ballot = await openBeat('Ballot')
     expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
   })

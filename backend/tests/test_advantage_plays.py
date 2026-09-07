@@ -373,9 +373,9 @@ def _submit(client, season_id, episode_id, contestant_ids, doubled=None, expect=
 
 
 @pytest.mark.integration
-def test_take_back_drops_the_doubled_pick(client, db_conn, current_user):
-    """Taking the ×2 back always drops the doubled pick itself (Danny's call)
-    — not whichever is newest."""
+def test_take_back_drops_the_power_vote_to_the_top_rung(client, db_conn, current_user):
+    """Taking the Power Vote back keeps its name on top of the ladder; the
+    ladder shifts down and the lowest name leaves (#694, Danny's call)."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=1)
@@ -390,13 +390,13 @@ def test_take_back_drops_the_doubled_pick(client, db_conn, current_user):
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
 
     picks = _picks(client, ls, ep["id"], current_user["id"])
-    assert [p["contestant_id"] for p in picks] == [str(a["id"])]
+    assert [(p["contestant_id"], p["rank"]) for p in picks] == [(str(b["id"]), 1)]
 
 
 @pytest.mark.integration
-def test_take_back_drops_the_doubled_pick_even_if_older(client, db_conn, current_user):
-    """The doubled pick goes even when it's the older of the two — creation
-    order doesn't matter any more, only which pick currently holds the ×2."""
+def test_take_back_keeps_the_power_vote_even_if_older(client, db_conn, current_user):
+    """The Power Vote's name stays on top even when it's the older pick —
+    creation order doesn't matter, only which name holds the play."""
     season = insert_season(db_conn)
     ls = season["league_season_id"]
     ep = _open_episode(db_conn, season["id"], max_picks=1)
@@ -413,7 +413,7 @@ def test_take_back_drops_the_doubled_pick_even_if_older(client, db_conn, current
     assert client.delete(f"/advantage-plays/{play['id']}").status_code == 204
 
     picks = _picks(client, ls, ep["id"], current_user["id"])
-    assert [p["contestant_id"] for p in picks] == [str(b["id"])]
+    assert [(p["contestant_id"], p["rank"]) for p in picks] == [(str(a["id"]), 1)]
 
 
 @pytest.mark.integration
@@ -553,7 +553,7 @@ def test_power_vote_on_a_ranked_name_lifts_it_off_the_ladder(
     client, db_conn, current_user
 ):
     """#694: naming a 1st pick as the Power Vote frees its rung and the rest
-    close up; taking the play back drops the name and leaves the rungs."""
+    close up; taking the play back puts the name on top and shifts them down."""
     season = insert_season(db_conn)
     ep = _open_episode(db_conn, season["id"])
     a = insert_contestant(db_conn, season["id"], "A")
@@ -586,6 +586,7 @@ def test_power_vote_on_a_ranked_name_lifts_it_off_the_ladder(
     assert client.delete(f"/advantage-plays/{r.json()['id']}").status_code == 204
     got = client.get(f"{picks_url}/{current_user['id']}").json()
     assert [(p["contestant_id"], p["rank"]) for p in got] == [
-        (str(b["id"]), 1),
-        (str(c["id"]), 2),
+        (str(a["id"]), 1),
+        (str(b["id"]), 2),
+        (str(c["id"]), 3),
     ]
