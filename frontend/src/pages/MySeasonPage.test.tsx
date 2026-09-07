@@ -529,8 +529,11 @@ describe('MySeasonPage state shell', () => {
     expect(rosterTab).not.toHaveTextContent('×2')
     expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
     expect(screen.getByText('Tribe · Kenzie · double points')).toBeVisible()
+    // Played, the strip is gone: the seal on the row is the record, and the
+    // hero holds Undo.
     const roster = await openBeat('Tribe')
-    expect(within(roster).getByText(/Kenzie earns double points this episode/)).toBeVisible()
+    expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
   })
 
   it('plays the advantage on the Tribe tab by tap, undoes it from the strip, and moves it by drag (#407)', async () => {
@@ -566,11 +569,16 @@ describe('MySeasonPage state shell', () => {
       }),
     )
 
-    // Undo lives on the strip.
-    await userEvent.click(within(strip).getByRole('button', { name: 'Undo' }))
+    // Undo lives in the hero; the strip comes back with the offer.
+    expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
     expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
-    expect(within(strip).getByRole('button', { name: 'Play it here' })).toBeVisible()
+    expect(
+      within(await within(roster).findByRole('region', { name: 'Advantage' })).getByRole('button', {
+        name: 'Play it here',
+      }),
+    ).toBeVisible()
   })
 
   it('plays the advantage on the Ballot tab as a Power Vote, by tap and by drag (#673)', async () => {
@@ -596,7 +604,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Ballot · Charlie · Power Vote')).toBeVisible()
-    expect(within(strip).getByText(/Charlie is your Power Vote, worth double/)).toBeVisible()
+    expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     // The gold card holds the idol; the count is the regular names only.
     expect(within(ballot).getByRole('button', { name: 'Charlie is your Power Vote' })).toBeDisabled()
     expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('1 of 3')
@@ -652,8 +660,8 @@ describe('MySeasonPage state shell', () => {
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
 
-    // Undo drops the Power Vote's pick with it.
-    await userEvent.click(within(ballot).getByRole('button', { name: 'Undo' }))
+    // Undo, in the hero, drops the Power Vote's pick with it.
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
     expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))

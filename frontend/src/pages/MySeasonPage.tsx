@@ -832,6 +832,7 @@ export function MySeasonPage() {
               episodes={d.episodes}
               contestants={d.contestants}
               plays={d.plays}
+              setPlays={d.setPlays}
             />
           </ThisWeekHero>
 
@@ -2110,19 +2111,23 @@ function AdvantageLane({
   episodes,
   contestants,
   plays,
+  setPlays,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
   plays: AdvantagePlay[]
+  setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
 }) {
-  // State only: the play is made on the Tribe or Ballot tab, where the thing
-  // it changes is. Players kept missing the idol as the tap target (#691), so
-  // the lane now says where the play sits, or where to go and play it.
-  const episode = openEpisode(episodes, season)
+  // The play is made on the Tribe or Ballot tab, where the thing it changes
+  // is; players kept missing the idol as the tap target (#691). The lane
+  // says where the play sits, or where to go and play it, and once played
+  // it holds the one control left: Undo. The tabs' strips leave with the play.
+  const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+  const episode = weekly.openEpisode
   if (!episode || episode.is_finale) return null
-  const play = plays.find((p) => p.episode_id === episode.id)
-  const locked = advantagesLocked(episode, season)
+  const play = weekly.play
+  const locked = weekly.locked
 
   const targetContestant = play?.target_contestant_id
     ? contestants.find((c) => c.id === play.target_contestant_id)
@@ -2146,7 +2151,27 @@ function AdvantageLane({
       label="Advantage"
       done={play != null}
       muted={locked && play == null}
-      note={note}
+      note={
+        weekly.error ? (
+          <span role="alert" title={weekly.error} className="text-terracotta-200">
+            {weekly.error}
+          </span>
+        ) : (
+          note
+        )
+      }
+      action={
+        play != null && !locked ? (
+          <button
+            type="button"
+            onClick={() => void weekly.takeBack(play)}
+            disabled={weekly.busy || play.id.startsWith('pending-')}
+            className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2 disabled:opacity-40"
+          >
+            Undo
+          </button>
+        ) : undefined
+      }
       icon={
         <span className={play == null && locked ? 'opacity-40 grayscale' : ''}>
           <DoubleBadge
@@ -2437,11 +2462,9 @@ function RosterSection({
   const editAvailable = windowOpen && rosterLoaded && hasRoster && !editing
 
   // The advantage on this tab (#673 follow-on): one play per episode, on
-  // your tribe or your ballot. On offer, designating (drag the idol onto a
-  // row, or tap one), or played. The hero only reports it.
-  const doubledContestant = rosterDouble?.target_contestant_id
-    ? contestantMap.get(rosterDouble.target_contestant_id)
-    : undefined
+  // your tribe or your ballot. On offer, or designating (drag the idol onto
+  // a row, or tap one). Once played the strip leaves with it: the seal on
+  // the row is the record, and the hero holds Undo.
   const ballotPlayed = weekly.play?.advantage_type === 'double_vote_points'
   const canDouble = activeRoster.some(
     (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode == null,
@@ -2452,8 +2475,9 @@ function RosterSection({
     weekly.openEpisode == null ||
     weekly.openEpisode.is_finale ||
     picking === 'swap' ||
-    (weekly.locked && !rosterDouble) ||
-    (!rosterDouble && !canDouble) ? null : (
+    weekly.locked ||
+    rosterDouble != null ||
+    !canDouble ? null : (
       <div
         role="region"
         aria-label="Advantage"
@@ -2474,27 +2498,6 @@ function RosterSection({
             <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
               Cancel
             </button>
-          </>
-        ) : rosterDouble ? (
-          <>
-            <span aria-hidden="true" className="inline-flex shrink-0">
-              <DoubleBadge size={28} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <b>Advantage played.</b>{' '}
-              {doubledContestant ? displayName(doubledContestant) : '—'} earns double points this
-              episode.
-            </span>
-            {!weekly.locked && (
-              <button
-                type="button"
-                onClick={() => void weekly.takeBack(rosterDouble)}
-                disabled={weekly.busy || rosterDouble.id.startsWith('pending-')}
-                className={stripLink}
-              >
-                Undo
-              </button>
-            )}
           </>
         ) : (
           <>
@@ -3444,16 +3447,16 @@ function PicksSection({
           const maxPicks = Math.max(0, Math.min(ep.max_elimination_picks, stillIn - 1))
           const powerContestant = powerTarget ? contestantMap.get(powerTarget) : undefined
           const powerName = powerContestant ? displayName(powerContestant) : '—'
-          const powerBusy = play.busy || Boolean(ballotPlay?.id.startsWith('pending-'))
           const rosterDoubled = play.play?.advantage_type === 'double_roster_points'
           const stripLink =
             'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
 
-          // The advantage on this tab (#673 follow-on): on offer, designating
-          // (the idol drags onto a name, or a name's idol slot is tapped), or
-          // played. The hero only reports it.
+          // The advantage on this tab (#673 follow-on): on offer, or
+          // designating (the idol drags onto a name, or a name's idol slot is
+          // tapped). Once played the strip leaves with it: the gold card is
+          // the record, and the hero holds Undo.
           const advantageStrip =
-            maxPicks === 0 || (play.locked && !ballotPlay) ? null : (
+            maxPicks === 0 || play.locked || ballotPlay != null ? null : (
               <div
                 role="region"
                 aria-label="Advantage"
@@ -3475,25 +3478,6 @@ function PicksSection({
                     <button type="button" onClick={() => setDesignating(false)} className={stripLink}>
                       Cancel
                     </button>
-                  </>
-                ) : ballotPlay ? (
-                  <>
-                    <span aria-hidden="true" className="inline-flex shrink-0">
-                      <DoubleBadge size={28} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <b>Advantage played.</b> {powerName} is your Power Vote, worth double.
-                    </span>
-                    {!play.locked && (
-                      <button
-                        type="button"
-                        onClick={() => void play.takeBack(ballotPlay)}
-                        disabled={powerBusy}
-                        className={stripLink}
-                      >
-                        Undo
-                      </button>
-                    )}
                   </>
                 ) : (
                   <>
