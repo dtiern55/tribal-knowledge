@@ -2160,7 +2160,7 @@ function AdvantageLane({
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
     : locked
       ? 'Not played'
-      : 'Play it on your Tribe or Ballot'
+      : 'One per episode, on your Tribe or your Ballot'
 
   return (
     <HeroLane
@@ -2476,8 +2476,8 @@ function RosterSection({
         ) : (
           <>
             <span className="min-w-0 flex-1">
-              Play your advantage on your tribe to receive a <b>double point boost</b> for one
-              Survivor.
+              Play your <b className="text-brand-snake">advantage</b> on your tribe to receive a{' '}
+              <b>double point boost</b> for one Survivor.
             </span>
             <button
               type="button"
@@ -3560,8 +3560,9 @@ function PicksSection({
                 ) : (
                   <>
                     <span className="min-w-0 flex-1">
-                      Play your advantage on your ballot to receive a <b>Power Vote</b>, an extra
-                      name above your ladder{rungValue(ep, 0) != null ? ` worth ${rungValue(ep, 0)}` : ' worth double'}.
+                      Play your <b className="text-brand-snake">advantage</b> on your ballot to receive
+                      a <b>Power Vote</b>, an <i>extra</i> vote worth{' '}
+                      {rungValue(ep, 0) != null ? `${rungValue(ep, 0)} points` : 'double'}.
                     </span>
                     <button
                       type="button"
