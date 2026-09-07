@@ -3546,10 +3546,13 @@ function PicksSection({
           // gold card is the record, and the hero holds Undo.
           const advantageStrip =
             maxPicks === 0 || play.locked || play.play != null ? null : (
+              // The Tribe tab's band, so the card sits at the same height on
+              // both tabs: above the sheet, not inside its padding.
+              <div className="border-b border-paper-line px-4 py-3">
               <div
                 role="region"
                 aria-label="Advantage"
-                className="mb-5 flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-left text-xs text-forest-800"
+                className="flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-left text-xs text-forest-800"
               >
                 {designating ? (
                   <>
@@ -3585,6 +3588,7 @@ function PicksSection({
                     </button>
                   </>
                 )}
+              </div>
               </div>
             )
 
@@ -3691,9 +3695,10 @@ function PicksSection({
           )
 
           return (
+            <>
+            {advantageStrip}
             <div className="ballot-sheet">
               <BallotSheetHead prompt={confirmed ? undefined : 'Rank your picks. The top rung pays the most.'} />
-              {advantageStrip}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
@@ -3979,6 +3984,7 @@ function PicksSection({
                 </div>
               )}
             </div>
+            </>
           )
         })()}
 
