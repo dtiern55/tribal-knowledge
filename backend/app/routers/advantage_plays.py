@@ -244,6 +244,30 @@ def play_advantage(
                         target_id,
                     ],
                 )
+                # The Power Vote's name sits above the ladder (#694): it
+                # holds no rung, and the rest close up behind it. Ranks are
+                # cleared before they are reassigned so no two names ever
+                # share a rung mid-way.
+                cur.execute(
+                    """
+                    select id from elimination_picks
+                    where user_id = %s and league_season_id = %s
+                      and episode_id = %s and contestant_id <> %s
+                    order by rank nulls last, created_at
+                    """,
+                    [str(user_id), str(league_season_id), episode["id"], target_id],
+                )
+                ranked = [row["id"] for row in cur.fetchall()]
+                cur.execute(
+                    "update elimination_picks set rank = null"
+                    " where user_id = %s and league_season_id = %s and episode_id = %s",
+                    [str(user_id), str(league_season_id), episode["id"]],
+                )
+                for rung, pick_id in enumerate(ranked, start=1):
+                    cur.execute(
+                        "update elimination_picks set rank = %s where id = %s",
+                        [rung, str(pick_id)],
+                    )
 
             return play
 
@@ -307,8 +331,8 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
             # Safety net, not the normal path: the line above already brings
             # a targeted ×2's ballot back within the lowered limit. This only
             # bites for a legacy null-target play or an extra_vote take-back,
-            # where nothing above trimmed the ballot — trim the newest picks
-            # down to the limit, oldest first.
+            # where nothing above trimmed the ballot — keep the top rungs
+            # (#694; oldest first where nothing is ranked).
             ls = database.require_league_season(cur, play["league_season_id"])
             limit = pick_limit(cur, ls, episode, user_id)
             cur.execute(
@@ -317,7 +341,7 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
                 where id in (
                     select id from elimination_picks
                     where league_season_id = %s and episode_id = %s and user_id = %s
-                    order by created_at, id
+                    order by rank nulls last, created_at, id
                     offset %s
                 )
                 """,

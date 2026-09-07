@@ -149,6 +149,10 @@ class EliminationPick(BaseModel):
     episode_id: UUID
     contestant_id: UUID
     created_at: datetime
+    # Rung on the ballot ladder, 1 = most confident (#694). None for the
+    # Power Vote's name, which sits above the ladder, and for ballots saved
+    # before the ladder.
+    rank: Optional[int] = None
 
 
 class StandingSurvivor(BaseModel):
@@ -245,6 +249,8 @@ class SoleSurvivorRequest(BaseModel):
 
 
 class EliminationPickSubmitRequest(BaseModel):
+    # In ladder order, most confident first (#694). The Power Vote's name may
+    # sit anywhere in the list; it takes no rung.
     contestant_ids: list[UUID]
     # Which pick Power Vote doubles, if the play is in for this episode
     # (#673) — the ballot save carries the ×2 placement, no separate step.

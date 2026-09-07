@@ -181,7 +181,14 @@ function arrangePlayWorld(initial: {
       return play
     }
     const { contestant_ids, doubled_contestant_id } = body as { contestant_ids: string[]; doubled_contestant_id: string | null }
-    state.picks = contestant_ids.map((id, i) => ({ id: `pick-${i}`, episode_id: 'episode-3', contestant_id: id }))
+    // Ranks follow the order sent; the Power Vote's name takes none (#694).
+    let rung = 0
+    state.picks = contestant_ids.map((id, i) => ({
+      id: `pick-${i}`,
+      episode_id: 'episode-3',
+      contestant_id: id,
+      rank: id === doubled_contestant_id ? null : ++rung,
+    }))
     // The save moves an existing Power Vote to the doubled name (#682).
     if (doubled_contestant_id && state.plays[0]?.advantage_type === 'double_vote_points') {
       state.plays = [{ ...state.plays[0], target_contestant_id: doubled_contestant_id }]
@@ -627,7 +634,7 @@ describe('MySeasonPage state shell', () => {
 
     // Drag path on the submitted pile, like the roster row: the seal drops on
     // another slip to move the Power Vote there. One picks request moves the
-    // play; the old name stays on the ballot as a regular vote.
+    // play; the old name drops to the bottom rung of the ladder (#694).
     const seal = within(ballot).getByTitle('Drag onto another name to move your Power Vote')
     const mariaSlip = within(ballot).getByText('Maria').closest('[data-drop-id]') as Element
     dragTo(seal, mariaSlip)
@@ -635,7 +642,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByText('Ballot · Maria · Power Vote')).toBeVisible()
     await waitFor(() =>
       expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
-        contestant_ids: ['cast-1', 'cast-3', 'cast-2'],
+        contestant_ids: ['cast-1', 'cast-2', 'cast-3'],
         doubled_contestant_id: 'cast-3',
       }),
     )
@@ -648,11 +655,59 @@ describe('MySeasonPage state shell', () => {
     dragTo(idol, tiffanyCard)
     await waitFor(() =>
       expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
-        contestant_ids: ['cast-1', 'cast-3', 'cast-2', 'cast-4'],
+        contestant_ids: ['cast-1', 'cast-2', 'cast-3', 'cast-4'],
         doubled_contestant_id: 'cast-4',
       }),
     )
     expect(await screen.findByText('Ballot · Tiffany · Power Vote')).toBeVisible()
+  })
+
+  it('ranks the ballot in ladder order, reorders with the arrows, and a slip dragged into the gold rung is the Power Vote (#694)', async () => {
+    arrangePlayWorld({})
+    renderWithApp(<MySeasonPage />, { auth })
+    const ballot = await openBeat('Ballot')
+
+    // Names land on the next rung in the order tapped; the card says which.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Vote for Kenzie' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Vote for Charlie' }))
+    const ladder = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    expect(within(ladder).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Kenzie'),
+      expect.stringContaining('Charlie'),
+      expect.stringContaining('Tap a name below.'),
+    ])
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' })).toHaveTextContent('1st')
+
+    // The arrows reorder; the save carries the order as the ranks.
+    await userEvent.click(within(ladder).getByRole('button', { name: 'Move Charlie up' }))
+    expect(within(ladder).getAllByRole('listitem')[0]).toHaveTextContent('Charlie')
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Save ballot' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-2', 'cast-1'],
+        doubled_contestant_id: null,
+      }),
+    )
+    expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
+    // The pile keeps ladder order and names the rung.
+    const slips = within(ballot).getAllByText(/^(1st|2nd)$/).map((el) => el.closest('.ballot-slip')?.textContent)
+    expect(slips).toEqual(['1stCharlie', '2ndKenzie'])
+
+    // Play it here opens the gold rung; a slip dragged into it is the Power
+    // Vote, and its old rung closes up.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
+    const goldRung = within(ballot).getByText('Drag a name here, or tap the idol on a name.').closest('[data-drop-id]') as Element
+    const kenzieSlip = within(within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })).getByText('Kenzie')
+    dragTo(kenzieSlip, goldRung)
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/advantage-plays', {
+        advantage_type: 'double_vote_points',
+        target_contestant_id: 'cast-1',
+      }),
+    )
+    expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: 'Kenzie is your Power Vote' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('1st')
   })
 
   it('takes a Power Vote that was a regular vote off the ballot in the same paint, and back again on Undo', async () => {

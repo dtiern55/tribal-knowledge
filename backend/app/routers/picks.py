@@ -46,7 +46,7 @@ def get_season_picks(
                 select p.* from elimination_picks p
                 join episodes e on e.id = p.episode_id
                 where p.league_season_id = %s and p.user_id = %s{lock_filter}
-                order by p.episode_id, p.created_at
+                order by p.episode_id, p.rank nulls first, p.created_at
                 """,
                 [str(league_season_id), str(user_id)],
             )
@@ -183,7 +183,7 @@ def get_picks(
                 """
                 select * from elimination_picks
                 where league_season_id = %s and episode_id = %s and user_id = %s
-                order by created_at
+                order by rank nulls first, created_at
                 """,
                 [str(league_season_id), str(episode_id), str(user_id)],
             )
@@ -396,11 +396,39 @@ def submit_picks(
                     [str(user_id), str(league_season_id), str(episode_id), cid],
                 )
 
+            # The ladder (#694): names rank in the order sent, the Power Vote's
+            # name on top with no rank of its own. Cleared first so a name
+            # moving down a rung never collides with the one moving up.
+            cur.execute(
+                """
+                update elimination_picks set rank = null
+                where league_season_id = %s and episode_id = %s and user_id = %s
+                """,
+                [str(league_season_id), str(episode_id), str(user_id)],
+            )
+            rank = 0
+            for cid in ids:
+                rank_value = None if cid == doubled_id else (rank := rank + 1)
+                cur.execute(
+                    """
+                    update elimination_picks set rank = %s
+                    where league_season_id = %s and episode_id = %s and user_id = %s
+                      and contestant_id = %s
+                    """,
+                    [
+                        rank_value,
+                        str(league_season_id),
+                        str(episode_id),
+                        str(user_id),
+                        cid,
+                    ],
+                )
+
             cur.execute(
                 """
                 select * from elimination_picks
                 where league_season_id = %s and episode_id = %s and user_id = %s
-                order by created_at
+                order by rank nulls first, created_at
                 """,
                 [str(league_season_id), str(episode_id), str(user_id)],
             )

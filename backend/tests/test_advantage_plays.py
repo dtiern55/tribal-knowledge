@@ -546,3 +546,46 @@ def test_other_users_play_visible_after_episode_locks(client, db_conn, current_u
         f"/league-seasons/{season['league_season_id']}/advantage-plays/{other['id']}"
     ).json()
     assert len(plays) == 1
+
+
+@pytest.mark.integration
+def test_power_vote_on_a_ranked_name_lifts_it_off_the_ladder(
+    client, db_conn, current_user
+):
+    """#694: naming a 1st pick as the Power Vote frees its rung and the rest
+    close up; taking the play back drops the name and leaves the rungs."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"])
+    a = insert_contestant(db_conn, season["id"], "A")
+    b = insert_contestant(db_conn, season["id"], "B")
+    c = insert_contestant(db_conn, season["id"], "C")
+    insert_contestant(db_conn, season["id"], "D")
+    insert_contestant(db_conn, season["id"], "E")
+    ls = season["league_season_id"]
+    picks_url = f"/league-seasons/{ls}/episodes/{ep['id']}/picks"
+    client.post(
+        picks_url,
+        json={"contestant_ids": [str(a["id"]), str(b["id"]), str(c["id"])]},
+    )
+
+    r = client.post(
+        f"/league-seasons/{ls}/advantage-plays",
+        json={
+            "advantage_type": "double_vote_points",
+            "target_contestant_id": str(a["id"]),
+        },
+    )
+    assert r.status_code == 201
+    got = client.get(f"{picks_url}/{current_user['id']}").json()
+    assert [(p["contestant_id"], p["rank"]) for p in got] == [
+        (str(a["id"]), None),
+        (str(b["id"]), 1),
+        (str(c["id"]), 2),
+    ]
+
+    assert client.delete(f"/advantage-plays/{r.json()['id']}").status_code == 204
+    got = client.get(f"{picks_url}/{current_user['id']}").json()
+    assert [(p["contestant_id"], p["rank"]) for p in got] == [
+        (str(b["id"]), 1),
+        (str(c["id"]), 2),
+    ]
