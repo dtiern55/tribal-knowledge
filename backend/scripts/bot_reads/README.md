@@ -9,6 +9,7 @@ run against a season nobody has watched yet.
 {
   "draft": ["Most Wanted", "Next", "..."],
   "avoid": ["Nobody would pick them after that premiere"],
+  "spread": 40,
   "episodes": {
     "2": {
       "likely_boots":   ["Most likely", "Next", "Third"],
@@ -44,6 +45,11 @@ Notes from building it:
 - **The weekly play is the bot's lean, not the read's.** Ballot bots mostly
   double the ballot, Roster bots mostly double a rostered castaway, Mixed
   bots flip a coin. A `confidence` key in older reads is ignored.
+- **`spread` says "no consensus".** The strict-follow bots take the read in
+  lockstep, so a plain list always over-rosters its front. `spread` is a floor
+  on every bot's follow: 40 gives the draft a light tilt toward the front and
+  18 different rosters, 100 leaves votes close to uniform with the named boots
+  just ahead. An episode's own `spread` overrides the season's.
 - **`safe` keeps someone off ballots entirely.** Names not in `likely_boots`
   still get votes from the looser and random bots, since they land in the
   leftover field. If the read says nobody would vote for them, say so here.
