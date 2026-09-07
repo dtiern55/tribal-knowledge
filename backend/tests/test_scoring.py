@@ -378,9 +378,9 @@ def test_elimination_points_legacy_targeted_double(db_conn):
     insert_elimination(db_conn, ep["id"], c["id"])
     insert_advantage_play(db_conn, user["id"], ep["id"], "double_vote_points", c["id"])
 
-    # pre-merge correct pick 16 -> doubled to 32
+    # A targeted play pays the season's pre-merge Power Vote value (#694).
     assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
-        str(user["id"]): 32
+        str(user["id"]): 36
     }
 
 
@@ -640,10 +640,10 @@ def test_elimination_pick_results_hit_and_miss(db_conn):
         db_conn, season["league_season_id"], user["id"]
     )
     by_c = {r["contestant_id"]: r for r in results}
-    assert by_c[str(hit["id"])]["points"] == 16  # base, not 32
+    assert by_c[str(hit["id"])]["points"] == 16  # base, not the Power Vote value
     assert (
         scoring.elimination_points(db_conn, season["league_season_id"])[str(user["id"])]
-        == 32
+        == 36
     )
 
 
@@ -784,7 +784,7 @@ def test_unranked_pick_in_a_ladder_season_pays_the_flat_rate(db_conn):
 
 @pytest.mark.integration
 def test_power_vote_pays_its_own_value_not_double(db_conn):
-    """#694: the Power Vote's name pays 32 pre-merge / 38 post-merge — a value
+    """#694: the Power Vote's name pays 36 pre-merge / 40 post-merge — a value
     from the snapshot, not twice a rung. The breakdown keeps the pick at its
     base and reports the difference as the play's bonus (#136)."""
     season = insert_season(db_conn, merge_episode=7)
@@ -798,11 +798,11 @@ def test_power_vote_pays_its_own_value_not_double(db_conn):
     insert_elimination(db_conn, ep["id"], c["id"])
 
     ls = season["league_season_id"]
-    assert scoring.elimination_points(db_conn, ls) == {str(user["id"]): 38}
+    assert scoring.elimination_points(db_conn, ls) == {str(user["id"]): 40}
     results = scoring.elimination_pick_results(db_conn, ls, user["id"])
     assert [(r["correct"], r["points"]) for r in results] == [(True, 20)]
     assert scoring.advantage_bonus_by_play(db_conn, ls, user["id"]) == {
-        str(play["id"]): 18
+        str(play["id"]): 20
     }
 
 

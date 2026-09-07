@@ -487,7 +487,8 @@ def test_played_double_vote_reports_points_earned(client, db_conn, current_user)
         f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
     played = next(p for p in plays if p["id"] == play["id"])
-    assert played["points_earned"] == 16  # pre-merge correct_elimination value
+    # Pre-merge Power Vote value less the pick's flat base: 36 - 16 (#694).
+    assert played["points_earned"] == 20
 
 
 @pytest.mark.integration
