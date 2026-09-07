@@ -142,12 +142,22 @@ async function openBeat(name: 'Tribe' | 'Ballot' | 'Advantage') {
 function arrangePlayWorld(initial: {
   plays?: { id: string; episode_id: string; advantage_type: string; target_contestant_id: string }[]
   picks?: { id: string; episode_id: string; contestant_id: string }[]
+  /** Week two: episode 2 open and the two-castaway tribe still editable. */
+  preLock?: boolean
 }) {
-  const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
-  const state = { plays: initial.plays ?? [], picks: initial.picks ?? [] }
-  vi.mocked(getActiveSeason).mockResolvedValue(season)
+  const openNumber = initial.preLock ? 2 : 3
+  const open = { ...episode(openNumber, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+  const state = {
+    plays: initial.plays ?? [],
+    picks: initial.picks ?? [],
+    roster: [
+      { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+      { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+    ],
+  }
+  vi.mocked(getActiveSeason).mockResolvedValue(initial.preLock ? { ...season, roster_size: 2 } : season)
   vi.mocked(api.get).mockImplementation(async (path: string) => {
-    if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+    if (path.endsWith('/episodes')) return [episode(openNumber - 1, 'scored', '2026-08-08T00:00:00Z'), open]
     if (path.endsWith('/contestants')) {
       return [
         { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
@@ -158,12 +168,7 @@ function arrangePlayWorld(initial: {
       ]
     }
     if (path.includes('/advantage-plays/')) return state.plays
-    if (path.includes('/roster/')) {
-      return [
-        { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
-        { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
-      ]
-    }
+    if (path.includes('/roster/')) return state.roster
     if (path.includes('/picks/')) return state.picks
     if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
     if (path.endsWith('/reveal')) return undefined
@@ -179,6 +184,17 @@ function arrangePlayWorld(initial: {
         state.picks = [...state.picks, { id: `pick-${target_contestant_id}`, episode_id: 'episode-3', contestant_id: target_contestant_id }]
       }
       return play
+    }
+    if (path.endsWith('/roster')) {
+      // roster.py drops a Double Castaway Points play on anyone who leaves.
+      const { contestant_ids } = body as { contestant_ids: string[] }
+      state.roster = contestant_ids.map((id, i) => ({
+        id: `roster-${i}`, contestant_id: id, active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0,
+      }))
+      state.plays = state.plays.filter(
+        (p) => p.advantage_type !== 'double_roster_points' || contestant_ids.includes(p.target_contestant_id),
+      )
+      return state.roster
     }
     const { contestant_ids, doubled_contestant_id } = body as { contestant_ids: string[]; doubled_contestant_id: string | null }
     // Ranks follow the order sent; the Power Vote's name takes none (#694).
@@ -556,6 +572,32 @@ describe('MySeasonPage state shell', () => {
     expect(within(roster).getByText(/×2 this week/)).toBeVisible()
     expect(within(roster).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
+  })
+
+  it('drops the play with a doubled castaway edited off the tribe pre-lock, from the footer Edit', async () => {
+    arrangePlayWorld({
+      preLock: true,
+      plays: [{ id: 'play-1', episode_id: 'episode-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' }],
+    })
+    renderWithApp(<MySeasonPage />, { auth })
+    expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
+    const roster = await openBeat('Tribe')
+
+    // Edit sits in the lane's footer with the lock date, not on the toolbar.
+    const edit = within(roster).getByRole('button', { name: /locks when episode 2 starts.*Edit tribe/ })
+    await userEvent.click(edit)
+    await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
+    await userEvent.click(within(roster).getByRole('button', { name: /Maria/ }))
+    await userEvent.click(within(roster).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/roster', { contestant_ids: ['cast-2', 'cast-3'] }),
+    )
+
+    // The server deleted the play with Kenzie; the hero learns that without a
+    // reload, so there is no stale Undo to 404 on ("Advantage not found").
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
+    expect(within(roster).getByRole('region', { name: 'Advantage' })).toBeVisible()
   })
 
   it('plays the advantage on the Tribe tab by tap, and the tab wears the idol until Undo', async () => {
