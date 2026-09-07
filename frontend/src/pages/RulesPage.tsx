@@ -275,7 +275,7 @@ export function RulesPage() {
             <RuleList>
               <li>Each episode you get one advantage. Use it or lose it. It does not carry over.</li>
               <li><b>Double Castaway Points:</b> one tribe member's points count double this episode.</li>
-              <li><b>Power Vote:</b> add one more name to your ballot. If that name goes home, it pays double.</li>
+              <li><b>Power Vote:</b> name one castaway on top of your ballot. If they go home, it pays double.</li>
               <li>
                 You can change or remove it until the episode locks.
                 {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`} No advantage on the finale.
