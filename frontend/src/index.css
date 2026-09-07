@@ -792,7 +792,7 @@ html.locked-night .tribal-border {
   transform: rotate(var(--ballot-rotation, 0deg));
 }
 
-/* The vote wearing the Extra Vote ×2 (#673): gold wash under the seal. */
+/* The vote wearing the Power Vote (#673): gold wash under the seal. */
 .ballot-slip--doubled {
   border-color: var(--color-gold-600);
   background: var(--color-gold-50);

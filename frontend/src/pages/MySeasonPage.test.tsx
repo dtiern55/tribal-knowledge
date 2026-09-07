@@ -445,7 +445,7 @@ describe('MySeasonPage state shell', () => {
 
     // The Ballot half is a gold slip on the sheet.
     const ballot = await openBeat('Ballot')
-    expect(within(ballot).getByRole('button', { name: 'Extra Vote ×2' })).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: 'Power Vote' })).toBeVisible()
     expect(within(ballot).getByText('One more name. If it goes home, it pays double.')).toBeVisible()
   })
 
@@ -589,8 +589,8 @@ describe('MySeasonPage state shell', () => {
     // The gold slip opens the ballot for one more name and writes nothing:
     // the play lands with the ballot save. The roster double stays until then,
     // and the sheet says so.
-    await userEvent.click(await within(ballot).findByRole('button', { name: 'Extra Vote ×2' }))
-    expect(within(ballot).getByText(/Extra Vote ×2 in play/)).toBeVisible()
+    await userEvent.click(await within(ballot).findByRole('button', { name: 'Power Vote' }))
+    expect(within(ballot).getByText(/Power Vote in play/)).toBeVisible()
     expect(within(ballot).getByText(/Your Tribe ×2 moves here when you save/)).toBeVisible()
     expect(screen.getByText(/names written/)).toHaveTextContent('1 of 4 names written')
     // The hero keeps reporting the roster play until the save moves it.
@@ -624,7 +624,7 @@ describe('MySeasonPage state shell', () => {
     // The doubled vote leads the pile in gold, wearing the seal.
     const sheet = screen.getByText('Ballot submitted').closest('.ballot-sheet') as HTMLElement
     expect(within(sheet).getByText('Kenzie').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled')
-    expect(within(sheet).queryByRole('button', { name: 'Extra Vote ×2' })).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'Power Vote' })).not.toBeInTheDocument()
 
     // Moving the ×2 is an edit: tap another slip in the row, save again.
     await userEvent.click(within(sheet).getByRole('button', { name: 'Edit ballot' }))
@@ -680,14 +680,14 @@ describe('MySeasonPage state shell', () => {
     const ballot = await openBeat('Ballot')
     const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
     expect(ballotTab).toHaveTextContent('1 of 3')
-    expect(await within(ballot).findByText(/Extra Vote ×2 in play/)).toBeVisible()
+    expect(await within(ballot).findByText(/Power Vote in play/)).toBeVisible()
 
     // Taking it back drops the doubled vote with it, and the slip is back on offer.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Take it back' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
     expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
     await waitFor(() => expect(ballotTab).toHaveTextContent('None'))
-    expect(within(ballot).getByRole('button', { name: 'Extra Vote ×2' })).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: 'Power Vote' })).toBeVisible()
   })
 
   it('moves a saved ballot ×2 to the roster by playing Double a castaway on Tribe', async () => {
@@ -957,7 +957,7 @@ describe('MySeasonPage state shell', () => {
     // Cast page — so the locked roster no longer links out.
     expect(screen.getByText('Charlie').closest('a')).toBeNull()
     // #451: a played ballot double now reads as the idol ×2 mark on the Ballot heading.
-    expect(screen.getByTitle('Extra Vote ×2 this episode')).toBeVisible()
+    expect(screen.getByTitle('Power Vote this episode')).toBeVisible()
   })
 
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {
@@ -1067,7 +1067,7 @@ describe('MySeasonPage state shell', () => {
     // The play is not a lane of its own: the idol rides the doubled vote, at
     // what it paid, and the Ballot lane total carries the bonus.
     expect(screen.queryByRole('heading', { name: 'Advantage' })).not.toBeInTheDocument()
-    expect(within(dialog).getByRole('img', { name: 'Extra Vote ×2' })).toBeVisible()
+    expect(within(dialog).getByRole('img', { name: 'Power Vote' })).toBeVisible()
     expect(dialog).toHaveTextContent(/Kenzie\+30/)
     expect(dialog).toHaveTextContent(/Up 3.*#2/)
     expect(screen.getByRole('heading', { name: 'Episode insight' })).toBeVisible()

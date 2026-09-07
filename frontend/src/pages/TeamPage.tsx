@@ -322,7 +322,7 @@ export function TeamPage() {
               <div className="overflow-hidden rounded-xl border border-paper-edge record-paper">
                 {votes.map(({ episode, picks, eliminatedIds }) => {
                   const ballotDouble = doubles.find((play) => play.episode_id === episode.id)
-                  // Extra Vote ×2 names one pick (#673), and the idol sits on that
+                  // Power Vote names one pick (#673), and the idol sits on that
                   // vote; a #303-era play has no target and doubled the whole
                   // ballot, so its idol sits by the episode instead.
                   const x2 = ballotDouble?.target_contestant_id ?? null
@@ -331,7 +331,7 @@ export function TeamPage() {
                       <span className="shrink-0 text-sm font-medium text-paper-ink">
                         Ep {episode.episode_number}
                       </span>
-                      {ballotDouble && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+                      {ballotDouble && !x2 && <DoubleBadge size={18} title="Power Vote this episode" />}
                       <span
                         role="group"
                         aria-label="Votes"
@@ -344,7 +344,7 @@ export function TeamPage() {
                           picks.map((pick) => {
                             const nameC = contestantMap.get(pick.contestant_id)
                             const name = nameC ? displayName(nameC) : '—'
-                            const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+                            const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
                             // Pick results are base values (#136); the doubled vote shows what it paid.
                             const points = (pickPoints.get(`${episode.id}:${pick.contestant_id}`) ?? 0) * (mark ? 2 : 1)
                             return eliminatedIds.has(pick.contestant_id) ? (

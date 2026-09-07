@@ -76,7 +76,7 @@ contestant appears in that episode's `eliminations`. The point value comes from
 the season's `correct_elimination` snapshot and uses its pre/post-merge branch.
 Incorrect picks score zero.
 
-Extra Vote ×2 (advantage_type `double_vote_points`, redesigned #673) adds one
+Power Vote (advantage_type `double_vote_points`, redesigned #673) adds one
 extra pick to that episode's ballot, named by `target_contestant_id`, and adds
 one extra copy of that pick's points if it hits — every other pick on the
 ballot scores at its normal rate. Pre-#673 plays (#303) carry no target and
@@ -115,7 +115,7 @@ supported facts are:
   the share of submitted ballots that included them.
 - Submitted ballots with at least two correct elimination picks.
 - The viewer's episode score versus the median among season participants.
-- League usage of Double Castaway Points, Extra Vote ×2, or Tribe Swap.
+- League usage of Double Castaway Points, Power Vote, or Tribe Swap.
 
 Configuration contains no aggregate values. Facts are calculated only through
 the authenticated scored-result endpoint and expose counts or percentages,

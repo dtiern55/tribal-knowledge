@@ -48,7 +48,7 @@ import type {
   StandingSurvivor,
 } from '../types'
 
-// The ballot's weekly play is Extra Vote ×2 (#673): one extra vote, and the
+// The ballot's weekly play is Power Vote (#673): one extra vote, and the
 // ×2 sits on whichever of your names you put it on. On a locked ballot the
 // carved idol is stamped once on the corner as the play's mark (#484); on the
 // open ballot it rides the doubled name. Corner press: the host container
@@ -62,10 +62,10 @@ let roomGeneration = 0
 function BallotStamp({ size = 54 }: { size?: number }) {
   return (
     <span
-      title="Extra Vote ×2 this episode"
+      title="Power Vote this episode"
       className="pointer-events-none absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]"
     >
-      <DoubleBadge size={size} title="Extra Vote ×2 this episode" />
+      <DoubleBadge size={size} title="Power Vote this episode" />
     </span>
   )
 }
@@ -590,7 +590,7 @@ export function MySeasonPage() {
     // pick; "done" still waits on a locked-in ballot, like the weekly one.
     const isFinale = openEp.is_finale
     const finaleFilled = finaleProgress?.filled ?? 0
-    // Extra Vote ×2 adds one vote on top of the schedule (#673).
+    // Power Vote adds one vote on top of the schedule (#673).
     const extraVote = d.plays.some(
       (p) =>
         p.episode_id === openEp.id &&
@@ -678,7 +678,7 @@ export function MySeasonPage() {
                   ? 'A castaway in your tribe is out'
                   : `${deadSlots} castaways in your tribe are out`
                 : advantageUnplayed
-                  ? 'Your ×2 is still unplayed'
+                  ? 'Your advantage is still unplayed'
                   : isFinale
                     ? "You're all set for the finale"
                     : `You're all set for Ep ${openEp.episode_number}`,
@@ -1263,7 +1263,7 @@ function LockedState({
               Ballot
             </h3>
             {played?.advantage_type === 'double_vote_points' && played.target_contestant_id == null && (
-              <DoubleBadge size={24} title="Extra Vote ×2 this episode" />
+              <DoubleBadge size={24} title="Power Vote this episode" />
             )}
           </div>
           {picks.length > 0 ? (
@@ -1283,7 +1283,7 @@ function LockedState({
                     doubled={doubled}
                     tribeColor={contestant?.tribe_color}
                     rotation={[-0.9, 0.6, -0.3][index % 3]}
-                    leading={doubled ? <DoubleBadge size={20} title="Extra Vote ×2" /> : null}
+                    leading={doubled ? <DoubleBadge size={20} title="Power Vote" /> : null}
                   />
                 )
               })}
@@ -1432,7 +1432,7 @@ function LeagueHub({
                   <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
                   {doubled > 0 && (
                     <span className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold tabular-nums ${sub}`}>
-                      <DoubleBadge size={16} title="Extra Vote ×2" />
+                      <DoubleBadge size={16} title="Power Vote" />
                       {doubled}
                     </span>
                   )}
@@ -1451,7 +1451,7 @@ function LeagueHub({
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
           <dl className="mt-2 space-y-3">
             <div className="flex items-center gap-2">
-              <dt className="min-w-0 flex-1 truncate text-sm">Extra Vote ×2</dt>
+              <dt className="min-w-0 flex-1 truncate text-sm">Power Vote</dt>
               <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
             </div>
             {topRosterDoubles.length > 0 ? (
@@ -1518,7 +1518,7 @@ function LeagueHub({
                   </svg>
                 </summary>
                 <div className="grid gap-3 px-3 pb-3">
-                  {/* The play lands where it applies: Extra Vote ×2 on its named
+                  {/* The play lands where it applies: Power Vote on its named
                       pick (a #303-era play with no target doubled the whole
                       ballot), a roster double on its target castaway. */}
                   <HubCastawayRow
@@ -1532,7 +1532,7 @@ function LeagueHub({
                         ? (entry.advantage_target?.contestant_id ?? null)
                         : null
                     }
-                    doubledTitle="Extra Vote ×2 this episode"
+                    doubledTitle="Power Vote this episode"
                   />
                   <HubCastawayRow
                     label="Tribe"
@@ -1585,7 +1585,7 @@ function HubCastawayRow({
     <div>
       <div className="flex items-center gap-1.5">
         <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {doubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+        {doubled && <DoubleBadge size={18} title="Power Vote this episode" />}
       </div>
       {survivors.length > 0 ? (
         // Five to a row so a full tribe sits on one line; portrait over name,
@@ -2865,7 +2865,7 @@ function BallotRecord({
 }) {
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const scored = ep.status === 'scored'
-  // The ballot play wears the idol once (#484). Extra Vote ×2 names one pick
+  // The ballot play wears the idol once (#484). Power Vote names one pick
   // (#673), and the idol sits on that vote. A #303-era play has no target and
   // doubled the whole ballot, so its idol stands apart: a corner-seal stamp on
   // the prominent current ballot, a small seal by the episode number on the
@@ -2891,7 +2891,7 @@ function BallotRecord({
               // Only scored episodes have a settled result. A correct vote gets
               // the CorrectVote pill; incorrect stays neutral, not red — most
               // votes miss and a wall of red feels bad (#53, #135).
-              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
               if (scored && result?.correct === true)
                 return (
                   <CorrectVote
@@ -2941,7 +2941,7 @@ function BallotRecord({
       <span className="shrink-0 text-sm font-medium text-gray-700">
         {ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`}
       </span>
-      {ballotDoubled && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+      {ballotDoubled && !x2 && <DoubleBadge size={18} title="Power Vote this episode" />}
       {/* Overflows with two or three chips on a narrow phone, so it is a
           scroll container and has to be focusable — otherwise the votes past
           the fold are unreachable by keyboard or switch (WCAG 2.1.1). */}
@@ -2962,7 +2962,7 @@ function BallotRecord({
             // misses stay neutral rather than red (#53, #135). The idol sits
             // on the named pick, and its pill carries the doubled points
             // (pickResults are base values, #136).
-            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
             return scored && result?.correct === true ? (
               <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} icon={mark} />
             ) : (
@@ -3071,7 +3071,7 @@ function PicksSection({
 
   const play = useWeeklyPlay(season, episodes, plays, setPlays)
 
-  // Extra Vote ×2 (#673): the ballot play adds one vote and doubles the name
+  // Power Vote (#673): the ballot play adds one vote and doubles the name
   // it sits on. It travels with the ballot save — vote as normal, pick which
   // name wears the ×2, press Save — so nothing is written until then. Until
   // saved, "armed" is the ballot open for the extra vote.
@@ -3273,7 +3273,7 @@ function PicksSection({
   // row is where it moves.
   const seal = (
     <span className="pointer-events-none absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]">
-      <DoubleBadge size={34} title="Extra Vote ×2" />
+      <DoubleBadge size={34} title="Power Vote" />
     </span>
   )
   const nextOpen = episodes.find(isOpen)
@@ -3329,7 +3329,7 @@ function PicksSection({
           const hasSavedPicks = savedPicks.length > 0
           const confirmed = hasSavedPicks && !editing
           const savedIds = new Set(savedPicks.map((pick) => pick.contestant_id))
-          // One play per episode (#307); on the ballot it is Extra Vote ×2
+          // One play per episode (#307); on the ballot it is Power Vote
           // (#673): one vote beyond the schedule, and the ×2 sits on any one
           // of your names. It saves with the ballot, so until then "armed"
           // is the ballot open for the extra vote.
@@ -3411,7 +3411,7 @@ function PicksSection({
                     <DoubleBadge size={20} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <b>Extra Vote ×2 in play.</b> {maxPicks} names, and one of them pays double.
+                    <b>Power Vote in play.</b> {maxPicks} names, and one of them pays double.
                     {rosterDoubled && ' Your Tribe ×2 moves here when you save.'}
                   </span>
                   <button
@@ -3580,7 +3580,7 @@ function PicksSection({
                     className="inline-flex rounded disabled:opacity-40"
                   >
                     <VoteSlip
-                      name="Extra Vote ×2"
+                      name="Power Vote"
                       doubled
                       rotation={0.6}
                       leading={

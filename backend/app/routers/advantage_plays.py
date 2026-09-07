@@ -16,7 +16,7 @@ from app.schemas import AdvantagePlay, AdvantagePlayRequest, AdvantageType
 router = APIRouter(tags=["advantage_plays"])
 
 # Advantages that name a target. double_roster_points names a rostered
-# contestant; double_vote_points ("Extra Vote ×2", #673) names one extra pick
+# contestant; double_vote_points ("Power Vote", #673) names one extra pick
 # for this episode's ballot that pays double — it does not need to be
 # rostered, only still pickable. extra_vote raises the pick limit and takes
 # no target at all.
@@ -164,7 +164,7 @@ def play_advantage(
                             status_code=400,
                             detail="Target contestant is not on your active roster",
                         )
-                else:  # double_vote_points ("Extra Vote ×2", #673)
+                else:  # double_vote_points ("Power Vote", #673)
                     # The doubled name doesn't need to be rostered — only
                     # pickable, same rule submit_picks enforces on the ballot.
                     cur.execute(
@@ -223,7 +223,7 @@ def play_advantage(
             )
             play = cur.fetchone()
 
-            # Extra Vote ×2's name is always a pick (#673) — add it to the
+            # Power Vote's name is always a pick (#673) — add it to the
             # ballot here if it isn't already there, so playing it never
             # leaves the doubled slot empty. clock_timestamp(), not now(): see
             # the matching insert in picks.submit_picks for why.

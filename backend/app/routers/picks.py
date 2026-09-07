@@ -72,7 +72,7 @@ def already_eliminated_ids(
 ) -> list[str]:
     """Which of `ids` were finally eliminated before this episode.
 
-    Shared with advantage_plays.py: Extra Vote ×2's target must be as
+    Shared with advantage_plays.py: Power Vote's target must be as
     pickable as any ballot name (#673).
     """
     cur.execute(
@@ -95,13 +95,13 @@ def pick_limit(
     """This user's pick cap for one episode (#673 extends #240).
 
     max_elimination_picks, plus one for an extra_vote play or a targeted
-    Extra Vote ×2 play that episode (#307: at most one such play exists),
+    Power Vote play that episode (#307: at most one such play exists),
     capped at (contestants still in the game − 1) so a big base limit never
     lets you pick every remaining option. Shared by submit_picks (to reject
     an over-long ballot) and take_back_advantage (to trim one down after a
     ×2 play is undone).
 
-    assume_double_vote: count as if a targeted Extra Vote ×2 play exists even
+    assume_double_vote: count as if a targeted Power Vote play exists even
     before its row is written — the ballot save creates that play in the same
     request it raises the limit for (#673).
     """
@@ -230,7 +230,7 @@ def submit_picks(
             ids = [str(c) for c in body.contestant_ids]
 
             # The ballot save carries the ×2 placement now (#673) — there's no
-            # separate play/move step. Look up this episode's Extra Vote ×2
+            # separate play/move step. Look up this episode's Power Vote
             # play, if any, to decide whether this request creates one, moves
             # it, drops it, or leaves it alone.
             cur.execute(
