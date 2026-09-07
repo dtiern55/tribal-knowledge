@@ -3547,9 +3547,10 @@ function PicksSection({
           // gold card is the record, and the hero holds Undo.
           const advantageStrip =
             maxPicks === 0 || play.locked || play.play != null ? null : (
-              // The Tribe tab's band, so the card sits at the same height on
-              // both tabs: above the sheet, not inside its padding.
-              <div className="border-b border-paper-line px-4 py-3">
+              // The Tribe tab's band. The negative margins cancel this
+              // section's px-4 py-3.5 wrapper so the card sits flush under
+              // the tab, at the same height and inset as on Tribe.
+              <div className="-mx-4 -mt-3.5 border-b border-paper-line px-4 py-3">
               <div
                 role="region"
                 aria-label="Advantage"
