@@ -75,7 +75,14 @@ function BallotStamp({ size = 54 }: { size?: number }) {
 /** The idol lifted off the page, following the finger during a drag (#487).
  *  Peels up on grab and springs back to the grab point on a missed drop; both
  *  are gated on prefers-reduced-motion in CSS. */
-function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
+function SealGhost({
+  drag,
+  label,
+}: {
+  drag: { x: number; y: number; releasing?: boolean } | null
+  /** A name in flight (a ladder slip) rather than the idol. */
+  label?: string
+}) {
   if (!drag) return null
   // Float the idol above the finger, not under it: on a phone the thumb covers
   // the drop point, so a seal sitting there is invisible.
@@ -86,7 +93,7 @@ function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean
       style={{ left: drag.x, top: drag.y, transform: `translate(-50%, calc(-50% - ${SEAL_LIFT_Y}px))` }}
     >
       <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
-        <DoubleBadge size={44} />
+        {label ? <span className="ballot-slip bg-paper">{label}</span> : <DoubleBadge size={44} />}
       </span>
     </div>,
     document.body,
@@ -653,12 +660,16 @@ export function MySeasonPage() {
         label: 'Tribe',
         done: rosterDone,
         note: `${active.length} active${swappedThisEpisode ? ' · swapped' : ''}`,
+        played: d.plays.some(
+          (p) => p.episode_id === openEp.id && p.advantage_type === 'double_roster_points',
+        ),
       },
       {
         key: 'ballot',
         label: 'Ballot',
         done: ballotDone,
         note: saved > 0 ? `${saved} of ${maxPicks}` : 'None',
+        played: powerVote != null,
       },
     ]
 
@@ -2316,44 +2327,9 @@ function RosterSection({
 
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
-  // On a drop, show the seal on its destination immediately while the
-  // delete-and-create request catches up. Without this bridge the server-
-  // backed target briefly renders old → none → new, which reads as a snap-back.
-  const [pendingDoubleTarget, setPendingDoubleTarget] = useState<string | null>(null)
-  const displayedDoubleTarget =
-    pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
-
-  // Stamp the seal on the row it just landed on (#487). Fires on any change of
-  // target — a drop, a tap, a move — but not on first paint.
-  const [stampId, setStampId] = useState<string | null>(null)
-  const prevDoubleTarget = useRef<string | null | undefined>(undefined)
-  useEffect(() => {
-    const prev = prevDoubleTarget.current
-    prevDoubleTarget.current = displayedDoubleTarget
-    if (prev !== undefined && displayedDoubleTarget && displayedDoubleTarget !== prev) {
-      setStampId(displayedDoubleTarget)
-      const timer = setTimeout(() => setStampId(null), 790)
-      return () => clearTimeout(timer)
-    }
-  }, [displayedDoubleTarget])
-
-  // The idol drags onto a row (#407): from the strip to designate, or from
-  // the doubled row to move. Tapping a row while designating is the same
-  // commit, through weekly.replace.
-  const { drag, dragging, start: startSealDrag } = useSealDrag({
-    disabled: weekly.locked || weekly.busy,
-    canDropOn: (id) =>
-      id !== displayedDoubleTarget &&
-      activeRoster.some((p) => p.contestant_id === id) &&
-      contestantMap.get(id)?.eliminated_in_episode == null,
-    onDrop: (id) => {
-      onPickingDone?.()
-      setPendingDoubleTarget(id)
-      void weekly
-        .replace('double_roster_points', id)
-        .finally(() => setPendingDoubleTarget(null))
-    },
-  })
+  // The doubled row is held in the stage light and says "×2 this week"; the
+  // idol itself sits on the Tribe tab (#694).
+  const doubledTarget = rosterDouble?.target_contestant_id ?? null
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
@@ -2486,15 +2462,8 @@ function RosterSection({
       >
         {picking === 'double' ? (
           <>
-            <span
-              onPointerDown={startSealDrag}
-              className="inline-flex shrink-0 cursor-grab touch-none active:cursor-grabbing"
-              style={{ opacity: dragging ? 0.3 : 1 }}
-            >
-              <DoubleBadge size={36} title="Drag onto a Survivor to earn double points" />
-            </span>
             <span className="min-w-0 flex-1">
-              <b>Drag this Advantage icon</b> onto a Survivor to earn double points, or tap one.
+              <b>Tap a Survivor</b> to earn double points this episode.
             </span>
             <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
               Cancel
@@ -2502,9 +2471,6 @@ function RosterSection({
           </>
         ) : (
           <>
-            <span aria-hidden="true" className="inline-flex shrink-0">
-              <DoubleBadge size={28} />
-            </span>
             <span className="min-w-0 flex-1">
               Play your advantage on your tribe to receive a <b>double point boost</b> for one
               Survivor.
@@ -2610,7 +2576,6 @@ function RosterSection({
 
   return (
     <>
-      <SealGhost drag={drag} />
       {toolbar}
       {advantageStrip}
       {picking === 'swap' && (
@@ -2650,7 +2615,8 @@ function RosterSection({
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
                 soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
-                isDoubled={displayedDoubleTarget === pick.contestant_id}
+                isDoubled={doubledTarget === pick.contestant_id}
+                seal={false}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
@@ -2674,21 +2640,10 @@ function RosterSection({
                 selected={
                   picking === 'swap'
                     ? dropping === pick.contestant_id
-                    : displayedDoubleTarget === pick.contestant_id
+                    : doubledTarget === pick.contestant_id
                 }
                 expanded={expandedId === pick.contestant_id}
                 onToggle={() => toggleExpand(pick.contestant_id)}
-                // #407: the doubled row's seal is a drag handle (only when not
-                // already tap-picking); every row is a drop target for it.
-                onSealPointerDown={
-                  !picking && displayedDoubleTarget === pick.contestant_id
-                    ? startSealDrag
-                    : undefined
-                }
-                sealLifted={dragging && displayedDoubleTarget === pick.contestant_id}
-                dropId={pick.contestant_id}
-                dropActive={drag?.overId === pick.contestant_id}
-                stamp={stampId === pick.contestant_id}
               >
                 <RosterBreakdown
                   perf={perfs.get(pick.contestant_id)}
@@ -3449,28 +3404,6 @@ function PicksSection({
     }
   }, [ballotPlay?.id, ballotPlay?.target_contestant_id, settled, openEp, season.id, userId, contestants, onBallotSaved, onOpenPicks])
 
-  // Who can be named this episode: still in, and not on Redemption Island.
-  const liveIds = new Set(
-    contestants
-      .filter(
-        (c) =>
-          openEp != null &&
-          (c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number) &&
-          !c.on_redemption,
-      )
-      .map((c) => c.id),
-  )
-  // The idol drags onto a cast card (#487): from the strip to designate, or
-  // from the gold card to move the Power Vote.
-  const {
-    drag: ballotDrag,
-    dragging: ballotDragging,
-    start: startBallotDrag,
-  } = useSealDrag({
-    disabled: play.locked || play.busy || submitting != null,
-    canDropOn: (id) => id !== powerTarget && liveIds.has(id),
-    onDrop: designatePower,
-  })
   // A ladder slip drags onto another rung to reorder, or up into the gold
   // rung to become the Power Vote (#694). Up/down buttons are the tap path.
   const dragName = useRef<string | null>(null)
@@ -3502,34 +3435,10 @@ function PicksSection({
       startLadderDragRaw(e)
     }
   }
-  // Stamp the idol where it just landed (#487): any change of name, not the
-  // first paint.
-  const [powerStamp, setPowerStamp] = useState(false)
-  const prevPowerTarget = useRef<string | null | undefined>(undefined)
-  useEffect(() => {
-    const prev = prevPowerTarget.current
-    prevPowerTarget.current = powerTarget
-    if (prev === undefined || !powerTarget || powerTarget === prev) return
-    setPowerStamp(true)
-    const timer = setTimeout(() => setPowerStamp(false), 790)
-    return () => clearTimeout(timer)
-  }, [powerTarget])
-  // The seal on the gold slip is a drag handle too, like the roster row's:
-  // drop it on another slip to move the Power Vote there.
-  const seal = (
-    <span
-      onPointerDown={play.locked ? undefined : startBallotDrag}
-      title={play.locked ? undefined : 'Drag onto another name to move your Power Vote'}
-      className={`absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
-        play.locked ? 'pointer-events-none' : 'cursor-grab touch-none active:cursor-grabbing'
-      }`}
-      style={{ opacity: ballotDragging ? 0.3 : 1 }}
-    >
-      <span className={powerStamp ? 'seal-stamp' : ''}>
-        <DoubleBadge size={34} title="Power Vote" />
-      </span>
-    </span>
-  )
+  const dragLabel = (() => {
+    const c = dragName.current ? contestantMap.get(dragName.current) : undefined
+    return c ? displayName(c) : undefined
+  })()
   const nextOpen = episodes.find(isOpen)
   // Watch-only premiere episodes (before roster lock) accept no votes, so they
   // don't belong in "Past Episodes" as "(No votes submitted)" (#82).
@@ -3555,8 +3464,7 @@ function PicksSection({
 
   const content = (
     <>
-      <SealGhost drag={ballotDrag} />
-      <SealGhost drag={ladderDrag} />
+      <SealGhost drag={ladderDrag} label={dragLabel} />
       {!currentEp && !showFinale && (
         <Notice title="The season hasn’t started yet">
           Once the commissioner schedules the first episode, your tribe and the weekly play show up here.
@@ -3603,7 +3511,9 @@ function PicksSection({
           const maxPicks = Math.max(0, Math.min(ep.max_elimination_picks, stillIn - 1))
           const powerContestant = powerTarget ? contestantMap.get(powerTarget) : undefined
           const powerName = powerContestant ? displayName(powerContestant) : '—'
-          const ordinal = (rank: number) => ['1st', '2nd', '3rd'][rank - 1] ?? `${rank}th`
+          // The top rung is named for what it is; the rest count down (#694 review).
+          const ordinal = (rank: number) =>
+            rank === 1 ? 'Top pick' : (['1st', '2nd', '3rd'][rank - 1] ?? `${rank}th`)
           const pts = (value: number | null) => (value == null ? '' : ` · ${value} pts`)
           const stripLink =
             'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
@@ -3621,16 +3531,9 @@ function PicksSection({
               >
                 {designating ? (
                   <>
-                    <span
-                      onPointerDown={startBallotDrag}
-                      className="inline-flex shrink-0 cursor-grab touch-none active:cursor-grabbing"
-                      style={{ opacity: ballotDragging ? 0.3 : 1 }}
-                    >
-                      <DoubleBadge size={36} title="Drag onto a name to make it your Power Vote" />
-                    </span>
                     <span className="min-w-0 flex-1">
-                      <b>Cast your votes, surest on top.</b> Tap a name, drag one up into the gold
-                      rung, or drop this Advantage icon on one, to make it your Power Vote
+                      <b>Cast your votes, surest on top.</b> Tap a name, or move one up into the
+                      gold rung, to make it your Power Vote
                       {rungValue(ep, 0) != null ? `, worth ${rungValue(ep, 0)}` : ''}.
                     </span>
                     <button type="button" onClick={() => setDesignating(false)} className={stripLink}>
@@ -3639,9 +3542,6 @@ function PicksSection({
                   </>
                 ) : (
                   <>
-                    <span aria-hidden="true" className="inline-flex shrink-0">
-                      <DoubleBadge size={28} />
-                    </span>
                     <span className="min-w-0 flex-1">
                       Play your advantage on your ballot to receive a <b>Power Vote</b>, an extra
                       name above your ladder{rungValue(ep, 0) != null ? ` worth ${rungValue(ep, 0)}` : ' worth double'}.
@@ -3707,12 +3607,7 @@ function PicksSection({
                       const disabled = play.busy || isPower || (!designating && maxed)
                       const value = isSelected ? rungValue(ep, rungIndex + 1) : null
                       return (
-                        // The wrapper is the drop target for the strip's idol.
-                        <div
-                          key={c.id}
-                          data-drop-id={c.id}
-                          className="relative rounded-xl data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
-                        >
+                        <div key={c.id} className="relative rounded-xl">
                           <button
                             type="button"
                             onClick={() =>
@@ -3771,7 +3666,10 @@ function PicksSection({
 
           return (
             <div className="ballot-sheet">
-              <BallotSheetHead ep={ep} prompt={confirmed ? undefined : 'Who goes home tonight?'} />
+              <BallotSheetHead
+                ep={ep}
+                prompt={confirmed ? undefined : 'Rank your picks. The top rung pays the most.'}
+              />
               {advantageStrip}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
@@ -3784,20 +3682,37 @@ function PicksSection({
                     </svg>
                     Ballot submitted
                   </p>
-                  {/* Top to bottom, the way it was written: the Power Vote's
-                      row in gold with the seal, then each rung with what it
-                      pays. A row is a drop target for the seal, to move the
-                      Power Vote there. */}
-                  <ol aria-label="Your ballot, surest on top" className="mx-auto flex max-w-sm flex-col gap-1.5 text-left">
+                  {/* The record, once it is in: the roster's own manifest
+                      rows — portrait, name, the rung, and what it pays on the
+                      right. The Power Vote is the gold row; an unfilled rung
+                      is an open line, so "2 of 3" shows without a sentence. */}
+                  <ol
+                    aria-label="Your ballot, surest on top"
+                    className="record-paper overflow-hidden rounded-sm border border-paper-edge text-left shadow-sm"
+                  >
+                    <li aria-hidden="true" className="flex items-center justify-between border-b-2 border-paper-edge px-3 pt-1.5 pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-paper-ink-faded">
+                      <span>Your call</span>
+                      <span>If they go</span>
+                    </li>
                     {ballotPlay && (
-                      <li className="flex min-h-12 items-center gap-2 rounded-lg border border-gold-500 bg-gold-50 px-2 py-1.5">
-                        <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-gold-700">
-                          Power Vote{pts(rungValue(ep, 0))}
+                      <li className="flex items-center gap-3 bg-gold-50 px-3 py-2">
+                        <ContestantAvatar
+                          name={powerName}
+                          imageUrl={powerContestant?.image_url ?? null}
+                          tribeColor={powerContestant?.tribe_color ?? null}
+                          tribeName={powerContestant?.tribe_name ?? null}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate font-display text-[1.05rem] font-semibold uppercase text-paper-ink">
+                            {powerName}
+                          </span>
+                          <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-gold-700">
+                            Power Vote
+                          </span>
                         </span>
-                        <span className="relative inline-flex min-w-0 pr-7">
-                          <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
-                          {seal}
-                        </span>
+                        <b className="ml-auto font-display text-lg font-bold text-gold-700">
+                          {rungValue(ep, 0) != null ? `+${rungValue(ep, 0)}` : ''}
+                        </b>
                       </li>
                     )}
                     {savedPicks.map((p, index) => {
@@ -3806,29 +3721,54 @@ function PicksSection({
                       const stale =
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
-                      const slipName = sc ? displayName(sc) : '—'
                       const rank = p.rank ?? index + 1
+                      const rowValue = rungValue(ep, rank)
                       return (
-                        <li
-                          key={p.id}
-                          data-drop-id={ballotPlay && !stale ? p.contestant_id : undefined}
-                          className="flex min-h-12 items-center gap-2 rounded-lg border border-paper-edge bg-white/55 px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
-                        >
-                          <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-paper-ink-faded">
-                            {ordinal(rank)}{pts(rungValue(ep, rank))}
+                        <li key={p.id} className="flex items-center gap-3 border-t border-paper-line px-3 py-2">
+                          <ContestantAvatar
+                            name={sc ? displayName(sc) : '—'}
+                            imageUrl={sc?.image_url ?? null}
+                            tribeColor={sc?.tribe_color ?? null}
+                            tribeName={sc?.tribe_name ?? null}
+                          />
+                          <span className="min-w-0">
+                            <span
+                              className={`block truncate font-display text-[1.05rem] font-semibold uppercase ${
+                                stale ? 'text-paper-ink-faded line-through' : 'text-paper-ink'
+                              }`}
+                            >
+                              {sc ? displayName(sc) : '—'}
+                            </span>
+                            <span className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">
+                              {ordinal(rank)}
+                              {stale && ' · out'}
+                            </span>
                           </span>
-                          <VoteSlip name={slipName} stale={stale} tribeColor={sc?.tribe_color} rotation={0} />
-                          {stale && <span className="text-[11px] text-gray-500">(out)</span>}
+                          <b className="ml-auto font-display text-lg font-bold text-forest-800">
+                            {rowValue != null && !stale ? `+${rowValue}` : ''}
+                          </b>
+                        </li>
+                      )
+                    })}
+                    {Array.from({ length: Math.max(0, maxPicks - savedPicks.length) }, (_, i) => {
+                      const rank = savedPicks.length + i + 1
+                      const rowValue = rungValue(ep, rank)
+                      return (
+                        <li key={`open-${rank}`} className="flex items-center gap-3 border-t border-paper-line px-3 py-2 opacity-60">
+                          <span aria-hidden="true" className="inline-flex size-9 shrink-0 rounded-full border-[1.5px] border-dashed border-paper-edge" />
+                          <span className="min-w-0">
+                            <span className="block font-display text-[1.05rem] font-medium uppercase text-paper-ink-faded">Open</span>
+                            <span className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">
+                              {ordinal(rank)}
+                            </span>
+                          </span>
+                          <b className="ml-auto font-display text-lg font-medium text-paper-ink-faded">
+                            {rowValue != null ? `+${rowValue}` : ''}
+                          </b>
                         </li>
                       )
                     })}
                   </ol>
-                  {savedPicks.length < maxPicks && (
-                    <p className="mt-3 text-xs text-jade-700">
-                      {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
-                      {maxPicks - savedPicks.length} more before lock.
-                    </p>
-                  )}
                 </div>
               ) : (
                 <>
@@ -3848,18 +3788,20 @@ function PicksSection({
                             : 'border-dashed border-gold-500 bg-gold-50/60 data-[drag-over]:border-solid'
                         }`}
                       >
-                        <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-gold-700">
-                          Power Vote{pts(rungValue(ep, 0))}
+                        <b className="w-8 shrink-0 font-display text-xl font-bold leading-none text-gold-700">
+                          {rungValue(ep, 0) ?? ''}
+                        </b>
+                        <span className="w-14 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-gold-700">
+                          Power Vote
                         </span>
                         {ballotPlay && powerTarget ? (
                           <>
                             <span
                               onPointerDown={play.locked ? undefined : startLadderDrag(powerTarget)}
-                              className={`relative inline-flex min-w-0 pr-7 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
+                              className={`inline-flex min-w-0 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
                               style={{ opacity: ladderDragging && dragName.current === powerTarget ? 0.3 : 1 }}
                             >
                               <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
-                              {seal}
                             </span>
                             {/* The same controls as every rung: down swaps with
                                 1st, remove takes the advantage back. */}
@@ -3893,12 +3835,7 @@ function PicksSection({
                             </span>
                           </>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-paper-ink-faded">
-                            <span aria-hidden="true" className="inline-flex opacity-60">
-                              <DoubleBadge size={22} />
-                            </span>
-                            Drag a name here, or tap a name below.
-                          </span>
+                          <span className="text-xs text-paper-ink-faded">Drag a name here, or tap a name below.</span>
                         )}
                       </li>
                     )}
@@ -3912,8 +3849,11 @@ function PicksSection({
                           data-drop-id={`rung:${index + 1}`}
                           className="flex min-h-12 items-center gap-2 rounded-lg border border-paper-edge bg-white/55 px-2 py-1.5 text-left data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
                         >
-                          <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-paper-ink-faded">
-                            {ordinal(index + 1)}{pts(rungValue(ep, index + 1))}
+                          <b className="w-8 shrink-0 font-display text-xl font-bold leading-none text-forest-800">
+                            {rungValue(ep, index + 1) ?? ''}
+                          </b>
+                          <span className="w-14 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-paper-ink-faded">
+                            {ordinal(index + 1)}
                           </span>
                           {id && rungName ? (
                             <>
