@@ -48,8 +48,7 @@ const LANE_ICON: Record<BeatKey, () => ReactNode> = {
  * status is in the hero's Advantage tile (#487).
  *
  * A real tablist: roving tabindex, arrow keys, and panels that stay mounted so
- * an unsaved ballot survives a look at the roster. The tabs double as
- * cross-beat drop targets for the idol drag.
+ * an unsaved ballot survives a look at the roster.
  */
 export function RecordBeats({
   value,
@@ -84,7 +83,6 @@ export function RecordBeats({
             aria-controls={`panel-${b.key}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(b.key)}
-            data-drop-id={`beat:${b.key}`}
             data-lane={LANE[b.key]}
             className="lane-tab"
           >

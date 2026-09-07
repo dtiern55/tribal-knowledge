@@ -167,7 +167,7 @@ def test_extra_vote_raises_pick_limit(client, db_conn, current_user):
 
 @pytest.mark.integration
 def test_targeted_double_vote_raises_pick_limit(client, db_conn, current_user):
-    """Extra Vote ×2's doubled name is an extra pick on top of the base limit
+    """Power Vote's doubled name is an extra pick on top of the base limit
     (#673), same as extra_vote. Resending doubled_contestant_id unchanged is
     how the ballot save re-confirms an existing play."""
     season = insert_season(db_conn)

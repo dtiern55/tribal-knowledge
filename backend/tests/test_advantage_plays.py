@@ -183,7 +183,7 @@ def test_double_roster_requires_a_rostered_target(client, db_conn, current_user)
 
 @pytest.mark.integration
 def test_double_vote_requires_a_target(client, db_conn, current_user):
-    """#673: Extra Vote ×2 is now one extra pick, not the whole ballot."""
+    """#673: Power Vote is now one extra pick, not the whole ballot."""
     season = insert_season(db_conn)
     _open_episode(db_conn, season["id"])
 

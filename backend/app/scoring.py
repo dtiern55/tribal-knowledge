@@ -11,9 +11,9 @@ merge_episode (decision #10). When merge_episode is NULL, everything is pre-merg
 A scoring/prediction value uses postmerge_point_value when it is set and the
 episode is post-merge, otherwise point_value.
 
-Double Castaway Points / Extra Vote ×2 (decision #12, 2026-07-06; ×2 redesigned
+Double Castaway Points / Power Vote (decision #12, 2026-07-06; ×2 redesigned
 #673): a player spends a weekly play to double points. Double Roster names one
-rostered contestant. Extra Vote ×2 (advantage_type double_vote_points) names
+rostered contestant. Power Vote (advantage_type double_vote_points) names
 one extra pick added to that episode's ballot and doubles only it. Both are
 read from advantage_plays at scoring time rather than a stored flag — this
 survives elimination_picks being deleted and reinserted on every resubmission
@@ -62,7 +62,7 @@ DOUBLE_ROSTER_JOIN_SQL = """
      and dbl.target_contestant_id = se.contestant_id
 """
 
-# A played Extra Vote ×2 (advantage_type double_vote_points) that doubles this
+# A played Power Vote (advantage_type double_vote_points) that doubles this
 # elimination pick. Needs `pick` (elimination_picks); aliases the play as
 # `dbl`, same doubling pattern as DOUBLE_ROSTER_JOIN_SQL. Every play made
 # after #673 names a target and only doubles that pick; #303-era plays
@@ -189,7 +189,7 @@ def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
 
     A pick scores when the predicted contestant appears in that episode's
     eliminations; pre/post-merge rate comes from prediction_score_types, then
-    doubles if the user played Extra Vote ×2 on that pick that episode (#673
+    doubles if the user played Power Vote on that pick that episode (#673
     — every pick, for #303-era plays with no target). Finale episodes are
     excluded — there picks are scored as a winner vote instead (#19).
     """
@@ -426,7 +426,7 @@ def advantage_bonus_by_play(
 
     A double adds one extra copy of the doubled points for that episode, so
     the bonus equals the un-doubled base: roster-event points for
-    double_roster_points, and for double_vote_points (Extra Vote ×2, #673)
+    double_roster_points, and for double_vote_points (Power Vote, #673)
     the named pick's points (every correct pick, for #303-era plays with no
     target). extra_vote isn't included — there's no single pick to attribute
     (#304).

@@ -221,7 +221,7 @@ export function EpisodeResultReveal({
               title="Ballot"
               total={ballotLane}
               accent="ballot"
-              icon={voteDouble && voteDouble.target_contestant_id == null ? <DoubleBadge size={20} title="Extra Vote ×2 this episode" /> : null}
+              icon={voteDouble && voteDouble.target_contestant_id == null ? <DoubleBadge size={20} title="Power Vote this episode" /> : null}
             >
               {result.ballot.length === 0 ? (
                 <LaneEmpty>No ballot was submitted, so there are no ballot points.</LaneEmpty>
@@ -245,7 +245,7 @@ export function EpisodeResultReveal({
                         tribeName={null}
                         size="sm"
                       />
-                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Extra Vote ×2" />}
+                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Power Vote" />}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
                         {label && <span className="block text-xs text-cream-100/45">{label}</span>}

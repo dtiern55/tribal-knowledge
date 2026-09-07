@@ -202,6 +202,18 @@ def submit_roster(
                     detail=f"Contestants not in this season: {invalid}",
                 )
 
+            # A Double Castaway Points play on someone no longer rostered would
+            # read as played and score nothing. Drop it with them.
+            cur.execute(
+                """
+                delete from advantage_plays
+                where user_id = %s and league_season_id = %s
+                  and advantage_type = 'double_roster_points'
+                  and not (target_contestant_id::text = any(%s))
+                """,
+                [str(user_id), str(league_season_id), ids],
+            )
+
             rows = []
             try:
                 for cid in body.contestant_ids:
@@ -367,6 +379,25 @@ def swap_roster_pick(
                 where id = %s
                 """,
                 [swap_episode - 1, penalty, str(old_pick["id"])],
+            )
+
+            # A Double Castaway Points play resting on the outgoing castaway
+            # would read as played and score nothing (scoring joins on the
+            # active roster). It leaves with them; the swap's undo does not
+            # bring it back.
+            cur.execute(
+                """
+                delete from advantage_plays
+                where user_id = %s and league_season_id = %s and episode_id = %s
+                  and advantage_type = 'double_roster_points'
+                  and target_contestant_id = %s
+                """,
+                [
+                    str(user_id),
+                    str(league_season_id),
+                    episode["id"],
+                    str(body.old_contestant_id),
+                ],
             )
 
             cur.execute(

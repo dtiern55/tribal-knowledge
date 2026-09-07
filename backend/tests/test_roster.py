@@ -206,6 +206,43 @@ def test_swap_roster_pick(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_swap_drops_the_double_on_the_outgoing_castaway(client, db_conn, current_user):
+    """A roster double on someone you swap out leaves with them: scoring joins
+    on the active roster, so it would read as played and pay nothing."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    new_contestant = insert_contestant(db_conn, season["id"], "New Player")
+    client.post(
+        f"/league-seasons/{season['league_season_id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    assert (
+        client.post(
+            f"/league-seasons/{season['league_season_id']}/advantage-plays",
+            json={
+                "advantage_type": "double_roster_points",
+                "target_contestant_id": str(contestants[0]["id"]),
+            },
+        ).status_code
+        == 201
+    )
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/roster/swap",
+        json={
+            "old_contestant_id": str(contestants[0]["id"]),
+            "new_contestant_id": str(new_contestant["id"]),
+        },
+    )
+    assert r.status_code == 200
+    plays = client.get(
+        f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
+    ).json()
+    assert plays == []
+
+
+@pytest.mark.integration
 def test_other_players_locked_swaps_visible_pending_hidden(client, db_conn):
     """Another player's already-locked swap history is public; a swap into a
     still-open episode stays hidden and its outgoing pick reads as rostered

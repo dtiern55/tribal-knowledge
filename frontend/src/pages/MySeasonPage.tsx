@@ -6,7 +6,6 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
-import { resolveDrop, SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.webp'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket } from '../components/FinaleBracket'
@@ -29,6 +28,7 @@ import { RuleLink } from '../components/RuleLink'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
+import { SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
@@ -49,48 +49,24 @@ import type {
   StandingSurvivor,
 } from '../types'
 
-// The ballot's weekly play is Extra Vote ×2 (#673): one extra vote, and the
+// The ballot's weekly play is Power Vote (#673): one extra vote, and the
 // ×2 sits on whichever of your names you put it on. On a locked ballot the
 // carved idol is stamped once on the corner as the play's mark (#484); on the
-// open ballot it rides the doubled name and drags between names like the
-// roster seal. Corner press: the host container must be `relative`.
+// open ballot it rides the doubled name. Corner press: the host container
+// must be `relative`.
 // Bumped on every MySeasonPage mount so a curtain poll left running by a
 // previous unmount can tell it has been superseded. Module scope rather than a
 // ref: a genuine remount gets a fresh ref, which is the very case that has to
 // cancel the old poll.
 let roomGeneration = 0
 
-function BallotStamp({
-  size = 54,
-  onPointerDown,
-  lifted = false,
-  stamp = false,
-}: {
-  size?: number
-  /** When given, the seal is the drag handle for moving the play to the roster
-   *  (#487); otherwise it's a passive stamp. */
-  onPointerDown?: (e: React.PointerEvent) => void
-  lifted?: boolean
-  /** Play a one-shot stamp as the ballot double lands here (#487). */
-  stamp?: boolean
-}) {
-  const draggable = onPointerDown != null
+function BallotStamp({ size = 54 }: { size?: number }) {
   return (
     <span
-      onPointerDown={onPointerDown}
-      title={
-        draggable
-          ? 'Drag to the Roster tab to double a castaway instead'
-          : 'Extra Vote ×2 this episode'
-      }
-      className={`absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
-        draggable ? 'cursor-grab touch-none' : 'pointer-events-none'
-      }`}
-      style={draggable ? { opacity: lifted ? 0.3 : 1 } : undefined}
+      title="Power Vote this episode"
+      className="pointer-events-none absolute -top-3 right-1 z-20 rotate-[11deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]"
     >
-      <span className={stamp ? 'seal-stamp' : ''}>
-        <DoubleBadge size={size} title="Extra Vote ×2 this episode" />
-      </span>
+      <DoubleBadge size={size} title="Power Vote this episode" />
     </span>
   )
 }
@@ -101,8 +77,7 @@ function BallotStamp({
 function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
   if (!drag) return null
   // Float the idol above the finger, not under it: on a phone the thumb covers
-  // the drop point, so a seal sitting there is invisible. Lifted clear of the
-  // thumb and enlarged past the resting seal, it reads as picked up (#487).
+  // the drop point, so a seal sitting there is invisible.
   return createPortal(
     <div
       aria-hidden
@@ -366,14 +341,6 @@ export function MySeasonPage() {
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
   const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
-  // The ballot's ×2 slot is open and waiting for a name (#673). Set by the
-  // Advantage → Ballot paths, cleared by the ballot once a name is chosen.
-  const [ballotArmed, setBallotArmed] = useState(false)
-  const openBallotDouble = () => {
-    setPicking(null)
-    setBallotArmed(true)
-    setBeat('ballot')
-  }
   // Live finale-ballot progress, reported up from the FinaleBallot as you build
   // the bracket, so the hero reflects picks the instant you make or remove them
   // — the saved ballot on its own can't (#86 follow-on).
@@ -591,14 +558,6 @@ export function MySeasonPage() {
   if (!d.userId) return <p className="text-gray-500">No active season.</p>
 
   const rosterPoints = new Map(d.breakdown.roster.map((r) => [r.contestant_id, r.points]))
-  // Active roster castaways — the valid Roster ×2 targets when the strip idol is
-  // dragged onto a row (#399), mirroring RosterSection's own drop rule.
-  const eliminatedByContestant = new Map(d.contestants.map((c) => [c.id, c.eliminated_in_episode]))
-  const doubleTargets = new Set(
-    d.roster
-      .filter((r) => r.active_until_episode === null && eliminatedByContestant.get(r.contestant_id) == null)
-      .map((r) => r.contestant_id),
-  )
   const pickResults = new Map(
     d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
   )
@@ -650,23 +609,22 @@ export function MySeasonPage() {
     // pick; "done" still waits on a locked-in ballot, like the weekly one.
     const isFinale = openEp.is_finale
     const finaleFilled = finaleProgress?.filled ?? 0
-    // Extra Vote ×2 adds one vote on top of the schedule (#673).
-    const extraVote = d.plays.some(
+    // The Power Vote's name is a pick too (#673), but it is the advantage's
+    // business, not the ballot's: the beat counts the regular names.
+    const powerVote = d.plays.find(
       (p) =>
         p.episode_id === openEp.id &&
         p.advantage_type === 'double_vote_points' &&
         p.target_contestant_id != null,
-    )
+    )?.target_contestant_id
     const maxPicks = isFinale
       ? 8
-      : Math.max(
-          0,
-          Math.min(openEp.max_elimination_picks + (extraVote ? 1 : 0), stillIn - 1),
-        )
-    // When the ×2 leaves the ballot the server drops the doubled vote; the
-    // play moves at once and the picks re-read a beat later, so clamp rather
-    // than show "4 of 3" in between (#673).
-    const saved = isFinale ? finaleFilled : Math.min(d.openPicks.length, maxPicks)
+      : Math.max(0, Math.min(openEp.max_elimination_picks, stillIn - 1))
+    // The play moves at once and the picks re-read a beat later, so clamp
+    // rather than show "4 of 3" in between (#673).
+    const saved = isFinale
+      ? finaleFilled
+      : Math.min(d.openPicks.filter((p) => p.contestant_id !== powerVote).length, maxPicks)
 
     // Holding a dead slot is a position, not a chore: sitting on an eliminated
     // castaway for a week — to spend the weekly play on a x2 instead, or to
@@ -738,7 +696,7 @@ export function MySeasonPage() {
                   ? 'A castaway in your tribe is out'
                   : `${deadSlots} castaways in your tribe are out`
                 : advantageUnplayed
-                  ? 'Your ×2 is still unplayed'
+                  ? 'Your advantage is still unplayed'
                   : isFinale
                     ? "You're all set for the finale"
                     : `You're all set for Ep ${openEp.episode_number}`,
@@ -875,14 +833,6 @@ export function MySeasonPage() {
               contestants={d.contestants}
               plays={d.plays}
               setPlays={d.setPlays}
-              doubleTargets={doubleTargets}
-              onBeatChange={setBeat}
-              onOpenRosterDouble={() => {
-                setPicking('double')
-                setBeat('roster')
-              }}
-              onOpenBallotDouble={openBallotDouble}
-              ballotArmed={ballotArmed}
             />
           </ThisWeekHero>
 
@@ -929,7 +879,7 @@ export function MySeasonPage() {
                 picking={picking}
                 onPickingDone={() => setPicking(null)}
                 onStartSwap={() => setPicking('swap')}
-                onOpenBallotDouble={openBallotDouble}
+                onStartDouble={() => setPicking('double')}
               />
             </div>
           </RecordPanel>
@@ -951,14 +901,6 @@ export function MySeasonPage() {
                 onBallotSaved={d.bumpBallot}
                 onOpenPicks={d.setOpenPicks}
                 onFinaleProgress={setFinaleProgress}
-                ballotArmed={ballotArmed}
-                onBallotArmedChange={setBallotArmed}
-                onDragToRoster={() => {
-                  // Open the double-pick sheet (as the Advantage → Roster ×2 tap
-                  // does) and land you on the Roster beat afterwards (#487).
-                  setPicking('double')
-                  setBeat('roster')
-                }}
               />
             </div>
           </RecordPanel>
@@ -1337,7 +1279,7 @@ function LockedState({
               Ballot
             </h3>
             {played?.advantage_type === 'double_vote_points' && played.target_contestant_id == null && (
-              <DoubleBadge size={24} title="Extra Vote ×2 this episode" />
+              <DoubleBadge size={24} title="Power Vote this episode" />
             )}
           </div>
           {picks.length > 0 ? (
@@ -1357,7 +1299,7 @@ function LockedState({
                     doubled={doubled}
                     tribeColor={contestant?.tribe_color}
                     rotation={[-0.9, 0.6, -0.3][index % 3]}
-                    leading={doubled ? <DoubleBadge size={20} title="Extra Vote ×2" /> : null}
+                    leading={doubled ? <DoubleBadge size={20} title="Power Vote" /> : null}
                   />
                 )
               })}
@@ -1506,7 +1448,7 @@ function LeagueHub({
                   <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
                   {doubled > 0 && (
                     <span className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold tabular-nums ${sub}`}>
-                      <DoubleBadge size={16} title="Extra Vote ×2" />
+                      <DoubleBadge size={16} title="Power Vote" />
                       {doubled}
                     </span>
                   )}
@@ -1525,7 +1467,7 @@ function LeagueHub({
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
           <dl className="mt-2 space-y-3">
             <div className="flex items-center gap-2">
-              <dt className="min-w-0 flex-1 truncate text-sm">Extra Vote ×2</dt>
+              <dt className="min-w-0 flex-1 truncate text-sm">Power Vote</dt>
               <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
             </div>
             {topRosterDoubles.length > 0 ? (
@@ -1592,7 +1534,7 @@ function LeagueHub({
                   </svg>
                 </summary>
                 <div className="grid gap-3 px-3 pb-3">
-                  {/* The play lands where it applies: Extra Vote ×2 on its named
+                  {/* The play lands where it applies: Power Vote on its named
                       pick (a #303-era play with no target doubled the whole
                       ballot), a roster double on its target castaway. */}
                   <HubCastawayRow
@@ -1606,7 +1548,7 @@ function LeagueHub({
                         ? (entry.advantage_target?.contestant_id ?? null)
                         : null
                     }
-                    doubledTitle="Extra Vote ×2 this episode"
+                    doubledTitle="Power Vote this episode"
                   />
                   <HubCastawayRow
                     label="Tribe"
@@ -1659,7 +1601,7 @@ function HubCastawayRow({
     <div>
       <div className="flex items-center gap-1.5">
         <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {doubled && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+        {doubled && <DoubleBadge size={18} title="Power Vote this episode" />}
       </div>
       {survivors.length > 0 ? (
         // Five to a row so a full tribe sits on one line; portrait over name,
@@ -2160,9 +2102,9 @@ function Points({ value }: { value: number | undefined }) {
  *
  * It was a card of its own between the masthead and the beats (#399, slimmed
  * by #529). Inside the hero it says the same three things in a fraction of the
- * space: whether the play is spent, on what, and — while it isn't — the idol
- * you drag or tap to spend it. Taking it back happens where the idol landed:
- * the seal on the doubled roster row, or the one on the ballot.
+ * space: whether the play is spent, on what, and — while it isn't — where to
+ * go and spend it. Playing and taking back both happen on the Tribe and
+ * Ballot tabs.
  */
 function AdvantageLane({
   season,
@@ -2170,173 +2112,75 @@ function AdvantageLane({
   contestants,
   plays,
   setPlays,
-  doubleTargets,
-  onBeatChange,
-  onOpenRosterDouble,
-  onOpenBallotDouble,
-  ballotArmed = false,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
-  // Active roster castaways this episode — the valid Roster ×2 drop targets.
-  doubleTargets: Set<string>
-  onBeatChange: (beat: BeatKey) => void
-  // Open the double-pick sheet on the Roster beat (the Advantage → Roster flow).
-  onOpenRosterDouble: () => void
-  // Open the ballot for the extra vote (the Advantage → Ballot flow, #673).
-  onOpenBallotDouble: () => void
-  // The ballot is open for the ×2 but not saved yet (#673).
-  ballotArmed?: boolean
 }) {
+  // The play is made on the Tribe or Ballot tab, where the thing it changes
+  // is; players kept missing the idol as the tap target (#691). The lane
+  // says where the play sits, or where to go and play it, and once played
+  // it holds the one control left: Undo. The tabs' strips leave with the play.
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const play = weekly.play
-
-  const { drag, dragging, start } = useSealDrag({
-    disabled: weekly.locked || weekly.busy || play != null,
-    canDropOn: (id) => id === 'beat:ballot' || id === 'beat:roster' || doubleTargets.has(id),
-    onDrop: (id) => {
-      const action = resolveDrop('unplayed', id)
-      if (action.kind === 'to_ballot') {
-        onOpenBallotDouble()
-      } else if (action.kind === 'to_roster_picking') {
-        onOpenRosterDouble()
-      } else if (action.kind === 'reassign_roster') {
-        onBeatChange('roster')
-        void weekly.replace('double_roster_points', action.target)
-      }
-    },
-    // A tap on the idol (no drag) is the non-drag path — reveal the two plays.
-    onTap: () => setMenuOpen(true),
-  })
-
   const episode = weekly.openEpisode
   if (!episode || episode.is_finale) return null
+  const play = weekly.play
+  const locked = weekly.locked
 
-  const rosterDouble = play?.advantage_type === 'double_roster_points'
   const targetContestant = play?.target_contestant_id
     ? contestants.find((c) => c.id === play.target_contestant_id)
     : undefined
   const targetName = targetContestant ? displayName(targetContestant) : null
 
-  // Say where the ×2 sits, not just on whom: the same castaway can be on
-  // your tribe and on your ballot (#673).
+  // Say where and what it became, not just on whom: the same castaway can
+  // be on your tribe and on your ballot (#673).
   const note = play
-    ? rosterDouble
-      ? `×2 · Tribe · ${targetName ?? '—'}`
+    ? play.advantage_type === 'double_roster_points'
+      ? `Tribe · ${targetName ?? '—'} · double points`
       : play.advantage_type === 'double_vote_points'
-        ? `×2 · Ballot · ${targetName ?? '—'}`
+        ? `Ballot · ${targetName ?? '—'} · Power Vote`
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
-    : weekly.locked
+    : locked
       ? 'Not played'
-      : ballotArmed
-        ? '×2 · Ballot — save your ballot'
-        : 'Drag or tap to play your ×2'
-
-  const idle = play == null && !weekly.locked
+      : 'Play it on your Tribe or Ballot'
 
   return (
-    <>
-      <SealGhost drag={drag} />
-      <HeroLane
-        label="Advantage"
-        done={play != null}
-        muted={weekly.locked && play == null}
-        onClick={idle ? () => setMenuOpen((o) => !o) : undefined}
-        action={
-          play != null && !weekly.locked ? (
-            <button
-              type="button"
-              onClick={() => void weekly.takeBack(play)}
-              disabled={weekly.busy || play.id.startsWith('pending-')}
-              className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2 disabled:opacity-40"
-            >
-              Undo
-            </button>
-          ) : undefined
-        }
-        note={
-          weekly.error ? (
-            <span role="alert" title={weekly.error} className="text-terracotta-200">
-              {weekly.error}
-            </span>
-          ) : (
-            note
-          )
-        }
-        icon={
-          idle ? (
-            <button
-              type="button"
-              onPointerDown={start}
-              onClick={(e) => {
-                // The lane around the idol toggles the menu too; a tap on the
-                // idol already opened it through the drag's onTap.
-                e.stopPropagation()
-                // Keyboard activation only (detail 0); pointer taps come
-                // through the drag's onTap so the menu doesn't double-toggle.
-                if (e.detail === 0) setMenuOpen((o) => !o)
-              }}
-              disabled={weekly.busy}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="Play your advantage — drag onto a castaway or your ballot, or activate to choose"
-              style={{ opacity: dragging ? 0.3 : 1 }}
-              className="advantage-nudge inline-flex cursor-grab touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-gold-300 active:cursor-grabbing disabled:opacity-40"
-            >
-              <DoubleBadge size={32} title="Your advantage — play it" />
-            </button>
-          ) : (
-            <span className={play ? '' : 'opacity-40 grayscale'}>
-              <DoubleBadge
-                size={32}
-                title={play ? 'Advantage played' : 'Advantage not played'}
-              />
-            </span>
-          )
-        }
-      />
-      {menuOpen && (
-        // A panel under the lane rather than a popover over the page. As an
-        // overlay it had to out-stack the roster beneath it, which fought the
-        // hero's own cross-fade; pushing the hero taller costs nothing and is
-        // a bigger tap target besides.
-        <div
-          role="menu"
-          onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
-          className="hero-menu"
-        >
+    <HeroLane
+      label="Advantage"
+      done={play != null}
+      muted={locked && play == null}
+      note={
+        weekly.error ? (
+          <span role="alert" title={weekly.error} className="text-terracotta-200">
+            {weekly.error}
+          </span>
+        ) : (
+          note
+        )
+      }
+      action={
+        play != null && !locked ? (
           <button
             type="button"
-            role="menuitem"
-            onClick={() => {
-              setMenuOpen(false)
-              onOpenRosterDouble()
-            }}
-            className="hero-menu__item"
+            onClick={() => void weekly.takeBack(play)}
+            disabled={weekly.busy || play.id.startsWith('pending-')}
+            className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2 disabled:opacity-40"
           >
-            Double a castaway
+            Undo
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setMenuOpen(false)
-              onOpenBallotDouble()
-            }}
-            className="hero-menu__item"
-          >
-            Extra Vote ×2
-          </button>
-          <div className="hero-menu__item">
-            <RuleLink anchor="weekly-play">How the advantage works</RuleLink>
-          </div>
-        </div>
-      )}
-    </>
+        ) : undefined
+      }
+      icon={
+        <span className={play == null && locked ? 'opacity-40 grayscale' : ''}>
+          <DoubleBadge
+            size={32}
+            title={play ? 'Advantage played' : locked ? 'Advantage not played' : 'Your advantage'}
+          />
+        </span>
+      }
+    />
   )
 }
 
@@ -2355,7 +2199,7 @@ function RosterSection({
   picking = null,
   onPickingDone,
   onStartSwap,
-  onOpenBallotDouble,
+  onStartDouble,
 }: {
   season: Season
   contestants: Contestant[]
@@ -2376,9 +2220,8 @@ function RosterSection({
   picking?: 'double' | 'swap' | null
   onPickingDone?: () => void
   onStartSwap?: () => void
-  /** Open the ballot's ×2 slot (#673) when the seal is dragged to the Ballot
-   *  tab (#487); it switches the beat so the landing is visible. */
-  onOpenBallotDouble?: () => void
+  /** Start the Double Castaway Points pick: the rows answer it (#398). */
+  onStartDouble?: () => void
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   // The swapped-out ledger, folded into the card's footer.
@@ -2472,15 +2315,15 @@ function RosterSection({
 
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
-  // On a successful drop, show the seal on its destination immediately while
-  // the delete-and-create request catches up. Without this bridge the server-
+  // On a drop, show the seal on its destination immediately while the
+  // delete-and-create request catches up. Without this bridge the server-
   // backed target briefly renders old → none → new, which reads as a snap-back.
   const [pendingDoubleTarget, setPendingDoubleTarget] = useState<string | null>(null)
   const displayedDoubleTarget =
     pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
 
   // Stamp the seal on the row it just landed on (#487). Fires on any change of
-  // target — drag reassign, cross-beat move, a pick — but not on first paint.
+  // target — a drop, a tap, a move — but not on first paint.
   const [stampId, setStampId] = useState<string | null>(null)
   const prevDoubleTarget = useRef<string | null | undefined>(undefined)
   useEffect(() => {
@@ -2493,40 +2336,23 @@ function RosterSection({
     }
   }, [displayedDoubleTarget])
 
-  // Drag the ×2 seal onto another castaway to move the play (#407), or up to the
-  // Ballot tab to make it a ballot double (#487) — the direct-manipulation twin
-  // of the Advantage tap paths, which stay. Both commit through weekly.replace.
+  // The idol drags onto a row (#407): from the strip to designate, or from
+  // the doubled row to move. Tapping a row while designating is the same
+  // commit, through weekly.replace.
   const { drag, dragging, start: startSealDrag } = useSealDrag({
     disabled: weekly.locked || weekly.busy,
-    canDropOn: (id) => {
-      if (id === 'beat:ballot') return true
-      if (id.startsWith('beat:')) return false
-      // Any active, still-in castaway that isn't the current target.
-      return (
-        id !== rosterDouble?.target_contestant_id &&
-        activeRoster.some((p) => p.contestant_id === id) &&
-        contestantMap.get(id)?.eliminated_in_episode == null
-      )
-    },
+    canDropOn: (id) =>
+      id !== displayedDoubleTarget &&
+      activeRoster.some((p) => p.contestant_id === id) &&
+      contestantMap.get(id)?.eliminated_in_episode == null,
     onDrop: (id) => {
-      const action = resolveDrop('roster', id)
-      if (action.kind === 'reassign_roster') {
-        // Land the in-row seal in the same render that drops the lifted copy;
-        // the quiet held treatment is enough feedback while the request catches
-        // up, rather than flashing old → none → new.
-        setPendingDoubleTarget(action.target)
-        void weekly
-          .replace('double_roster_points', action.target)
-          .finally(() => setPendingDoubleTarget(null))
-      } else if (action.kind === 'to_ballot') {
-        // The ballot play needs a name (#673): open the ×2 slot there and let
-        // the next tap choose it; the roster double stays until then.
-        onOpenBallotDouble?.()
-      }
+      onPickingDone?.()
+      setPendingDoubleTarget(id)
+      void weekly
+        .replace('double_roster_points', id)
+        .finally(() => setPendingDoubleTarget(null))
     },
   })
-
-
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
@@ -2635,6 +2461,66 @@ function RosterSection({
   // section's action row rather than owning a row each.
   const editAvailable = windowOpen && rosterLoaded && hasRoster && !editing
 
+  // The advantage on this tab (#673 follow-on): one play per episode, on
+  // your tribe or your ballot. On offer, or designating (drag the idol onto
+  // a row, or tap one). Once played anywhere the strip leaves both tabs:
+  // the seal on the row or the gold card is the record, and the hero holds
+  // Undo, which brings the offer back.
+  const canDouble = activeRoster.some(
+    (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode == null,
+  )
+  const stripLink =
+    'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
+  const advantageStrip =
+    weekly.openEpisode == null ||
+    weekly.openEpisode.is_finale ||
+    picking === 'swap' ||
+    weekly.locked ||
+    weekly.play != null ||
+    !canDouble ? null : (
+      <div
+        role="region"
+        aria-label="Advantage"
+        className="flex items-center gap-3 border-b border-gold-500/60 bg-gold-50 px-4 py-2.5 text-xs text-forest-800"
+      >
+        {picking === 'double' ? (
+          <>
+            <span
+              onPointerDown={startSealDrag}
+              className="inline-flex shrink-0 cursor-grab touch-none active:cursor-grabbing"
+              style={{ opacity: dragging ? 0.3 : 1 }}
+            >
+              <DoubleBadge size={36} title="Drag onto a Survivor to earn double points" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <b>Drag this Advantage icon</b> onto a Survivor to earn double points, or tap one.
+            </span>
+            <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <span aria-hidden="true" className="inline-flex shrink-0">
+              <DoubleBadge size={28} />
+            </span>
+            <span className="min-w-0 flex-1">
+              Play your advantage on your tribe to receive a <b>double point boost</b> for one
+              Survivor.
+            </span>
+            <button
+              type="button"
+              onClick={() => onStartDouble?.()}
+              disabled={weekly.busy}
+              className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
+            >
+              Play it here
+            </button>
+          </>
+        )}
+      </div>
+    )
+
   // The swap chip / cancel / undo cluster, lifted out of the JSX so the
   // Edit button can share its row instead of stacking under it (#529).
   const swapAction = (
@@ -2723,8 +2609,9 @@ function RosterSection({
 
   return (
     <>
-    <SealGhost drag={drag} />
+      <SealGhost drag={drag} />
       {toolbar}
+      {advantageStrip}
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {dropping
@@ -2734,18 +2621,6 @@ function RosterSection({
               })()}`
             : 'Choose a castaway to drop'}
           <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
-        </p>
-      )}
-      {picking === 'double' && (
-        <p className="flex items-center justify-between gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
-          Choose a castaway to double
-          <button
-            type="button"
-            onClick={() => onPickingDone?.()}
-            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
-          >
-            Cancel
-          </button>
         </p>
       )}
       {(error || weekly.error) && (
@@ -2809,9 +2684,7 @@ function RosterSection({
                     ? startSealDrag
                     : undefined
                 }
-                sealLifted={
-                  dragging && displayedDoubleTarget === pick.contestant_id
-                }
+                sealLifted={dragging && displayedDoubleTarget === pick.contestant_id}
                 dropId={pick.contestant_id}
                 dropActive={drag?.overId === pick.contestant_id}
                 stamp={stampId === pick.contestant_id}
@@ -3070,7 +2943,7 @@ function BallotRecord({
 }) {
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const scored = ep.status === 'scored'
-  // The ballot play wears the idol once (#484). Extra Vote ×2 names one pick
+  // The ballot play wears the idol once (#484). Power Vote names one pick
   // (#673), and the idol sits on that vote. A #303-era play has no target and
   // doubled the whole ballot, so its idol stands apart: a corner-seal stamp on
   // the prominent current ballot, a small seal by the episode number on the
@@ -3096,7 +2969,7 @@ function BallotRecord({
               // Only scored episodes have a settled result. A correct vote gets
               // the CorrectVote pill; incorrect stays neutral, not red — most
               // votes miss and a wall of red feels bad (#53, #135).
-              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
               if (scored && result?.correct === true)
                 return (
                   <CorrectVote
@@ -3146,7 +3019,7 @@ function BallotRecord({
       <span className="shrink-0 text-sm font-medium text-gray-700">
         {ep.is_finale ? 'Finale' : `Ep ${ep.episode_number}`}
       </span>
-      {ballotDoubled && !x2 && <DoubleBadge size={18} title="Extra Vote ×2 this episode" />}
+      {ballotDoubled && !x2 && <DoubleBadge size={18} title="Power Vote this episode" />}
       {/* Overflows with two or three chips on a narrow phone, so it is a
           scroll container and has to be focusable — otherwise the votes past
           the fold are unreachable by keyboard or switch (WCAG 2.1.1). */}
@@ -3167,7 +3040,7 @@ function BallotRecord({
             // misses stay neutral rather than red (#53, #135). The idol sits
             // on the named pick, and its pill carries the doubled points
             // (pickResults are base values, #136).
-            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Extra Vote ×2" /> : null
+            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
             return scored && result?.correct === true ? (
               <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points * (mark ? 2 : 1) : undefined} icon={mark} />
             ) : (
@@ -3202,9 +3075,6 @@ function PicksSection({
   onBallotSaved,
   onOpenPicks,
   onFinaleProgress,
-  onDragToRoster,
-  ballotArmed = false,
-  onBallotArmedChange,
 }: {
   season: Season
   contestants: Contestant[]
@@ -3219,11 +3089,6 @@ function PicksSection({
   onOpenPicks?: (picks: EliminationPick[]) => void
   /** Live finale-bracket progress for the hero, forwarded to FinaleBallot. */
   onFinaleProgress?: (p: { filled: number; saved: boolean }) => void
-  /** Drag the ballot ×2 seal onto the Roster tab to move the play there (#487). */
-  onDragToRoster?: () => void
-  /** The ×2 slot is open and the next tap on the cast names it (#673). */
-  ballotArmed?: boolean
-  onBallotArmedChange?: (armed: boolean) => void
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   const [pending, setPending] = useState<Map<string, Set<string>>>(new Map())
@@ -3246,14 +3111,19 @@ function PicksSection({
       // Drop picks whose castaway was eliminated in an EARLIER episode (#96):
       // they can't come true, and leaving them wastes a vote slot and shows up
       // as a Double Vote target. Seeds the editable set with only live picks.
+      // The Power Vote's name is a pick on the server (#673) but lives on
+      // its own sheet here, so it never takes one of the ballot's slots.
       const elimEp = new Map(contestants.map((c) => [c.id, c.eliminated_in_episode]))
       const pendingMap = new Map<string, Set<string>>()
       for (const ep of episodes) {
         if (isEpisodeOpen(ep, season, episodes)) {
+          const power = plays.find(
+            (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
+          )?.target_contestant_id
           const saved = picksMap.get(ep.id) ?? []
           const live = saved.filter((p) => {
             const out = elimEp.get(p.contestant_id)
-            return out == null || out >= ep.episode_number
+            return p.contestant_id !== power && (out == null || out >= ep.episode_number)
           })
           pendingMap.set(ep.id, new Set(live.map((p) => p.contestant_id)))
         }
@@ -3261,6 +3131,9 @@ function PicksSection({
       setPending(pendingMap)
     }
     void load()
+    // plays: only the first load seeds; a later Power Vote change re-reads
+    // the one open ballot below instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episodes, season, userId, contestants])
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
@@ -3279,34 +3152,116 @@ function PicksSection({
 
   const play = useWeeklyPlay(season, episodes, plays, setPlays)
 
-  // Extra Vote ×2 (#673): the ballot play adds one vote and doubles the name
-  // it sits on. It travels with the ballot save — vote as normal, pick which
-  // name wears the ×2, press Save — so nothing is written until then. Until
-  // saved, "armed" is the ballot open for the extra vote.
+  // Power Vote (#673): the advantage played on the ballot. Designating a
+  // name is the play — the idol drags onto a cast card, or the card's idol
+  // slot is tapped — and it saves at once, the way the roster double does;
+  // the server writes the name onto the ballot as an extra pick that pays
+  // double. The regular ballot never counts it: the grid holds it as the
+  // gold card, the pile leads with its slip, and the save sends it along
+  // with the names so the server keeps it.
   const ballotPlay = play.play?.advantage_type === 'double_vote_points' ? play.play : undefined
-  const x2Target = ballotPlay?.target_contestant_id ?? null
-  // Where the ×2 goes on save. Chosen in its own step after the names; there
-  // is no default, so a saved ballot keeps its ×2 and a new one waits for it.
-  const [pendingX2, setPendingX2] = useState<string | null>(null)
-  // Arming means editing: the extra vote goes on this ballot.
-  useEffect(() => {
-    if (ballotArmed) setEditing(true)
-  }, [ballotArmed])
+  const powerTarget = ballotPlay?.target_contestant_id ?? null
+  // The sheet is asking who gets the Power Vote.
+  const [designating, setDesignating] = useState(false)
+  const openEp = play.openEpisode
 
   function cancelEdit(episodeId: string) {
     const saved = picksByEpisode.get(episodeId) ?? []
-    setPending((prev) => new Map(prev).set(episodeId, new Set(saved.map((p) => p.contestant_id))))
-    setPendingX2(x2Target)
-    onBallotArmedChange?.(false)
+    setPending((prev) =>
+      new Map(prev).set(
+        episodeId,
+        new Set(saved.map((p) => p.contestant_id).filter((id) => id !== powerTarget)),
+      ),
+    )
     setEditing(false)
   }
 
-  /** The ×2 for one editable set: the explicit choice while it is still on
-   *  the ballot, else where it is saved, else nothing yet. */
-  function x2For(names: Set<string>): string | null {
-    if (pendingX2 && names.has(pendingX2)) return pendingX2
-    if (x2Target && names.has(x2Target)) return x2Target
-    return null
+  // The regular ballot's cap this episode (#240); the Power Vote sits on top.
+  const openStillIn = openEp
+    ? contestants.filter(
+        (c) => c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number,
+      ).length
+    : 0
+  const openMax = openEp ? Math.max(0, Math.min(openEp.max_elimination_picks, openStillIn - 1)) : 0
+
+  /** The idol lands on a name: the first time that is the play, saved as
+   *  the roster double is; with a Power Vote already down it is a move. */
+  function designatePower(contestantId: string) {
+    if (!openEp) return
+    setDesignating(false)
+    if (ballotPlay) {
+      void movePower(contestantId)
+      return
+    }
+    // A regular vote becoming the Power Vote leaves the ballot in the same
+    // paint, not a beat later when the re-read lands.
+    setPending((prev) => {
+      const set = new Set(prev.get(openEp.id) ?? [])
+      set.delete(contestantId)
+      return new Map(prev).set(openEp.id, set)
+    })
+    // Any other play this week gives way, same as on the roster.
+    void play.replace('double_vote_points', contestantId)
+  }
+
+  /** Move the Power Vote to another name, like dragging the seal between
+   *  roster rows. The old name stays on the ballot as a regular vote when
+   *  there is room for it; the picks POST moves the play and diffs the
+   *  ballot in one request (#682), shown optimistically. */
+  async function movePower(newId: string) {
+    if (!openEp || !ballotPlay) return
+    const epId = openEp.id
+    const oldId = ballotPlay.target_contestant_id
+    const before = { picks: picksByEpisode.get(epId) ?? [], plays }
+    const ids = new Set(before.picks.map((p) => p.contestant_id))
+    ids.add(newId)
+    const oldStays = oldId != null && ids.size <= openMax + 1
+    if (oldId && !oldStays) ids.delete(oldId)
+    const optimisticPicks: EliminationPick[] = [...ids].map(
+      (id) => before.picks.find((p) => p.contestant_id === id) ?? {
+        id: `pending-${id}`,
+        user_id: userId,
+        episode_id: epId,
+        contestant_id: id,
+        created_at: '',
+      },
+    )
+    setPicksByEpisode((prev) => new Map(prev).set(epId, optimisticPicks))
+    setPlays((prev) =>
+      prev.map((p) => (p.id === ballotPlay.id ? { ...p, target_contestant_id: newId } : p)),
+    )
+    setPending((prev) => {
+      const set = new Set(prev.get(epId) ?? [])
+      set.delete(newId)
+      if (oldId && oldStays) set.add(oldId)
+      return new Map(prev).set(epId, set)
+    })
+    lastTarget.current = newId
+    onOpenPicks?.(optimisticPicks)
+    setSubmitting(epId)
+    try {
+      const raw = await api.post<
+        { picks: EliminationPick[]; play: AdvantagePlay | null } | EliminationPick[]
+      >(`/league-seasons/${season.id}/episodes/${epId}/picks`, {
+        contestant_ids: [...ids],
+        doubled_contestant_id: newId,
+      })
+      const res = Array.isArray(raw) ? { picks: raw, play: null } : raw
+      setPicksByEpisode((prev) => new Map(prev).set(epId, res.picks ?? optimisticPicks))
+      if (res.play) {
+        setPlays((prev) => [...prev.filter((p) => p.episode_id !== epId), res.play!])
+        lastPlayId.current = res.play.id
+      }
+      onOpenPicks?.(res.picks ?? optimisticPicks)
+    } catch (e) {
+      setPicksByEpisode((prev) => new Map(prev).set(epId, before.picks))
+      setPlays(before.plays)
+      lastTarget.current = oldId
+      onOpenPicks?.(before.picks)
+      setErrors((prev) => new Map(prev).set(epId, e instanceof Error ? e.message : 'Move failed'))
+    } finally {
+      setSubmitting(null)
+    }
   }
 
   /** Save the ballot; true when it went through.
@@ -3317,16 +3272,17 @@ function PicksSection({
    *  the API is most of a second even when nothing goes wrong, and the
    *  roster path already reads that way. On failure the edit sheet comes
    *  back with the error. */
-  async function submitPicks(episodeId: string, x2Override?: string): Promise<boolean> {
+  async function submitPicks(episodeId: string): Promise<boolean> {
     setSubmitting(episodeId)
     setErrors((prev) => {
       const m = new Map(prev)
       m.delete(episodeId)
       return m
     })
-    const names = pending.get(episodeId) ?? new Set<string>()
-    const wantsX2 = (ballotArmed || ballotPlay != null) && names.size > 0
-    const doubled = wantsX2 ? (x2Override ?? x2For(names)) : null
+    // The Power Vote's name rides along so the server's diff keeps it.
+    const names = new Set(pending.get(episodeId) ?? [])
+    if (powerTarget) names.add(powerTarget)
+    const doubled = powerTarget
 
     const before = { picks: picksByEpisode.get(episodeId) ?? [], plays }
     const optimisticPicks: EliminationPick[] = [...names].map((id) => ({
@@ -3337,29 +3293,7 @@ function PicksSection({
       created_at: '',
     }))
     setPicksByEpisode((prev) => new Map(prev).set(episodeId, optimisticPicks))
-    setPlays((prev) => {
-      const ballot = (p: AdvantagePlay) =>
-        p.episode_id === episodeId && p.advantage_type === 'double_vote_points'
-      if (!doubled) return prev.filter((p) => !ballot(p))
-      // The ×2 lands on the ballot; any other play this episode gives way.
-      const base: AdvantagePlay = ballotPlay ?? {
-        id: `pending-save-${episodeId}`,
-        user_id: userId,
-        season_id: season.id,
-        episode_id: episodeId,
-        advantage_type: 'double_vote_points',
-        target_contestant_id: null,
-        token_cost: 0,
-        points_earned: null,
-        created_at: '',
-      }
-      return [
-        ...prev.filter((p) => p.episode_id !== episodeId),
-        { ...base, target_contestant_id: doubled },
-      ]
-    })
     setEditing(false)
-    onBallotArmedChange?.(false)
     onOpenPicks?.(optimisticPicks)
 
     try {
@@ -3385,24 +3319,19 @@ function PicksSection({
           }
         : { picks: raw.picks ?? [], play: raw.play ?? null }
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, res.picks))
-      setPlays((prev) => {
-        // With a play back, the server replaced whatever held the week; with
-        // none, only a ballot play (or our placeholder) can have gone.
-        const keep = (p: AdvantagePlay) =>
-          p.episode_id !== episodeId ||
-          (res.play == null && p.advantage_type !== 'double_vote_points' && !p.id.startsWith('pending-'))
-        return res.play ? [...prev.filter(keep), res.play] : prev.filter(keep)
-      })
-      // This ballot is already current: no re-read for the play change.
-      lastPlayId.current = res.play?.id
-      lastTarget.current = res.play?.target_contestant_id ?? null
+      // The save never creates or moves the play now, but the server still
+      // answers with it; take its word in case the week changed underneath.
+      if (res.play) {
+        setPlays((prev) => [...prev.filter((p) => p.episode_id !== episodeId), res.play!])
+        lastPlayId.current = res.play.id
+        lastTarget.current = res.play.target_contestant_id ?? null
+      }
       // The Ballot beat shows the saved count, so it follows the save.
       if (onOpenPicks) onOpenPicks(res.picks)
       else onBallotSaved?.()
       return true
     } catch (e) {
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, before.picks))
-      setPlays(before.plays)
       onOpenPicks?.(before.picks)
       setEditing(true)
       const msg = e instanceof Error ? e.message : 'Submit failed'
@@ -3413,21 +3342,19 @@ function PicksSection({
     }
   }
 
-  // Whenever the play changes underneath the ballot — saved here, or undone
-  // from the Advantage lane, which trims the newest name past the limit —
-  // the saved ballot is re-read and the editable set follows it.
+  // Whenever the play changes underneath the ballot — named, moved, or taken
+  // back — the saved ballot is re-read and the editable set follows it.
   const pendingRef = useRef(pending)
   pendingRef.current = pending
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
   const lastTarget = useRef<string | null>(null)
-  const openEp = play.openEpisode
   // A replace shows its optimistic row before the server has moved anything.
-  // Re-read only once the real row is back — a drag to the roster used to
+  // Re-read only once the real row is back — a move to the roster used to
   // re-read while the delete was still in flight and keep the doubled vote.
   const settled = !play.play?.id.startsWith('pending-')
-  // Taking the ×2 back drops the doubled vote on the server. Drop it here in
-  // the same paint the seal disappears, so Undo reads as one change rather
-  // than the idol going, then the vote a beat later when the re-read lands.
+  // Taking the Power Vote back drops its vote on the server. Drop it here in
+  // the same paint the sheet empties, so it reads as one change rather than
+  // the name going, then the vote a beat later when the re-read lands.
   useLayoutEffect(() => {
     if (!settled || !openEp) return
     const gone = lastTarget.current
@@ -3454,20 +3381,25 @@ function PicksSection({
         if (stale) return
         setPicksByEpisode((prev) => new Map(prev).set(epId, picks))
         // Same seed as the first load: a name already voted out can't come
-        // true, so it doesn't take a slot in the editable set (#96).
+        // true, so it doesn't take a slot in the editable set (#96), and the
+        // Power Vote's name lives on its own sheet.
+        const power = ballotPlay?.target_contestant_id ?? null
         const saved = new Set(
           picks
             .filter((p) => {
               const out = contestants.find((c) => c.id === p.contestant_id)?.eliminated_in_episode
-              return out == null || out >= openEp.episode_number
+              return p.contestant_id !== power && (out == null || out >= openEp.episode_number)
             })
             .map((p) => p.contestant_id),
         )
-        // Nothing unsaved left over: the paper is the record again.
+        // Names written but not yet saved survive the play changing under
+        // them; only one that just became the Power Vote leaves the ballot.
+        // The sheet stays open if it was: "cast your votes" continues after
+        // the Power Vote lands, and only Save or Cancel closes it.
         const was = pendingRef.current.get(epId) ?? new Set<string>()
-        if ([...was].every((id) => saved.has(id))) setEditing(false)
-        setPending((prev) => new Map(prev).set(epId, saved))
-        setPendingX2(ballotPlay?.target_contestant_id ?? null)
+        const next = new Set([...was, ...saved])
+        if (power) next.delete(power)
+        setPending((prev) => new Map(prev).set(epId, next))
         if (onOpenPicks) onOpenPicks(picks)
         else onBallotSaved?.()
       })
@@ -3477,38 +3409,54 @@ function PicksSection({
     }
   }, [ballotPlay?.id, ballotPlay?.target_contestant_id, settled, openEp, season.id, userId, contestants, onBallotSaved, onOpenPicks])
 
-  // The seal rides the doubled slip. Drag it onto another slip to move the
-  // ×2: while editing that only changes what Save sends (the slips in the
-  // "Double one vote" row are buttons for the tap and keyboard path); on the
-  // submitted sheet it saves straight away. The Roster tab is the other drop,
-  // to double a castaway instead (#487).
-  const openPending = openEp ? (pending.get(openEp.id) ?? new Set<string>()) : new Set<string>()
-  const openX2 = x2For(openPending)
+  // Who can be named this episode: still in, and not on Redemption Island.
+  const liveIds = new Set(
+    contestants
+      .filter(
+        (c) =>
+          openEp != null &&
+          (c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number) &&
+          !c.on_redemption,
+      )
+      .map((c) => c.id),
+  )
+  // The idol drags onto a cast card (#487): from the strip to designate, or
+  // from the gold card to move the Power Vote.
   const {
     drag: ballotDrag,
     dragging: ballotDragging,
     start: startBallotDrag,
   } = useSealDrag({
     disabled: play.locked || play.busy || submitting != null,
-    canDropOn: (id) => id === 'beat:roster' || (id !== openX2 && openPending.has(id)),
-    onDrop: (id) => {
-      if (id === 'beat:roster') {
-        onDragToRoster?.()
-        return
-      }
-      setPendingX2(id)
-      // Submitted sheet: the save moves the seal at once and catches up.
-      if (!editing && openEp) void submitPicks(openEp.id, id)
-    },
+    canDropOn: (id) => id !== powerTarget && liveIds.has(id),
+    onDrop: designatePower,
   })
+  // Stamp the idol where it just landed (#487): any change of name, not the
+  // first paint.
+  const [powerStamp, setPowerStamp] = useState(false)
+  const prevPowerTarget = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const prev = prevPowerTarget.current
+    prevPowerTarget.current = powerTarget
+    if (prev === undefined || !powerTarget || powerTarget === prev) return
+    setPowerStamp(true)
+    const timer = setTimeout(() => setPowerStamp(false), 790)
+    return () => clearTimeout(timer)
+  }, [powerTarget])
+  // The seal on the gold slip is a drag handle too, like the roster row's:
+  // drop it on another slip to move the Power Vote there.
   const seal = (
     <span
-      onPointerDown={startBallotDrag}
-      title="Drag onto another name to move the ×2"
-      className="absolute -right-2 -top-3 z-10 rotate-[9deg] cursor-grab touch-none drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] active:cursor-grabbing"
+      onPointerDown={play.locked ? undefined : startBallotDrag}
+      title={play.locked ? undefined : 'Drag onto another name to move your Power Vote'}
+      className={`absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
+        play.locked ? 'pointer-events-none' : 'cursor-grab touch-none active:cursor-grabbing'
+      }`}
       style={{ opacity: ballotDragging ? 0.3 : 1 }}
     >
-      <DoubleBadge size={34} title="Extra Vote ×2" />
+      <span className={powerStamp ? 'seal-stamp' : ''}>
+        <DoubleBadge size={34} title="Power Vote" />
+      </span>
     </span>
   )
   const nextOpen = episodes.find(isOpen)
@@ -3561,35 +3509,82 @@ function PicksSection({
           const ep = nextOpen
           const epPending = pending.get(ep.id) ?? new Set<string>()
           const episodeError = errors.get(ep.id)
-          const savedPicks = picksByEpisode.get(ep.id) ?? []
+          // The Power Vote's name is a pick on the server but not a regular
+          // vote here: it leads the pile as the gold slip (#673).
+          const savedPicks = (picksByEpisode.get(ep.id) ?? []).filter(
+            (p) => p.contestant_id !== powerTarget,
+          )
           const hasSavedPicks = savedPicks.length > 0
-          const confirmed = hasSavedPicks && !editing
+          const confirmed = hasSavedPicks && !editing && !designating
           const savedIds = new Set(savedPicks.map((pick) => pick.contestant_id))
-          // One play per episode (#307); on the ballot it is Extra Vote ×2
-          // (#673): one vote beyond the schedule, and the ×2 sits on any one
-          // of your names. It saves with the ballot, so until then "armed"
-          // is the ballot open for the extra vote.
-          const x2Active = ballotArmed || ballotPlay != null
-          const x2 = x2Active ? x2For(epPending) : null
-          const namesDirty =
+          const dirty =
             epPending.size !== savedIds.size ||
             [...epPending].some((contestantId) => !savedIds.has(contestantId))
-          // The ×2 counts as a change too: a new play, or a moved one.
-          const dirty =
-            namesDirty ||
-            (ballotArmed && !ballotPlay && epPending.size > 0) ||
-            (ballotPlay != null && epPending.size > 0 && x2 !== x2Target)
           // You can never vote for every remaining castaway — cap at
-          // (still in the game − 1), the extra vote included (#240).
+          // (still in the game − 1). The Power Vote is on top of this.
           const stillIn = contestants.filter(
             (c) =>
               c.eliminated_in_episode == null ||
               c.eliminated_in_episode >= ep.episode_number,
           ).length
-          const maxPicks = Math.max(
-            0,
-            Math.min(ep.max_elimination_picks + (x2Active ? 1 : 0), stillIn - 1),
-          )
+          const maxPicks = Math.max(0, Math.min(ep.max_elimination_picks, stillIn - 1))
+          const powerContestant = powerTarget ? contestantMap.get(powerTarget) : undefined
+          const powerName = powerContestant ? displayName(powerContestant) : '—'
+          const stripLink =
+            'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
+
+          // The advantage on this tab (#673 follow-on): on offer, or
+          // designating (the idol drags onto a name, or a name's idol slot is
+          // tapped). Once played anywhere the strip leaves both tabs: the
+          // gold card is the record, and the hero holds Undo.
+          const advantageStrip =
+            maxPicks === 0 || play.locked || play.play != null ? null : (
+              <div
+                role="region"
+                aria-label="Advantage"
+                className="mb-5 flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-left text-xs text-forest-800"
+              >
+                {designating ? (
+                  <>
+                    <span
+                      onPointerDown={startBallotDrag}
+                      className="inline-flex shrink-0 cursor-grab touch-none active:cursor-grabbing"
+                      style={{ opacity: ballotDragging ? 0.3 : 1 }}
+                    >
+                      <DoubleBadge size={36} title="Drag onto a name to make it your Power Vote" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <b>Cast your votes.</b> Drag this Advantage icon onto a name to make it your
+                      Power Vote, worth double, or tap the idol on a name.
+                    </span>
+                    <button type="button" onClick={() => setDesignating(false)} className={stripLink}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden="true" className="inline-flex shrink-0">
+                      <DoubleBadge size={28} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      Play your advantage on your ballot to receive a <b>Power Vote</b>, an extra
+                      vote worth double.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesignating(true)
+                        setEditing(true)
+                      }}
+                      disabled={play.busy}
+                      className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
+                    >
+                      Play it here
+                    </button>
+                  </>
+                )}
+              </div>
+            )
 
           // Only list castaways still in the game, grouped by tribe so the
           // field is easy to scan (#249). Already-eliminated players aren't
@@ -3607,9 +3602,112 @@ function PicksSection({
             else byTribe.set(key, [c])
           }
 
+          const grid = (
+            <div className="mb-5 space-y-6">
+              {[...byTribe.entries()].map(([tribeName, members]) => (
+                <div key={tribeName}>
+                  <div className="mb-3 flex items-center justify-center gap-2">
+                    {members[0].tribe_color && (
+                      <span
+                        className="tribe-marker"
+                        style={{ backgroundColor: members[0].tribe_color }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {/* h4, not h3 — the sheet's own title is the h3. */}
+                    <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
+                      {tribeName}
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {members.map((c) => {
+                      const name = displayName(c)
+                      const isPower = c.id === powerTarget
+                      const isSelected = !isPower && epPending.has(c.id)
+                      const maxed = !isSelected && epPending.size >= maxPicks
+                      const disabled = play.busy || maxed || isPower
+                      return (
+                        // The wrapper is the drop target so the idol slot can
+                        // sit beside the card's own button (a button can't
+                        // hold another).
+                        <div
+                          key={c.id}
+                          data-drop-id={c.id}
+                          className="relative rounded-xl data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => togglePick(ep.id, c.id, maxPicks)}
+                            disabled={disabled}
+                            aria-pressed={isSelected}
+                            aria-label={
+                              isPower
+                                ? `${name} is your Power Vote`
+                                : isSelected
+                                  ? `Remove vote for ${name}`
+                                  : `Vote for ${name}`
+                            }
+                            className={[
+                              'relative flex min-h-16 w-full min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
+                              isPower
+                                ? 'border-gold-500 bg-gold-50 text-forest-900 shadow-sm ring-1 ring-gold-200'
+                                : isSelected
+                                  ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
+                                  : disabled
+                                    ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
+                                    : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                            ].join(' ')}
+                          >
+                            <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                            <span className="min-w-0 leading-tight">{name}</span>
+                            {isSelected && (
+                              <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M5 13l4 4L19 7" />
+                                </svg>
+                              </span>
+                            )}
+                          </button>
+                          {isPower ? (
+                            // The idol rests on the gold card; drag it to
+                            // another name to move the Power Vote.
+                            <span
+                              onPointerDown={play.locked ? undefined : startBallotDrag}
+                              className={`absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
+                                play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'
+                              }`}
+                              style={{ opacity: ballotDragging ? 0.3 : 1 }}
+                            >
+                              <span className={powerStamp ? 'seal-stamp' : ''}>
+                                <DoubleBadge size={30} title={`${name} is your Power Vote`} />
+                              </span>
+                            </span>
+                          ) : designating ? (
+                            // The tap path while designating: an empty slot on
+                            // every name, where the idol would land.
+                            <button
+                              type="button"
+                              onClick={() => designatePower(c.id)}
+                              disabled={play.busy}
+                              aria-label={`Make ${name} your Power Vote`}
+                              className="absolute -right-2 -top-3 z-10 inline-flex rotate-[9deg] rounded-full opacity-45 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-20"
+                            >
+                              <DoubleBadge size={30} title="" />
+                            </button>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+
           return (
             <div className="ballot-sheet">
               <BallotSheetHead ep={ep} prompt={confirmed ? undefined : 'Who goes home tonight?'} />
+              {advantageStrip}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
@@ -3622,8 +3720,19 @@ function PicksSection({
                     Ballot submitted
                   </p>
                   <div className="ballot-sheet__slips">
-                    {/* The doubled vote keeps its place in the pile, in gold,
-                        wearing the seal on its corner (#673). */}
+                    {/* The Power Vote leads the pile in gold, wearing the
+                        seal on its corner (#673). */}
+                    {ballotPlay && (
+                      <span className="relative inline-flex items-center gap-1.5 rounded">
+                        <VoteSlip
+                          name={powerName}
+                          doubled
+                          tribeColor={powerContestant?.tribe_color}
+                          rotation={0.4}
+                        />
+                        {seal}
+                      </span>
+                    )}
                     {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
@@ -3631,22 +3740,19 @@ function PicksSection({
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       const slipName = sc ? displayName(sc) : '—'
-                      const isX2 = p.contestant_id === x2Target
                       return (
                         <span
                           key={p.id}
-                          data-drop-id={x2Target && !isX2 ? p.contestant_id : undefined}
+                          data-drop-id={ballotPlay && !stale ? p.contestant_id : undefined}
                           className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
                         >
                           <VoteSlip
                             name={slipName}
                             stale={stale}
-                            doubled={isX2}
                             tribeColor={sc?.tribe_color}
                             rotation={[-0.7, 0.5, -0.2][index % 3]}
                           />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
-                          {isX2 && seal}
                         </span>
                       )
                     })}
@@ -3663,99 +3769,7 @@ function PicksSection({
                   <p aria-live="polite" className="ballot-sheet__count mb-5">
                     <b>{epPending.size}</b> of {maxPicks} names written
                   </p>
-                  <div className="mb-5 space-y-6">
-                    {[...byTribe.entries()].map(([tribeName, members]) => (
-                      <div key={tribeName}>
-                        <div className="mb-3 flex items-center justify-center gap-2">
-                          {members[0].tribe_color && (
-                            <span
-                              className="tribe-marker"
-                              style={{ backgroundColor: members[0].tribe_color }}
-                              aria-hidden="true"
-                            />
-                          )}
-                          {/* h4, not h3 — the sheet's own title is the h3. */}
-                          <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
-                            {tribeName}
-                          </h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                          {members.map((c) => {
-                            const name = displayName(c)
-                            const isSelected = epPending.has(c.id)
-                            const maxed = !isSelected && epPending.size >= maxPicks
-                            const disabled = play.busy || maxed
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => togglePick(ep.id, c.id, maxPicks)}
-                                disabled={disabled}
-                                aria-pressed={isSelected}
-                                aria-label={isSelected ? `Remove vote for ${name}` : `Vote for ${name}`}
-                                className={[
-                                  'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
-                                  isSelected
-                                    ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
-                                    : disabled
-                                      ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
-                                ].join(' ')}
-                              >
-                                <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                                <span className="min-w-0 leading-tight">{name}</span>
-                                {isSelected && (
-                                  <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </span>
-                                )}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* The ×2 is its own step once the names are down (#673):
-                      the ballot's slips, tap one to double it. No default —
-                      Save waits until one is chosen. */}
-                  {x2Active && epPending.size > 0 && (
-                    <div className="mb-5">
-                      <p className="ballot-sheet__count mb-3">Double one vote</p>
-                      <div className="ballot-sheet__slips">
-                        {[...epPending].map((id, index) => {
-                          const sc = contestantMap.get(id)
-                          const slipName = sc ? displayName(sc) : '—'
-                          const isX2 = id === x2
-                          return (
-                            <span
-                              key={id}
-                              data-drop-id={!isX2 ? id : undefined}
-                              className="relative inline-flex rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => setPendingX2(id)}
-                                aria-pressed={isX2}
-                                aria-label={isX2 ? `${slipName} is doubled` : `Double the vote for ${slipName}`}
-                                className={isX2 ? '' : 'opacity-60 hover:opacity-100'}
-                              >
-                                <VoteSlip
-                                  name={slipName}
-                                  doubled={isX2}
-                                  tribeColor={sc?.tribe_color}
-                                  rotation={[-0.7, 0.5, -0.2][index % 3]}
-                                />
-                              </button>
-                              {isX2 && seal}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {grid}
                 </>
               )}
 
@@ -3775,23 +3789,18 @@ function PicksSection({
                   <button
                     type="button"
                     onClick={() => submitPicks(ep.id)}
-                    disabled={
-                      submitting === ep.id || !dirty || (x2Active && epPending.size > 0 && !x2)
-                    }
+                    disabled={submitting === ep.id || !dirty}
                     className="min-h-11 flex-1 rounded-lg bg-jade-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-jade-700 disabled:opacity-40"
                   >
-                    {submitting === ep.id ? (
-                      'Saving…'
-                    ) : (
-                      <span className="inline-flex items-center justify-center gap-2">
-                        Save ballot
-                      </span>
-                    )}
+                    {submitting === ep.id ? 'Saving…' : 'Save ballot'}
                   </button>
-                  {(hasSavedPicks || ballotArmed) && (
+                  {hasSavedPicks && (
                     <button
                       type="button"
-                      onClick={() => cancelEdit(ep.id)}
+                      onClick={() => {
+                        setDesignating(false)
+                        cancelEdit(ep.id)
+                      }}
                       className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
                     >
                       Cancel

@@ -58,8 +58,8 @@ export function ThisWeekHero({
 
 /**
  * The advantage lane inside the hero: the idol, what it's resting on, and a
- * gold check once it's spent. `icon` is the idol itself, which stays the drag
- * handle and the tap menu's trigger — this only supplies the frame.
+ * gold check once it's spent. `icon` is the idol itself; this only supplies
+ * the frame.
  */
 export function HeroLane({
   label,
@@ -68,7 +68,6 @@ export function HeroLane({
   done = false,
   muted = false,
   action,
-  onClick,
 }: {
   label: string
   note: ReactNode
@@ -78,12 +77,9 @@ export function HeroLane({
   muted?: boolean
   /** Trailing control — Undo, once the play is spent. */
   action?: ReactNode
-  /** The whole lane is a tap target — players kept missing the 32px idol.
-   *  Keyboard access stays on the idol button inside, so this is pointer-only. */
-  onClick?: () => void
 }) {
   return (
-    <div className="hero-lane" data-muted={muted || undefined} data-tappable={onClick ? true : undefined} onClick={onClick}>
+    <div className="hero-lane" data-muted={muted || undefined}>
       <span className="hero-lane__icon">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="hero-lane__label">{label}</span>

@@ -246,7 +246,7 @@ class SoleSurvivorRequest(BaseModel):
 
 class EliminationPickSubmitRequest(BaseModel):
     contestant_ids: list[UUID]
-    # Which pick Extra Vote ×2 doubles, if the play is in for this episode
+    # Which pick Power Vote doubles, if the play is in for this episode
     # (#673) — the ballot save carries the ×2 placement, no separate step.
     doubled_contestant_id: Optional[UUID] = None
 
