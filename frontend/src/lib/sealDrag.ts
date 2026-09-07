@@ -1,40 +1,11 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react'
 
 /**
- * Dragging the played ×2 idol across beats (#487). The idol is the one token
- * for the week's play: drag it off a roster row onto the Ballot tab to make it
- * a ballot double, onto another castaway to reassign, or — from the ballot —
- * onto the Roster tab to pick a castaway to double instead. The Advantage tap
- * paths remain the non-drag equivalent, so this is enhancement only.
+ * Dragging the advantage idol onto a castaway (#487, back for the Tribe and
+ * Ballot strips): from the strip to designate, or from the row or card it
+ * rests on to move it. Tap paths exist beside every drag, so this is
+ * enhancement only.
  */
-export type DropSource = 'roster' | 'ballot' | 'unplayed'
-
-export type DropAction =
-  | { kind: 'reassign_roster'; target: string }
-  | { kind: 'to_ballot' }
-  | { kind: 'to_roster_picking' }
-  | { kind: 'none' }
-
-/** Pure: what dropping a `source` idol on `dropId` should do. Beat tabs carry
- *  `beat:<key>` drop ids; any other id is a castaway row. */
-export function resolveDrop(source: DropSource, dropId: string): DropAction {
-  if (source === 'ballot') {
-    // A ballot double has no castaway target, so its only move is back to
-    // roster, where you then pick who gets it (like the Advantage → Roster tap).
-    if (dropId === 'beat:roster') return { kind: 'to_roster_picking' }
-    return { kind: 'none' }
-  }
-  // 'roster' (a played roster double) and 'unplayed' (the strip's idle idol)
-  // both spend onto a castaway or the ballot; only 'unplayed' can also open the
-  // pick sheet from the Roster tab, since it has no castaway yet to move.
-  if (dropId === 'beat:ballot') return { kind: 'to_ballot' }
-  if (dropId === 'beat:roster') {
-    return source === 'unplayed' ? { kind: 'to_roster_picking' } : { kind: 'none' }
-  }
-  if (dropId.startsWith('beat:')) return { kind: 'none' }
-  return { kind: 'reassign_roster', target: dropId }
-}
-
 export type DragState = { x: number; y: number; overId: string | null; releasing?: boolean }
 
 // The ghost floats this far above the finger (so the thumb doesn't cover it),

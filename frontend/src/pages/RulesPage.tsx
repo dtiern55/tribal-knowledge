@@ -95,7 +95,7 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
     <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
       {rows.map((row) => (
         <li key={row.key} className="flex items-start justify-between gap-4 py-2.5">
-          <span className="text-sm text-gray-700">{row.key === 'correct_elimination' ? 'Correct pick' : row.label}</span>
+          <span className="text-sm text-gray-700">{row.key === 'correct_elimination' ? 'Correct pick' : row.key === 'power_vote' ? 'Power Vote goes home' : row.label}</span>
           <span className="shrink-0 text-sm font-semibold text-jade-700">
             {row.postmerge_point_value != null && row.postmerge_point_value !== row.point_value
               ? `${pts(row.point_value)} before merge, ${pts(row.postmerge_point_value)} after`
@@ -193,6 +193,13 @@ export function RulesPage() {
   const named = new Set(EVENT_GROUPS.flatMap(([, keys]) => keys))
   const other = tribeEvents.filter((e) => !named.has(e.event_type))
   const ballotScore = prediction_scores.find((score) => score.key === 'correct_elimination')
+  // The ladder (#694): a season with rung values pays by rank; older seasons
+  // keep the one flat value.
+  const rungScores = [1, 2, 3]
+    .map((rank) => prediction_scores.find((score) => score.key === `correct_elimination_${rank}`))
+    .filter((score): score is RulePredictionScore => score != null)
+  const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
+  const ballotRows = rungScores.length > 0 ? [...rungScores, ...(powerVoteScore ? [powerVoteScore] : [])] : ballotScore ? [ballotScore] : []
   const finaleScores = prediction_scores.filter((score) => FINALE_KEYS.includes(score.key))
   // Only the explicit lock is a fact. The words carry the rule for a live
   // season where the number is not known yet.
@@ -251,12 +258,22 @@ export function RulesPage() {
         <RuleSection id="ballot" title="Ballot">
           <RuleList>
             <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
-            <li>
-              Each correct pick scores on its own. Wrong picks cost nothing.
-              {ballotScore && ballotScore.postmerge_point_value != null && ballotScore.postmerge_point_value !== ballotScore.point_value
-                ? ` Before the merge a correct pick is worth ${ballotScore.point_value}. After the merge, ${ballotScore.postmerge_point_value}.`
-                : ballotScore ? ` A correct pick is worth ${ballotScore.point_value}.` : ''}
-            </li>
+            {rungScores.length > 0 ? (
+              <li>
+                Your picks are a ladder: put the name you are surest of on top. Each correct pick scores by its rung, and wrong picks cost nothing.
+                {` Before the merge the rungs are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
+                {rungScores.some((score) => score.postmerge_point_value != null && score.postmerge_point_value !== score.point_value)
+                  ? `; after the merge, ${rungScores.map((score) => score.postmerge_point_value ?? score.point_value).join(', ')}.`
+                  : '.'}
+              </li>
+            ) : (
+              <li>
+                Each correct pick scores on its own. Wrong picks cost nothing.
+                {ballotScore && ballotScore.postmerge_point_value != null && ballotScore.postmerge_point_value !== ballotScore.point_value
+                  ? ` Before the merge a correct pick is worth ${ballotScore.point_value}. After the merge, ${ballotScore.postmerge_point_value}.`
+                  : ballotScore ? ` A correct pick is worth ${ballotScore.point_value}.` : ''}
+              </li>
+            )}
             <li>You can change your ballot until the episode locks. One episode is open at a time. The next opens once the last one is scored.</li>
             <li>The finale has its own ballot. See <a href="#finale" className="font-medium text-forest-700 underline underline-offset-2">Finale</a>.</li>
           </RuleList>
@@ -273,9 +290,14 @@ export function RulesPage() {
             </div>
           ) : (
             <RuleList>
-              <li>Each episode you get one advantage. Use it or lose it. It does not carry over.</li>
-              <li><b>Double Castaway Points:</b> one tribe member's points count double this episode.</li>
-              <li><b>Extra Vote ×2:</b> add one more name to your ballot. If that name goes home, it pays double.</li>
+              <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it. It does not carry over.</li>
+              <li><b>On your tribe:</b> a double point boost. One Survivor on your tribe earns double this episode.</li>
+              <li>
+                <b>On your ballot:</b> a Power Vote. One extra name above your ladder
+                {powerVoteScore
+                  ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
+                  : ', and if they go home it pays double.'}
+              </li>
               <li>
                 You can change or remove it until the episode locks.
                 {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`} No advantage on the finale.
@@ -324,10 +346,10 @@ export function RulesPage() {
               )}
             </div>
           )}
-          {ballotScore && (
+          {ballotRows.length > 0 && (
             <div className="mt-6">
               <h3 className="font-semibold text-gray-900">Ballot picks</h3>
-              <PredictionList rows={[ballotScore]} />
+              <PredictionList rows={ballotRows} />
             </div>
           )}
         </RuleSection>

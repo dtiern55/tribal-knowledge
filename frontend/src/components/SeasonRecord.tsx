@@ -1,3 +1,4 @@
+import { DoubleBadge } from './DoubleBadge'
 import type { ReactNode } from 'react'
 import { TeamBuffPairIcon } from './icons'
 import { VoteMark } from './VoteMark'
@@ -21,6 +22,9 @@ export type Beat = {
   /** Settled — nothing left to decide on this beat this week. */
   done: boolean
   note: string
+  /** The week's advantage is played on this beat (#694): the tab wears the
+   *  idol, and nothing inside the tab does. */
+  played?: boolean
 }
 
 /** Each lane's colour and mark, carried from the hero through here into the
@@ -48,8 +52,7 @@ const LANE_ICON: Record<BeatKey, () => ReactNode> = {
  * status is in the hero's Advantage tile (#487).
  *
  * A real tablist: roving tabindex, arrow keys, and panels that stay mounted so
- * an unsaved ballot survives a look at the roster. The tabs double as
- * cross-beat drop targets for the idol drag.
+ * an unsaved ballot survives a look at the roster.
  */
 export function RecordBeats({
   value,
@@ -84,12 +87,12 @@ export function RecordBeats({
             aria-controls={`panel-${b.key}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(b.key)}
-            data-drop-id={`beat:${b.key}`}
             data-lane={LANE[b.key]}
             className="lane-tab"
           >
             <span className="lane-tab__icon" aria-hidden="true">{LANE_ICON[b.key]()}</span>
             <span className="truncate">{b.label}</span>
+            {b.played && <DoubleBadge size={18} title="Advantage played here" />}
             {/* Kept mounted and merely hidden on the active tab: unmounting it
                 changed the tab's content width, so switching lanes nudged both
                 labels sideways (#552 preview feedback). */}

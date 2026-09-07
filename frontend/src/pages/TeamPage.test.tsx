@@ -132,7 +132,7 @@ describe('TeamPage', () => {
     expect(screen.getByText('Ep 1')).toBeVisible()
     // The played ×2 reads on the ballot row itself: the idol sits on the
     // doubled vote, whose green pill says it hit. No separate Advantages ledger.
-    const idol = screen.getByRole('img', { name: 'Extra Vote ×2' })
+    const idol = screen.getByRole('img', { name: 'Power Vote' })
     expect(idol).toBeVisible()
     expect(idol.closest('span[class*="jade"]')).toHaveTextContent('Kenzie')
     expect(screen.queryByRole('button', { name: /^Advantages/ })).not.toBeInTheDocument()

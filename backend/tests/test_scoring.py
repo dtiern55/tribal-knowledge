@@ -731,3 +731,99 @@ def test_scoring_ignores_global_template_changes(db_conn):
                 "update prediction_score_types set point_value = 15"
                 " where key = 'correct_elimination'"
             )
+
+
+def _drop_ladder(conn, season_id):
+    """Turn a test season into a pre-ladder one: no rung or Power Vote keys."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "delete from season_prediction_score_types where season_id = %s"
+            " and (key like 'correct_elimination\\_%%' or key = 'power_vote')",
+            [str(season_id)],
+        )
+
+
+@pytest.mark.integration
+def test_ladder_pays_by_rung_pre_and_post_merge(db_conn):
+    """#694: 1st / 2nd / 3rd pay 20 / 16 / 12 before the merge, 25 / 20 / 15 after."""
+    season = insert_season(db_conn, merge_episode=7)
+    pre = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
+    post = insert_episode(db_conn, season["id"], episode_number=9, status="scored")
+    user = insert_user(db_conn)
+    a, b, c, d = (insert_contestant(db_conn, season["id"], n) for n in "ABCD")
+    insert_elimination_pick(db_conn, user["id"], pre["id"], a["id"], rank=1)
+    insert_elimination_pick(db_conn, user["id"], pre["id"], b["id"], rank=3)
+    insert_elimination(db_conn, pre["id"], a["id"])
+    insert_elimination(db_conn, pre["id"], b["id"])
+    insert_elimination_pick(db_conn, user["id"], post["id"], c["id"], rank=2)
+    insert_elimination_pick(db_conn, user["id"], post["id"], d["id"], rank=1)
+    insert_elimination(db_conn, post["id"], c["id"])
+
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 20 + 12 + 20
+    }
+    assert scoring.episode_points(db_conn, season["league_season_id"], 9) == {
+        str(user["id"]): 20
+    }
+
+
+@pytest.mark.integration
+def test_unranked_pick_in_a_ladder_season_pays_the_flat_rate(db_conn):
+    """A ballot saved before the ladder has no ranks and keeps paying 16."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
+    insert_elimination(db_conn, ep["id"], c["id"])
+
+    assert scoring.elimination_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 16
+    }
+
+
+@pytest.mark.integration
+def test_power_vote_pays_its_own_value_not_double(db_conn):
+    """#694: the Power Vote's name pays 32 pre-merge / 38 post-merge — a value
+    from the snapshot, not twice a rung. The breakdown keeps the pick at its
+    base and reports the difference as the play's bonus (#136)."""
+    season = insert_season(db_conn, merge_episode=7)
+    ep = insert_episode(db_conn, season["id"], episode_number=9, status="scored")
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"])
+    play = insert_advantage_play(
+        db_conn, user["id"], ep["id"], "double_vote_points", c["id"]
+    )
+    insert_elimination(db_conn, ep["id"], c["id"])
+
+    ls = season["league_season_id"]
+    assert scoring.elimination_points(db_conn, ls) == {str(user["id"]): 38}
+    results = scoring.elimination_pick_results(db_conn, ls, user["id"])
+    assert [(r["correct"], r["points"]) for r in results] == [(True, 20)]
+    assert scoring.advantage_bonus_by_play(db_conn, ls, user["id"]) == {
+        str(play["id"]): 18
+    }
+
+
+@pytest.mark.integration
+def test_season_without_the_ladder_still_doubles(db_conn):
+    """Time capsule (#170): a season whose snapshot predates the ladder keeps
+    doubling the named pick at the flat rate."""
+    season = insert_season(db_conn, merge_episode=7)
+    _drop_ladder(db_conn, season["id"])
+    ep = insert_episode(db_conn, season["id"], episode_number=9, status="scored")
+    user = insert_user(db_conn)
+    c = insert_contestant(db_conn, season["id"])
+    # A rank on the row changes nothing without rung values to pay it.
+    insert_elimination_pick(db_conn, user["id"], ep["id"], c["id"], rank=1)
+    play = insert_advantage_play(
+        db_conn, user["id"], ep["id"], "double_vote_points", c["id"]
+    )
+    insert_elimination(db_conn, ep["id"], c["id"])
+
+    ls = season["league_season_id"]
+    assert scoring.elimination_points(db_conn, ls) == {str(user["id"]): 40}
+    assert scoring.advantage_bonus_by_play(db_conn, ls, user["id"]) == {
+        str(play["id"]): 20
+    }

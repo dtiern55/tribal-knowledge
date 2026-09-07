@@ -19,7 +19,7 @@ export function VoteSlip({
 }: {
   name: string
   stale?: boolean
-  /** The vote wearing the Extra Vote ×2 (#673): gold, so it reads at a glance. */
+  /** The vote wearing the Power Vote (#673): gold, so it reads at a glance. */
   doubled?: boolean
   tribeColor?: string | null
   /** Supplied per slip and stable across renders, so the pile never reshuffles. */

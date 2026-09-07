@@ -46,7 +46,7 @@ def get_season_picks(
                 select p.* from elimination_picks p
                 join episodes e on e.id = p.episode_id
                 where p.league_season_id = %s and p.user_id = %s{lock_filter}
-                order by p.episode_id, p.created_at
+                order by p.episode_id, p.rank nulls first, p.created_at
                 """,
                 [str(league_season_id), str(user_id)],
             )
@@ -72,7 +72,7 @@ def already_eliminated_ids(
 ) -> list[str]:
     """Which of `ids` were finally eliminated before this episode.
 
-    Shared with advantage_plays.py: Extra Vote ×2's target must be as
+    Shared with advantage_plays.py: Power Vote's target must be as
     pickable as any ballot name (#673).
     """
     cur.execute(
@@ -95,13 +95,13 @@ def pick_limit(
     """This user's pick cap for one episode (#673 extends #240).
 
     max_elimination_picks, plus one for an extra_vote play or a targeted
-    Extra Vote ×2 play that episode (#307: at most one such play exists),
+    Power Vote play that episode (#307: at most one such play exists),
     capped at (contestants still in the game − 1) so a big base limit never
     lets you pick every remaining option. Shared by submit_picks (to reject
     an over-long ballot) and take_back_advantage (to trim one down after a
     ×2 play is undone).
 
-    assume_double_vote: count as if a targeted Extra Vote ×2 play exists even
+    assume_double_vote: count as if a targeted Power Vote play exists even
     before its row is written — the ballot save creates that play in the same
     request it raises the limit for (#673).
     """
@@ -183,7 +183,7 @@ def get_picks(
                 """
                 select * from elimination_picks
                 where league_season_id = %s and episode_id = %s and user_id = %s
-                order by created_at
+                order by rank nulls first, created_at
                 """,
                 [str(league_season_id), str(episode_id), str(user_id)],
             )
@@ -230,7 +230,7 @@ def submit_picks(
             ids = [str(c) for c in body.contestant_ids]
 
             # The ballot save carries the ×2 placement now (#673) — there's no
-            # separate play/move step. Look up this episode's Extra Vote ×2
+            # separate play/move step. Look up this episode's Power Vote
             # play, if any, to decide whether this request creates one, moves
             # it, drops it, or leaves it alone.
             cur.execute(
@@ -396,11 +396,39 @@ def submit_picks(
                     [str(user_id), str(league_season_id), str(episode_id), cid],
                 )
 
+            # The ladder (#694): names rank in the order sent, the Power Vote's
+            # name on top with no rank of its own. Cleared first so a name
+            # moving down a rung never collides with the one moving up.
+            cur.execute(
+                """
+                update elimination_picks set rank = null
+                where league_season_id = %s and episode_id = %s and user_id = %s
+                """,
+                [str(league_season_id), str(episode_id), str(user_id)],
+            )
+            rank = 0
+            for cid in ids:
+                rank_value = None if cid == doubled_id else (rank := rank + 1)
+                cur.execute(
+                    """
+                    update elimination_picks set rank = %s
+                    where league_season_id = %s and episode_id = %s and user_id = %s
+                      and contestant_id = %s
+                    """,
+                    [
+                        rank_value,
+                        str(league_season_id),
+                        str(episode_id),
+                        str(user_id),
+                        cid,
+                    ],
+                )
+
             cur.execute(
                 """
                 select * from elimination_picks
                 where league_season_id = %s and episode_id = %s and user_id = %s
-                order by created_at
+                order by rank nulls first, created_at
                 """,
                 [str(league_season_id), str(episode_id), str(user_id)],
             )

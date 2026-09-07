@@ -1,4 +1,4 @@
-"""Convert staging's #303-era Extra Vote ×2 plays to the named-pick rule (#673).
+"""Convert staging's #303-era Power Vote plays to the named-pick rule (#673).
 
 The frozen stage leagues were cloned from a sandbox that played the old
 whole-ballot double, so every bot ×2 sits on the ballot with no target. This

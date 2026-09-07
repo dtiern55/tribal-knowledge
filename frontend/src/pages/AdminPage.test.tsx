@@ -131,7 +131,7 @@ describe('AdminPage current rules', () => {
     expect(await screen.findByText('Reveal Insights')).toBeVisible()
     await user.click(screen.getByLabelText(/Vote popularity: Kenzie/))
     await user.click(screen.getByLabelText(/Player vs league median/))
-    await user.click(screen.getByLabelText(/Extra Vote ×2 usage/))
+    await user.click(screen.getByLabelText(/Power Vote usage/))
     expect(screen.getByText('3/3 added')).toBeVisible()
     expect(screen.getByLabelText(/Tribe Swap usage/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Save reveal insights' }))
