@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import type { UserProfile } from '../types'
 import { supabase } from '../lib/supabase'
 import { AuthContext } from './context'
@@ -9,13 +9,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileError, setProfileError] = useState(false)
 
   async function fetchProfile() {
     try {
       const p = await api.get<UserProfile>('/me')
       setProfile(p)
-    } catch {
-      setProfile(null)
+      setProfileError(false)
+    } catch (e) {
+      // Only a 404 means "no profile yet". Anything else (a Fly machine
+      // still waking, a dropped mobile connection, a stale token) used to
+      // clear the profile too, which sent a signed-in member to the Join
+      // page as if they had never joined.
+      if (e instanceof ApiError && e.status === 404) setProfile(null)
+      else setProfileError(true)
     }
   }
 
@@ -54,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, profile, loading, signOut, refreshProfile: fetchProfile }}
+      value={{ session, profile, profileError, loading, signOut, refreshProfile: fetchProfile }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,6 +1,15 @@
 import type { Season } from '../types'
 import { supabase } from './supabase'
 
+/** A non-2xx response; `status` lets callers tell "not found" from "not reachable". */
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -22,7 +31,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     const message = Array.isArray(body.detail)
       ? body.detail.map((d) => d.msg ?? 'Invalid value').join('; ')
       : (body.detail ?? `HTTP ${res.status}`)
-    throw new Error(message)
+    throw new ApiError(message, res.status)
   }
 
   if (res.status === 204) return undefined as T
