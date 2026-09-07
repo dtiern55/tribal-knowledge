@@ -349,6 +349,8 @@ describe('MySeasonPage state shell', () => {
     // The unplayed advantage rides the bar as state: it says where to play it.
     expect(screen.getByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(screen.queryByRole('button', { name: /advantage/i })).not.toBeInTheDocument()
+    // Unplayed, the lane links the rule.
+    expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/rules#weekly-play')
     expect(screen.getByRole('tabpanel', { name: /^Tribe/ })).toBeVisible()
     // The other two stay mounted (so an unsaved ballot survives) but hidden.
     expect(screen.queryByRole('tabpanel', { name: /^Ballot/ })).not.toBeInTheDocument()

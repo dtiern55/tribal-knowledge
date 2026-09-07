@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
@@ -2186,6 +2186,15 @@ function AdvantageLane({
           >
             Undo
           </button>
+        ) : !locked ? (
+          // Unplayed: the rule is one tap away. Styled like Undo, since the
+          // paper-page RuleLink is forest ink on this dark lane.
+          <Link
+            to="/rules#weekly-play"
+            className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2"
+          >
+            How it works
+          </Link>
         ) : undefined
       }
       icon={
