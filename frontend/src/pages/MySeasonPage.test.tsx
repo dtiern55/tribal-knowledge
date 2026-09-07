@@ -687,7 +687,7 @@ describe('MySeasonPage state shell', () => {
     // Play it here opens the gold rung; a slip dragged into it is the Power
     // Vote, and its old rung closes up.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
-    const goldRung = within(ballot).getByText('Drag a name here, or tap a name below.').closest('[data-drop-id]') as Element
+    const goldRung = ballot.querySelector('[data-drop-id="rung:pv"]') as Element
     const kenzieSlip = within(within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })).getByText('Kenzie')
     dragTo(kenzieSlip, goldRung)
     await waitFor(() =>

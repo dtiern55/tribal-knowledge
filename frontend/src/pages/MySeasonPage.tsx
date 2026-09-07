@@ -3857,7 +3857,8 @@ function PicksSection({
                             </span>
                           </>
                         ) : (
-                          <span className="text-xs text-paper-ink-faded">Drag a name here, or tap a name below.</span>
+                          // Empty: the dashed gold rung says it; the strip says what to do.
+                          <span className="min-h-8 flex-1" />
                         )}
                       </li>
                     )}
