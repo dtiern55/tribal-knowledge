@@ -2478,10 +2478,13 @@ function RosterSection({
     weekly.locked ||
     weekly.play != null ||
     !canDouble ? null : (
+      // The same gold card the Ballot tab uses, on its own padded band, so
+      // it reads as an object rather than a band bleeding out of the toolbar.
+      <div className="border-b border-paper-line px-4 py-3">
       <div
         role="region"
         aria-label="Advantage"
-        className="flex items-center gap-3 border-b border-gold-500/60 bg-gold-50 px-4 py-2.5 text-xs text-forest-800"
+        className="flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-xs text-forest-800"
       >
         {picking === 'double' ? (
           <>
@@ -2512,10 +2515,10 @@ function RosterSection({
           </>
         )}
       </div>
+      </div>
     )
 
-  // The swap chip / cancel / undo cluster, lifted out of the JSX so the
-  // Edit button can share its row instead of stacking under it (#529).
+  // The swap chip / cancel / undo cluster, lifted out of the JSX (#529).
   const swapAction = (
     picking === 'swap' ? (
       <button
