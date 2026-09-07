@@ -244,6 +244,30 @@ def play_advantage(
                         target_id,
                     ],
                 )
+                # The Power Vote's name sits above the ladder (#694): it
+                # holds no rung, and the rest close up behind it. Ranks are
+                # cleared before they are reassigned so no two names ever
+                # share a rung mid-way.
+                cur.execute(
+                    """
+                    select id from elimination_picks
+                    where user_id = %s and league_season_id = %s
+                      and episode_id = %s and contestant_id <> %s
+                    order by rank nulls last, created_at
+                    """,
+                    [str(user_id), str(league_season_id), episode["id"], target_id],
+                )
+                ranked = [row["id"] for row in cur.fetchall()]
+                cur.execute(
+                    "update elimination_picks set rank = null"
+                    " where user_id = %s and league_season_id = %s and episode_id = %s",
+                    [str(user_id), str(league_season_id), episode["id"]],
+                )
+                for rung, pick_id in enumerate(ranked, start=1):
+                    cur.execute(
+                        "update elimination_picks set rank = %s where id = %s",
+                        [rung, str(pick_id)],
+                    )
 
             return play
 
@@ -286,29 +310,50 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
 
             cur.execute("delete from advantage_plays where id = %s", [str(play_id)])
 
-            # Taking the ×2 back always drops the doubled pick itself — that
-            # vote was the deal, whichever pick currently holds it (#673).
+            # Taking the Power Vote back keeps its name: it drops to the top
+            # rung and the ladder shifts down (#694). Whatever falls past the
+            # last rung is trimmed below. Ranks are cleared before they are
+            # reassigned so no two names ever share a rung mid-way.
             if (
                 play["advantage_type"] == "double_vote_points"
                 and play["target_contestant_id"] is not None
             ):
+                target = str(play["target_contestant_id"])
                 cur.execute(
                     """
-                    delete from elimination_picks
-                    where user_id = %s and episode_id = %s and contestant_id = %s
+                    select id, contestant_id::text as contestant_id
+                    from elimination_picks
+                    where user_id = %s and league_season_id = %s and episode_id = %s
+                    order by rank nulls last, created_at
                     """,
                     [
                         str(user_id),
+                        str(play["league_season_id"]),
                         str(play["episode_id"]),
-                        str(play["target_contestant_id"]),
                     ],
                 )
+                rows = cur.fetchall()
+                ordered = [r["id"] for r in rows if r["contestant_id"] == target] + [
+                    r["id"] for r in rows if r["contestant_id"] != target
+                ]
+                cur.execute(
+                    "update elimination_picks set rank = null"
+                    " where user_id = %s and league_season_id = %s and episode_id = %s",
+                    [
+                        str(user_id),
+                        str(play["league_season_id"]),
+                        str(play["episode_id"]),
+                    ],
+                )
+                for rung, pick_id in enumerate(ordered, start=1):
+                    cur.execute(
+                        "update elimination_picks set rank = %s where id = %s",
+                        [rung, str(pick_id)],
+                    )
 
-            # Safety net, not the normal path: the line above already brings
-            # a targeted ×2's ballot back within the lowered limit. This only
-            # bites for a legacy null-target play or an extra_vote take-back,
-            # where nothing above trimmed the ballot — trim the newest picks
-            # down to the limit, oldest first.
+            # The ladder is one name over the limit now that the play is gone:
+            # keep the top rungs and drop the rest (#694; oldest first where
+            # nothing is ranked, for a legacy null-target or extra_vote play).
             ls = database.require_league_season(cur, play["league_season_id"])
             limit = pick_limit(cur, ls, episode, user_id)
             cur.execute(
@@ -317,7 +362,7 @@ def take_back_advantage(play_id: UUID, user_id: UUID = Depends(get_current_user)
                 where id in (
                     select id from elimination_picks
                     where league_season_id = %s and episode_id = %s and user_id = %s
-                    order by created_at, id
+                    order by rank nulls last, created_at, id
                     offset %s
                 )
                 """,

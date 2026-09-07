@@ -345,8 +345,9 @@ export function TeamPage() {
                             const nameC = contestantMap.get(pick.contestant_id)
                             const name = nameC ? displayName(nameC) : '—'
                             const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
-                            // Pick results are base values (#136); the doubled vote shows what it paid.
-                            const points = (pickPoints.get(`${episode.id}:${pick.contestant_id}`) ?? 0) * (mark ? 2 : 1)
+                            // Pick results are base values (#136); the Power Vote's name shows what it paid.
+                            const base = pickPoints.get(`${episode.id}:${pick.contestant_id}`) ?? 0
+                            const points = base + (mark ? (ballotDouble?.points_earned ?? 0) : 0)
                             return eliminatedIds.has(pick.contestant_id) ? (
                               <CorrectVote key={pick.id} name={name} points={points > 0 ? points : undefined} icon={mark} />
                             ) : (

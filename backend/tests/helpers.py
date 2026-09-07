@@ -265,17 +265,17 @@ def insert_scoring_event(conn, episode_id, contestant_id, event_type, quantity=1
         return cur.fetchone()
 
 
-def insert_elimination_pick(conn, user_id, episode_id, contestant_id):
+def insert_elimination_pick(conn, user_id, episode_id, contestant_id, rank=None):
     with conn.cursor() as cur:
         cur.execute("select season_id from episodes where id = %s", [str(episode_id)])
         ls_id = league_season_id(conn, cur.fetchone()["season_id"])
         cur.execute(
             """
             insert into elimination_picks
-                (user_id, league_season_id, episode_id, contestant_id)
-            values (%s, %s, %s, %s) returning *
+                (user_id, league_season_id, episode_id, contestant_id, rank)
+            values (%s, %s, %s, %s, %s) returning *
             """,
-            [str(user_id), ls_id, str(episode_id), str(contestant_id)],
+            [str(user_id), ls_id, str(episode_id), str(contestant_id), rank],
         )
         return cur.fetchone()
 

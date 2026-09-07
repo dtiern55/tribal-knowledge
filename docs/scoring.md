@@ -72,16 +72,25 @@ weekly-play swaps write no point penalty.
 ### Ballot points
 
 For non-finale episodes, each `elimination_picks` row scores when the same
-contestant appears in that episode's `eliminations`. The point value comes from
-the season's `correct_elimination` snapshot and uses its pre/post-merge branch.
-Incorrect picks score zero.
+contestant appears in that episode's `eliminations`. Incorrect picks score
+zero.
 
-Power Vote (advantage_type `double_vote_points`, redesigned #673) adds one
-extra pick to that episode's ballot, named by `target_contestant_id`, and adds
-one extra copy of that pick's points if it hits — every other pick on the
-ballot scores at its normal rate. Pre-#673 plays (#303) carry no target and
-instead double the entire correct ballot total, including multiple correct
-picks; those completed seasons keep scoring that way (#170).
+The ballot is a ladder (#694): `elimination_picks.rank` is the name's rung,
+1 = most confident, written from the order of the picks POST. A ranked pick
+pays the season's `correct_elimination_<rank>` snapshot value (live template:
+20 / 16 / 12 before the merge, 25 / 20 / 15 after). A pick with no rank, or a
+season whose snapshot has no rung keys, pays the flat `correct_elimination`
+value as before. `scoring.PICK_VALUE_JOIN_SQL` / `PICK_BASE_SQL` carry that
+branch for every ballot query.
+
+Power Vote (advantage_type `double_vote_points`, #673, valued #694) adds one
+extra name above the ladder, named by `target_contestant_id` and stored as a
+pick with no rank. If it hits it pays the season's `power_vote` value (32 / 38)
+instead of its rung; a season with no `power_vote` key doubles the flat value.
+Pre-#673 plays (#303) carry no target and instead double the entire correct
+ballot total; those completed seasons keep scoring that way (#170). Pick
+results report the base value and the play's bonus separately (#136), so the
+bonus is `power_vote` less the base.
 
 ### Finale ballot points
 

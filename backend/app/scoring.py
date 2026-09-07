@@ -77,16 +77,43 @@ DOUBLE_VOTE_JOIN_SQL = """
           or dbl.target_contestant_id = pick.contestant_id)
 """
 
-# The pre/post-merge value of a correct elimination pick, as two %s bind
-# params passed (post, pre) — i.e. elimination_rates()'s return reversed.
-# Needs `s` (seasons) and `ep` (episodes).
-MERGE_RATE_CASE_SQL = """
-    (case
+
+def _merge_value_sql(alias: str) -> str:
+    """The pre- or post-merge value of one prediction snapshot row, by the
+    episode's number against the season's merge. Needs `s` and `ep`."""
+    return f"""(case
        when s.merge_episode is not null
         and ep.episode_number >= s.merge_episode
-       then %s else %s
-     end)
+       then coalesce({alias}.postmerge_point_value, {alias}.point_value)
+       else {alias}.point_value
+     end)"""
+
+
+# What one correct elimination pick is worth (#694): the rung it sits on for
+# a season with ladder values, else the season's flat `correct_elimination`.
+# An unranked pick in a ladder season (saved before the ladder, or a #303-era
+# ballot) pays the flat value too. Needs `pick`, `ep`, `s`; joins three rows
+# of the season's prediction snapshot as `rung`, `flat`, `pv`.
+PICK_VALUE_JOIN_SQL = """
+    left join season_prediction_score_types rung
+      on rung.season_id = s.id
+     and pick.rank is not null
+     and rung.key = 'correct_elimination_' || pick.rank
+    left join season_prediction_score_types flat
+      on flat.season_id = s.id and flat.key = 'correct_elimination'
+    left join season_prediction_score_types pv
+      on pv.season_id = s.id and pv.key = 'power_vote'
 """
+PICK_BASE_SQL = f"coalesce({_merge_value_sql('rung')}, {_merge_value_sql('flat')})"
+# With the Power Vote on it (`dbl`, see DOUBLE_VOTE_JOIN_SQL) a pick pays the
+# season's Power Vote value; a season without one, or a #303-era whole-ballot
+# play, doubles the base instead.
+PICK_TOTAL_SQL = f"""(case
+       when dbl.id is null then {PICK_BASE_SQL}
+       when dbl.target_contestant_id is not null and pv.key is not null
+       then {_merge_value_sql('pv')}
+       else 2 * {PICK_BASE_SQL}
+     end)"""
 
 
 def _season_id(cur, league_season_id: UUID) -> str:
@@ -94,19 +121,6 @@ def _season_id(cur, league_season_id: UUID) -> str:
         "select season_id from league_seasons where id = %s", [str(league_season_id)]
     )
     return str(cur.fetchone()["season_id"])
-
-
-def elimination_rates(cur, league_season_id: UUID) -> tuple[int, int]:
-    """(pre-merge, post-merge) value of a correct elimination pick."""
-    cur.execute(
-        "select t.point_value, t.postmerge_point_value"
-        " from season_prediction_score_types t"
-        " join league_seasons ls on ls.season_id = t.season_id"
-        " where ls.id = %s and t.key = 'correct_elimination'",
-        [str(league_season_id)],
-    )
-    cfg = cur.fetchone()
-    return cfg["point_value"], cfg["postmerge_point_value"]
 
 
 def roster_points(conn, league_season_id: UUID) -> dict[str, int]:
@@ -188,32 +202,29 @@ def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
     """Points each user earns from correct weekly elimination predictions.
 
     A pick scores when the predicted contestant appears in that episode's
-    eliminations; pre/post-merge rate comes from prediction_score_types, then
-    doubles if the user played Power Vote on that pick that episode (#673
-    — every pick, for #303-era plays with no target). Finale episodes are
-    excluded — there picks are scored as a winner vote instead (#19).
+    eliminations, at its rung's value (#694) or the flat pre/post-merge rate,
+    and pays the Power Vote value instead if the user played it on that pick
+    (#673; #303-era plays with no target double every pick). Finale episodes
+    are excluded — there picks are scored as a winner vote instead (#19).
     """
     with conn.cursor() as cur:
-        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.user_id::text as user_id,
-                   sum(
-                     {MERGE_RATE_CASE_SQL}
-                     * (case when dbl.id is not null then 2 else 1 end)
-                   ) as points
+                   sum({PICK_TOTAL_SQL}) as points
             from elimination_picks pick
             join episodes ep on pick.episode_id = ep.id
             join seasons s on ep.season_id = s.id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
             {DOUBLE_VOTE_JOIN_SQL}
+            {PICK_VALUE_JOIN_SQL}
             -- Hidden until the episode locks, same as roster_points (#559).
             where pick.league_season_id = %s and ep.is_finale = false
               and {episode_locked_sql("ep")}
             group by pick.user_id
             """,
-            [post, pre, str(league_season_id)],
+            [str(league_season_id)],
         )
         return {row["user_id"]: row["points"] for row in cur.fetchall()}
 
@@ -465,32 +476,35 @@ def advantage_bonus_by_play(
         for row in cur.fetchall():
             bonus[row["play_id"]] = row["bonus"]
 
-        pre, post = elimination_rates(cur, league_season_id)
+        # The play's bonus is what it added on top of the pick's own value:
+        # the Power Vote value less the rung (#694), or a second copy of the
+        # base for seasons that double (#303/#673).
         cur.execute(
             f"""
-            select ap.id::text as play_id, coalesce(sum(
+            select dbl.id::text as play_id, coalesce(sum(
                 (case when el.contestant_id is null then 0
-                 else {MERGE_RATE_CASE_SQL} end)
+                 else {PICK_TOTAL_SQL} - {PICK_BASE_SQL} end)
             ), 0) as bonus
-            from advantage_plays ap
-            join episodes ep on ep.id = ap.episode_id
+            from advantage_plays dbl
+            join episodes ep on ep.id = dbl.episode_id
             join seasons s on s.id = ep.season_id
             left join elimination_picks pick
-              on pick.user_id = ap.user_id
-             and pick.league_season_id = ap.league_season_id
-             and pick.episode_id = ap.episode_id
-             and (ap.target_contestant_id is null
-                  or pick.contestant_id = ap.target_contestant_id)
+              on pick.user_id = dbl.user_id
+             and pick.league_season_id = dbl.league_season_id
+             and pick.episode_id = dbl.episode_id
+             and (dbl.target_contestant_id is null
+                  or pick.contestant_id = dbl.target_contestant_id)
             left join eliminations el
-              on el.episode_id = ap.episode_id
+              on el.episode_id = dbl.episode_id
              and el.contestant_id = pick.contestant_id
-            where ap.league_season_id = %s and ap.user_id = %s
-              and ap.advantage_type = 'double_vote_points'
-              and ap.episode_id is not null
+            {PICK_VALUE_JOIN_SQL}
+            where dbl.league_season_id = %s and dbl.user_id = %s
+              and dbl.advantage_type = 'double_vote_points'
+              and dbl.episode_id is not null
               and {episode_locked_sql("ep")}
-            group by ap.id
+            group by dbl.id
             """,
-            [post, pre, str(league_season_id), str(user_id)],
+            [str(league_season_id), str(user_id)],
         )
         for row in cur.fetchall():
             bonus[row["play_id"]] = row["bonus"]
@@ -502,21 +516,21 @@ def elimination_pick_results(conn, league_season_id: UUID, user_id: UUID) -> lis
     """One user's weekly elimination picks with hit/miss and points (#52/#53).
 
     Every non-finale pick, correct or not: correct when the picked contestant
-    was eliminated that episode, points at the pre/post-merge rate. BASE
-    values only (#136): Double Vote doubling is shown as its own line via
-    advantage_bonus_by_play, so the displayed pick never silently inflates.
-    Standings totals (elimination_points) still include the doubling. Finale
-    picks are excluded — there they score as a winner vote.
+    was eliminated that episode, points at its rung's value (#694) or the
+    flat pre/post-merge rate. BASE values only (#136): what the Power Vote
+    added is its own line via advantage_bonus_by_play, so the displayed pick
+    never silently inflates. Standings totals (elimination_points) include
+    it. Finale picks are excluded — there they score as a winner vote.
     """
     with conn.cursor() as cur:
-        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
             select pick.episode_id::text as episode_id,
                    pick.contestant_id::text as contestant_id,
+                   pick.rank,
                    (el.contestant_id is not null) as correct,
                    (case when el.contestant_id is null then 0
-                    else {MERGE_RATE_CASE_SQL} end) as points
+                    else {PICK_BASE_SQL} end) as points
             from elimination_picks pick
             join episodes ep on pick.episode_id = ep.id
             join seasons s on ep.season_id = s.id
@@ -527,11 +541,12 @@ def elimination_pick_results(conn, league_season_id: UUID, user_id: UUID) -> lis
             left join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
              and {episode_locked_sql("ep")}
+            {PICK_VALUE_JOIN_SQL}
             where pick.league_season_id = %s and pick.user_id = %s
               and ep.is_finale = false
-            order by ep.episode_number
+            order by ep.episode_number, pick.rank nulls first, pick.created_at
             """,
-            [post, pre, str(league_season_id), str(user_id)],
+            [str(league_season_id), str(user_id)],
         )
         return cur.fetchall()
 
@@ -598,25 +613,22 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
         for row in cur.fetchall():
             add(row["user_id"], row["pen"])
 
-        pre, post = elimination_rates(cur, league_season_id)
         cur.execute(
             f"""
-            select pick.user_id::text as user_id, sum(
-                {MERGE_RATE_CASE_SQL}
-                * (case when dbl.id is not null then 2 else 1 end)
-            ) as pts
+            select pick.user_id::text as user_id, sum({PICK_TOTAL_SQL}) as pts
             from elimination_picks pick
             join episodes ep on ep.id = pick.episode_id
             join seasons s on s.id = ep.season_id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
             {DOUBLE_VOTE_JOIN_SQL}
+            {PICK_VALUE_JOIN_SQL}
             where pick.league_season_id = %s and ep.episode_number = %s
               and ep.is_finale = false
               and {episode_locked_sql("ep")}
             group by pick.user_id
             """,
-            [post, pre, str(league_season_id), episode_number],
+            [str(league_season_id), episode_number],
         )
         for row in cur.fetchall():
             add(row["user_id"], row["pts"])
