@@ -194,6 +194,15 @@ function useMySeasonData() {
       .then(setRoster)
       .catch(() => setRoster([]))
       .finally(() => setRosterFor(seasonId))
+    // A roster save or swap that drops the doubled castaway deletes the play
+    // server-side (roster.py). Refetch so the hero doesn't keep showing a play
+    // that no longer exists — Undo on it came back "Advantage not found".
+    if (rosterVersion > 0) {
+      api
+        .get<AdvantagePlay[]>(`/league-seasons/${seasonId}/advantage-plays/${userId}`)
+        .then(setPlays)
+        .catch(() => {})
+    }
   }, [season, userId, rosterVersion])
   useEffect(() => {
     if (!openEp || !userId || !season) {
@@ -2447,8 +2456,9 @@ function RosterSection({
   }
 
 
-  // Editing the roster and swapping are both roster actions; they share the
-  // section's action row rather than owning a row each.
+  // Pre-lock, Edit lives in the lane's footer (the Snuffed ledger's slot
+  // mid-season) rather than the toolbar, where it stacked a quiet text link
+  // over the advantage strip's louder "Play it here" in week two.
   const editAvailable = windowOpen && rosterLoaded && hasRoster && !editing
 
   // The advantage on this tab (#673 follow-on): one play per episode, on
@@ -2560,7 +2570,7 @@ function RosterSection({
   // The lane's header is its tab now, so the season total leads this row
   // instead of riding in a band that repeated the tab's own label.
   const toolbar =
-    seasonPoints != null || swapAction || editAvailable ? (
+    seasonPoints != null || swapAction ? (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-paper-line px-4 py-2">
         {seasonPoints != null && (
           <span className="inline-flex items-baseline gap-1.5">
@@ -2573,20 +2583,7 @@ function RosterSection({
             </span>
           </span>
         )}
-        <span className="ml-auto inline-flex shrink-0 items-center gap-3">
-          {swapAction}
-          {editAvailable && (
-            <button
-              onClick={() => {
-                setSelected(new Set(savedContestantIds))
-                setEditing(true)
-              }}
-              className="shrink-0 text-sm font-medium text-forest-600 hover:text-forest-800"
-            >
-              Edit
-            </button>
-          )}
-        </span>
+        {swapAction && <span className="ml-auto inline-flex shrink-0 items-center">{swapAction}</span>}
       </div>
     ) : null
 
@@ -2798,6 +2795,19 @@ function RosterSection({
             ? 'Tribe selection has not opened yet.'
             : 'Tribe selection has closed.'}
         </p>
+      )}
+      {editAvailable && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelected(new Set(savedContestantIds))
+            setEditing(true)
+          }}
+          className="lane-card__foot justify-center text-sm text-stone-500"
+        >
+          Your tribe locks when episode {season.roster_lock_episode} starts.
+          <span className="font-semibold text-jade-700 underline underline-offset-2">Edit tribe</span>
+        </button>
       )}
       {retiredRoster.length > 0 && (
         <button
