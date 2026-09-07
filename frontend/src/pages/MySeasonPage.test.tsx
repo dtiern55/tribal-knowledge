@@ -180,8 +180,12 @@ function arrangePlayWorld(initial: {
       }
       return play
     }
-    const { contestant_ids } = body as { contestant_ids: string[] }
+    const { contestant_ids, doubled_contestant_id } = body as { contestant_ids: string[]; doubled_contestant_id: string | null }
     state.picks = contestant_ids.map((id, i) => ({ id: `pick-${i}`, episode_id: 'episode-3', contestant_id: id }))
+    // The save moves an existing Power Vote to the doubled name (#682).
+    if (doubled_contestant_id && state.plays[0]?.advantage_type === 'double_vote_points') {
+      state.plays = [{ ...state.plays[0], target_contestant_id: doubled_contestant_id }]
+    }
     return { picks: state.picks, play: state.plays[0] ?? null }
   })
   vi.mocked(api.delete).mockImplementation(async () => {
@@ -583,20 +587,17 @@ describe('MySeasonPage state shell', () => {
 
   it('plays the advantage on the Ballot tab as a Power Vote, by tap and by drag (#673)', async () => {
     arrangePlayWorld({
-      plays: [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' }],
       picks: [{ id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' }],
     })
     renderWithApp(<MySeasonPage />, { auth })
     const ballot = await openBeat('Ballot')
     const strip = within(ballot).getByRole('region', { name: 'Advantage' })
-    expect(within(strip).getByText(/This moves your advantage off your tribe/)).toBeVisible()
 
     // Play it here opens the grid with an idol slot on every name. Tapping
-    // Charlie's saves the play at once; the roster double gives way.
+    // Charlie's saves the play at once.
     await userEvent.click(within(strip).getByRole('button', { name: 'Play it here' }))
     expect(within(strip).getByText(/Cast your votes/)).toBeVisible()
     await userEvent.click(within(ballot).getByRole('button', { name: 'Make Charlie your Power Vote' }))
-    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_vote_points',
@@ -624,15 +625,31 @@ describe('MySeasonPage state shell', () => {
     expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
     expect(within(ballot).getByText('Charlie').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled')
 
-    // Drag path: the idol on the gold card drops on another name to move it.
+    // Drag path on the submitted pile, like the roster row: the seal drops on
+    // another slip to move the Power Vote there. One picks request moves the
+    // play; the old name stays on the ballot as a regular vote.
+    const seal = within(ballot).getByTitle('Drag onto another name to move your Power Vote')
+    const mariaSlip = within(ballot).getByText('Maria').closest('[data-drop-id]') as Element
+    dragTo(seal, mariaSlip)
+    expect(within(ballot).getByText('Maria').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled')
+    expect(screen.getByText('Ballot · Maria · Power Vote')).toBeVisible()
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-1', 'cast-3', 'cast-2'],
+        doubled_contestant_id: 'cast-3',
+      }),
+    )
+    expect(api.delete).not.toHaveBeenCalled()
+
+    // The same on the grid: the idol on the gold card drops on a name.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
-    const idol = within(ballot).getByRole('img', { name: 'Charlie is your Power Vote' })
+    const idol = within(ballot).getByRole('img', { name: 'Maria is your Power Vote' })
     const tiffanyCard = within(ballot).getByRole('button', { name: 'Vote for Tiffany' }).closest('[data-drop-id]') as Element
     dragTo(idol, tiffanyCard)
     await waitFor(() =>
-      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/advantage-plays', {
-        advantage_type: 'double_vote_points',
-        target_contestant_id: 'cast-4',
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-1', 'cast-3', 'cast-2', 'cast-4'],
+        doubled_contestant_id: 'cast-4',
       }),
     )
     expect(await screen.findByText('Ballot · Tiffany · Power Vote')).toBeVisible()
@@ -668,7 +685,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: 'Play it here' })).toBeVisible()
   })
 
-  it('moves a Power Vote to the roster by playing the advantage on Tribe', async () => {
+  it('takes the offer off both tabs once the advantage is played, until Undo', async () => {
     arrangePlayWorld({
       plays: [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: 'cast-3' }],
       picks: [{ id: 'pick-3', episode_id: 'episode-3', contestant_id: 'cast-3' }],
@@ -676,12 +693,14 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
     expect(await screen.findByText('Ballot · Maria · Power Vote')).toBeVisible()
     const roster = await openBeat('Tribe')
-    const strip = within(roster).getByRole('region', { name: 'Advantage' })
-    expect(within(strip).getByText(/This moves your advantage off your ballot/)).toBeVisible()
+    expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
 
+    // Undo in the hero frees it; the Tribe strip offers again and plays.
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
+    const strip = await within(roster).findByRole('region', { name: 'Advantage' })
     await userEvent.click(within(strip).getByRole('button', { name: 'Play it here' }))
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
-    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_roster_points',
@@ -691,6 +710,8 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
     // The Power Vote's pick left with the play; the ballot never counted it.
     await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('None'))
+    const ballot = await openBeat('Ballot')
+    expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {

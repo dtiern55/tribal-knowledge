@@ -2463,9 +2463,9 @@ function RosterSection({
 
   // The advantage on this tab (#673 follow-on): one play per episode, on
   // your tribe or your ballot. On offer, or designating (drag the idol onto
-  // a row, or tap one). Once played the strip leaves with it: the seal on
-  // the row is the record, and the hero holds Undo.
-  const ballotPlayed = weekly.play?.advantage_type === 'double_vote_points'
+  // a row, or tap one). Once played anywhere the strip leaves both tabs:
+  // the seal on the row or the gold card is the record, and the hero holds
+  // Undo, which brings the offer back.
   const canDouble = activeRoster.some(
     (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode == null,
   )
@@ -2476,7 +2476,7 @@ function RosterSection({
     weekly.openEpisode.is_finale ||
     picking === 'swap' ||
     weekly.locked ||
-    rosterDouble != null ||
+    weekly.play != null ||
     !canDouble ? null : (
       <div
         role="region"
@@ -2506,7 +2506,7 @@ function RosterSection({
             </span>
             <span className="min-w-0 flex-1">
               Play your advantage on your tribe to receive a <b>double point boost</b> for one
-              Survivor.{ballotPlayed && ' This moves your advantage off your ballot.'}
+              Survivor.
             </span>
             <button
               type="button"
@@ -3176,9 +3176,23 @@ function PicksSection({
     setEditing(false)
   }
 
-  function namePower(contestantId: string) {
+  // The regular ballot's cap this episode (#240); the Power Vote sits on top.
+  const openStillIn = openEp
+    ? contestants.filter(
+        (c) => c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number,
+      ).length
+    : 0
+  const openMax = openEp ? Math.max(0, Math.min(openEp.max_elimination_picks, openStillIn - 1)) : 0
+
+  /** The idol lands on a name: the first time that is the play, saved as
+   *  the roster double is; with a Power Vote already down it is a move. */
+  function designatePower(contestantId: string) {
     if (!openEp) return
     setDesignating(false)
+    if (ballotPlay) {
+      void movePower(contestantId)
+      return
+    }
     // A regular vote becoming the Power Vote leaves the ballot in the same
     // paint, not a beat later when the re-read lands.
     setPending((prev) => {
@@ -3188,6 +3202,66 @@ function PicksSection({
     })
     // Any other play this week gives way, same as on the roster.
     void play.replace('double_vote_points', contestantId)
+  }
+
+  /** Move the Power Vote to another name, like dragging the seal between
+   *  roster rows. The old name stays on the ballot as a regular vote when
+   *  there is room for it; the picks POST moves the play and diffs the
+   *  ballot in one request (#682), shown optimistically. */
+  async function movePower(newId: string) {
+    if (!openEp || !ballotPlay) return
+    const epId = openEp.id
+    const oldId = ballotPlay.target_contestant_id
+    const before = { picks: picksByEpisode.get(epId) ?? [], plays }
+    const ids = new Set(before.picks.map((p) => p.contestant_id))
+    ids.add(newId)
+    const oldStays = oldId != null && ids.size <= openMax + 1
+    if (oldId && !oldStays) ids.delete(oldId)
+    const optimisticPicks: EliminationPick[] = [...ids].map(
+      (id) => before.picks.find((p) => p.contestant_id === id) ?? {
+        id: `pending-${id}`,
+        user_id: userId,
+        episode_id: epId,
+        contestant_id: id,
+        created_at: '',
+      },
+    )
+    setPicksByEpisode((prev) => new Map(prev).set(epId, optimisticPicks))
+    setPlays((prev) =>
+      prev.map((p) => (p.id === ballotPlay.id ? { ...p, target_contestant_id: newId } : p)),
+    )
+    setPending((prev) => {
+      const set = new Set(prev.get(epId) ?? [])
+      set.delete(newId)
+      if (oldId && oldStays) set.add(oldId)
+      return new Map(prev).set(epId, set)
+    })
+    lastTarget.current = newId
+    onOpenPicks?.(optimisticPicks)
+    setSubmitting(epId)
+    try {
+      const raw = await api.post<
+        { picks: EliminationPick[]; play: AdvantagePlay | null } | EliminationPick[]
+      >(`/league-seasons/${season.id}/episodes/${epId}/picks`, {
+        contestant_ids: [...ids],
+        doubled_contestant_id: newId,
+      })
+      const res = Array.isArray(raw) ? { picks: raw, play: null } : raw
+      setPicksByEpisode((prev) => new Map(prev).set(epId, res.picks ?? optimisticPicks))
+      if (res.play) {
+        setPlays((prev) => [...prev.filter((p) => p.episode_id !== epId), res.play!])
+        lastPlayId.current = res.play.id
+      }
+      onOpenPicks?.(res.picks ?? optimisticPicks)
+    } catch (e) {
+      setPicksByEpisode((prev) => new Map(prev).set(epId, before.picks))
+      setPlays(before.plays)
+      lastTarget.current = oldId
+      onOpenPicks?.(before.picks)
+      setErrors((prev) => new Map(prev).set(epId, e instanceof Error ? e.message : 'Move failed'))
+    } finally {
+      setSubmitting(null)
+    }
   }
 
   /** Save the ballot; true when it went through.
@@ -3355,7 +3429,7 @@ function PicksSection({
   } = useSealDrag({
     disabled: play.locked || play.busy || submitting != null,
     canDropOn: (id) => id !== powerTarget && liveIds.has(id),
-    onDrop: namePower,
+    onDrop: designatePower,
   })
   // Stamp the idol where it just landed (#487): any change of name, not the
   // first paint.
@@ -3369,8 +3443,17 @@ function PicksSection({
     const timer = setTimeout(() => setPowerStamp(false), 790)
     return () => clearTimeout(timer)
   }, [powerTarget])
+  // The seal on the gold slip is a drag handle too, like the roster row's:
+  // drop it on another slip to move the Power Vote there.
   const seal = (
-    <span className="pointer-events-none absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]">
+    <span
+      onPointerDown={play.locked ? undefined : startBallotDrag}
+      title={play.locked ? undefined : 'Drag onto another name to move your Power Vote'}
+      className={`absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
+        play.locked ? 'pointer-events-none' : 'cursor-grab touch-none active:cursor-grabbing'
+      }`}
+      style={{ opacity: ballotDragging ? 0.3 : 1 }}
+    >
       <span className={powerStamp ? 'seal-stamp' : ''}>
         <DoubleBadge size={34} title="Power Vote" />
       </span>
@@ -3447,16 +3530,15 @@ function PicksSection({
           const maxPicks = Math.max(0, Math.min(ep.max_elimination_picks, stillIn - 1))
           const powerContestant = powerTarget ? contestantMap.get(powerTarget) : undefined
           const powerName = powerContestant ? displayName(powerContestant) : '—'
-          const rosterDoubled = play.play?.advantage_type === 'double_roster_points'
           const stripLink =
             'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
 
           // The advantage on this tab (#673 follow-on): on offer, or
           // designating (the idol drags onto a name, or a name's idol slot is
-          // tapped). Once played the strip leaves with it: the gold card is
-          // the record, and the hero holds Undo.
+          // tapped). Once played anywhere the strip leaves both tabs: the
+          // gold card is the record, and the hero holds Undo.
           const advantageStrip =
-            maxPicks === 0 || play.locked || ballotPlay != null ? null : (
+            maxPicks === 0 || play.locked || play.play != null ? null : (
               <div
                 role="region"
                 aria-label="Advantage"
@@ -3486,7 +3568,7 @@ function PicksSection({
                     </span>
                     <span className="min-w-0 flex-1">
                       Play your advantage on your ballot to receive a <b>Power Vote</b>, an extra
-                      vote worth double.{rosterDoubled && ' This moves your advantage off your tribe.'}
+                      vote worth double.
                     </span>
                     <button
                       type="button"
@@ -3605,7 +3687,7 @@ function PicksSection({
                             // every name, where the idol would land.
                             <button
                               type="button"
-                              onClick={() => namePower(c.id)}
+                              onClick={() => designatePower(c.id)}
                               disabled={play.busy}
                               aria-label={`Make ${name} your Power Vote`}
                               className="absolute -right-2 -top-3 z-10 inline-flex rotate-[9deg] rounded-full opacity-45 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-20"
@@ -3659,7 +3741,11 @@ function PicksSection({
                         sc.eliminated_in_episode < ep.episode_number
                       const slipName = sc ? displayName(sc) : '—'
                       return (
-                        <span key={p.id} className="relative inline-flex items-center gap-1.5 rounded">
+                        <span
+                          key={p.id}
+                          data-drop-id={ballotPlay && !stale ? p.contestant_id : undefined}
+                          className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                        >
                           <VoteSlip
                             name={slipName}
                             stale={stale}
