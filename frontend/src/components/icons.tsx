@@ -1,5 +1,6 @@
 import castMask from '../assets/cast-icon-mask.png'
 import palmMask from '../assets/icon-palm-mask.webp'
+import rulesJeffMask from '../assets/icon-rules-jeff-mask.webp'
 import torchMask from '../assets/icon-torch-mask.webp'
 import tallyMask from '../assets/icon-tally-mask.webp'
 
@@ -81,13 +82,9 @@ export function BuffPairIcon() {
   return <MaskIcon src={castMask} size="128%" />
 }
 
-export function BookIcon() {
-  return (
-    <Svg>
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </Svg>
-  )
+/** Rules: Jeff delivering the challenge instructions, from the supplied pose. */
+export function RulesIcon() {
+  return <MaskIcon src={rulesJeffMask} className="w-6 h-6 shrink-0" />
 }
 
 export function GearIcon() {
