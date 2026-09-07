@@ -85,7 +85,7 @@ branch for every ballot query.
 
 Power Vote (advantage_type `double_vote_points`, #673, valued #694) adds one
 extra name above the ladder, named by `target_contestant_id` and stored as a
-pick with no rank. If it hits it pays the season's `power_vote` value (32 / 38)
+pick with no rank. If it hits it pays the season's `power_vote` value (36 / 40)
 instead of its rung; a season with no `power_vote` key doubles the flat value.
 Pre-#673 plays (#303) carry no target and instead double the entire correct
 ballot total; those completed seasons keep scoring that way (#170). Pick
