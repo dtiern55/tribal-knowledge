@@ -679,3 +679,41 @@ def test_watch_only_premiere_with_no_later_episode(client, db_conn, current_user
     )
     assert r.status_code == 400
     assert "No episode is currently open" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_ballot_ranks_follow_the_order_sent(client, db_conn, current_user):
+    """#694: the ladder is the list order; the Power Vote's name takes no rung."""
+    season = insert_season(db_conn)
+    ep = _open_episode(db_conn, season["id"])
+    a = insert_contestant(db_conn, season["id"], "A")
+    b = insert_contestant(db_conn, season["id"], "B")
+    c = insert_contestant(db_conn, season["id"], "C")
+    insert_contestant(db_conn, season["id"], "D")
+    insert_contestant(db_conn, season["id"], "E")
+    url = f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/picks"
+
+    r = client.post(url, json={"contestant_ids": [str(b["id"]), str(a["id"])]})
+    assert r.status_code == 200
+    assert [(p["contestant_id"], p["rank"]) for p in r.json()["picks"]] == [
+        (str(b["id"]), 1),
+        (str(a["id"]), 2),
+    ]
+
+    # Reorder, and put the Power Vote on C: C leads, unranked; the rest
+    # renumber in the new order.
+    r = client.post(
+        url,
+        json={
+            "contestant_ids": [str(a["id"]), str(c["id"]), str(b["id"])],
+            "doubled_contestant_id": str(c["id"]),
+        },
+    )
+    assert r.status_code == 200
+    assert [(p["contestant_id"], p["rank"]) for p in r.json()["picks"]] == [
+        (str(c["id"]), None),
+        (str(a["id"]), 1),
+        (str(b["id"]), 2),
+    ]
+    got = client.get(f"{url}/{current_user['id']}").json()
+    assert [p["rank"] for p in got] == [None, 1, 2]

@@ -135,36 +135,31 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
     league_season_id = str(ls["id"])
     with conn.cursor() as cur:
         if not episode["is_finale"]:
-            pre, post = scoring.elimination_rates(cur, league_season_id)
+            # Base value per pick (its rung, #694); the Power Vote's extra is
+            # the play's own line, as in the season breakdown (#136).
             cur.execute(
-                """
+                f"""
                 select c.id::text as contestant_id,
                        coalesce(c.nickname, c.name) as name, c.image_url,
-                       (el.contestant_id is not null) as correct
+                       pick.rank,
+                       (el.contestant_id is not null) as correct,
+                       (case when el.contestant_id is null then 0
+                        else {scoring.PICK_BASE_SQL} end) as points
                 from elimination_picks pick
                 join contestants c on c.id = pick.contestant_id
+                join episodes ep on ep.id = pick.episode_id
+                join seasons s on s.id = ep.season_id
                 left join eliminations el
                   on el.episode_id = pick.episode_id
                  and el.contestant_id = pick.contestant_id
+                {scoring.PICK_VALUE_JOIN_SQL}
                 where pick.user_id = %s and pick.league_season_id = %s
                   and pick.episode_id = %s
-                order by pick.created_at, c.name
+                order by pick.rank nulls first, pick.created_at, c.name
                 """,
                 [str(user_id), league_season_id, str(episode["id"])],
             )
-            picks = cur.fetchall()
-            merge = ls["merge_episode"] or 2**31 - 1
-            value = (
-                post if post is not None and episode["episode_number"] >= merge else pre
-            )
-            return [
-                {
-                    **row,
-                    "prediction_type": "elimination",
-                    "points": value if row["correct"] else 0,
-                }
-                for row in picks
-            ]
+            return [{**row, "prediction_type": "elimination"} for row in cur.fetchall()]
 
         cur.execute(
             """
