@@ -2485,8 +2485,11 @@ function RosterSection({
         ) : (
           <>
             <span className="min-w-0 flex-1">
-              Play your <b className="text-brand-snake">advantage</b> on your tribe to receive a{' '}
-              <b>double point boost</b> for one Survivor.
+              Play your <b className="text-gold-700">advantage</b>{' '}
+              <span aria-hidden="true" className="inline-flex align-[-3px]">
+                <DoubleBadge size={16} />
+              </span>{' '}
+              on your tribe to receive a <b>double point boost</b> for one Survivor.
             </span>
             <button
               type="button"
@@ -3576,8 +3579,12 @@ function PicksSection({
                 ) : (
                   <>
                     <span className="min-w-0 flex-1">
-                      Play your <b className="text-brand-snake">advantage</b> on your ballot to receive
-                      a <b>Power Vote</b>, an <i>extra</i> vote worth more points.
+                      Play your <b className="text-gold-700">advantage</b>{' '}
+                      <span aria-hidden="true" className="inline-flex align-[-3px]">
+                        <DoubleBadge size={16} />
+                      </span>{' '}
+                      on your ballot to receive a <b>Power Vote</b>, an <i>extra</i> vote worth more
+                      points.
                     </span>
                     <button
                       type="button"
