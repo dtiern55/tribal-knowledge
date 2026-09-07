@@ -2239,7 +2239,6 @@ function RosterSection({
   rosterPoints: Map<string, number>
   /** The +50% Sole Survivor finale bonus, named on the designated card. */
   soleSurvivorBonus?: number
-  /** The season roster total for the card's band. */
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
@@ -2870,16 +2869,6 @@ function RosterSection({
 }
 
 // ─── Picks section ──────────────────────────────────────────────────────────
-
-/**
- * The ask at the top of an open ballot sheet. The hero above already names
- * the episode and says when it locks, so the sheet no longer repeats the
- * episode as a title: that kept the advantage strip lower here than on the
- * Tribe tab.
- */
-function BallotSheetHead({ prompt }: { prompt?: string }) {
-  return prompt ? <p className="ballot-sheet__prompt">{prompt}</p> : null
-}
 
 /**
  * One episode's ballot as a record line: the votes, which ones came true, and
@@ -3700,7 +3689,11 @@ function PicksSection({
             <>
             {advantageStrip}
             <div className="ballot-sheet">
-              <BallotSheetHead prompt={confirmed ? undefined : 'Rank your picks. The top rung pays the most.'} />
+              {/* The hero already names the episode and when it locks, so the
+                  sheet opens on the ask alone. */}
+              {!confirmed && (
+                <p className="ballot-sheet__prompt">Rank your picks. The top rung pays the most.</p>
+              )}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
