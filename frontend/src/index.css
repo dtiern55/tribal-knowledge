@@ -637,7 +637,31 @@ html.locked-night .tribal-border {
   border-width: var(--tribe-border-width, 0);
 }
 
+/* The lifted idol snaps back to where it was grabbed on a missed drop. */
+.seal-ghost {
+  transition: none;
+}
+.seal-ghost--releasing {
+  transition: left 360ms ease, top 360ms ease, opacity 360ms ease;
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  /* Grab peel: the idol fades up and off the page as you pick it up. */
+  @keyframes seal-lift {
+    0% {
+      transform: translateY(6px) scale(0.8);
+      opacity: 0.3;
+    }
+    100% {
+      transform: translateY(-3px) scale(1.2);
+      opacity: 1;
+    }
+  }
+  .seal-ghost-inner {
+    animation: seal-lift 375ms cubic-bezier(0.2, 0.8, 0.3, 1.35) both;
+  }
+
   /* The arriving beat fades in rather than hard-cutting, so a switch lands
      softly instead of teleporting. */
   @keyframes beat-panel-in {

@@ -28,6 +28,7 @@ import { RuleLink } from '../components/RuleLink'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
 import { HeroLane, HeroPoints, ThisWeekHero } from '../components/ThisWeekHero'
+import { SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
@@ -67,6 +68,27 @@ function BallotStamp({ size = 54 }: { size?: number }) {
     >
       <DoubleBadge size={size} title="Power Vote this episode" />
     </span>
+  )
+}
+
+/** The idol lifted off the page, following the finger during a drag (#487).
+ *  Peels up on grab and springs back to the grab point on a missed drop; both
+ *  are gated on prefers-reduced-motion in CSS. */
+function SealGhost({ drag }: { drag: { x: number; y: number; releasing?: boolean } | null }) {
+  if (!drag) return null
+  // Float the idol above the finger, not under it: on a phone the thumb covers
+  // the drop point, so a seal sitting there is invisible.
+  return createPortal(
+    <div
+      aria-hidden
+      className={`seal-ghost pointer-events-none fixed z-50 ${drag.releasing ? 'seal-ghost--releasing' : ''}`}
+      style={{ left: drag.x, top: drag.y, transform: `translate(-50%, calc(-50% - ${SEAL_LIFT_Y}px))` }}
+    >
+      <span className="seal-ghost-inner block" style={{ filter: 'drop-shadow(0 8px 12px rgb(0 0 0 / 45%))' }}>
+        <DoubleBadge size={44} />
+      </span>
+    </div>,
+    document.body,
   )
 }
 
@@ -2107,13 +2129,13 @@ function AdvantageLane({
     : undefined
   const targetName = targetContestant ? displayName(targetContestant) : null
 
-  // Say which play, not just on whom: the same castaway can be on your
-  // tribe and on your ballot (#673).
+  // Say where and what it became, not just on whom: the same castaway can
+  // be on your tribe and on your ballot (#673).
   const note = play
     ? play.advantage_type === 'double_roster_points'
-      ? `×2 · Tribe · ${targetName ?? '—'}`
+      ? `Tribe · ${targetName ?? '—'} · double points`
       : play.advantage_type === 'double_vote_points'
-        ? `Power Vote · ${targetName ?? '—'}`
+        ? `Ballot · ${targetName ?? '—'} · Power Vote`
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
     : locked
       ? 'Not played'
@@ -2268,10 +2290,15 @@ function RosterSection({
 
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
-  const displayedDoubleTarget = rosterDouble?.target_contestant_id ?? null
+  // On a drop, show the seal on its destination immediately while the
+  // delete-and-create request catches up. Without this bridge the server-
+  // backed target briefly renders old → none → new, which reads as a snap-back.
+  const [pendingDoubleTarget, setPendingDoubleTarget] = useState<string | null>(null)
+  const displayedDoubleTarget =
+    pendingDoubleTarget ?? rosterDouble?.target_contestant_id ?? null
 
   // Stamp the seal on the row it just landed on (#487). Fires on any change of
-  // target — a pick, or a move — but not on first paint.
+  // target — a drop, a tap, a move — but not on first paint.
   const [stampId, setStampId] = useState<string | null>(null)
   const prevDoubleTarget = useRef<string | null | undefined>(undefined)
   useEffect(() => {
@@ -2283,6 +2310,24 @@ function RosterSection({
       return () => clearTimeout(timer)
     }
   }, [displayedDoubleTarget])
+
+  // The idol drags onto a row (#407): from the strip to designate, or from
+  // the doubled row to move. Tapping a row while designating is the same
+  // commit, through weekly.replace.
+  const { drag, dragging, start: startSealDrag } = useSealDrag({
+    disabled: weekly.locked || weekly.busy,
+    canDropOn: (id) =>
+      id !== displayedDoubleTarget &&
+      activeRoster.some((p) => p.contestant_id === id) &&
+      contestantMap.get(id)?.eliminated_in_episode == null,
+    onDrop: (id) => {
+      onPickingDone?.()
+      setPendingDoubleTarget(id)
+      void weekly
+        .replace('double_roster_points', id)
+        .finally(() => setPendingDoubleTarget(null))
+    },
+  })
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
@@ -2391,43 +2436,87 @@ function RosterSection({
   // section's action row rather than owning a row each.
   const editAvailable = windowOpen && rosterLoaded && hasRoster && !editing
 
-  // The Tribe half of the weekly play lives here, beside the swap: start the
-  // pick, or see where the ×2 sits and take it back. The hero's Advantage
-  // lane only reports it (#673 follow-on).
+  // The advantage on this tab (#673 follow-on): one play per episode, on
+  // your tribe or your ballot. On offer, designating (drag the idol onto a
+  // row, or tap one), or played. The hero only reports it.
   const doubledContestant = rosterDouble?.target_contestant_id
     ? contestantMap.get(rosterDouble.target_contestant_id)
     : undefined
-  const doubleAction =
-    weekly.openEpisode == null || weekly.openEpisode.is_finale || weekly.locked || picking != null
-      ? undefined
-      : rosterDouble ? (
-          <span className="inline-flex items-baseline gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
-              ×2 · {doubledContestant ? displayName(doubledContestant) : '—'}
+  const ballotPlayed = weekly.play?.advantage_type === 'double_vote_points'
+  const canDouble = activeRoster.some(
+    (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode == null,
+  )
+  const stripLink =
+    'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
+  const advantageStrip =
+    weekly.openEpisode == null ||
+    weekly.openEpisode.is_finale ||
+    picking === 'swap' ||
+    (weekly.locked && !rosterDouble) ||
+    (!rosterDouble && !canDouble) ? null : (
+      <div
+        role="region"
+        aria-label="Advantage"
+        className="flex items-center gap-3 border-b border-gold-500/60 bg-gold-50 px-4 py-2.5 text-xs text-forest-800"
+      >
+        {picking === 'double' ? (
+          <>
+            <span
+              onPointerDown={startSealDrag}
+              className="inline-flex shrink-0 cursor-grab touch-none active:cursor-grabbing"
+              style={{ opacity: dragging ? 0.3 : 1 }}
+            >
+              <DoubleBadge size={36} title="Drag onto a Survivor to earn double points" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <b>Drag this Advantage icon</b> onto a Survivor to earn double points, or tap one.
+            </span>
+            <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
+              Cancel
+            </button>
+          </>
+        ) : rosterDouble ? (
+          <>
+            <span aria-hidden="true" className="inline-flex shrink-0">
+              <DoubleBadge size={28} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <b>Advantage played.</b>{' '}
+              {doubledContestant ? displayName(doubledContestant) : '—'} earns double points this
+              episode.
+            </span>
+            {!weekly.locked && (
+              <button
+                type="button"
+                onClick={() => void weekly.takeBack(rosterDouble)}
+                disabled={weekly.busy || rosterDouble.id.startsWith('pending-')}
+                className={stripLink}
+              >
+                Undo
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <span aria-hidden="true" className="inline-flex shrink-0">
+              <DoubleBadge size={28} />
+            </span>
+            <span className="min-w-0 flex-1">
+              Play your advantage on your tribe to receive a <b>double point boost</b> for one
+              Survivor.{ballotPlayed && ' This moves your advantage off your ballot.'}
             </span>
             <button
               type="button"
-              onClick={() => void weekly.takeBack(rosterDouble)}
-              disabled={weekly.busy || rosterDouble.id.startsWith('pending-')}
-              className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+              onClick={() => onStartDouble?.()}
+              disabled={weekly.busy}
+              className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
             >
-              Undo ×2
+              Play it here
             </button>
-          </span>
-        ) : activeRoster.some(
-            (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode == null,
-          ) ? (
-          <button
-            type="button"
-            onClick={() => onStartDouble?.()}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
-          >
-            <span aria-hidden="true" className="inline-flex">
-              <DoubleBadge size={18} />
-            </span>
-            <span>Double a castaway</span>
-          </button>
-        ) : undefined
+          </>
+        )}
+      </div>
+    )
 
   // The swap chip / cancel / undo cluster, lifted out of the JSX so the
   // Edit button can share its row instead of stacking under it (#529).
@@ -2485,7 +2574,7 @@ function RosterSection({
   // The lane's header is its tab now, so the season total leads this row
   // instead of riding in a band that repeated the tab's own label.
   const toolbar =
-    seasonPoints != null || doubleAction || swapAction || editAvailable ? (
+    seasonPoints != null || swapAction || editAvailable ? (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-paper-line px-4 py-2">
         {seasonPoints != null && (
           <span className="inline-flex items-baseline gap-1.5">
@@ -2499,7 +2588,6 @@ function RosterSection({
           </span>
         )}
         <span className="ml-auto inline-flex shrink-0 items-center gap-3">
-          {doubleAction}
           {swapAction}
           {editAvailable && (
             <button
@@ -2518,7 +2606,9 @@ function RosterSection({
 
   return (
     <>
+      <SealGhost drag={drag} />
       {toolbar}
+      {advantageStrip}
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {dropping
@@ -2528,18 +2618,6 @@ function RosterSection({
               })()}`
             : 'Choose a castaway to drop'}
           <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
-        </p>
-      )}
-      {picking === 'double' && (
-        <p className="flex items-center justify-between gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
-          Choose a castaway to double
-          <button
-            type="button"
-            onClick={() => onPickingDone?.()}
-            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
-          >
-            Cancel
-          </button>
         </p>
       )}
       {(error || weekly.error) && (
@@ -2596,6 +2674,16 @@ function RosterSection({
                 }
                 expanded={expandedId === pick.contestant_id}
                 onToggle={() => toggleExpand(pick.contestant_id)}
+                // #407: the doubled row's seal is a drag handle (only when not
+                // already tap-picking); every row is a drop target for it.
+                onSealPointerDown={
+                  !picking && displayedDoubleTarget === pick.contestant_id
+                    ? startSealDrag
+                    : undefined
+                }
+                sealLifted={dragging && displayedDoubleTarget === pick.contestant_id}
+                dropId={pick.contestant_id}
+                dropActive={drag?.overId === pick.contestant_id}
                 stamp={stampId === pick.contestant_id}
               >
                 <RosterBreakdown
@@ -3061,16 +3149,18 @@ function PicksSection({
 
   const play = useWeeklyPlay(season, episodes, plays, setPlays)
 
-  // Power Vote (#673): one castaway named on its own sheet under the ballot.
-  // Naming it is the play — it saves on the tap, the way the roster double
-  // does, and the server writes the name onto the ballot as an extra pick
-  // that pays double. The regular ballot never sees it: the grid greys it
-  // out, the pile leaves it out, and the save sends it along with the names
-  // so the server keeps it.
+  // Power Vote (#673): the advantage played on the ballot. Designating a
+  // name is the play — the idol drags onto a cast card, or the card's idol
+  // slot is tapped — and it saves at once, the way the roster double does;
+  // the server writes the name onto the ballot as an extra pick that pays
+  // double. The regular ballot never counts it: the grid holds it as the
+  // gold card, the pile leads with its slip, and the save sends it along
+  // with the names so the server keeps it.
   const ballotPlay = play.play?.advantage_type === 'double_vote_points' ? play.play : undefined
   const powerTarget = ballotPlay?.target_contestant_id ?? null
-  // The grid is asking who gets the Power Vote; the next tap names them.
-  const [choosingPower, setChoosingPower] = useState(false)
+  // The sheet is asking who gets the Power Vote.
+  const [designating, setDesignating] = useState(false)
+  const openEp = play.openEpisode
 
   function cancelEdit(episodeId: string) {
     const saved = picksByEpisode.get(episodeId) ?? []
@@ -3081,6 +3171,20 @@ function PicksSection({
       ),
     )
     setEditing(false)
+  }
+
+  function namePower(contestantId: string) {
+    if (!openEp) return
+    setDesignating(false)
+    // A regular vote becoming the Power Vote leaves the ballot in the same
+    // paint, not a beat later when the re-read lands.
+    setPending((prev) => {
+      const set = new Set(prev.get(openEp.id) ?? [])
+      set.delete(contestantId)
+      return new Map(prev).set(openEp.id, set)
+    })
+    // Any other play this week gives way, same as on the roster.
+    void play.replace('double_vote_points', contestantId)
   }
 
   /** Save the ballot; true when it went through.
@@ -3162,13 +3266,11 @@ function PicksSection({
   }
 
   // Whenever the play changes underneath the ballot — named, moved, or taken
-  // back on the Power Vote sheet — the saved ballot is re-read and the
-  // editable set follows it.
+  // back — the saved ballot is re-read and the editable set follows it.
   const pendingRef = useRef(pending)
   pendingRef.current = pending
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
   const lastTarget = useRef<string | null>(null)
-  const openEp = play.openEpisode
   // A replace shows its optimistic row before the server has moved anything.
   // Re-read only once the real row is back — a move to the roster used to
   // re-read while the delete was still in flight and keep the doubled vote.
@@ -3215,10 +3317,11 @@ function PicksSection({
         )
         // Names written but not yet saved survive the play changing under
         // them; only one that just became the Power Vote leaves the ballot.
+        // The sheet stays open if it was: "cast your votes" continues after
+        // the Power Vote lands, and only Save or Cancel closes it.
         const was = pendingRef.current.get(epId) ?? new Set<string>()
         const next = new Set([...was, ...saved])
         if (power) next.delete(power)
-        if ([...next].every((id) => saved.has(id))) setEditing(false)
         setPending((prev) => new Map(prev).set(epId, next))
         if (onOpenPicks) onOpenPicks(picks)
         else onBallotSaved?.()
@@ -3229,10 +3332,45 @@ function PicksSection({
     }
   }, [ballotPlay?.id, ballotPlay?.target_contestant_id, settled, openEp, season.id, userId, contestants, onBallotSaved, onOpenPicks])
 
-  // The seal rides the Power Vote's slip on its sheet.
+  // Who can be named this episode: still in, and not on Redemption Island.
+  const liveIds = new Set(
+    contestants
+      .filter(
+        (c) =>
+          openEp != null &&
+          (c.eliminated_in_episode == null || c.eliminated_in_episode >= openEp.episode_number) &&
+          !c.on_redemption,
+      )
+      .map((c) => c.id),
+  )
+  // The idol drags onto a cast card (#487): from the strip to designate, or
+  // from the gold card to move the Power Vote.
+  const {
+    drag: ballotDrag,
+    dragging: ballotDragging,
+    start: startBallotDrag,
+  } = useSealDrag({
+    disabled: play.locked || play.busy || submitting != null,
+    canDropOn: (id) => id !== powerTarget && liveIds.has(id),
+    onDrop: namePower,
+  })
+  // Stamp the idol where it just landed (#487): any change of name, not the
+  // first paint.
+  const [powerStamp, setPowerStamp] = useState(false)
+  const prevPowerTarget = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const prev = prevPowerTarget.current
+    prevPowerTarget.current = powerTarget
+    if (prev === undefined || !powerTarget || powerTarget === prev) return
+    setPowerStamp(true)
+    const timer = setTimeout(() => setPowerStamp(false), 790)
+    return () => clearTimeout(timer)
+  }, [powerTarget])
   const seal = (
     <span className="pointer-events-none absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)]">
-      <DoubleBadge size={34} title="Power Vote" />
+      <span className={powerStamp ? 'seal-stamp' : ''}>
+        <DoubleBadge size={34} title="Power Vote" />
+      </span>
     </span>
   )
   const nextOpen = episodes.find(isOpen)
@@ -3260,6 +3398,7 @@ function PicksSection({
 
   const content = (
     <>
+      <SealGhost drag={ballotDrag} />
       {!currentEp && !showFinale && (
         <Notice title="The season hasn’t started yet">
           Once the commissioner schedules the first episode, your tribe and the weekly play show up here.
@@ -3284,13 +3423,13 @@ function PicksSection({
           const ep = nextOpen
           const epPending = pending.get(ep.id) ?? new Set<string>()
           const episodeError = errors.get(ep.id)
-          // The Power Vote's name is a pick on the server but not a slip in
-          // this pile: it reads on its own sheet below (#673).
+          // The Power Vote's name is a pick on the server but not a regular
+          // vote here: it leads the pile as the gold slip (#673).
           const savedPicks = (picksByEpisode.get(ep.id) ?? []).filter(
             (p) => p.contestant_id !== powerTarget,
           )
           const hasSavedPicks = savedPicks.length > 0
-          const confirmed = hasSavedPicks && !editing && !choosingPower
+          const confirmed = hasSavedPicks && !editing && !designating
           const savedIds = new Set(savedPicks.map((pick) => pick.contestant_id))
           const dirty =
             epPending.size !== savedIds.size ||
@@ -3307,13 +3446,79 @@ function PicksSection({
           const powerName = powerContestant ? displayName(powerContestant) : '—'
           const powerBusy = play.busy || Boolean(ballotPlay?.id.startsWith('pending-'))
           const rosterDoubled = play.play?.advantage_type === 'double_roster_points'
-          // The sheet shows while there is something to do or something done.
-          const showPower = maxPicks > 0 && (ballotPlay != null || !play.locked)
-          function namePower(contestantId: string) {
-            setChoosingPower(false)
-            // Any other play this week gives way, same as on the roster.
-            void play.replace('double_vote_points', contestantId)
-          }
+          const stripLink =
+            'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
+
+          // The advantage on this tab (#673 follow-on): on offer, designating
+          // (the idol drags onto a name, or a name's idol slot is tapped), or
+          // played. The hero only reports it.
+          const advantageStrip =
+            maxPicks === 0 || (play.locked && !ballotPlay) ? null : (
+              <div
+                role="region"
+                aria-label="Advantage"
+                className="mb-5 flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-left text-xs text-forest-800"
+              >
+                {designating ? (
+                  <>
+                    <span
+                      onPointerDown={startBallotDrag}
+                      className="inline-flex shrink-0 cursor-grab touch-none active:cursor-grabbing"
+                      style={{ opacity: ballotDragging ? 0.3 : 1 }}
+                    >
+                      <DoubleBadge size={36} title="Drag onto a name to make it your Power Vote" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <b>Cast your votes.</b> Drag this Advantage icon onto a name to make it your
+                      Power Vote, worth double, or tap the idol on a name.
+                    </span>
+                    <button type="button" onClick={() => setDesignating(false)} className={stripLink}>
+                      Cancel
+                    </button>
+                  </>
+                ) : ballotPlay ? (
+                  <>
+                    <span aria-hidden="true" className="inline-flex shrink-0">
+                      <DoubleBadge size={28} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <b>Advantage played.</b> {powerName} is your Power Vote, worth double.
+                    </span>
+                    {!play.locked && (
+                      <button
+                        type="button"
+                        onClick={() => void play.takeBack(ballotPlay)}
+                        disabled={powerBusy}
+                        className={stripLink}
+                      >
+                        Undo
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden="true" className="inline-flex shrink-0">
+                      <DoubleBadge size={28} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      Play your advantage on your ballot to receive a <b>Power Vote</b>, an extra
+                      vote worth double.{rosterDoubled && ' This moves your advantage off your tribe.'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesignating(true)
+                        setEditing(true)
+                      }}
+                      disabled={play.busy}
+                      className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
+                    >
+                      Play it here
+                    </button>
+                  </>
+                )}
+              </div>
+            )
 
           // Only list castaways still in the game, grouped by tribe so the
           // field is easy to scan (#249). Already-eliminated players aren't
@@ -3352,56 +3557,79 @@ function PicksSection({
                     {members.map((c) => {
                       const name = displayName(c)
                       const isPower = c.id === powerTarget
-                      const isSelected = !choosingPower && epPending.has(c.id)
-                      // Choosing the Power Vote, every live name is open —
-                      // even a regular vote, which then moves to the sheet.
-                      const maxed = !choosingPower && !isSelected && epPending.size >= maxPicks
-                      const disabled = play.busy || (choosingPower ? isPower : maxed || isPower)
-                      const label = choosingPower
-                        ? `Power Vote for ${name}`
-                        : isPower
-                          ? `${name} is your Power Vote`
-                          : isSelected
-                            ? `Remove vote for ${name}`
-                            : `Vote for ${name}`
+                      const isSelected = !isPower && epPending.has(c.id)
+                      const maxed = !isSelected && epPending.size >= maxPicks
+                      const disabled = play.busy || maxed || isPower
                       return (
-                        <button
+                        // The wrapper is the drop target so the idol slot can
+                        // sit beside the card's own button (a button can't
+                        // hold another).
+                        <div
                           key={c.id}
-                          type="button"
-                          onClick={() =>
-                            choosingPower ? namePower(c.id) : togglePick(ep.id, c.id, maxPicks)
-                          }
-                          disabled={disabled}
-                          aria-pressed={choosingPower ? undefined : isSelected}
-                          aria-label={label}
-                          className={[
-                            'relative flex min-h-16 min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
-                            isSelected
-                              ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
-                              : isPower
-                                ? 'border-gold-500 bg-gold-50 text-paper-ink-faded'
-                                : disabled
-                                  ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                  : choosingPower
-                                    ? 'border-gold-500 bg-white/55 text-paper-ink hover:bg-gold-50'
-                                    : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
-                          ].join(' ')}
+                          data-drop-id={c.id}
+                          className="relative rounded-xl data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
                         >
-                          <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
-                          <span className="min-w-0 leading-tight">{name}</span>
-                          {isSelected && (
-                            <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M5 13l4 4L19 7" />
-                              </svg>
+                          <button
+                            type="button"
+                            onClick={() => togglePick(ep.id, c.id, maxPicks)}
+                            disabled={disabled}
+                            aria-pressed={isSelected}
+                            aria-label={
+                              isPower
+                                ? `${name} is your Power Vote`
+                                : isSelected
+                                  ? `Remove vote for ${name}`
+                                  : `Vote for ${name}`
+                            }
+                            className={[
+                              'relative flex min-h-16 w-full min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
+                              isPower
+                                ? 'border-gold-500 bg-gold-50 text-forest-900 shadow-sm ring-1 ring-gold-200'
+                                : isSelected
+                                  ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
+                                  : disabled
+                                    ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
+                                    : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                            ].join(' ')}
+                          >
+                            <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
+                            <span className="min-w-0 leading-tight">{name}</span>
+                            {isSelected && (
+                              <span className="absolute right-1.5 top-1.5 inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M5 13l4 4L19 7" />
+                                </svg>
+                              </span>
+                            )}
+                          </button>
+                          {isPower ? (
+                            // The idol rests on the gold card; drag it to
+                            // another name to move the Power Vote.
+                            <span
+                              onPointerDown={play.locked ? undefined : startBallotDrag}
+                              className={`absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
+                                play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'
+                              }`}
+                              style={{ opacity: ballotDragging ? 0.3 : 1 }}
+                            >
+                              <span className={powerStamp ? 'seal-stamp' : ''}>
+                                <DoubleBadge size={30} title={`${name} is your Power Vote`} />
+                              </span>
                             </span>
-                          )}
-                          {isPower && (
-                            <span className="absolute -right-1.5 -top-2 inline-flex" aria-hidden="true">
-                              <DoubleBadge size={22} />
-                            </span>
-                          )}
-                        </button>
+                          ) : designating ? (
+                            // The tap path while designating: an empty slot on
+                            // every name, where the idol would land.
+                            <button
+                              type="button"
+                              onClick={() => namePower(c.id)}
+                              disabled={play.busy}
+                              aria-label={`Make ${name} your Power Vote`}
+                              className="absolute -right-2 -top-3 z-10 inline-flex rotate-[9deg] rounded-full opacity-45 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-20"
+                            >
+                              <DoubleBadge size={30} title="" />
+                            </button>
+                          ) : null}
+                        </div>
                       )
                     })}
                   </div>
@@ -3412,24 +3640,9 @@ function PicksSection({
 
           return (
             <div className="ballot-sheet">
-              <BallotSheetHead
-                ep={ep}
-                prompt={
-                  choosingPower
-                    ? 'Who gets your Power Vote?'
-                    : confirmed
-                      ? undefined
-                      : 'Who goes home tonight?'
-                }
-              />
-              {choosingPower ? (
-                <>
-                  <p aria-live="polite" className="ballot-sheet__count mb-5 text-gold-700">
-                    One name. It saves the moment you tap.
-                  </p>
-                  {grid}
-                </>
-              ) : confirmed ? (
+              <BallotSheetHead ep={ep} prompt={confirmed ? undefined : 'Who goes home tonight?'} />
+              {advantageStrip}
+              {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
                    sit above the votes themselves. */
@@ -3441,6 +3654,19 @@ function PicksSection({
                     Ballot submitted
                   </p>
                   <div className="ballot-sheet__slips">
+                    {/* The Power Vote leads the pile in gold, wearing the
+                        seal on its corner (#673). */}
+                    {ballotPlay && (
+                      <span className="relative inline-flex items-center gap-1.5 rounded">
+                        <VoteSlip
+                          name={powerName}
+                          doubled
+                          tribeColor={powerContestant?.tribe_color}
+                          rotation={0.4}
+                        />
+                        {seal}
+                      </span>
+                    )}
                     {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
                       // Voted-for someone already eliminated earlier — no longer eligible (#5)
@@ -3478,17 +3704,7 @@ function PicksSection({
               )}
 
               {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
-              {choosingPower ? (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setChoosingPower(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : confirmed ? (
+              {confirmed ? (
                 <div className="flex justify-center">
                   <button
                     type="button"
@@ -3511,81 +3727,16 @@ function PicksSection({
                   {hasSavedPicks && (
                     <button
                       type="button"
-                      onClick={() => cancelEdit(ep.id)}
+                      onClick={() => {
+                        setDesignating(false)
+                        cancelEdit(ep.id)
+                      }}
                       className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-gray-400 transition-colors"
                     >
                       Cancel
                     </button>
                   )}
                 </div>
-              )}
-
-              {/* The Power Vote's own sheet (#673 follow-on): one castaway on
-                  top of the ballot, named here and saved on the tap. The
-                  ballot above is plain voting and nothing else. */}
-              {showPower && !choosingPower && (
-                <section
-                  aria-label="Power Vote"
-                  className="mt-6 rounded-lg border border-gold-500 bg-gold-50 px-3 py-3 text-center"
-                >
-                  <p className="flex items-center justify-center gap-1.5 font-display text-xs font-bold uppercase tracking-[0.16em] text-gold-700">
-                    <span aria-hidden="true" className="inline-flex">
-                      <DoubleBadge size={20} />
-                    </span>
-                    Power Vote
-                    {ballotPlay && <span className="text-[10px] tracking-[0.1em] text-jade-700">saved</span>}
-                  </p>
-                  {ballotPlay ? (
-                    <>
-                      <div className="ballot-sheet__slips mt-3">
-                        <span className="relative inline-flex rounded">
-                          <VoteSlip
-                            name={powerName}
-                            doubled
-                            tribeColor={powerContestant?.tribe_color}
-                            rotation={-0.7}
-                          />
-                          {seal}
-                        </span>
-                      </div>
-                      {!play.locked && (
-                        <div className="mt-3 flex justify-center gap-4 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700">
-                          <button
-                            type="button"
-                            onClick={() => setChoosingPower(true)}
-                            disabled={powerBusy}
-                            className="underline underline-offset-2 disabled:opacity-40"
-                          >
-                            Change
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void play.takeBack(ballotPlay)}
-                            disabled={powerBusy}
-                            className="underline underline-offset-2 disabled:opacity-40"
-                          >
-                            Take it back
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="mt-1.5 text-xs text-forest-800">
-                        Name one castaway. If they go home, it pays double.
-                        {rosterDoubled && ' This replaces the ×2 on your tribe.'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setChoosingPower(true)}
-                        disabled={play.busy}
-                        className="mt-3 inline-flex min-h-8 items-center rounded-full border border-gold-500 bg-white px-3 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
-                      >
-                        Choose a castaway
-                      </button>
-                    </>
-                  )}
-                </section>
               )}
             </div>
           )

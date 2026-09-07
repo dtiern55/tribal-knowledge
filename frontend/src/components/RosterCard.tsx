@@ -34,6 +34,10 @@ export function RosterCard({
   lit = false,
   expanded = false,
   onToggle,
+  onSealPointerDown,
+  sealLifted = false,
+  dropId,
+  dropActive = false,
   stamp = false,
   prominent = false,
   children,
@@ -68,7 +72,16 @@ export function RosterCard({
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
   onToggle?: () => void
-  // Play a one-shot "stamp" as the seal lands here (#487).
+  // #407 drag-to-reassign: the idol on a doubled row is a handle you grab to
+  // move the Double Castaway Points onto another castaway. When given, the idol
+  // becomes draggable; `sealLifted` dims it while it's in the air.
+  onSealPointerDown?: (e: React.PointerEvent) => void
+  sealLifted?: boolean
+  // The row is a drop target for that drag: `dropId` is what it reassigns to,
+  // `dropActive` highlights it as the finger passes over.
+  dropId?: string
+  dropActive?: boolean
+  // Play a one-shot "stamp" as the seal lands here after a drag commit (#487).
   stamp?: boolean
   // The My Team card's scale (My Season redesign): a 42px portrait and a
   // larger name, so your own five read as people rather than manifest lines.
@@ -89,13 +102,31 @@ export function RosterCard({
   const doubledNote = prominent && isDoubled && outEp == null
 
   // At row scale the idol rests near the points column, not as a tiny suffix on
-  // the castaway's name. The tilt keeps it feeling hand-placed.
-  const doubleSeal = isDoubled ? (
-    <span className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg]">
-      <span className={stamp ? 'seal-stamp' : ''}>
-        <DoubleBadge size={36} />
-      </span>
+  // the castaway's name. The tilt keeps it feeling hand-placed while preserving
+  // the idol as the drag handle.
+  const sealMark = (
+    <span className={stamp ? 'seal-stamp' : ''}>
+      <DoubleBadge size={36} />
     </span>
+  )
+  const doubleSeal = isDoubled ? (
+    onSealPointerDown ? (
+      <span
+        onPointerDown={onSealPointerDown}
+        // Grabbing the idol must not also expand the row underneath it:
+        // stopping the pointerdown doesn't stop the click that follows.
+        onClick={(e) => e.stopPropagation()}
+        title="Drag to move the double to another castaway"
+        className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg] cursor-grab touch-none transition-opacity active:cursor-grabbing"
+        style={{ opacity: sealLifted ? 0.3 : 1 }}
+      >
+        {sealMark}
+      </span>
+    ) : (
+      <span className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg]">
+        {sealMark}
+      </span>
+    )
   ) : null
 
   const avatar = (
@@ -187,8 +218,13 @@ export function RosterCard({
   return (
     <li className="border-t border-paper-line first:border-t-0">
       <div
+        data-drop-id={dropId}
         className={`stage-row flex items-center gap-3 transition-transform ${
-          lit ? 'stage-pick' : selected ? 'stage-held' : ''
+          lit ? 'stage-pick' : selected ? 'stage-held' : onSelect ? '' : ''
+        } ${
+          dropActive
+            ? 'ring-2 ring-inset ring-forest-500 bg-forest-50/70 -translate-y-px shadow-lg'
+            : ''
         } ${
           onSelect
             ? 'p-0'
