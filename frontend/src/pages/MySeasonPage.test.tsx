@@ -708,6 +708,28 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Kenzie is your Power Vote' })).toBeDisabled()
     expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('1st')
+
+    // The gold rung has the same arrows: down swaps the Power Vote with 1st,
+    // in one picks request that saves the ladder as shown.
+    const rungs = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    await userEvent.click(within(rungs).getByRole('button', { name: 'Move Kenzie down' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-1', 'cast-2'],
+        doubled_contestant_id: 'cast-2',
+      }),
+    )
+    expect(await screen.findByText('Ballot · Charlie · Power Vote')).toBeVisible()
+    expect(within(rungs).getAllByRole('listitem')[1]).toHaveTextContent('Kenzie')
+    // And 1st's up arrow climbs back into it.
+    await userEvent.click(within(rungs).getByRole('button', { name: 'Move Kenzie up' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-2', 'cast-1'],
+        doubled_contestant_id: 'cast-1',
+      }),
+    )
+    expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
   })
 
   it('takes a Power Vote that was a regular vote off the ballot in the same paint, and back again on Undo', async () => {

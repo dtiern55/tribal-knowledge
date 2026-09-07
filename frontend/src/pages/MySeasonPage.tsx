@@ -3225,11 +3225,14 @@ function PicksSection({
 
   /** The idol lands on a name: the first time that is the play, saved as
    *  the roster double is; with a Power Vote already down it is a move. */
-  function designatePower(contestantId: string) {
+  /** `oldTo` is the rung (0-based) the current Power Vote's name takes when
+   *  another name replaces it — the rung the new name came from, so the two
+   *  swap — or the bottom of the ladder. */
+  function designatePower(contestantId: string, oldTo: number | 'bottom' = 'bottom') {
     if (!openEp) return
     setDesignating(false)
     if (ballotPlay) {
-      void movePower(contestantId)
+      void movePower(contestantId, oldTo)
       return
     }
     // A regular vote becoming the Power Vote leaves the ladder in the same
@@ -3245,19 +3248,20 @@ function PicksSection({
   }
 
   /** Move the Power Vote to another name, like dragging the seal between
-   *  roster rows. The old name drops to the bottom rung when there is room
-   *  for it; the picks POST moves the play and diffs the ladder in one
-   *  request (#682), shown optimistically. */
-  async function movePower(newId: string) {
+   *  roster rows. The ladder as shown (unsaved names included) saves with
+   *  it: the picks POST moves the play and diffs the ladder in one request
+   *  (#682), shown optimistically. The old name takes `oldTo` — the rung the
+   *  new name left, or the bottom — when there is room for it. */
+  async function movePower(newId: string, oldTo: number | 'bottom' = 'bottom') {
     if (!openEp || !ballotPlay) return
     const epId = openEp.id
     const oldId = ballotPlay.target_contestant_id
     const before = { picks: picksByEpisode.get(epId) ?? [], plays }
-    const savedRungs = before.picks
-      .map((p) => p.contestant_id)
-      .filter((id) => id !== oldId && id !== newId)
-    const oldStays = oldId != null && savedRungs.length < openMax
-    const rungs = oldStays && oldId ? [...savedRungs, oldId] : savedRungs
+    const list = (pending.get(epId) ?? []).filter((id) => id !== oldId && id !== newId)
+    const rungs = [...list]
+    if (oldId && list.length < openMax) {
+      rungs.splice(oldTo === 'bottom' ? list.length : Math.min(oldTo, list.length), 0, oldId)
+    }
     const ids = [...rungs, newId]
     const optimisticPicks: EliminationPick[] = ids.map((id, index) => ({
       ...(before.picks.find((p) => p.contestant_id === id) ?? {
@@ -3273,10 +3277,7 @@ function PicksSection({
     setPlays((prev) =>
       prev.map((p) => (p.id === ballotPlay.id ? { ...p, target_contestant_id: newId } : p)),
     )
-    setPending((prev) => {
-      const list = (prev.get(epId) ?? []).filter((id) => id !== newId && id !== oldId)
-      return new Map(prev).set(epId, oldStays && oldId ? [...list, oldId] : list)
-    })
+    setPending((prev) => new Map(prev).set(epId, rungs))
     lastTarget.current = newId
     onOpenPicks?.(optimisticPicks)
     setSubmitting(epId)
@@ -3483,8 +3484,16 @@ function PicksSection({
     onDrop: (id) => {
       const name = dragName.current
       if (!name || !openEp) return
-      if (id === 'rung:pv') designatePower(name)
-      else moveName(openEp.id, name, Number(id.slice(5)) - 1)
+      const ladder = pending.get(openEp.id) ?? []
+      if (name === powerTarget) {
+        // The Power Vote's name dropped on a rung swaps with the name there.
+        const other = ladder[Number(id.slice(5)) - 1]
+        if (other) designatePower(other, Number(id.slice(5)) - 1)
+      } else if (id === 'rung:pv') {
+        designatePower(name, ladder.indexOf(name))
+      } else {
+        moveName(openEp.id, name, Number(id.slice(5)) - 1)
+      }
     },
   })
   function startLadderDrag(contestantId: string) {
@@ -3806,7 +3815,7 @@ function PicksSection({
                           className="flex min-h-12 items-center gap-2 rounded-lg border border-paper-edge bg-white/55 px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
                         >
                           <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-paper-ink-faded">
-                            {p.rank != null ? `${ordinal(rank)}${pts(rungValue(ep, rank))}` : ''}
+                            {ordinal(rank)}{pts(rungValue(ep, rank))}
                           </span>
                           <VoteSlip name={slipName} stale={stale} tribeColor={sc?.tribe_color} rotation={0} />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
@@ -3832,21 +3841,57 @@ function PicksSection({
                   <ol aria-label="Your ballot, surest on top" className="mx-auto mb-5 flex max-w-sm flex-col gap-1.5">
                     {(ballotPlay || designating) && (
                       <li
-                        data-drop-id={ballotPlay ? undefined : 'rung:pv'}
-                        className={`flex min-h-12 items-center gap-2 rounded-lg border px-2 py-1.5 text-left ${
+                        data-drop-id="rung:pv"
+                        className={`flex min-h-12 items-center gap-2 rounded-lg border px-2 py-1.5 text-left data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500 ${
                           ballotPlay
                             ? 'border-gold-500 bg-gold-50'
-                            : 'border-dashed border-gold-500 bg-gold-50/60 data-[drag-over]:border-solid data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500'
+                            : 'border-dashed border-gold-500 bg-gold-50/60 data-[drag-over]:border-solid'
                         }`}
                       >
                         <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-gold-700">
                           Power Vote{pts(rungValue(ep, 0))}
                         </span>
-                        {ballotPlay ? (
-                          <span className="relative inline-flex min-w-0 pr-7">
-                            <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
-                            {seal}
-                          </span>
+                        {ballotPlay && powerTarget ? (
+                          <>
+                            <span
+                              onPointerDown={play.locked ? undefined : startLadderDrag(powerTarget)}
+                              className={`relative inline-flex min-w-0 pr-7 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
+                              style={{ opacity: ladderDragging && dragName.current === powerTarget ? 0.3 : 1 }}
+                            >
+                              <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
+                              {seal}
+                            </span>
+                            {/* The same controls as every rung: down swaps with
+                                1st, remove takes the advantage back. */}
+                            <span className="ml-auto inline-flex shrink-0 items-center gap-0.5">
+                              <button
+                                type="button"
+                                disabled
+                                aria-label={`Move ${powerName} up`}
+                                className="inline-flex size-8 items-center justify-center rounded-full text-forest-700 disabled:opacity-25"
+                              >
+                                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => epPending[0] && designatePower(epPending[0], 0)}
+                                disabled={epPending.length === 0 || play.busy || submitting != null}
+                                aria-label={`Move ${powerName} down`}
+                                className="inline-flex size-8 items-center justify-center rounded-full text-forest-700 hover:bg-forest-50 disabled:opacity-25"
+                              >
+                                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void play.takeBack(ballotPlay)}
+                                disabled={play.busy || ballotPlay.id.startsWith('pending-')}
+                                aria-label={`Remove ${powerName}`}
+                                className="inline-flex size-8 items-center justify-center rounded-full text-paper-ink-faded hover:bg-terracotta-50 hover:text-terracotta-700 disabled:opacity-25"
+                              >
+                                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                              </button>
+                            </span>
+                          </>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 text-xs text-paper-ink-faded">
                             <span aria-hidden="true" className="inline-flex opacity-60">
@@ -3882,8 +3927,14 @@ function PicksSection({
                               <span className="ml-auto inline-flex shrink-0 items-center gap-0.5">
                                 <button
                                   type="button"
-                                  onClick={() => moveName(ep.id, id, index - 1)}
-                                  disabled={index === 0 || play.busy}
+                                  onClick={() =>
+                                    index === 0 ? designatePower(id, 0) : moveName(ep.id, id, index - 1)
+                                  }
+                                  disabled={
+                                    (index === 0 && !(designating || ballotPlay)) ||
+                                    play.busy ||
+                                    (index === 0 && submitting != null)
+                                  }
                                   aria-label={`Move ${rungName} up`}
                                   className="inline-flex size-8 items-center justify-center rounded-full text-forest-700 hover:bg-forest-50 disabled:opacity-25"
                                 >
