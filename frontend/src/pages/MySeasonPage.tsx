@@ -895,7 +895,6 @@ export function MySeasonPage() {
                 userId={d.userId}
                 rosterPoints={rosterPoints}
                 soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
-                seasonPoints={d.standing?.roster_points ?? null}
                 plays={d.plays}
                 setPlays={d.setPlays}
                 onRosterChange={d.bumpRoster}
@@ -2096,8 +2095,7 @@ function HeaderPoints({
 
 /**
  * The team card's tally (My Season redesign): the lane's jade, at display
- * scale, with no unit — the band already says "season pts" and the column is
- * unambiguous once the number is this size.
+ * scale, with no unit: the column is unambiguous once the number is this size.
  */
 function TeamPoints({ value }: { value: number | undefined }) {
   if (value == null) return null
@@ -2225,7 +2223,6 @@ function RosterSection({
   userId,
   rosterPoints,
   soleSurvivorBonus = 0,
-  seasonPoints = null,
   plays,
   setPlays,
   onRosterChange,
@@ -2243,7 +2240,6 @@ function RosterSection({
   /** The +50% Sole Survivor finale bonus, named on the designated card. */
   soleSurvivorBonus?: number
   /** The season roster total for the card's band. */
-  seasonPoints?: number | null
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
@@ -2570,25 +2566,14 @@ function RosterSection({
     ) : undefined
   )
 
-  // The lane's header is its tab now, so the season total leads this row
-  // instead of riding in a band that repeated the tab's own label.
-  const toolbar =
-    seasonPoints != null || swapAction ? (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-paper-line px-4 py-2">
-        {seasonPoints != null && (
-          <span className="inline-flex items-baseline gap-1.5">
-            <span className="font-display text-lg font-bold leading-none text-jade-700">
-              {seasonPoints > 0 ? '+' : ''}
-              {seasonPoints}
-            </span>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-stone-500">
-              Season pts
-            </span>
-          </span>
-        )}
-        {swapAction && <span className="ml-auto inline-flex shrink-0 items-center">{swapAction}</span>}
-      </div>
-    ) : null
+  // Only the swap control lives above the strip now. The tribe subtotal it
+  // used to lead with is one line of the header chip's breakdown, and the
+  // Ballot tab has no such row, so the two tabs open the same way.
+  const toolbar = swapAction ? (
+    <div className="flex items-center justify-end border-b border-paper-line px-4 py-2">
+      {swapAction}
+    </div>
+  ) : null
 
   return (
     <>
