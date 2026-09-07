@@ -637,44 +637,9 @@ html.locked-night .tribal-border {
   border-width: var(--tribe-border-width, 0);
 }
 
-/* A beat tab lit as a live drop target while the ×2 idol is dragged over it
-   (#487). The attribute is toggled imperatively by the drag, so this works
-   across the component boundary between the beat bar and the sections. */
-[data-drop-id^="beat:"] {
-  transition: background 225ms ease, box-shadow 225ms ease, transform 225ms ease;
-}
-[data-drop-id^="beat:"][data-drag-over] {
-  background: color-mix(in srgb, var(--color-gold-400) 22%, transparent);
-  box-shadow: inset 0 -3px 0 0 var(--color-gold-100);
-}
-
-/* The lifted idol snaps back to where it was grabbed on a missed drop. */
-.seal-ghost {
-  transition: none;
-}
-.seal-ghost--releasing {
-  transition: left 360ms ease, top 360ms ease, opacity 360ms ease;
-  opacity: 0;
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  /* Grab peel: the idol fades up and off the page as you pick it up. */
-  @keyframes seal-lift {
-    0% {
-      transform: translateY(6px) scale(0.8);
-      opacity: 0.3;
-    }
-    100% {
-      transform: translateY(-3px) scale(1.2);
-      opacity: 1;
-    }
-  }
-  .seal-ghost-inner {
-    animation: seal-lift 375ms cubic-bezier(0.2, 0.8, 0.3, 1.35) both;
-  }
-
-  /* The arriving beat fades in rather than hard-cutting, so an auto-switch
-     (drag to another beat) lands softly instead of teleporting. */
+  /* The arriving beat fades in rather than hard-cutting, so a switch lands
+     softly instead of teleporting. */
   @keyframes beat-panel-in {
     from {
       opacity: 0;
@@ -731,29 +696,6 @@ html.locked-night .tribal-border {
     animation: seal-stamp 675ms cubic-bezier(0.2, 0.7, 0.3, 1.3) both;
   }
 
-  /* The drop target leans toward the idol, so the play looks like it lands
-     where you pointed rather than snapping in from nowhere. A beat tab sits
-     inside the stack's clip, so it grows its contents, not its box (see
-     .lane-tab[data-drag-over]); anything else grows as a whole. */
-  [data-drop-id^="beat:"][data-drag-over]:not(.lane-tab) {
-    transform: scale(1.06);
-  }
-  .lane-tab > * {
-    transition: transform 225ms ease;
-  }
-  .lane-tab[data-drag-over] > * {
-    transform: scale(1.12);
-  }
-
-  /* The unplayed advantage idol gives a slow, occasional nudge so a player who
-     hasn't spent their play notices it (#399). */
-  @keyframes advantage-nudge {
-    0%, 88%, 100% { transform: translateY(0); }
-    93% { transform: translateY(-3px); }
-  }
-  .advantage-nudge {
-    animation: advantage-nudge 3.2s ease-in-out infinite;
-  }
 }
 
 /* Submitted votes read as handwritten Tribal Council slips rather than
@@ -1133,37 +1075,6 @@ html.locked-night .contestant-avatar {
   50% { opacity: 0.55; }
 }
 
-/* The idol's two plays, as a panel under the lane. */
-.hero-menu {
-  overflow: hidden;
-  margin-top: 8px;
-  border: 1px solid rgb(255 255 255 / 22%);
-  border-radius: 11px;
-  background: rgb(0 0 0 / 22%);
-}
-
-.hero-menu__item {
-  display: flex;
-  width: 100%;
-  min-height: 44px;
-  align-items: center;
-  padding: 0 12px;
-  color: var(--color-cream-100);
-  font-size: 14px;
-  text-align: left;
-}
-.hero-menu__item + .hero-menu__item {
-  border-top: 1px solid rgb(255 255 255 / 14%);
-}
-button.hero-menu__item:hover { background: rgb(255 255 255 / 8%); }
-
-/* RuleLink is forest ink for a paper page; on the hero it has to be cream. */
-.hero-menu__item a {
-  color: var(--color-cream-100);
-  text-decoration-color: rgb(242 233 219 / 45%);
-}
-.hero-menu__item a:hover { color: #fff; }
-
 /* Torchlight overrides both day states: at night the ember is atmosphere, not
    a signal about what you owe. It paints the same layer they do. */
 html.locked-night .week-hero::before {
@@ -1192,8 +1103,6 @@ html.locked-night .hero-points { filter: brightness(0.9); }
 }
 
 .hero-lane[data-muted] { opacity: 0.55; }
-.hero-lane[data-tappable] { cursor: pointer; }
-.hero-lane[data-tappable]:hover { background: rgb(212 145 58 / 26%); }
 
 .hero-lane__icon {
   display: inline-flex;
@@ -1327,14 +1236,6 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   color: #fff;
 }
 
-/* The stack clips its overflow for the rounded corners, so the lit tab keeps
-   its box where it is (its icon and label do the pop) and wears the ring as
-   an inset shadow, which the clip can't cut off. */
-.lane-tab[data-drag-over] {
-  box-shadow:
-    inset 0 0 0 2px var(--color-gold-400),
-    inset 0 -3px 0 0 var(--color-gold-100);
-}
 /* The outer tabs take the stack's corner (15px radius less its 1px border),
    so the inset ring bends with the clip instead of being shaved at the top
    corner. */

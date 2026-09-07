@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -268,8 +268,9 @@ describe('MySeasonPage state shell', () => {
     expect(tabs[0]).toHaveTextContent(/^Tribe/)
     expect(tabs[1]).toHaveTextContent(/^Ballot/)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
-    // The unplayed advantage idol is always on screen in the bar.
-    expect(screen.getByRole('button', { name: /Play your advantage/ })).toBeVisible()
+    // The unplayed advantage rides the bar as state: it says where to play it.
+    expect(screen.getByText('Play it on your Tribe or Ballot')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /advantage/i })).not.toBeInTheDocument()
     expect(screen.getByRole('tabpanel', { name: /^Tribe/ })).toBeVisible()
     // The other two stay mounted (so an unsaved ballot survives) but hidden.
     expect(screen.queryByRole('tabpanel', { name: /^Ballot/ })).not.toBeInTheDocument()
@@ -400,7 +401,7 @@ describe('MySeasonPage state shell', () => {
     expect(document.documentElement).not.toHaveClass('ballot-room--leaving')
   })
 
-  it('keeps the weekly play to the two doubles, with swaps living on the roster', async () => {
+  it('starts each half of the weekly play on its own tab, with swaps living on the roster', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
@@ -426,25 +427,26 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    // The advantage lives in the persistent strip now (#399); the swap is still
-    // started from the Roster beat, priced in points.
+    // The hero's Advantage lane is state only: no menu, no button.
+    expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+    // The Tribe half starts on the roster, beside the swap, priced in points.
     const roster = await openBeat('Tribe')
     expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent(
       'free',
     )
-
-    // The two doubles are behind the loud idol's tap menu — nothing else.
-    await userEvent.click(screen.getByRole('button', { name: /Play your advantage/ }))
-    const menu = screen.getByRole('menu')
-    expect(within(menu).getByRole('menuitem', { name: 'Double a castaway' })).toBeVisible()
-    expect(within(menu).getByRole('menuitem', { name: 'Extra Vote ×2' })).toBeVisible()
-    expect(within(menu).queryByRole('menuitem', { name: /Swap/ })).not.toBeInTheDocument()
-
-    // Choosing "Double a castaway" lights the roster: banner, tappable rows, Cancel.
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Double a castaway' }))
+    await userEvent.click(within(roster).getByRole('button', { name: 'Double a castaway' }))
     expect(screen.getByText('Choose a castaway to double')).toBeVisible()
     expect(within(roster).getByRole('button', { name: /Kenzie/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
+    expect(within(roster).queryByRole('button', { name: 'Double a castaway' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(within(roster).getByRole('button', { name: 'Double a castaway' })).toBeVisible()
+
+    // The Ballot half is a gold slip on the sheet.
+    const ballot = await openBeat('Ballot')
+    expect(within(ballot).getByRole('button', { name: 'Extra Vote ×2' })).toBeVisible()
+    expect(within(ballot).getByText('One more name. If it goes home, it pays double.')).toBeVisible()
   })
 
   it('marks the selected roster card after Double Castaway Points is saved', async () => {
@@ -488,7 +490,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByText('×2 · Tribe · Kenzie')).toBeVisible()
   })
 
-  it('drags the ×2 seal onto another castaway to move the double (#407)', async () => {
+  it('takes a roster double back from the Tribe toolbar and plays it again on another castaway', async () => {
     const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -513,50 +515,34 @@ describe('MySeasonPage state shell', () => {
       return []
     })
     vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-2' })
-    let finishDelete!: () => void
-    vi.mocked(api.delete).mockImplementation(
-      () => new Promise<void>((resolve) => { finishDelete = resolve }),
-    )
+    vi.mocked(api.delete).mockResolvedValue(undefined)
 
     renderWithApp(<MySeasonPage />, { auth })
     const roster = await openBeat('Tribe')
 
-    // The seal on the doubled row (Kenzie) is the drag handle.
-    const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
-    const kenzieRow = within(roster).getByText('Kenzie').closest('[data-drop-id]')!
-    const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })
-    // The other row is the drop target; jsdom does no layout, so stub the one
-    // primitive the drop hit-test relies on to point at Charlie's row.
-    const charlieRow = within(roster).getByText('Charlie').closest('[data-drop-id]')!
-    document.elementFromPoint = () => charlieRow as Element
+    // The toolbar says where the ×2 sits and offers it back; the hero only reports it.
+    expect(await within(roster).findByText('×2 · Kenzie')).toBeVisible()
+    expect(screen.getByText('×2 · Tribe · Kenzie')).toBeVisible()
+    expect(within(roster).queryByRole('button', { name: 'Double a castaway' })).not.toBeInTheDocument()
+    await userEvent.click(within(roster).getByRole('button', { name: 'Undo ×2' }))
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
+    expect(within(roster).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Play it on your Tribe or Ballot')).toBeVisible()
 
-    fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
-    fireEvent(window, new MouseEvent('pointermove', { clientX: 60, clientY: 200 }))
-    fireEvent(window, new MouseEvent('pointerup', { clientX: 60, clientY: 200 }))
-
-    // The visible seal lands optimistically instead of flashing on Kenzie,
-    // disappearing during delete, and only then reappearing on Charlie.
-    expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
-    expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Castaway Points/ })).toBeVisible()
-    // The idol lives on the target now, not the tab (#487).
-    expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
-    expect(rosterTab).not.toHaveTextContent('×2')
-    // The move is optimistic across the board (#487/#399): the hero's Advantage
-    // tile names the new target immediately, not only after delete+post lands.
-    expect(screen.getByText('×2 · Tribe · Charlie')).toBeVisible()
-
-    // Moving the double is delete-old + post-new targeting Charlie (weekly.replace).
-    finishDelete()
+    // Played again from the same toolbar: pick the row, the seal lands there.
+    await userEvent.click(within(roster).getByRole('button', { name: 'Double a castaway' }))
+    await userEvent.click(within(roster).getByRole('button', { name: /Charlie/ }))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_roster_points',
         target_contestant_id: 'cast-2',
       }),
     )
-    expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1')
+    expect(await screen.findByText('×2 · Tribe · Charlie')).toBeVisible()
+    expect(within(roster).getByText('×2 · Charlie')).toBeVisible()
   })
 
-  it('drags the roster seal onto the Ballot tab, votes, places the ×2, and saves once (#487, #673)', async () => {
+  it('offers the extra vote on the ballot, votes, places the ×2, and saves once (#673)', async () => {
     const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
     // What the server holds; the ballot save carries the ×2 (#673).
     let picks = [{ id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' }]
@@ -598,33 +584,29 @@ describe('MySeasonPage state shell', () => {
     })
 
     renderWithApp(<MySeasonPage />, { auth })
-    const roster = await openBeat('Tribe')
+    const ballot = await openBeat('Ballot')
 
-    const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
-    const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
-    // jsdom does no layout; point the hit-test at the Ballot tab (a drop target).
-    document.elementFromPoint = () => ballotTab as Element
-
-    fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
-    fireEvent(window, new MouseEvent('pointermove', { clientX: 100, clientY: 20 }))
-    fireEvent(window, new MouseEvent('pointerup', { clientX: 100, clientY: 20 }))
-
-    // The drop opens the ballot for one more name (#673) and writes nothing:
-    // the play lands with the ballot save. The roster double stays until then.
-    await waitFor(() => expect(ballotTab).toHaveAttribute('aria-selected', 'true'))
-    expect(await screen.findByText(/names written/)).toHaveTextContent('1 of 4 names written')
+    // The gold slip opens the ballot for one more name and writes nothing:
+    // the play lands with the ballot save. The roster double stays until then,
+    // and the sheet says so.
+    await userEvent.click(await within(ballot).findByRole('button', { name: 'Extra Vote ×2' }))
+    expect(within(ballot).getByText(/Extra Vote ×2 in play/)).toBeVisible()
+    expect(within(ballot).getByText(/Your Tribe ×2 moves here when you save/)).toBeVisible()
+    expect(screen.getByText(/names written/)).toHaveTextContent('1 of 4 names written')
+    // The hero keeps reporting the roster play until the save moves it.
+    expect(screen.getByText('×2 · Tribe · Kenzie')).toBeVisible()
     expect(api.post).not.toHaveBeenCalled()
     expect(api.delete).not.toHaveBeenCalled()
 
     // Vote as normal, then the ×2 is its own step: the ballot's slips under
-    // the names, tap one. Nothing is doubled by default, so Save waits.
+    // the names, tap one. Nothing is doubled by default, so Save waits and
+    // says why.
     await userEvent.click(screen.getByRole('button', { name: 'Vote for Charlie' }))
     expect(screen.getByText(/names written/)).toHaveTextContent('2 of 4 names written')
     expect(screen.getByText('Double one vote')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Save ballot' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Choose which vote to double' })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Double the vote for Kenzie' }))
     expect(screen.getByRole('button', { name: 'Kenzie is doubled' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Double the vote for Charlie' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Save ballot' })).toBeEnabled()
 
     // One request: the ballot goes up with the ×2 and the roster double gives
@@ -638,19 +620,16 @@ describe('MySeasonPage state shell', () => {
     )
     expect(api.delete).not.toHaveBeenCalled()
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    expect(screen.getByText('×2 · Ballot · Kenzie')).toBeVisible()
     // The doubled vote leads the pile in gold, wearing the seal.
     const sheet = screen.getByText('Ballot submitted').closest('.ballot-sheet') as HTMLElement
-    const kenzieSlip = within(sheet).getByText('Kenzie').closest('.ballot-slip')
-    expect(kenzieSlip).toHaveClass('ballot-slip--doubled')
-    const x2 = screen.getByTitle('Drag onto another name to move the ×2')
+    expect(within(sheet).getByText('Kenzie').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled')
+    expect(within(sheet).queryByRole('button', { name: 'Extra Vote ×2' })).not.toBeInTheDocument()
 
-    // On the submitted sheet the seal still drags; dropping it on another
-    // slip saves the move straight away.
-    const charlieDrop = within(sheet).getByText('Charlie').closest('[data-drop-id]') as Element
-    document.elementFromPoint = () => charlieDrop
-    fireEvent.pointerDown(x2, { clientX: 100, clientY: 100 })
-    fireEvent(window, new MouseEvent('pointermove', { clientX: 140, clientY: 100 }))
-    fireEvent(window, new MouseEvent('pointerup', { clientX: 140, clientY: 100 }))
+    // Moving the ×2 is an edit: tap another slip in the row, save again.
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Edit ballot' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Double the vote for Charlie' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save ballot' }))
     await waitFor(() =>
       expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
         contestant_ids: ['cast-1', 'cast-2'],
@@ -662,7 +641,7 @@ describe('MySeasonPage state shell', () => {
     )
   })
 
-  it('drags the ballot seal onto the Roster tab to pick a castaway to double (#487)', async () => {
+  it('takes the ballot ×2 back from the sheet, and Tribe can claim it from a saved ballot', async () => {
     const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
     // The server drops the doubled vote when the ×2 leaves the ballot (#673).
     let picks = [{ id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' }]
@@ -701,25 +680,57 @@ describe('MySeasonPage state shell', () => {
     const ballot = await openBeat('Ballot')
     const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
     expect(ballotTab).toHaveTextContent('1 of 3')
+    expect(await within(ballot).findByText(/Extra Vote ×2 in play/)).toBeVisible()
 
-    // The seal only drags while the ballot is open for editing (#673), from
-    // the "Double one vote" row.
-    await userEvent.click(await within(ballot).findByRole('button', { name: 'Edit ballot' }))
-    const seal = await within(ballot).findByTitle('Drag onto another name to move the ×2')
-    const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })
-    document.elementFromPoint = () => rosterTab as Element
+    // Taking it back drops the doubled vote with it, and the slip is back on offer.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Take it back' }))
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
+    expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
+    await waitFor(() => expect(ballotTab).toHaveTextContent('None'))
+    expect(within(ballot).getByRole('button', { name: 'Extra Vote ×2' })).toBeVisible()
+  })
 
-    fireEvent.pointerDown(seal, { clientX: 100, clientY: 100 })
-    fireEvent(window, new MouseEvent('pointermove', { clientX: 100, clientY: 20 }))
-    fireEvent(window, new MouseEvent('pointerup', { clientX: 100, clientY: 20 }))
+  it('moves a saved ballot ×2 to the roster by playing Double a castaway on Tribe', async () => {
+    const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+    let picks = [{ id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' }]
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Maria', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-4', name: 'Tiffany', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1' }]
+      }
+      if (path.includes('/picks/')) return picks
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+    vi.mocked(api.delete).mockImplementation(async () => {
+      picks = []
+    })
+    vi.mocked(api.post).mockResolvedValue({ id: 'play-2', episode_id: 'episode-3', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' })
 
-    // Same as the Advantage → Roster ×2 flow: the roster lights up for the pick.
-    expect(await screen.findByText('Choose a castaway to double')).toBeVisible()
+    renderWithApp(<MySeasonPage />, { auth })
+    expect(await screen.findByText('×2 · Ballot · Kenzie')).toBeVisible()
+    const roster = await openBeat('Tribe')
 
     // Picking the castaway swaps the play. The ballot re-reads only after the
     // server has answered, so the dropped doubled vote shows up in the hero
-    // count instead of the stale four-vote ballot (#673 review).
-    const roster = await openBeat('Tribe')
+    // count instead of the stale ballot (#673 review).
+    await userEvent.click(within(roster).getByRole('button', { name: 'Double a castaway' }))
+    expect(screen.getByText('Choose a castaway to double')).toBeVisible()
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
     await waitFor(() =>
@@ -728,7 +739,8 @@ describe('MySeasonPage state shell', () => {
         target_contestant_id: 'cast-1',
       }),
     )
-    await waitFor(() => expect(ballotTab).toHaveTextContent('None'))
+    expect(await screen.findByText('×2 · Tribe · Kenzie')).toBeVisible()
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('None'))
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
