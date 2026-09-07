@@ -2886,24 +2886,13 @@ function RosterSection({
 // ─── Picks section ──────────────────────────────────────────────────────────
 
 /**
- * The masthead every ballot sheet wears: when it closes, which week it is, and
- * the ask. Shared so the open ballot and the locked one are visibly the same
- * piece of paper rather than two cards that happen to be adjacent.
+ * The ask at the top of an open ballot sheet. The hero above already names
+ * the episode and says when it locks, so the sheet no longer repeats the
+ * episode as a title: that kept the advantage strip lower here than on the
+ * Tribe tab.
  */
-function BallotSheetHead({ ep, prompt }: { ep: Episode; prompt?: string }) {
-  // Just the episode and the question: the hero above already says when it
-  // locks and what the episode is called, and the rules link lives in the
-  // Advantage menu (#673 review — the sheet read as a wall of text).
-  return (
-    <>
-      {/* Prose spells the word out, per the EpisodeLabel rule — this is a
-          title, not a chip. */}
-      <h3 className="ballot-sheet__title">
-        {ep.is_finale ? 'The Finale' : `Episode ${ep.episode_number}`}
-      </h3>
-      {prompt && <p className="ballot-sheet__prompt">{prompt}</p>}
-    </>
-  )
+function BallotSheetHead({ prompt }: { prompt?: string }) {
+  return prompt ? <p className="ballot-sheet__prompt">{prompt}</p> : null
 }
 
 /**
@@ -2944,7 +2933,6 @@ function BallotRecord({
     return (
       <div className="ballot-sheet">
         {ballotDoubled && !x2 && <BallotStamp size={48} />}
-        <BallotSheetHead ep={ep} />
         {picks.length > 0 ? (
           <div className="ballot-sheet__slips mb-4">
             {picks.map((p, index) => {
@@ -3719,10 +3707,7 @@ function PicksSection({
 
           return (
             <div className="ballot-sheet">
-              <BallotSheetHead
-                ep={ep}
-                prompt={confirmed ? undefined : 'Rank your picks. The top rung pays the most.'}
-              />
+              <BallotSheetHead prompt={confirmed ? undefined : 'Rank your picks. The top rung pays the most.'} />
               {advantageStrip}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the

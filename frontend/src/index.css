@@ -750,13 +750,6 @@ html.locked-night .tribal-border {
 .ballot-sheet__eyebrow [data-lock='soon'] { color: var(--color-gold-700); }
 .ballot-sheet__eyebrow [data-lock='imminent'] { color: var(--color-terracotta-600); }
 
-.ballot-sheet__title {
-  margin-top: 2px;
-  font-family: var(--font-brand);
-  font-size: 26px;
-  line-height: 1.05;
-  color: var(--color-forest-800);
-}
 .ballot-sheet__subtitle {
   margin-top: 3px;
   font-size: 13px;
