@@ -2568,7 +2568,8 @@ function RosterSection({
 
   // Only the swap control lives above the strip now. The tribe subtotal it
   // used to lead with is one line of the header chip's breakdown, and the
-  // Ballot tab has no such row, so the two tabs open the same way.
+  // Ballot tab has no such row. The strip renders first so it sits at the
+  // same height on both tabs; the swap row rides under it.
   const toolbar = swapAction ? (
     <div className="flex items-center justify-end border-b border-paper-line px-4 py-2">
       {swapAction}
@@ -2577,8 +2578,8 @@ function RosterSection({
 
   return (
     <>
-      {toolbar}
       {advantageStrip}
+      {toolbar}
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {dropping
