@@ -372,7 +372,10 @@ export function MySeasonPage() {
   // so the Ballot beat borrows the swap picker's stage lighting: the room goes
   // down, the lane keeps the torch. Leaving the beat — or the page — brings it
   // back up, since the scrim only exists while this beat is showing.
-  const ballotLit = beat === 'ballot' && picking == null
+  // Only while the ballot is being worked on: a submitted, tidy ballot sits
+  // in ordinary light (#694 review).
+  const [ballotWorking, setBallotWorking] = useState(true)
+  const ballotLit = beat === 'ballot' && picking == null && ballotWorking
   // Choosing a double borrows the same lamp, swung over to the roster: the
   // room goes down and the Tribe lane is the one thing left lit. Swaps keep
   // the flat stage scrim.
@@ -913,6 +916,7 @@ export function MySeasonPage() {
                 onBallotSaved={d.bumpBallot}
                 onOpenPicks={d.setOpenPicks}
                 onFinaleProgress={setFinaleProgress}
+                onWorkingChange={setBallotWorking}
               />
             </div>
           </RecordPanel>
@@ -3031,6 +3035,7 @@ function PicksSection({
   onBallotSaved,
   onOpenPicks,
   onFinaleProgress,
+  onWorkingChange,
 }: {
   season: Season
   contestants: Contestant[]
@@ -3045,6 +3050,9 @@ function PicksSection({
   onOpenPicks?: (picks: EliminationPick[]) => void
   /** Live finale-bracket progress for the hero, forwarded to FinaleBallot. */
   onFinaleProgress?: (p: { filled: number; saved: boolean }) => void
+  /** Whether the open ballot is mid-edit (or not yet submitted), for the
+   *  page's stage lighting. */
+  onWorkingChange?: (working: boolean) => void
 }) {
   const [picksByEpisode, setPicksByEpisode] = useState<Map<string, EliminationPick[]>>(new Map())
   // The ballot is a ladder (#694): names in confidence order, first = surest.
@@ -3158,6 +3166,15 @@ function PicksSection({
   // The sheet is asking who gets the Power Vote.
   const [designating, setDesignating] = useState(false)
   const openEp = play.openEpisode
+  // A submitted ballot with nothing open on it is at rest; anything else —
+  // editing, designating, or no ballot yet — is work in progress.
+  const openSaved = openEp
+    ? (picksByEpisode.get(openEp.id) ?? []).some((p) => p.contestant_id !== powerTarget)
+    : false
+  const working = !openEp || !openSaved || editing || designating
+  useEffect(() => {
+    onWorkingChange?.(working)
+  }, [working, onWorkingChange])
 
   function cancelEdit(episodeId: string) {
     const saved = picksByEpisode.get(episodeId) ?? []

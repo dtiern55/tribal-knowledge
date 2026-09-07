@@ -413,8 +413,12 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
+    // The room is lit while the ballot is being written, and back to ordinary
+    // light once it is submitted and tidy (#694 review).
+    expect(document.documentElement).toHaveClass('ballot-room')
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    await waitFor(() => expect(document.documentElement).not.toHaveClass('ballot-room'))
     // The record is the roster's own manifest: portrait, name, rung (#694).
     const record = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
     const row = within(record).getByText('Kenzie').closest('li') as HTMLElement
