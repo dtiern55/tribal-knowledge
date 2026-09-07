@@ -347,7 +347,7 @@ describe('MySeasonPage state shell', () => {
     expect(tabs[1]).toHaveTextContent(/^Ballot/)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     // The unplayed advantage rides the bar as state: it says where to play it.
-    expect(screen.getByText('One per episode, on your Tribe or your Ballot')).toBeVisible()
+    expect(screen.getByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(screen.queryByRole('button', { name: /advantage/i })).not.toBeInTheDocument()
     expect(screen.getByRole('tabpanel', { name: /^Tribe/ })).toBeVisible()
     // The other two stay mounted (so an unsaved ballot survives) but hidden.
@@ -507,7 +507,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     // The hero's Advantage lane is state only: no menu, no button.
-    expect(await screen.findByText('One per episode, on your Tribe or your Ballot')).toBeVisible()
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 
     // Tribe: the strip says what the advantage becomes here and starts the
@@ -574,7 +574,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
-    expect(await screen.findByText('One per episode, on your Tribe or your Ballot')).toBeVisible()
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(
       within(await within(roster).findByRole('region', { name: 'Advantage' })).getByRole('button', {
         name: 'Play it here',
@@ -748,7 +748,7 @@ describe('MySeasonPage state shell', () => {
     // Undo, in the hero, drops the Power Vote's pick with it.
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
-    expect(await screen.findByText('One per episode, on your Tribe or your Ballot')).toBeVisible()
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
     expect(within(ballot).getByRole('button', { name: 'Play it here' })).toBeVisible()
   })

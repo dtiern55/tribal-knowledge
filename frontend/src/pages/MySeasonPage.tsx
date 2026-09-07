@@ -2160,7 +2160,7 @@ function AdvantageLane({
         : (ADV_LABELS[play.advantage_type] ?? 'Played')
     : locked
       ? 'Not played'
-      : 'One per episode, on your Tribe or your Ballot'
+      : 'One per episode, played on your Tribe or Ballot'
 
   return (
     <HeroLane
@@ -3561,8 +3561,7 @@ function PicksSection({
                   <>
                     <span className="min-w-0 flex-1">
                       Play your <b className="text-brand-snake">advantage</b> on your ballot to receive
-                      a <b>Power Vote</b>, an <i>extra</i> vote worth{' '}
-                      {rungValue(ep, 0) != null ? `${rungValue(ep, 0)} points` : 'double'}.
+                      a <b>Power Vote</b>, an <i>extra</i> vote worth more points.
                     </span>
                     <button
                       type="button"
@@ -3796,14 +3795,19 @@ function PicksSection({
                   {/* The ladder (#694): the rungs and what each pays, surest on
                       top. A slip drags to another rung; the arrows are the tap
                       path. The gold rung is the Power Vote, above the ladder. */}
-                  <ol aria-label="Your ballot, surest on top" className="mx-auto mb-5 flex max-w-sm flex-col gap-1.5">
+                  <ol
+                    aria-label="Your ballot, surest on top"
+                    className="record-paper mx-auto mb-6 max-w-sm overflow-hidden rounded-sm border border-paper-edge text-left shadow-sm"
+                  >
+                    <li aria-hidden="true" className="flex items-center justify-between border-b-2 border-paper-edge px-3 pt-1.5 pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-paper-ink-faded">
+                      <span>Your ballot</span>
+                      <span>If they go</span>
+                    </li>
                     {(ballotPlay || designating) && (
                       <li
                         data-drop-id="rung:pv"
-                        className={`flex min-h-12 items-center gap-2 rounded-lg border px-2 py-1.5 text-left data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500 ${
-                          ballotPlay
-                            ? 'border-gold-500 bg-gold-50'
-                            : 'border-dashed border-gold-500 bg-gold-50/60 data-[drag-over]:border-solid'
+                        className={`flex min-h-12 items-center gap-2 px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-inset data-[drag-over]:ring-gold-500 ${
+                          ballotPlay ? 'bg-gold-50' : 'bg-gold-50/60 outline-dashed outline-1 -outline-offset-2 outline-gold-500'
                         }`}
                       >
                         <b className="w-8 shrink-0 font-display text-xl font-bold leading-none text-gold-700">
@@ -3865,7 +3869,7 @@ function PicksSection({
                         <li
                           key={index}
                           data-drop-id={`rung:${index + 1}`}
-                          className="flex min-h-12 items-center gap-2 rounded-lg border border-paper-edge bg-white/55 px-2 py-1.5 text-left data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                          className="flex min-h-12 items-center gap-2 border-t border-paper-line px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-inset data-[drag-over]:ring-gold-500"
                         >
                           <b className="w-8 shrink-0 font-display text-xl font-bold leading-none text-forest-800">
                             {rungValue(ep, index + 1) ?? ''}
@@ -3927,6 +3931,7 @@ function PicksSection({
                       )
                     })}
                   </ol>
+                  <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
                   {grid}
                 </>
               )}
