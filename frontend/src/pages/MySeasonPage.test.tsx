@@ -418,7 +418,7 @@ describe('MySeasonPage state shell', () => {
     const slip = within(ballot).getByText('Kenzie').closest('.ballot-slip')
     expect(slip).toHaveStyle({
       '--ballot-tribe-color': '#7651a1',
-      '--ballot-rotation': '-0.7deg',
+      '--ballot-rotation': '0deg',
     })
     // A vote is a name written down, not a person looked at (#552) — the tribe
     // rides the slip's left edge and the portrait is gone.
@@ -648,9 +648,9 @@ describe('MySeasonPage state shell', () => {
     )
     expect(api.delete).not.toHaveBeenCalled()
 
-    // The same on the grid: the idol on the gold card drops on a name.
+    // The same while editing: the seal on the gold rung drops on a card.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
-    const idol = within(ballot).getByRole('img', { name: 'Maria is your Power Vote' })
+    const idol = within(ballot).getByTitle('Drag onto another name to move your Power Vote')
     const tiffanyCard = within(ballot).getByRole('button', { name: 'Vote for Tiffany' }).closest('[data-drop-id]') as Element
     dragTo(idol, tiffanyCard)
     await waitFor(() =>
@@ -689,14 +689,14 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
-    // The pile keeps ladder order and names the rung.
-    const slips = within(ballot).getAllByText(/^(1st|2nd)$/).map((el) => el.closest('.ballot-slip')?.textContent)
-    expect(slips).toEqual(['1stCharlie', '2ndKenzie'])
+    // The submitted ballot reads top to bottom in ladder order, rung named.
+    const submitted = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    expect(within(submitted).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['1stCharlie', '2ndKenzie'])
 
     // Play it here opens the gold rung; a slip dragged into it is the Power
     // Vote, and its old rung closes up.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
-    const goldRung = within(ballot).getByText('Drag a name here, or tap the idol on a name.').closest('[data-drop-id]') as Element
+    const goldRung = within(ballot).getByText('Drag a name here, or tap a name below.').closest('[data-drop-id]') as Element
     const kenzieSlip = within(within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })).getByText('Kenzie')
     dragTo(kenzieSlip, goldRung)
     await waitFor(() =>

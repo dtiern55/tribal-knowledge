@@ -3620,8 +3620,8 @@ function PicksSection({
                       <DoubleBadge size={36} title="Drag onto a name to make it your Power Vote" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <b>Cast your votes, surest on top.</b> Drag this Advantage icon onto a name,
-                      or a name up into the gold rung, to make it your Power Vote
+                      <b>Cast your votes, surest on top.</b> Tap a name, drag one up into the gold
+                      rung, or drop this Advantage icon on one, to make it your Power Vote
                       {rungValue(ep, 0) != null ? `, worth ${rungValue(ep, 0)}` : ''}.
                     </span>
                     <button type="button" onClick={() => setDesignating(false)} className={stripLink}>
@@ -3693,11 +3693,12 @@ function PicksSection({
                       const rungIndex = isPower ? -1 : epPending.indexOf(c.id)
                       const isSelected = rungIndex >= 0
                       const maxed = !isSelected && epPending.length >= maxPicks
-                      const disabled = play.busy || maxed || isPower
+                      // With the gold rung open, every live name is one tap
+                      // from being the Power Vote — a regular vote included.
+                      const disabled = play.busy || isPower || (!designating && maxed)
+                      const value = isSelected ? rungValue(ep, rungIndex + 1) : null
                       return (
-                        // The wrapper is the drop target so the idol slot can
-                        // sit beside the card's own button (a button can't
-                        // hold another).
+                        // The wrapper is the drop target for the strip's idol.
                         <div
                           key={c.id}
                           data-drop-id={c.id}
@@ -3705,15 +3706,19 @@ function PicksSection({
                         >
                           <button
                             type="button"
-                            onClick={() => togglePick(ep.id, c.id, maxPicks)}
+                            onClick={() =>
+                              designating ? designatePower(c.id) : togglePick(ep.id, c.id, maxPicks)
+                            }
                             disabled={disabled}
-                            aria-pressed={isSelected}
+                            aria-pressed={designating ? undefined : isSelected}
                             aria-label={
                               isPower
                                 ? `${name} is your Power Vote`
-                                : isSelected
-                                  ? `Remove vote for ${name}`
-                                  : `Vote for ${name}`
+                                : designating
+                                  ? `Make ${name} your Power Vote`
+                                  : isSelected
+                                    ? `Remove vote for ${name}`
+                                    : `Vote for ${name}`
                             }
                             className={[
                               'relative flex min-h-16 w-full min-w-0 items-center gap-2 rounded-xl border p-2 text-left text-sm font-medium transition-all',
@@ -3723,44 +3728,29 @@ function PicksSection({
                                   ? 'border-forest-500 bg-forest-50 text-forest-900 shadow-sm ring-1 ring-forest-200'
                                   : disabled
                                     ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
-                                    : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                                    : designating
+                                      ? 'border-gold-500 bg-white/55 text-paper-ink hover:bg-gold-50'
+                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
                             ].join(' ')}
                           >
                             <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
                             <span className="min-w-0 leading-tight">{name}</span>
-                            {isSelected && (
-                              <span className="absolute right-1.5 top-1.5 inline-flex h-5 items-center justify-center rounded-full bg-forest-600 px-1.5 font-display text-[10px] font-bold uppercase tracking-wide text-white" aria-hidden="true">
-                                {ordinal(rungIndex + 1)}
+                            {/* The rung the name holds and what it pays, or the
+                                gold Power Vote mark; the idol stays on the
+                                ladder above. */}
+                            {(isSelected || isPower) && (
+                              <span
+                                className={`absolute right-1.5 top-1.5 inline-flex h-5 items-center justify-center rounded-full px-1.5 font-display text-[10px] font-bold uppercase tracking-wide ${
+                                  isPower ? 'bg-gold-500 text-forest-900' : 'bg-forest-600 text-white'
+                                }`}
+                                aria-hidden="true"
+                              >
+                                {isPower
+                                  ? `Power Vote${pts(rungValue(ep, 0)).replace(' pts', '')}`
+                                  : `${ordinal(rungIndex + 1)}${pts(value).replace(' pts', '')}`}
                               </span>
                             )}
                           </button>
-                          {isPower ? (
-                            // The idol rests on the gold card; drag it to
-                            // another name to move the Power Vote.
-                            <span
-                              onPointerDown={play.locked ? undefined : startBallotDrag}
-                              className={`absolute -right-2 -top-3 z-10 rotate-[9deg] drop-shadow-[0_3px_4px_rgb(28_25_23_/_0.34)] ${
-                                play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'
-                              }`}
-                              style={{ opacity: ballotDragging ? 0.3 : 1 }}
-                            >
-                              <span className={powerStamp ? 'seal-stamp' : ''}>
-                                <DoubleBadge size={30} title={`${name} is your Power Vote`} />
-                              </span>
-                            </span>
-                          ) : designating ? (
-                            // The tap path while designating: an empty slot on
-                            // every name, where the idol would land.
-                            <button
-                              type="button"
-                              onClick={() => designatePower(c.id)}
-                              disabled={play.busy}
-                              aria-label={`Make ${name} your Power Vote`}
-                              className="absolute -right-2 -top-3 z-10 inline-flex rotate-[9deg] rounded-full opacity-45 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-20"
-                            >
-                              <DoubleBadge size={30} title="" />
-                            </button>
-                          ) : null}
                         </div>
                       )
                     })}
@@ -3785,19 +3775,21 @@ function PicksSection({
                     </svg>
                     Ballot submitted
                   </p>
-                  <div className="ballot-sheet__slips">
-                    {/* The Power Vote leads the pile in gold, wearing the
-                        seal on its corner (#673). */}
+                  {/* Top to bottom, the way it was written: the Power Vote's
+                      row in gold with the seal, then each rung with what it
+                      pays. A row is a drop target for the seal, to move the
+                      Power Vote there. */}
+                  <ol aria-label="Your ballot, surest on top" className="mx-auto flex max-w-sm flex-col gap-1.5 text-left">
                     {ballotPlay && (
-                      <span className="relative inline-flex items-center gap-1.5 rounded">
-                        <VoteSlip
-                          name={powerName}
-                          doubled
-                          tribeColor={powerContestant?.tribe_color}
-                          rotation={0.4}
-                        />
-                        {seal}
-                      </span>
+                      <li className="flex min-h-12 items-center gap-2 rounded-lg border border-gold-500 bg-gold-50 px-2 py-1.5">
+                        <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-gold-700">
+                          Power Vote{pts(rungValue(ep, 0))}
+                        </span>
+                        <span className="relative inline-flex min-w-0 pr-7">
+                          <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
+                          {seal}
+                        </span>
+                      </li>
                     )}
                     {savedPicks.map((p, index) => {
                       const sc = contestantMap.get(p.contestant_id)
@@ -3806,30 +3798,22 @@ function PicksSection({
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       const slipName = sc ? displayName(sc) : '—'
+                      const rank = p.rank ?? index + 1
                       return (
-                        <span
+                        <li
                           key={p.id}
                           data-drop-id={ballotPlay && !stale ? p.contestant_id : undefined}
-                          className="relative inline-flex items-center gap-1.5 rounded data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
+                          className="flex min-h-12 items-center gap-2 rounded-lg border border-paper-edge bg-white/55 px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-gold-500"
                         >
-                          <VoteSlip
-                            name={slipName}
-                            stale={stale}
-                            tribeColor={sc?.tribe_color}
-                            rotation={[-0.7, 0.5, -0.2][index % 3]}
-                            leading={
-                              p.rank != null ? (
-                                <span className="mr-1.5 font-display text-[10px] font-bold uppercase tracking-wide text-paper-ink-faded">
-                                  {ordinal(p.rank)}
-                                </span>
-                              ) : undefined
-                            }
-                          />
+                          <span className="w-16 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-paper-ink-faded">
+                            {p.rank != null ? `${ordinal(rank)}${pts(rungValue(ep, rank))}` : ''}
+                          </span>
+                          <VoteSlip name={slipName} stale={stale} tribeColor={sc?.tribe_color} rotation={0} />
                           {stale && <span className="text-[11px] text-gray-500">(out)</span>}
-                        </span>
+                        </li>
                       )
                     })}
-                  </div>
+                  </ol>
                   {savedPicks.length < maxPicks && (
                     <p className="mt-3 text-xs text-jade-700">
                       {savedPicks.length} of {maxPicks} votes used — Edit below to add{' '}
@@ -3859,7 +3843,7 @@ function PicksSection({
                           Power Vote{pts(rungValue(ep, 0))}
                         </span>
                         {ballotPlay ? (
-                          <span className="relative mr-4 inline-flex min-w-0">
+                          <span className="relative inline-flex min-w-0 pr-7">
                             <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
                             {seal}
                           </span>
@@ -3868,7 +3852,7 @@ function PicksSection({
                             <span aria-hidden="true" className="inline-flex opacity-60">
                               <DoubleBadge size={22} />
                             </span>
-                            Drag a name here, or tap the idol on a name.
+                            Drag a name here, or tap a name below.
                           </span>
                         )}
                       </li>
