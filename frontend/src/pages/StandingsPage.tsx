@@ -97,7 +97,7 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
 // The flame from the results card (EpisodeResultReveal's corner torch).
 const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
 
-// One torch per castaway on the roster, under the name: gold while they're in
+// One torch per castaway on the roster, beside the name: gold while they're in
 // the game, grey for the episode after they go home, then gone unless the
 // player swapped someone in. Torches shrink as the season goes on, so the
 // list visibly thins out. Replaces the portrait cluster, which made every row
@@ -109,15 +109,15 @@ function Torches({ entry }: { entry: StandingEntry }) {
   if (lit.length === 0 && out.length === 0) return null
   const label = out.length === 0 ? `${lit.length} still in` : `${lit.length} still in, lost ${out.map((s) => s.name).join(' and ')} this week`
   return (
-    <span className="mt-1 flex h-[11px] gap-[3px]" role="img" aria-label={label}>
+    <span className="flex flex-none gap-0.5" role="img" aria-label={label}>
       {lit.map((s) => (
-        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-[11px] fill-gold-500" aria-hidden>
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-gold-500" aria-hidden>
           <title>{s.name}</title>
           <path d={FLAME_PATH} />
         </svg>
       ))}
       {out.map((s) => (
-        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-[11px] fill-stone-400" aria-hidden>
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-stone-400" aria-hidden>
           <title>{`${s.name}, eliminated ep ${s.eliminated_episode}`}</title>
           <path d={FLAME_PATH} />
         </svg>
@@ -217,15 +217,13 @@ export function StandingsPage() {
                   >
                     {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
-                          {entry.display_name}
-                        </span>
-                        {isMe && (
-                          <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
-                        )}
-                      </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
+                        {entry.display_name}
+                      </span>
+                      {isMe && (
+                        <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
+                      )}
                       <Torches entry={entry} />
                     </div>
                     <div className="text-right">
