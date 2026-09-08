@@ -269,6 +269,26 @@ def test_completed_season_and_watch_only_premiere_do_not_auto_reveal(client, db_
 
 
 @pytest.mark.integration
+def test_first_scored_episode_has_no_rank_movement(client, db_conn, current_user):
+    """Nobody had a standing before the first points, so the recap shows no move."""
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    other = insert_user(db_conn, display_name="A Leader")
+    episode = insert_episode(db_conn, season["id"], status="scored")
+    ours = insert_contestant(db_conn, season["id"], "Ours")
+    theirs = insert_contestant(db_conn, season["id"], "Theirs")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], ours["id"])
+    insert_roster_pick(db_conn, other["id"], season["id"], theirs["id"])
+    insert_scoring_event(
+        db_conn, episode["id"], theirs["id"], "win_individual_immunity"
+    )
+
+    result = client.get(f"/league-seasons/{season['league_season_id']}/reveal").json()
+    assert result["current_rank"] == 2
+    assert result["prior_rank"] is None
+    assert result["rank_delta"] is None
+
+
+@pytest.mark.integration
 def test_finale_result_includes_three_part_ballot_and_rank_movement(
     client, db_conn, current_user
 ):
