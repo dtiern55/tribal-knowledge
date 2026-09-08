@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
-import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
 import { rankStandings } from '../lib/standings'
-import type { Season, StandingEntry, StandingSurvivor } from '../types'
+import type { Season, StandingEntry } from '../types'
 
 // A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
@@ -95,35 +94,19 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// The overlapping castaway cluster on a row: still-in at full color, recently
-// eliminated dimmed. Small (sm) so the row stays a single line.
-function SurvivorCluster({ active, eliminated }: { active: StandingSurvivor[]; eliminated: StandingSurvivor[] }) {
-  if (active.length === 0 && eliminated.length === 0) return null
-  return (
-    <span className="flex flex-none -space-x-2">
-      {active.map((s) => (
-        <span key={s.contestant_id} className="rounded-full" title={s.name}>
-          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
-        </span>
-      ))}
-      {eliminated.map((s) => (
-        // Dimmed portraits are translucent (opacity-70), so an opaque paper
-        // backdrop + ring is what keeps the active neighbor beneath from
-        // bleeding through the overlap. The ring rides the -space gap as a
-        // clean crescent; the dim goes on an inner span so the backdrop stays
-        // opaque.
-        <span
-          key={s.contestant_id}
-          className="rounded-full bg-[var(--color-paper)] ring-2 ring-[var(--color-paper)]"
-          title={`Eliminated ep ${s.eliminated_episode}`}
-        >
-          <span className={`block rounded-full ${ELIMINATED_DIM}`}>
-            <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
-          </span>
-        </span>
-      ))}
-    </span>
-  )
+// One faded line under the name for the roster: who went home this week, or
+// how many are still in. Words rather than a row of portraits (the cluster
+// made every row busy and the faces are one tap away on the Team page).
+// Nothing renders while rosters are still hidden (both lists empty).
+function RosterLine({ entry }: { entry: StandingEntry }) {
+  const lost = entry.recently_eliminated_survivors
+  if (lost.length > 0) {
+    const who = lost.length === 1 ? lost[0].name : lost.length === 2 ? `${lost[0].name} and ${lost[1].name}` : `${lost.length} castaways`
+    return <span className="block truncate text-[11px] font-medium text-terracotta-600">Lost {who} this week</span>
+  }
+  const n = entry.active_survivors.length
+  if (n === 0) return null
+  return <span className="block truncate text-[11px] text-paper-ink-faded">{n} still in</span>
 }
 
 export function StandingsPage() {
@@ -211,26 +194,22 @@ export function StandingsPage() {
                   <Link
                     to={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_5.5rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
+                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_3.75rem] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
                     {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
-                        {entry.display_name}
-                      </span>
-                      {isMe && (
-                        <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
-                      )}
-                    </div>
-                    {/* Portraits sit in a fixed-width column just left of the
-                        score — as far right as possible — and left-align inside
-                        it, so their left edges line up row to row on any screen.
-                        The flexible name column absorbs width differences. */}
-                    <div className="flex min-w-0 justify-start overflow-hidden">
-                      <SurvivorCluster active={entry.active_survivors} eliminated={entry.recently_eliminated_survivors} />
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
+                          {entry.display_name}
+                        </span>
+                        {isMe && (
+                          <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
+                        )}
+                      </div>
+                      <RosterLine entry={entry} />
                     </div>
                     <div className="text-right">
                       <p className="font-display text-lg font-bold leading-tight text-forest-800 tabular-nums">{entry.total_points}</p>

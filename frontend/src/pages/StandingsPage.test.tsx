@@ -36,7 +36,7 @@ describe('StandingsPage', () => {
     expect(screen.getByText('No players yet')).toBeVisible()
   })
 
-  it('shows active roster portraits without the redundant survivor count', async () => {
+  it('says how many of the roster are still in, without portraits or the points breakdown', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -64,16 +64,14 @@ describe('StandingsPage', () => {
 
     renderWithApp(<StandingsPage />)
 
-    expect(await screen.findByTitle('Kenzie')).toBeVisible()
-    expect(screen.getByTitle('Charlie')).toBeVisible()
-    expect(screen.getByTitle('Yanu')).toHaveStyle({ '--tribe-color': '#7651a1' })
-    expect(screen.queryByText('2 still playing')).not.toBeInTheDocument()
+    expect(await screen.findByText('2 still in')).toBeVisible()
+    expect(screen.queryByTitle('Kenzie')).not.toBeInTheDocument()
     // #437: the roster/ballot/finale breakdown moved to the detail page.
     expect(screen.queryByText(/Roster 12/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Ballot 15/)).not.toBeInTheDocument()
   })
 
-  it('keeps a just-eliminated survivor visible, greyed out, at the end of the row (#457)', async () => {
+  it('names who went home this week in place of the count (#457)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -102,9 +100,7 @@ describe('StandingsPage', () => {
 
     renderWithApp(<StandingsPage />)
 
-    const eliminated = await screen.findByTitle('Eliminated ep 4')
-    expect(eliminated).toBeVisible()
-    // The dim rides an inner span so the outer backdrop stays opaque.
-    expect(eliminated.querySelector('.grayscale.opacity-70')).not.toBeNull()
+    expect(await screen.findByText('Lost Charlie this week')).toBeVisible()
+    expect(screen.queryByText('1 still in')).not.toBeInTheDocument()
   })
 })
