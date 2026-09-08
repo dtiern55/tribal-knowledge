@@ -104,6 +104,6 @@ describe('StandingsPage', () => {
     const torches = await screen.findByRole('img', { name: '1 still in, lost Charlie this week' })
     const flames = torches.querySelectorAll('svg')
     expect(flames).toHaveLength(2)
-    expect(flames[1]).toHaveClass('fill-stone-400')
+    expect(flames[1]).toHaveClass('fill-none', 'stroke-stone-400')
   })
 })

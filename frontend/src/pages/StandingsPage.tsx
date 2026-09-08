@@ -98,9 +98,9 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
 const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
 
 // One torch per castaway on the roster, beside the name: gold while they're in
-// the game, grey for the episode after they go home, then gone unless the
-// player swapped someone in. Torches shrink as the season goes on, so the
-// list visibly thins out. Replaces the portrait cluster, which made every row
+// the game, a hollow grey outline for the episode after they go home, then
+// gone unless the player swapped someone in. Torches shrink as the season
+// goes on, so the list visibly thins out. Replaces the portrait cluster, which made every row
 // busy; the faces are one tap away on the Team page. Nothing renders while
 // rosters are hidden (both lists empty).
 function Torches({ entry }: { entry: StandingEntry }) {
@@ -117,7 +117,7 @@ function Torches({ entry }: { entry: StandingEntry }) {
         </svg>
       ))}
       {out.map((s) => (
-        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-stone-400" aria-hidden>
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-none stroke-stone-400" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
           <title>{`${s.name}, eliminated ep ${s.eliminated_episode}`}</title>
           <path d={FLAME_PATH} />
         </svg>
