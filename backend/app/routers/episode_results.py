@@ -336,6 +336,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         "episode_id": episode["id"],
         "episode_number": episode["episode_number"],
         "title": episode["title"],
+        "headline": episode["headline"],
         "is_finale": episode["is_finale"],
         "eliminated": eliminated,
         "ballot": ballot,

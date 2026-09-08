@@ -126,6 +126,9 @@ class Episode(BaseModel):
     created_at: datetime
     # Manually entered by the admin (#450) — no TVmaze auto-fetch.
     title: Optional[str] = None
+    # The results card's headline, set by the commissioner. Null falls back
+    # to the computed one.
+    headline: Optional[str] = None
 
 
 class RosterPick(BaseModel):
@@ -453,6 +456,7 @@ class EpisodeUpdateRequest(BaseModel):
     is_finale: Optional[bool] = None
     picks_lock_at: Optional[datetime] = None
     title: Optional[str] = None
+    headline: Optional[str] = None
 
 
 class AdvantagePlay(BaseModel):
@@ -542,6 +546,7 @@ class EpisodeResult(BaseModel):
     episode_id: UUID
     episode_number: int
     title: Optional[str] = None
+    headline: Optional[str] = None
     is_finale: bool
     eliminated: list[EpisodeResultElimination]
     ballot: list[EpisodeResultBallotPick]
