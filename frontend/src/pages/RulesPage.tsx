@@ -41,7 +41,9 @@ const EVENT_GROUPS: [string, string[]][] = [
     'fake_idol_played',
   ]],
   ['Making it far', [
+    'win_redemption_duel',
     'return_from_redemption',
+    'return_from_redemption_endgame',
     'join_jury',
     'made_final_tribal',
     'runner_up',
@@ -54,6 +56,9 @@ const EVENT_GROUPS: [string, string[]][] = [
     'jeff_thats_how_you_do_it',
   ]],
 ]
+
+// Only shown on a season that has the island (#655).
+const REDEMPTION_EVENTS = new Set(['win_redemption_duel', 'return_from_redemption', 'return_from_redemption_endgame'])
 
 const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
@@ -183,7 +188,7 @@ export function RulesPage() {
   const { season, scoring_events, prediction_scores, advantages, has_redemption } = rules
   const usesTokens = season.token_economy_enabled
   const tribeEvents = scoring_events.filter(
-    (event) => event.point_value !== 0 && (has_redemption || event.event_type !== 'return_from_redemption'),
+    (event) => event.point_value !== 0 && (has_redemption || !REDEMPTION_EVENTS.has(event.event_type)),
   )
   const tokenEvents = scoring_events.filter((event) => event.point_value === 0 && event.token_value !== 0)
   const grouped = EVENT_GROUPS.map(([title, keys]) => [
@@ -369,7 +374,7 @@ export function RulesPage() {
               <li>
                 <b>Redemption Island:</b> a castaway sent to the island counts as the boot on your ballot but is still in the game.
                 They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
-                Coming back scores points. Losing there is the real elimination.
+                Every duel they win scores, and coming back scores more, most of all late in the season. Losing there is the real elimination.
               </li>
             )}
             {usesTokens && <li><b>Personal background story:</b> the episode shows meaningful pre-game footage, photos, or life history.</li>}

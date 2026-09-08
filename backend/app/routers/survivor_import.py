@@ -79,7 +79,8 @@ def get_import_proposal(
         with conn.cursor() as cur:
             cur.execute(
                 """
-                select e.episode_number, s.season_number, s.id as season_id
+                select e.episode_number, s.season_number, s.id as season_id,
+                       s.merge_episode
                 from episodes e join seasons s on s.id = e.season_id
                 where e.id = %s
                 """,
@@ -114,6 +115,7 @@ def get_import_proposal(
         advantage_details=data["advantage_details"],
         castaways=data["castaways"],
         tribe_mapping=data.get("tribe_mapping", []),
+        merge_episode=episode["merge_episode"],
     )
 
     # castaway_id → contestant UUID by name, short OR full (as the CLI).

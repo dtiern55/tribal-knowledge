@@ -57,6 +57,7 @@ def build_proposal(
     advantage_details: list[dict],
     castaways: list[dict],
     tribe_mapping: list[dict] | None = None,
+    merge_episode: int | None = None,
 ) -> dict:
     """Build the proposed import for one episode.
 
@@ -142,9 +143,10 @@ def build_proposal(
                 e["is_final"] = False
                 e["result"] += " → Redemption Island"
         for r in _ep(challenge_results, season_key, episode):
-            if (r.get("challenge_type") or "").lower() == "duel" and (
-                r.get("result") or ""
-            ).lower() == "lost":
+            if (r.get("challenge_type") or "").lower() != "duel":
+                continue
+            result = (r.get("result") or "").lower()
+            if result == "lost":
                 eliminations.append(
                     {
                         "castaway_id": r["castaway_id"],
@@ -154,6 +156,8 @@ def build_proposal(
                         "is_final": True,
                     }
                 )
+            elif result == "won":
+                add_event(r["castaway_id"], r["castaway"], "win_redemption_duel")
         returned = {
             r["castaway_id"]: r["castaway"]
             for r in mapping
@@ -161,8 +165,26 @@ def build_proposal(
             and on_tribe(r["castaway_id"], episode)
             and on_island(r["castaway_id"], episode - 1)
         }
+        # The merge return lands in the merge episode itself; anything later
+        # is the endgame return, worth more. Merge unknown means merge return
+        # and a warning, so the commissioner corrects it in review.
+        endgame = merge_episode is not None and episode > merge_episode
         for cid, name in returned.items():
-            add_event(cid, name, "return_from_redemption")
+            add_event(
+                cid,
+                name,
+                (
+                    "return_from_redemption_endgame"
+                    if endgame
+                    else "return_from_redemption"
+                ),
+            )
+            if merge_episode is None:
+                warnings.append(
+                    f"{name}: returned from Redemption Island but the season has no"
+                    " merge episode — scored as the merge return; switch to the"
+                    " endgame return if this is the later one"
+                )
 
     for r in _season(castaways, season_key):
         if r.get("episode") == episode and r.get("place"):
