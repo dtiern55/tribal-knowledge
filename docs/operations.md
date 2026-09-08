@@ -194,6 +194,26 @@ copy of the source), which deletes nothing:
 uv run python scripts/stage_staging.py --add finale-locked --apply
 ```
 
+### Practice seasons on staging
+
+The stages are all one season, so a preview of another season's cast or idol
+art needs that season on staging too. `copy_season_to_staging.py` copies one
+prod season and one league's run in it into a frozen `Practice:` league next
+to the stages (open episodes lock in 2099). Members map by email, bots by
+persona name. `--fresh` brings the show and rule knobs only, with Danny as the
+sole member, for a season nobody has drafted yet; enrol the bots afterwards.
+`stage_staging.py` leaves `Practice:` leagues alone when it rebuilds.
+
+```bash
+PYTHONPATH=. uv run python scripts/copy_season_to_staging.py 27 --league secondary --apply
+PYTHONPATH=. uv run python scripts/copy_season_to_staging.py 51 --league "Snakes and Rats" \
+    --name "Practice: Survivor 51" --fresh --apply
+PYTHONPATH=. uv run python scripts/run_bots.py setup --league "Practice: Survivor 51"
+```
+
+Both were run on 2026-09-08: Blood vs. Water sits after episode 2 with the
+secondary league's play, Survivor 51 is pre-draft with Danny and the bots.
+
 After any rebuild, re-run the data seeds the stages depend on:
 `scripts/seed_x2_targets.py --apply` (bots' ×2 plays get a named pick) and
 `scripts/seed_locked_stage.py --apply` (the locked-not-scored stage's empty
