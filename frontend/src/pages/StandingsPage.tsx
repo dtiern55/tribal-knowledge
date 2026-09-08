@@ -94,34 +94,15 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// Eight flames in one style and footprint (24-unit box, base at y=18). The
-// first is the results card's corner torch; the rest lean, mirror, stretch
-// or flick so a row of torches reads as a fire rather than a stamp.
-const FLAME_PATHS = [
-  'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z',
-  'M12 2c-1 4-5 5-5 11a5 5 0 0 0 10 0c0-2-1-3-2-4 0 2-1 3-2 3 0-3 1-6-1-10z',
-  'M13.5 2c-.5 4 3.5 6 3.5 11a5 5 0 0 1-10 0c0-3 1.5-4 2.5-6-.5 3 .5 4 1.5 4 0-3-1-5 2.5-9z',
-  'M10.5 2c.5 4-3.5 6-3.5 11a5 5 0 0 0 10 0c0-3-1.5-4-2.5-6 .5 3-.5 4-1.5 4 0-3 1-5-2.5-9z',
-  'M12 1.5c.5 5 4.5 6 4.5 11.5a4.5 4.5 0 0 1-9 0c0-2 1-3.5 2-5 0 2 .5 3 1.5 3.5C11 9 10.5 5.5 12 1.5z',
-  'M12 3.5c2 3 6 4.5 6 9.5a6 6 0 0 1-12 0c0-2 1-3 2.5-4.5 0 2 1 3 2.5 3.5C10.5 9 10 6.5 12 3.5z',
-  'M13 2c-2 3 1.5 4.5.5 7 2 1 3.5 2 3.5 4a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3-1-3-1.5-6 2-10z',
-  'M11.5 2c1.5 4 5.5 5 5.5 11a5 5 0 0 1-10 0c0-2 .5-3 1.5-4 0 2 1 3 2 3-.5-3-2.5-4-1.5-7 .5 1 1.5 1.5 2 2 0-2 0-3 .5-5z',
-]
-
-// Each castaway is dealt one flame for the season, keyed off their id, so the
-// shapes vary along a row but never change between renders or rows.
-function flameFor(contestantId: string): string {
-  let hash = 0
-  for (const ch of contestantId) hash = (hash + ch.charCodeAt(0)) % FLAME_PATHS.length
-  return FLAME_PATHS[hash]
-}
+// The flame from the results card (EpisodeResultReveal's corner torch).
+const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
 
 // One torch per castaway on the roster, beside the name: gold while they're in
 // the game, a hollow grey outline for the episode after they go home, then
 // gone unless the player swapped someone in. Torches shrink as the season
-// goes on, so the list visibly thins out. Replaces the portrait cluster, which
-// made every row busy; the faces are one tap away on the Team page. Nothing
-// renders while rosters are hidden (both lists empty).
+// goes on, so the list visibly thins out. Replaces the portrait cluster, which made every row
+// busy; the faces are one tap away on the Team page. Nothing renders while
+// rosters are hidden (both lists empty).
 function Torches({ entry }: { entry: StandingEntry }) {
   const lit = entry.active_survivors
   const out = entry.recently_eliminated_survivors
@@ -132,13 +113,13 @@ function Torches({ entry }: { entry: StandingEntry }) {
       {lit.map((s) => (
         <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-gold-500" aria-hidden>
           <title>{s.name}</title>
-          <path d={flameFor(s.contestant_id)} />
+          <path d={FLAME_PATH} />
         </svg>
       ))}
       {out.map((s) => (
         <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-none stroke-stone-400" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
           <title>{`${s.name}, eliminated ep ${s.eliminated_episode}`}</title>
-          <path d={flameFor(s.contestant_id)} />
+          <path d={FLAME_PATH} />
         </svg>
       ))}
     </span>
