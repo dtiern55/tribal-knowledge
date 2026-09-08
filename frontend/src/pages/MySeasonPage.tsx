@@ -934,7 +934,9 @@ export function MySeasonPage() {
           </RecordPanel>
           </LaneStack>
 
-          {beat === 'roster' && (
+          {/* No slot under a recap: the first-loss moment keys off the slot, and
+              it has to wait for the reveal to be dismissed (#717). */}
+          {beat === 'roster' && !visibleResult && (
             <div ref={setSwapSlot} className="flex min-h-8 justify-end px-1 empty:hidden" />
           )}
 

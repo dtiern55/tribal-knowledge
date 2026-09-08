@@ -166,6 +166,7 @@ decay. Danny, the producer, and the bots are the only accounts.
 | Stage: finale | 1–12 | Finale open, bracket ballot |
 | Stage: complete | all | Season completed, final standings |
 | Stage: finale-locked | 1–12 | Finale locked but unscored; the Locked page on finale night |
+| Stage: first-loss | 1–4 | One of Danny's castaways just voted out, nothing filed for 5, free swap in hand: the "tribe has spoken" moment (#717) |
 
 Rebuild the set (it wipes everything else on staging, dry run by default):
 
