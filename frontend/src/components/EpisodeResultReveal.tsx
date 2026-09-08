@@ -255,7 +255,7 @@ export function EpisodeResultReveal({
                           pick.correct ? 'text-jade-200' : 'text-cream-100/45'
                         }`}
                       >
-                        {signed(doubled && pick.correct ? pick.points * 2 : pick.points)}
+                        {signed(doubled && pick.correct ? pick.points + voteDouble.bonus_points : pick.points)}
                       </span>
                     </div>
                   )

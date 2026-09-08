@@ -178,7 +178,14 @@ export function Layout() {
       {authed && (
         <nav
           aria-label="Primary navigation"
-          className="app-bottom-nav fixed inset-x-0 bottom-0 z-30 flex border-t border-forest-700 bg-forest-600 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(30,58,47,0.18)] md:hidden"
+          // Above the drawer scrim (z-40), below the drawer (z-50). Chrome 153+
+          // paints the Android system bar in the manifest theme colour, which is
+          // this bar's forest-600, and the system bar can't dim with the page.
+          // Dimming the tab bar left the system bar reading a lighter green
+          // beneath it whenever the menu opened (#696). `inert` keeps the tabs
+          // as untappable under the open menu as the scrim made them.
+          inert={drawerOpen || undefined}
+          className="app-bottom-nav fixed inset-x-0 bottom-0 z-[45] flex border-t border-forest-700 bg-forest-600 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(30,58,47,0.18)] md:hidden"
         >
           {tabs.map(({ to, label, Icon, end }) => (
             <NavLink

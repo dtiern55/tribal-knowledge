@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { QUOTES } from '../lib/quotes'
+import type { Quote } from '../lib/quotes'
 
 /**
  * Loading screen: a Survivor 8-tile sliding puzzle built from the Snakes and
@@ -20,6 +21,13 @@ const CELL = 120
 const GAP = 4
 const SOLVED = [0, 1, 2, 3, 4, 5, 6, 7, null]
 const INITIAL = [1, 4, 2, 7, null, 5, 0, 6, 3]
+
+type Grid = (number | null)[]
+type Board = { quote: Quote; grid: Grid }
+// The board of the puzzle currently mounted. A `resume` puzzle that mounts
+// while one is set (PageLoader's handoff, #698) starts from that board and
+// keeps its quote, so the swap is invisible.
+let liveBoard: Board | null = null
 
 // The soft floor shadow is shared. The tray, recessed well, and tile bevels
 // are theme-specific so each puzzle reads as one wooden box.
@@ -94,6 +102,7 @@ export function SlidePuzzleLoader({
   label = 'Loading',
   tileSrc,
   scene = true,
+  resume = false,
 }: {
   theme?: Theme
   /** Paint the ground behind the puzzle. Off inside the app, where the page's
@@ -107,18 +116,32 @@ export function SlidePuzzleLoader({
   // Override the theme's puzzle art (admin preview compares the old mark against
   // the new one). A bare public path; falls back to the theme default.
   tileSrc?: string
+  /** Continue the board and quote of a puzzle unmounting in this same commit. */
+  resume?: boolean
 }) {
-  const [grid, setGrid] = useState<(number | null)[]>(INITIAL)
+  // Pick the quote once per mount so grid re-renders don't reshuffle it.
+  const [board] = useState<Board>(() =>
+    resume && liveBoard
+      ? liveBoard
+      : { quote: QUOTES[Math.floor(Math.random() * QUOTES.length)], grid: INITIAL },
+  )
+  const { quote } = board
+  const [grid, setGrid] = useState<Grid>(board.grid)
   const [movingId, setMovingId] = useState<number | null>(null)
-  // Pick once per mount so grid re-renders don't reshuffle the quote.
-  const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)])
+
+  useEffect(() => {
+    liveBoard = board
+    return () => {
+      liveBoard = null
+    }
+  }, [board])
 
   useEffect(() => {
     if (prefersReducedMotion()) return // leave the board in its scramble
 
     // Algorithm state lives in refs so the timer chain reads the latest grid
     // without restarting the effect (a faithful port of the handoff's class).
-    const g = INITIAL.slice()
+    const g = board.grid.slice()
     let prevEmpty = -1
     let stepTimer: ReturnType<typeof setTimeout>
     let liftTimer: ReturnType<typeof setTimeout>
@@ -160,6 +183,7 @@ export function SlidePuzzleLoader({
       g[chosen] = null
       prevEmpty = empty
       setGrid(g.slice())
+      board.grid = g.slice()
       setMovingId(tileId)
       clearTimeout(liftTimer)
       liftTimer = setTimeout(() => setMovingId(null), 210)
@@ -173,7 +197,7 @@ export function SlidePuzzleLoader({
       clearTimeout(stepTimer)
       clearTimeout(liftTimer)
     }
-  }, [tempo, doubleChance])
+  }, [tempo, doubleChance, board])
 
   const TH = THEMES[theme]
 

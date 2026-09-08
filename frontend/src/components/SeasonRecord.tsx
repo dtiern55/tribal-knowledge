@@ -1,3 +1,4 @@
+import { DoubleBadge } from './DoubleBadge'
 import type { ReactNode } from 'react'
 import { TeamBuffPairIcon } from './icons'
 import { VoteMark } from './VoteMark'
@@ -21,6 +22,9 @@ export type Beat = {
   /** Settled — nothing left to decide on this beat this week. */
   done: boolean
   note: string
+  /** The week's advantage is played on this beat (#694): the tab wears the
+   *  idol, and nothing inside the tab does. */
+  played?: boolean
 }
 
 /** Each lane's colour and mark, carried from the hero through here into the
@@ -88,6 +92,7 @@ export function RecordBeats({
           >
             <span className="lane-tab__icon" aria-hidden="true">{LANE_ICON[b.key]()}</span>
             <span className="truncate">{b.label}</span>
+            {b.played && <DoubleBadge size={18} title="Advantage played here" />}
             {/* Kept mounted and merely hidden on the active tab: unmounting it
                 changed the tab's content width, so switching lanes nudged both
                 labels sideways (#552 preview feedback). */}

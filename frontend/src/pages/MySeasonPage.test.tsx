@@ -142,12 +142,22 @@ async function openBeat(name: 'Tribe' | 'Ballot' | 'Advantage') {
 function arrangePlayWorld(initial: {
   plays?: { id: string; episode_id: string; advantage_type: string; target_contestant_id: string }[]
   picks?: { id: string; episode_id: string; contestant_id: string }[]
+  /** Week two: episode 2 open and the two-castaway tribe still editable. */
+  preLock?: boolean
 }) {
-  const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
-  const state = { plays: initial.plays ?? [], picks: initial.picks ?? [] }
-  vi.mocked(getActiveSeason).mockResolvedValue(season)
+  const openNumber = initial.preLock ? 2 : 3
+  const open = { ...episode(openNumber, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
+  const state = {
+    plays: initial.plays ?? [],
+    picks: initial.picks ?? [],
+    roster: [
+      { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+      { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+    ],
+  }
+  vi.mocked(getActiveSeason).mockResolvedValue(initial.preLock ? { ...season, roster_size: 2 } : season)
   vi.mocked(api.get).mockImplementation(async (path: string) => {
-    if (path.endsWith('/episodes')) return [episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+    if (path.endsWith('/episodes')) return [episode(openNumber - 1, 'scored', '2026-08-08T00:00:00Z'), open]
     if (path.endsWith('/contestants')) {
       return [
         { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
@@ -158,12 +168,7 @@ function arrangePlayWorld(initial: {
       ]
     }
     if (path.includes('/advantage-plays/')) return state.plays
-    if (path.includes('/roster/')) {
-      return [
-        { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
-        { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
-      ]
-    }
+    if (path.includes('/roster/')) return state.roster
     if (path.includes('/picks/')) return state.picks
     if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
     if (path.endsWith('/reveal')) return undefined
@@ -180,8 +185,26 @@ function arrangePlayWorld(initial: {
       }
       return play
     }
+    if (path.endsWith('/roster')) {
+      // roster.py drops a Double Castaway Points play on anyone who leaves.
+      const { contestant_ids } = body as { contestant_ids: string[] }
+      state.roster = contestant_ids.map((id, i) => ({
+        id: `roster-${i}`, contestant_id: id, active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0,
+      }))
+      state.plays = state.plays.filter(
+        (p) => p.advantage_type !== 'double_roster_points' || contestant_ids.includes(p.target_contestant_id),
+      )
+      return state.roster
+    }
     const { contestant_ids, doubled_contestant_id } = body as { contestant_ids: string[]; doubled_contestant_id: string | null }
-    state.picks = contestant_ids.map((id, i) => ({ id: `pick-${i}`, episode_id: 'episode-3', contestant_id: id }))
+    // Ranks follow the order sent; the Power Vote's name takes none (#694).
+    let rung = 0
+    state.picks = contestant_ids.map((id, i) => ({
+      id: `pick-${i}`,
+      episode_id: 'episode-3',
+      contestant_id: id,
+      rank: id === doubled_contestant_id ? null : ++rung,
+    }))
     // The save moves an existing Power Vote to the doubled name (#682).
     if (doubled_contestant_id && state.plays[0]?.advantage_type === 'double_vote_points') {
       state.plays = [{ ...state.plays[0], target_contestant_id: doubled_contestant_id }]
@@ -192,7 +215,11 @@ function arrangePlayWorld(initial: {
     const gone = state.plays[0]
     state.plays = []
     if (gone?.advantage_type === 'double_vote_points') {
-      state.picks = state.picks.filter((p) => p.contestant_id !== gone.target_contestant_id)
+      // The name drops to the top rung; the ladder shifts down and trims to
+      // the limit (#694).
+      const top = state.picks.filter((p) => p.contestant_id === gone.target_contestant_id)
+      const rest = state.picks.filter((p) => p.contestant_id !== gone.target_contestant_id)
+      state.picks = [...top, ...rest].slice(0, 3).map((p, i) => ({ ...p, rank: i + 1 }))
     }
   })
   return state
@@ -340,8 +367,10 @@ describe('MySeasonPage state shell', () => {
     expect(tabs[1]).toHaveTextContent(/^Ballot/)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     // The unplayed advantage rides the bar as state: it says where to play it.
-    expect(screen.getByText('Play it on your Tribe or Ballot')).toBeVisible()
+    expect(screen.getByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(screen.queryByRole('button', { name: /advantage/i })).not.toBeInTheDocument()
+    // Unplayed, the lane links the rule.
+    expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/rules#weekly-play')
     expect(screen.getByRole('tabpanel', { name: /^Tribe/ })).toBeVisible()
     // The other two stay mounted (so an unsaved ballot survives) but hidden.
     expect(screen.queryByRole('tabpanel', { name: /^Ballot/ })).not.toBeInTheDocument()
@@ -406,24 +435,28 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
+    // The room is lit while the ballot is being written, and back to ordinary
+    // light once it is submitted and tidy (#694 review).
+    expect(document.documentElement).toHaveClass('ballot-room')
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
-    const slip = within(ballot).getByText('Kenzie').closest('.ballot-slip')
-    expect(slip).toHaveStyle({
-      '--ballot-tribe-color': '#7651a1',
-      '--ballot-rotation': '-0.7deg',
-    })
-    // A vote is a name written down, not a person looked at (#552) — the tribe
-    // rides the slip's left edge and the portrait is gone.
-    expect(slip?.querySelector('.contestant-avatar')).toBeNull()
+    await waitFor(() => expect(document.documentElement).not.toHaveClass('ballot-room'))
+    // The record is the roster's own manifest: portrait, name, rung (#694).
+    const record = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    const row = within(record).getByText('Kenzie').closest('li') as HTMLElement
+    expect(row.querySelector('.contestant-avatar')).not.toBeNull()
+    expect(row).toHaveTextContent('Top pick')
     expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/episodes/episode-2/picks', {
       contestant_ids: ['cast-1', 'cast-2'],
       doubled_contestant_id: null,
     })
 
+    // Reopened with nothing changed, the button is Done: it closes the sheet
+    // rather than sitting disabled (#694 review).
     await user.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
     expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
-    expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
+    await user.click(within(ballot).getByRole('button', { name: 'Done' }))
+    expect(await screen.findByText('Ballot submitted')).toBeVisible()
   })
 
   it('lights the room on the Ballot beat and puts it out on the way off the page', async () => {
@@ -499,7 +532,7 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     // The hero's Advantage lane is state only: no menu, no button.
-    expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 
     // Tribe: the strip says what the advantage becomes here and starts the
@@ -509,7 +542,7 @@ describe('MySeasonPage state shell', () => {
     const tribeStrip = within(roster).getByRole('region', { name: 'Advantage' })
     expect(within(tribeStrip).getByText(/double point boost/)).toBeVisible()
     await userEvent.click(within(tribeStrip).getByRole('button', { name: 'Play it here' }))
-    expect(within(tribeStrip).getByText(/Drag this Advantage icon/)).toBeVisible()
+    expect(within(tribeStrip).getByText(/Tap a Survivor/)).toBeVisible()
     expect(within(roster).getByRole('button', { name: /Kenzie/ })).toBeVisible()
     await userEvent.click(within(tribeStrip).getByRole('button', { name: 'Cancel' }))
     expect(within(tribeStrip).getByRole('button', { name: 'Play it here' })).toBeVisible()
@@ -527,20 +560,49 @@ describe('MySeasonPage state shell', () => {
     })
     renderWithApp(<MySeasonPage />, { auth })
 
-    // The doubled castaway carries the idol on the roster row, not the tab.
-    expect(await screen.findByRole('img', { name: /Double Castaway Points/ })).toBeInTheDocument()
-    const rosterTab = screen.getByRole('tab', { name: /^Tribe/ })
-    expect(rosterTab).not.toHaveTextContent('×2')
-    expect(within(rosterTab).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
+    // The Tribe tab wears the idol; the row says it in words (#694).
+    const rosterTab = await screen.findByRole('tab', { name: /^Tribe/ })
+    expect(await within(rosterTab).findByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
+    expect(within(screen.getByRole('tab', { name: /^Ballot/ })).queryByRole('img', { name: 'Advantage played here' })).not.toBeInTheDocument()
     expect(screen.getByText('Tribe · Kenzie · double points')).toBeVisible()
-    // Played, the strip is gone: the seal on the row is the record, and the
-    // hero holds Undo.
+    // Played, the strip is gone: the row says ×2 this week, and the hero
+    // holds Undo. No idol inside the tab.
     const roster = await openBeat('Tribe')
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
+    expect(within(roster).getByText(/×2 this week/)).toBeVisible()
+    expect(within(roster).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
   })
 
-  it('plays the advantage on the Tribe tab by tap, undoes it from the strip, and moves it by drag (#407)', async () => {
+  it('drops the play with a doubled castaway edited off the tribe pre-lock, from the footer Edit', async () => {
+    arrangePlayWorld({
+      preLock: true,
+      plays: [{ id: 'play-1', episode_id: 'episode-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' }],
+    })
+    renderWithApp(<MySeasonPage />, { auth })
+    expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
+    const roster = await openBeat('Tribe')
+
+    // Edit sits in the lane's footer with the lock date, not on the toolbar.
+    const edit = within(roster).getByRole('button', { name: /locks when episode 2 starts.*Edit tribe/ })
+    await userEvent.click(edit)
+    // The picker has no rows to play on, so the gold card leaves with them.
+    expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
+    await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
+    await userEvent.click(within(roster).getByRole('button', { name: /Maria/ }))
+    await userEvent.click(within(roster).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/roster', { contestant_ids: ['cast-2', 'cast-3'] }),
+    )
+
+    // The server deleted the play with Kenzie; the hero learns that without a
+    // reload, so there is no stale Undo to 404 on ("Advantage not found").
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
+    expect(within(roster).getByRole('region', { name: 'Advantage' })).toBeVisible()
+  })
+
+  it('plays the advantage on the Tribe tab by tap, and the tab wears the idol until Undo', async () => {
     arrangePlayWorld({})
     renderWithApp(<MySeasonPage />, { auth })
     const roster = await openBeat('Tribe')
@@ -548,6 +610,7 @@ describe('MySeasonPage state shell', () => {
 
     // Tap path: Play it here, then a row.
     await userEvent.click(within(strip).getByRole('button', { name: 'Play it here' }))
+    expect(within(strip).getByText(/Tap a Survivor/)).toBeVisible()
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
@@ -556,33 +619,21 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
-
-    // Drag path: the seal on Kenzie's row drops on Charlie's. The move is
-    // optimistic — the seal lands before delete + post come back.
-    const seal = await within(roster).findByRole('img', { name: /Double Castaway Points/ })
-    const kenzieRow = within(roster).getByText('Kenzie').closest('[data-drop-id]') as Element
-    const charlieRow = within(roster).getByText('Charlie').closest('[data-drop-id]') as Element
-    dragTo(seal, charlieRow)
-    expect(within(kenzieRow as HTMLElement).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
-    expect(within(charlieRow as HTMLElement).getByRole('img', { name: /Double Castaway Points/ })).toBeVisible()
-    expect(screen.getByText('Tribe · Charlie · double points')).toBeVisible()
-    await waitFor(() =>
-      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/advantage-plays', {
-        advantage_type: 'double_roster_points',
-        target_contestant_id: 'cast-2',
-      }),
-    )
+    // The idol is on the tab, not the row; the row says it in words.
+    expect(within(screen.getByRole('tab', { name: /^Tribe/ })).getByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
+    expect(within(roster).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
 
     // Undo lives in the hero; the strip comes back with the offer.
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
-    expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(
       within(await within(roster).findByRole('region', { name: 'Advantage' })).getByRole('button', {
         name: 'Play it here',
       }),
     ).toBeVisible()
+    expect(within(screen.getByRole('tab', { name: /^Tribe/ })).queryByRole('img', { name: 'Advantage played here' })).not.toBeInTheDocument()
   })
 
   it('plays the advantage on the Ballot tab as a Power Vote, by tap and by drag (#673)', async () => {
@@ -607,7 +658,7 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Ballot · Charlie · Power Vote')).toBeVisible()
     expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     // The gold card holds the idol; the count is the regular names only.
-    expect(within(ballot).getByRole('button', { name: 'Charlie is your Power Vote' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Charlie' })).toBeEnabled()
     expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('1 of 3')
 
     // Voting is unchanged around it, and the save carries the Power Vote's
@@ -621,38 +672,108 @@ describe('MySeasonPage state shell', () => {
         doubled_contestant_id: 'cast-2',
       }),
     )
-    // The Power Vote leads the submitted pile in gold.
+    // The record: the Power Vote's gold row first, then the rungs, and the
+    // Ballot tab wears the idol.
     expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
-    expect(within(ballot).getByText('Charlie').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled')
+    const record = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    expect(within(record).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Charlie'),
+      expect.stringContaining('Kenzie'),
+      expect.stringContaining('Maria'),
+      expect.stringContaining('Open'),
+    ])
+    expect(within(record).getAllByRole('listitem')[0]).toHaveTextContent('Power Vote')
+    expect(within(screen.getByRole('tab', { name: /^Ballot/ })).getByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
 
-    // Drag path on the submitted pile, like the roster row: the seal drops on
-    // another slip to move the Power Vote there. One picks request moves the
-    // play; the old name stays on the ballot as a regular vote.
-    const seal = within(ballot).getByTitle('Drag onto another name to move your Power Vote')
-    const mariaSlip = within(ballot).getByText('Maria').closest('[data-drop-id]') as Element
-    dragTo(seal, mariaSlip)
-    expect(within(ballot).getByText('Maria').closest('.ballot-slip')).toHaveClass('ballot-slip--doubled')
-    expect(screen.getByText('Ballot · Maria · Power Vote')).toBeVisible()
+    // Moving the Power Vote while editing: drag Maria's slip up into the gold
+    // rung. One picks request moves the play; Charlie takes Maria's old rung.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
+    const ladder = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    const goldRung = within(ladder).getAllByRole('listitem')[0]
+    dragTo(within(ladder).getByText('Maria'), goldRung)
     await waitFor(() =>
       expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
-        contestant_ids: ['cast-1', 'cast-3', 'cast-2'],
+        contestant_ids: ['cast-1', 'cast-2', 'cast-3'],
         doubled_contestant_id: 'cast-3',
       }),
     )
+    expect(await screen.findByText('Ballot · Maria · Power Vote')).toBeVisible()
     expect(api.delete).not.toHaveBeenCalled()
+  })
 
-    // The same on the grid: the idol on the gold card drops on a name.
-    await userEvent.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
-    const idol = within(ballot).getByRole('img', { name: 'Maria is your Power Vote' })
-    const tiffanyCard = within(ballot).getByRole('button', { name: 'Vote for Tiffany' }).closest('[data-drop-id]') as Element
-    dragTo(idol, tiffanyCard)
+  it('ranks the ballot in ladder order, reorders with the arrows, and a slip dragged into the gold rung is the Power Vote (#694)', async () => {
+    arrangePlayWorld({})
+    renderWithApp(<MySeasonPage />, { auth })
+    const ballot = await openBeat('Ballot')
+
+    // Names land on the next rung in the order tapped; the card says which.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Vote for Kenzie' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Vote for Charlie' }))
+    const ladder = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    expect(within(ladder).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Kenzie'),
+      expect.stringContaining('Charlie'),
+      expect.stringContaining('Tap a name below.'),
+    ])
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' })).toHaveTextContent('Top pick')
+
+    // The arrows reorder; the save carries the order as the ranks.
+    await userEvent.click(within(ladder).getByRole('button', { name: 'Move Charlie up' }))
+    expect(within(ladder).getAllByRole('listitem')[0]).toHaveTextContent('Charlie')
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Save ballot' }))
     await waitFor(() =>
       expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
-        contestant_ids: ['cast-1', 'cast-3', 'cast-2', 'cast-4'],
-        doubled_contestant_id: 'cast-4',
+        contestant_ids: ['cast-2', 'cast-1'],
+        doubled_contestant_id: null,
       }),
     )
-    expect(await screen.findByText('Ballot · Tiffany · Power Vote')).toBeVisible()
+    expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
+    // The submitted ballot reads top to bottom in ladder order, rung named,
+    // with an open line for the rung not yet filled.
+    const submitted = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    expect(within(submitted).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringMatching(/Charlie.*Top pick/),
+      expect.stringMatching(/Kenzie.*2nd/),
+      expect.stringMatching(/Open.*3rd/),
+    ])
+
+    // Play it here opens the gold rung; a slip dragged into it is the Power
+    // Vote, and its old rung closes up.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
+    const goldRung = ballot.querySelector('[data-drop-id="rung:pv"]') as Element
+    const kenzieSlip = within(within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })).getByText('Kenzie')
+    dragTo(kenzieSlip, goldRung)
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/advantage-plays', {
+        advantage_type: 'double_vote_points',
+        target_contestant_id: 'cast-1',
+      }),
+    )
+    expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
+    expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeEnabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('Top pick')
+
+    // The gold rung has the same arrows: down swaps the Power Vote with 1st,
+    // in one picks request that saves the ladder as shown.
+    const rungs = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
+    await userEvent.click(within(rungs).getByRole('button', { name: 'Move Kenzie down' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-1', 'cast-2'],
+        doubled_contestant_id: 'cast-2',
+      }),
+    )
+    expect(await screen.findByText('Ballot · Charlie · Power Vote')).toBeVisible()
+    expect(within(rungs).getAllByRole('listitem')[1]).toHaveTextContent('Kenzie')
+    // And 1st's up arrow climbs back into it.
+    await userEvent.click(within(rungs).getByRole('button', { name: 'Move Kenzie up' }))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
+        contestant_ids: ['cast-2', 'cast-1'],
+        doubled_contestant_id: 'cast-1',
+      }),
+    )
+    expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
   })
 
   it('takes a Power Vote that was a regular vote off the ballot in the same paint, and back again on Undo', async () => {
@@ -673,15 +794,17 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
     await userEvent.click(within(ballot).getByRole('button', { name: 'Make Kenzie your Power Vote' }))
     expect(screen.getByText(/names written/)).toHaveTextContent('1 of 3 names written')
-    expect(within(ballot).getByRole('button', { name: 'Kenzie is your Power Vote' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeInTheDocument()
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
 
-    // Undo, in the hero, drops the Power Vote's pick with it.
-    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    // The gold card taps off like any vote, and the name drops to the top
+    // rung: Kenzie leads again.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
-    expect(await screen.findByText('Play it on your Tribe or Ballot')).toBeVisible()
-    await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
+    expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
+    await waitFor(() => expect(ballotTab).toHaveTextContent('2 of 3'))
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' })).toHaveTextContent('Top pick')
     expect(within(ballot).getByRole('button', { name: 'Play it here' })).toBeVisible()
   })
 
@@ -708,8 +831,8 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
-    // The Power Vote's pick left with the play; the ballot never counted it.
-    await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('None'))
+    // The Power Vote's name dropped to the top rung when the play left.
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('1 of 3'))
     const ballot = await openBeat('Ballot')
     expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
   })

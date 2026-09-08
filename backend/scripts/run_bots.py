@@ -59,6 +59,10 @@ or none within an episode. Contrarians stay off-consensus regardless.
 Names are matched loosely (case and punctuation insensitive) against the
 season's contestants; anything unrecognised is reported rather than ignored.
 
+Ballots are ladders (#694): a bot's picks take rungs in the order it drew
+them, and a Power Vote names the next name from that same draw as the extra
+unranked pick.
+
 Writes directly to the DB with the service role, idempotent per episode.
 """
 
@@ -335,9 +339,11 @@ def draft(cur, league_name: str, season_number: int):
     ]
     middle = [c for c in everyone if c not in wanted and c not in shunned]
     pool = wanted + middle + shunned
+    floor = float(read.get("spread", 0))
 
     n = 0
     for a, bot in zip(arche, bots):
+        spread = max(a["spread"], floor)
         cur.execute(
             "select count(*) n from roster_picks"
             " where user_id=%s and league_season_id=%s",
@@ -345,9 +351,7 @@ def draft(cur, league_name: str, season_number: int):
         )
         if cur.fetchone()["n"]:
             continue
-        picks = biased_order(pool, a["spread"], bot["id"], "draft")[
-            : season["roster_size"]
-        ]
+        picks = biased_order(pool, spread, bot["id"], "draft")[: season["roster_size"]]
         for cid in picks:
             cur.execute(
                 """insert into roster_picks
@@ -410,6 +414,23 @@ def next_open_ep(cur, season):
     return ep if ep["picks_lock_at"] > datetime.now(timezone.utc) else None
 
 
+def redemption_island_ids(cur, episode_n: int, ids: list[str]) -> list[str]:
+    """Which of `ids` sit on Redemption Island as of this episode. Mirrors
+    app/routers/picks.py redemption_island_ids."""
+    cur.execute(
+        """select c.id::text cid from contestants c
+           join lateral (
+             select t.is_redemption from contestant_tribes ct
+             join tribes t on t.id = ct.tribe_id
+             where ct.contestant_id = c.id and ct.from_episode <= %s
+             order by ct.from_episode desc limit 1
+           ) tribe on true
+           where c.id::text = any(%s) and tribe.is_redemption""",
+        [episode_n, ids],
+    )
+    return [r["cid"] for r in cur.fetchall()]
+
+
 def alive_ids(cur, sid) -> list[str]:
     cur.execute(
         """select c.id::text cid from contestants c
@@ -420,10 +441,12 @@ def alive_ids(cur, sid) -> list[str]:
     return [r["cid"] for r in cur.fetchall()]
 
 
-def used_play(cur, uid, epid) -> bool:
+def used_play(cur, uid, lsid, epid) -> bool:
+    # Per league-season: a bot in two leagues plays once in each.
     cur.execute(
-        "select 1 from advantage_plays where user_id=%s and episode_id=%s",
-        [uid, str(epid)],
+        "select 1 from advantage_plays"
+        " where user_id=%s and league_season_id=%s and episode_id=%s",
+        [uid, lsid, str(epid)],
     )
     return cur.fetchone() is not None
 
@@ -547,12 +570,17 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     # nobody wants them.
     shunned = set(resolve(cur, sid, read.get("avoid", []), "avoid"))
     alive = alive_ids(cur, sid)
+    # Redemption Island residents stay alive for rosters but are off the
+    # ballot, the way the app hides them and the API refuses them (#655).
+    votable = [
+        c for c in alive if c not in set(redemption_island_ids(cur, episode_n, alive))
+    ]
     live_pairs = [
-        (c, w) for c, w in zip(boots, boot_weights) if c in alive and c not in safe
+        (c, w) for c, w in zip(boots, boot_weights) if c in votable and c not in safe
     ]
     boots = [c for c, _ in live_pairs]
     boot_weights = [w for _, w in live_pairs]
-    others = [c for c in alive if c not in boots and c not in safe]
+    others = [c for c in votable if c not in boots and c not in safe]
     # Can never vote for every remaining castaway (#240)
     max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
 
@@ -563,11 +591,18 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     swaps_open = not ep["is_finale"] and not (
         swap_lock is not None and episode_n >= swap_lock
     )
-    # Designation locks with the swaps (app/routers/roster.py:
-    # _effective_ss_lock). Bots only ever run on the episode that still
-    # accepts picks, so that episode is by definition unlocked — which makes
-    # "the lock has not locked yet" simply swap_lock >= episode_n.
-    ss_open = swap_lock is None or swap_lock >= episode_n
+    # Designation opens at the merge (app/routers/roster.py:
+    # _ss_window_open_yet, #587) and locks with the swaps (_effective_ss_lock).
+    # Bots only ever run on the episode that still accepts picks, so that
+    # episode is by definition unlocked — which makes "the lock has not locked
+    # yet" simply swap_lock >= episode_n. Without the merge half every bot
+    # crowned a winner at week 2, before any real player could.
+    merge = season["merge_episode"]
+    ss_open = (
+        merge is not None
+        and episode_n >= merge
+        and (swap_lock is None or swap_lock >= episode_n)
+    )
 
     cur.execute(
         """select contestant_id::text cid, count(*) n from roster_picks
@@ -577,6 +612,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     owned = {r["cid"]: r["n"] for r in cur.fetchall()}
 
     by_name = {a["name"]: a for a in archetypes()}
+    floor = float(ep_read.get("spread", read.get("spread", 0)))
     picks_made = swaps_made = plays_made = ss_made = 0
     # roster_swap counts PAID swaps now, not advantage plays (#404).
     tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
@@ -597,6 +633,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         if not a:
             continue
         uid = bot["id"]
+        spread = max(a["spread"], floor)
 
         # --- swap out dead weight (an eliminated castaway) ---
         # No longer gated on the weekly play (#404) — swaps have their own
@@ -625,7 +662,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 pool = [c for c in add_pool if c not in shunned] or add_pool
                 want = [c for c in pool if c in targets] or pool
                 want = sorted(want, key=lambda c: owned.get(c, 0))
-                new = biased_order(want, a["spread"], uid, episode_n, "swapin")[0]
+                new = biased_order(want, spread, uid, episode_n, "swapin")[0]
                 owned[new] = owned.get(new, 0) + 1
                 do_swap(cur, uid, lsid, ep, out, new, penalty)
                 swaps_made += 1
@@ -644,31 +681,49 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 # commissioner's split holds; overflow to the field if the caps
                 # empty before this bot is served.
                 avail = [c for c in boots if caps.get(c, 0) > 0]
-                chosen = biased_order(avail, a["spread"], uid, episode_n, "pick")[
-                    :max_picks
-                ]
+                chosen = biased_order(avail, spread, uid, episode_n, "pick")[:max_picks]
                 if len(chosen) < max_picks:
-                    chosen += biased_order(others, a["spread"], uid, episode_n, "fill")[
+                    chosen += biased_order(others, spread, uid, episode_n, "fill")[
                         : max_picks - len(chosen)
                     ]
                 for c in chosen:
                     if c in caps:
                         caps[c] -= 1
             else:
-                chosen = biased_order(
-                    boots + others, a["spread"], uid, episode_n, "pick"
-                )[:max_picks]
-            for cid in chosen:
+                chosen = biased_order(boots + others, spread, uid, episode_n, "pick")[
+                    :max_picks
+                ]
+            # The ballot is a ladder (#694): the draw is already confidence
+            # order, so the first name takes the top rung.
+            for rank, cid in enumerate(chosen, start=1):
                 cur.execute(
                     "insert into elimination_picks"
-                    " (user_id, league_season_id, episode_id, contestant_id)"
-                    " values (%s,%s,%s,%s)",
-                    [uid, lsid, str(ep["id"]), cid],
+                    " (user_id, league_season_id, episode_id, contestant_id, rank)"
+                    " values (%s,%s,%s,%s,%s)",
+                    [uid, lsid, str(ep["id"]), cid, rank],
                 )
                 picks_made += 1
 
+        # The Power Vote's name (#694): the bot's next name after its ballot,
+        # from the same ordered draw. Read back rather than reusing `chosen`
+        # so a re-run that skipped the picks still finds it.
+        cur.execute(
+            "select contestant_id::text cid from elimination_picks"
+            " where user_id=%s and league_season_id=%s and episode_id=%s",
+            [uid, lsid, str(ep["id"])],
+        )
+        on_ballot = {r["cid"] for r in cur.fetchall()}
+        extra = next(
+            (
+                c
+                for c in biased_order(boots + others, spread, uid, episode_n, "pick")
+                if c not in on_ballot
+            ),
+            None,
+        )
+
         # --- the week's one advantage play ---
-        if not used_play(cur, uid, ep["id"]):
+        if not used_play(cur, uid, lsid, ep["id"]):
             held = {p["cid"] for p in active_roster(cur, uid, lsid)}
             star = [c for c in held if c in targets]
             # The lean's preferred double, `bias` of the time; the other
@@ -683,7 +738,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
             if choice == "double_roster_points":
                 pool = star or [c for c in held if c in alive]
                 if not pool:
-                    choice, target = "double_vote_points", None
+                    choice = "double_vote_points"
                 else:
                     # Spread doubles across targets: back the one this bot holds
                     # that the league has doubled least so far. Plain biased_order
@@ -696,15 +751,29 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                         ),
                     )
                     dbl_used[target] = dbl_used.get(target, 0) + 1
-            cur.execute(
-                """insert into advantage_plays
-                (user_id, league_season_id, episode_id, advantage_type,
-                 target_contestant_id, token_cost)
-                values (%s,%s,%s,%s,%s,0)""",
-                [uid, lsid, str(ep["id"]), choice, target],
-            )
-            plays_made += 1
-            tally[choice] += 1
+            if choice == "double_vote_points":
+                # One extra name above the ladder, saved as an unranked pick
+                # the way the API does (#694). No name left means no play:
+                # an untargeted Power Vote would score as the old
+                # whole-ballot double.
+                target = extra
+                if target is not None:
+                    cur.execute(
+                        "insert into elimination_picks"
+                        " (user_id, league_season_id, episode_id, contestant_id)"
+                        " values (%s,%s,%s,%s)",
+                        [uid, lsid, str(ep["id"]), target],
+                    )
+            if choice == "double_roster_points" or target is not None:
+                cur.execute(
+                    """insert into advantage_plays
+                    (user_id, league_season_id, episode_id, advantage_type,
+                     target_contestant_id, token_cost)
+                    values (%s,%s,%s,%s,%s,0)""",
+                    [uid, lsid, str(ep["id"]), choice, target],
+                )
+                plays_made += 1
+                tally[choice] += 1
 
         # --- sole survivor: one per season, at random (Danny 2026-08-23) ---
         # The read is forward-looking and has no opinion on who wins, so this

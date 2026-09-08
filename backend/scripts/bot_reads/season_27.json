@@ -1,0 +1,43 @@
+{
+ "_note": "Danny's read for Survivor: Blood vs. Water (2026-09-06): no consensus. Rosters random; nobody drafts Candice or Marissa (Redemption Island), a team or two takes Rupert. Votes spread out, six names only lightly favoured. `spread` floors every bot's follow so the strict bots stop moving in lockstep; the episode value overrides the season's.",
+ "spread": 40,
+ "draft": [
+  "Tyson Apostol",
+  "Monica Culpepper",
+  "Hayden Moss",
+  "Laura Morett",
+  "Ciera Eastin",
+  "Aras Baskauskas",
+  "Katie Collins",
+  "Gervase Peterson",
+  "Brad Culpepper",
+  "Rachel Foulger",
+  "Vytas Baskauskas",
+  "Rupert Boneham",
+  "Kat Edorsson",
+  "Caleb Bankston",
+  "Tina Wesson",
+  "John Cody",
+  "Colton Cumbie",
+  "Laura Boneham"
+ ],
+ "avoid": [
+  "Candice Cody",
+  "Marissa Peterson"
+ ],
+ "episodes": {
+  "2": {
+   "likely_boots": [
+    "Colton Cumbie",
+    "Gervase Peterson",
+    "Kat Edorsson",
+    "Laura Boneham",
+    "Ciera Eastin",
+    "Katie Collins"
+   ],
+   "double_targets": [],
+   "note": "Wide open. Six names slightly ahead, nothing more.",
+   "spread": 100
+  }
+ }
+}

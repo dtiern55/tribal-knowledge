@@ -155,6 +155,10 @@ export interface EliminationPick {
   episode_id: string
   contestant_id: string
   created_at: string
+  /** Rung on the ballot ladder, 1 = most confident (#694). Null for the
+   *  Power Vote's name, which sits above the ladder, and for ballots saved
+   *  before the ladder. */
+  rank: number | null
 }
 
 export interface Elimination {
@@ -339,6 +343,7 @@ export interface ContestantPoints {
 export interface PickResult {
   episode_id: string
   contestant_id: string
+  rank: number | null
   correct: boolean
   points: number
 }
