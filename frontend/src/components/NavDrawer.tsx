@@ -11,13 +11,7 @@ import {
   promptInstall,
 } from '../lib/install'
 import type { Season } from '../types'
-import {
-  BookIcon,
-  CloseIcon,
-  DownloadIcon,
-  LogOutIcon,
-  UserIcon,
-} from './icons'
+import { CloseIcon, DownloadIcon, LogOutIcon, ProfileIcon, RulesIcon } from './icons'
 import { InstallSteps } from './InstallSteps'
 
 const rowCls =
@@ -179,11 +173,11 @@ export function NavDrawer({
 
           <nav aria-label="Account and help" className="py-1">
             <NavLink to="/rules" onClick={onClose} className={rowCls}>
-              <BookIcon />
+              <RulesIcon />
               Rules
             </NavLink>
             <NavLink to="/profile" onClick={onClose} className={rowCls}>
-              <UserIcon />
+              <ProfileIcon />
               Profile
             </NavLink>
             {showInstall &&

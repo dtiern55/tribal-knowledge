@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { BuffPairIcon, PalmIcon, RankedTorchesIcon, TeamBuffPairIcon } from './icons'
+import { BuffPairIcon, PalmIcon, ProfileIcon, RankedTorchesIcon, RulesIcon, TeamBuffPairIcon } from './icons'
 import { DoubleBadge } from './DoubleBadge'
 import { VoteMark } from './VoteMark'
 
@@ -72,5 +72,25 @@ describe('approved icon system', () => {
     expect(icon).toHaveAttribute('stroke-width', '1.8')
     expect(icon).toHaveAttribute('aria-hidden', 'true')
     expect(icon?.querySelectorAll('path')).toHaveLength(4)
+  })
+
+  it('uses the supplied filled Jeff pose as the Rules mask', () => {
+    const { container } = render(<RulesIcon />)
+
+    const icon = container.querySelector('span[aria-hidden="true"]')
+    expect(icon).toHaveClass('inline-block', 'h-6', 'w-6', 'shrink-0')
+    expect(icon?.getAttribute('style')).toContain('background-color: currentcolor')
+    expect(icon?.getAttribute('style')).toContain('mask-image: url(')
+    expect(icon?.getAttribute('style')).toContain('.webp')
+  })
+
+  it('uses the castaway identity card as the Profile mask', () => {
+    const { container } = render(<ProfileIcon />)
+
+    const icon = container.querySelector('span[aria-hidden="true"]')
+    expect(icon).toHaveClass('inline-block', 'h-6', 'w-6', 'shrink-0')
+    expect(icon?.getAttribute('style')).toContain('background-color: currentcolor')
+    expect(icon?.getAttribute('style')).toContain('mask-image: url(')
+    expect(icon?.getAttribute('style')).toContain('.webp')
   })
 })
