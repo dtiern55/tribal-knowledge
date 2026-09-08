@@ -2471,6 +2471,9 @@ function RosterSection({
       return
     }
     setMoment('popup')
+    // The chip is what the card points at, and on a phone it can be sitting
+    // under the tab bar: bring it to mid-screen before the card comes up.
+    document.querySelector('.swap-chip')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     // The moment fires once per browser; `moment` is only read to not re-fire mid-way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstLossDue, firstLossKey])
@@ -2877,10 +2880,7 @@ function RosterSection({
         // the tab bar.
         createPortal(
           <FirstLossMoment
-            onClose={() => {
-              setMoment('nudge')
-              document.querySelector('.swap-chip')?.scrollIntoView?.({ block: 'nearest' })
-            }}
+            onClose={() => setMoment('nudge')}
           />,
           document.body,
         )}
