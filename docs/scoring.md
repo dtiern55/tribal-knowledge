@@ -125,6 +125,14 @@ supported facts are:
 - Submitted ballots with at least two correct elimination picks.
 - The viewer's episode score versus the median among season participants.
 - League usage of Double Castaway Points, Power Vote, or Tribe Swap.
+- A written tile: a label, a value, and an optional detail, typed by the
+  commissioner.
+
+A selection is one row per episode and renders on every league's Reveal for
+that season. Computed tiles evaluate per league and per viewer at read time,
+so they stay correct everywhere. A written tile is fixed text, so its numbers
+must hold for every league on the backend: a share or a fact about the show,
+never one league's count.
 
 Configuration contains no aggregate values. Facts are calculated only through
 the authenticated scored-result endpoint and expose counts or percentages,

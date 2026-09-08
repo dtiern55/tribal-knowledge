@@ -77,15 +77,23 @@ headshot upload additionally needs the service-role key for storage.
    eliminations and placements. The importer deliberately flags uncertainty
    instead of guessing.
 
-3. Save corrections, then select **Score episode**. Scoring marks the lifecycle
-   row `scored`; standings still calculate live, so focused fact corrections
-   remain possible afterwards.
+3. Nothing is saved until the commissioner has approved the whole result:
+   eliminations (final, or to Redemption Island), events, judgment calls, the
+   results card headline, and each Reveal tile as it will render. Saving
+   eliminations and events shows on standings and the cast page at once; the
+   headline and tiles stay hidden until the episode is scored. The
+   `air-episode` skill runs this order (#712).
 
-4. Verify standings and a player breakdown, then confirm the next episode is
+4. Save corrections, set the headline and tiles, then select **Score
+   episode** last. Scoring marks the lifecycle row `scored` and opens the
+   results card to players; standings still calculate live, so focused fact
+   corrections remain possible afterwards.
+
+5. Verify standings and a player breakdown, then confirm the next episode is
    the only open window. A delayed scoring job intentionally leaves the current
    episode locked and does not open the next one early.
 
-5. Back up prod. Free-tier Supabase keeps no backups, so this weekly dump is
+6. Back up prod. Free-tier Supabase keeps no backups, so this weekly dump is
    the only copy of the league's picks:
 
    ```bash
