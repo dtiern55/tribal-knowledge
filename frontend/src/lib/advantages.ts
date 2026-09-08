@@ -1,16 +1,17 @@
-import idolImg from '../assets/weekly-advantage-idol-dimensional.webp'
-import whaleS51 from '../assets/weekly-advantage-whale-s51.webp'
+import defaultIcon from '../assets/default-advantage-icon.webp'
+import s27Icon from '../assets/s27-advantage-icon.webp'
+import s51Icon from '../assets/s51-advantage-icon.webp'
 
-/** Per-season ×2 art keyed by show season number (#642). Seasons not listed
- *  fall back to the carved skull idol. Source renders live in
- *  design/source-art; export a 128px RGBA webp into `src/assets` and add a
- *  line here. */
+/** Per-season advantage art, the season's idol, keyed by show season number (#642).
+ *  Seasons not listed fall back to the carved skull idol. Source renders live in
+ *  design/source-art; run design/export_advantage_icons.py and add a line here. */
 const SEASON_IDOLS: Record<number, string> = {
-  51: whaleS51,
+  27: s27Icon,
+  51: s51Icon,
 }
 
 export function advantageIdolFor(seasonNumber: number | null | undefined): string {
-  return (seasonNumber != null && SEASON_IDOLS[seasonNumber]) || idolImg
+  return (seasonNumber != null && SEASON_IDOLS[seasonNumber]) || defaultIcon
 }
 
 // Display names for advantage types. Shared so My Season and another player's
