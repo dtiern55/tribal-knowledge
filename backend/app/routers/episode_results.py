@@ -300,33 +300,64 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
             [str(episode["id"])],
         )
         eliminated = cur.fetchall()
-        # Who is on Redemption Island as of this episode (#655): sent there
-        # by a non-final boot up to now, and neither out for good nor back on
-        # a tribe yet. Read from the record rather than tribe membership so a
-        # replay of an old week shows the island as it stood then.
+        # Who is on Redemption Island as of this episode (#655). Two records
+        # say so: a non-final boot with no return since, and tribe membership
+        # (a day-one exit or a volunteer arrives by tribe sync alone, with no
+        # elimination row). Both are dated, so a replay of an old week shows
+        # the island as it stood then. Out for good means gone from both.
         cur.execute(
             """
+            with sent as (
+              select el.contestant_id, min(ep.episode_number) as episode_number
+              from eliminations el
+              join episodes ep on ep.id = el.episode_id
+              where ep.season_id = %(season_id)s
+                and not el.is_final and ep.episode_number <= %(n)s
+              group by el.contestant_id
+            ),
+            latest_tribe as (
+              select distinct on (ct.contestant_id)
+                     ct.contestant_id, t.is_redemption, ct.from_episode
+              from contestant_tribes ct
+              join tribes t on t.id = ct.tribe_id
+              where t.season_id = %(season_id)s and ct.from_episode <= %(n)s
+              order by ct.contestant_id, ct.from_episode desc
+            ),
+            island_tribe as (
+              select ct.contestant_id, min(ct.from_episode) as from_episode
+              from contestant_tribes ct
+              join tribes t on t.id = ct.tribe_id
+              where t.season_id = %(season_id)s and t.is_redemption
+                and ct.from_episode <= %(n)s
+              group by ct.contestant_id
+            )
             select c.id::text as contestant_id,
                    coalesce(c.nickname, c.name) as name, c.image_url
-            from eliminations el
-            join episodes ep on ep.id = el.episode_id
-            join contestants c on c.id = el.contestant_id
-            where ep.season_id = %(season_id)s
-              and not el.is_final
-              and ep.episode_number <= %(n)s
+            from contestants c
+            left join sent on sent.contestant_id = c.id
+            left join latest_tribe lt on lt.contestant_id = c.id
+            left join island_tribe it on it.contestant_id = c.id
+            where c.season_id = %(season_id)s
+              and (
+                coalesce(lt.is_redemption, false)
+                or (sent.contestant_id is not null
+                    -- back on a tribe since, or a return event since
+                    and not (lt.contestant_id is not null and not lt.is_redemption
+                             and lt.from_episode > sent.episode_number)
+                    and not exists (
+                      select 1 from scoring_events se
+                      join episodes see on see.id = se.episode_id
+                      where se.contestant_id = c.id
+                        and se.event_type like 'return_from_redemption%%'
+                        and see.episode_number between sent.episode_number and %(n)s))
+              )
               and not exists (
                 select 1 from eliminations x
                 join episodes xe on xe.id = x.episode_id
                 where x.contestant_id = c.id and x.is_final
                   and xe.episode_number <= %(n)s)
-              and not exists (
-                select 1 from scoring_events se
-                join episodes see on see.id = se.episode_id
-                where se.contestant_id = c.id
-                  and se.event_type like 'return_from_redemption%%'
-                  and see.episode_number <= %(n)s
-                  and see.episode_number >= ep.episode_number)
-            order by ep.episode_number, el.created_at, c.name
+            order by least(coalesce(sent.episode_number, 999),
+                           coalesce(it.from_episode, 999)), c.name
             """,
             {"season_id": str(episode["season_id"]), "n": episode["episode_number"]},
         )
