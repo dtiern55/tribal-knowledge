@@ -6,7 +6,8 @@ fully scored David vs. Goliath season on staging into one season per stage,
 truncated at that stage's episode, with every open episode's lock in 2099 so
 the snapshot never decays. Each stage gets its own league so the drawer lists
 them side by side. Everything else on staging goes: other seasons, other
-leagues, and every account that isn't Danny, the producer, or a bot.
+leagues, and every account that isn't Danny, the producer, or a bot. The one
+exception is "Practice:" leagues (copy_season_to_staging.py), which stay.
 
 Dry-runs by default; --apply commits.
 Usage (from backend/): uv run python scripts/stage_staging.py [--apply]
@@ -54,12 +55,17 @@ YESTERDAY = datetime.now(timezone.utc) - timedelta(days=1)
 JSONB_COLUMNS = {"bio_qa", "elimination_pick_schedule"}
 
 
-def copy_rows(cur, table, where, params, remap, override=None):
-    """Copy matching rows back into `table` with fresh ids; return old id -> new id."""
+def copy_rows(cur, table, where, params, remap, override=None, dst=None, cols=None):
+    """Copy matching rows back into `table` with fresh ids; return old id -> new id.
+
+    `dst` writes into another database (copy_season_to_staging.py); `cols`
+    drops source columns the destination doesn't have.
+    """
+    dst = dst or cur
     cur.execute(f"select * from {table} where {where}", params)
     id_map = {}
     for row in cur.fetchall():
-        new = dict(row)
+        new = {k: v for k, v in row.items() if cols is None or k in cols}
         if "id" in new:
             new["id"] = str(uuid.uuid4())
             id_map[row["id"]] = new["id"]
@@ -74,12 +80,12 @@ def copy_rows(cur, table, where, params, remap, override=None):
         for c in JSONB_COLUMNS & new.keys():
             if new[c] is not None:
                 new[c] = Json(new[c])
-        cols = ", ".join(new)
+        col_list = ", ".join(new)
         vals = ", ".join(
             f"%({c})s::uuid[]" if isinstance(v, list) else f"%({c})s"
             for c, v in new.items()
         )
-        cur.execute(f"insert into {table} ({cols}) values ({vals})", new)
+        dst.execute(f"insert into {table} ({col_list}) values ({vals})", new)
     return id_map
 
 
@@ -330,6 +336,16 @@ def main() -> None:
                 (ls, ls, season),
             )
             print(f"Stage: {slug:18} {dict(cur.fetchone())}")
+
+        cur.execute(
+            "select l.id league, ls.id ls, ls.season_id season from leagues l"
+            " join league_seasons ls on ls.league_id = l.id"
+            " where l.name like 'Practice: %'"
+        )
+        for r in cur.fetchall():
+            keep_leagues.append(r["league"])
+            keep_ls.append(r["ls"])
+            keep_seasons.append(r["season"])
 
         # Play tables first: a NO ACTION FK (advantage_plays.target_contestant_id)
         # trips if contestants cascade away before their plays do.
