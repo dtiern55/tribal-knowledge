@@ -36,7 +36,7 @@ describe('StandingsPage', () => {
     expect(screen.getByText('No players yet')).toBeVisible()
   })
 
-  it('shows active roster portraits without the redundant survivor count', async () => {
+  it('shows one lit torch per active pick, without portraits or the points breakdown', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -64,16 +64,15 @@ describe('StandingsPage', () => {
 
     renderWithApp(<StandingsPage />)
 
-    expect(await screen.findByTitle('Kenzie')).toBeVisible()
-    expect(screen.getByTitle('Charlie')).toBeVisible()
-    expect(screen.getByTitle('Yanu')).toHaveStyle({ '--tribe-color': '#7651a1' })
-    expect(screen.queryByText('2 still playing')).not.toBeInTheDocument()
+    const torches = await screen.findByRole('img', { name: '2 still in' })
+    expect(torches.querySelectorAll('svg')).toHaveLength(2)
+    expect(screen.queryByAltText('Kenzie')).not.toBeInTheDocument()
     // #437: the roster/ballot/finale breakdown moved to the detail page.
     expect(screen.queryByText(/Roster 12/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Ballot 15/)).not.toBeInTheDocument()
   })
 
-  it('keeps a just-eliminated survivor visible, greyed out, at the end of the row (#457)', async () => {
+  it('keeps a snuffed torch for a pick booted in the last scored episode (#457)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -102,9 +101,9 @@ describe('StandingsPage', () => {
 
     renderWithApp(<StandingsPage />)
 
-    const eliminated = await screen.findByTitle('Eliminated ep 4')
-    expect(eliminated).toBeVisible()
-    // The dim rides an inner span so the outer backdrop stays opaque.
-    expect(eliminated.querySelector('.grayscale.opacity-70')).not.toBeNull()
+    const torches = await screen.findByRole('img', { name: '1 still in, lost Charlie this week' })
+    const flames = torches.querySelectorAll('svg')
+    expect(flames).toHaveLength(2)
+    expect(flames[1]).toHaveClass('fill-none', 'stroke-stone-400')
   })
 })

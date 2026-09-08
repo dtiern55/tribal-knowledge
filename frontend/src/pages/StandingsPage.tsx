@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
-import { ContestantAvatar, ELIMINATED_DIM } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
 import { rankStandings } from '../lib/standings'
-import type { Season, StandingEntry, StandingSurvivor } from '../types'
+import type { Season, StandingEntry } from '../types'
 
 // A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
@@ -95,32 +94,33 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// The overlapping castaway cluster on a row: still-in at full color, recently
-// eliminated dimmed. Small (sm) so the row stays a single line.
-function SurvivorCluster({ active, eliminated }: { active: StandingSurvivor[]; eliminated: StandingSurvivor[] }) {
-  if (active.length === 0 && eliminated.length === 0) return null
+// The flame from the results card (EpisodeResultReveal's corner torch).
+const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
+
+// One torch per castaway on the roster, beside the name: gold while they're in
+// the game, a hollow grey outline for the episode after they go home, then
+// gone unless the player swapped someone in. Torches shrink as the season
+// goes on, so the list visibly thins out. Replaces the portrait cluster, which made every row
+// busy; the faces are one tap away on the Team page. Nothing renders while
+// rosters are hidden (both lists empty).
+function Torches({ entry }: { entry: StandingEntry }) {
+  const lit = entry.active_survivors
+  const out = entry.recently_eliminated_survivors
+  if (lit.length === 0 && out.length === 0) return null
+  const label = out.length === 0 ? `${lit.length} still in` : `${lit.length} still in, lost ${out.map((s) => s.name).join(' and ')} this week`
   return (
-    <span className="flex flex-none -space-x-2">
-      {active.map((s) => (
-        <span key={s.contestant_id} className="rounded-full" title={s.name}>
-          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
-        </span>
+    <span className="flex flex-none gap-0.5" role="img" aria-label={label}>
+      {lit.map((s) => (
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-gold-500" aria-hidden>
+          <title>{s.name}</title>
+          <path d={FLAME_PATH} />
+        </svg>
       ))}
-      {eliminated.map((s) => (
-        // Dimmed portraits are translucent (opacity-70), so an opaque paper
-        // backdrop + ring is what keeps the active neighbor beneath from
-        // bleeding through the overlap. The ring rides the -space gap as a
-        // clean crescent; the dim goes on an inner span so the backdrop stays
-        // opaque.
-        <span
-          key={s.contestant_id}
-          className="rounded-full bg-[var(--color-paper)] ring-2 ring-[var(--color-paper)]"
-          title={`Eliminated ep ${s.eliminated_episode}`}
-        >
-          <span className={`block rounded-full ${ELIMINATED_DIM}`}>
-            <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
-          </span>
-        </span>
+      {out.map((s) => (
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-none stroke-stone-400" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
+          <title>{`${s.name}, eliminated ep ${s.eliminated_episode}`}</title>
+          <path d={FLAME_PATH} />
+        </svg>
       ))}
     </span>
   )
@@ -211,7 +211,7 @@ export function StandingsPage() {
                   <Link
                     to={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_5.5rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
+                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_3.75rem] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
@@ -224,13 +224,7 @@ export function StandingsPage() {
                       {isMe && (
                         <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                       )}
-                    </div>
-                    {/* Portraits sit in a fixed-width column just left of the
-                        score — as far right as possible — and left-align inside
-                        it, so their left edges line up row to row on any screen.
-                        The flexible name column absorbs width differences. */}
-                    <div className="flex min-w-0 justify-start overflow-hidden">
-                      <SurvivorCluster active={entry.active_survivors} eliminated={entry.recently_eliminated_survivors} />
+                      <Torches entry={entry} />
                     </div>
                     <div className="text-right">
                       <p className="font-display text-lg font-bold leading-tight text-forest-800 tabular-nums">{entry.total_points}</p>
