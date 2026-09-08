@@ -151,6 +151,25 @@ def test_standings_trend_reflects_last_episode(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_standings_no_trend_before_anyone_had_points(client, db_conn, current_user):
+    """The first episode that awards points is not a move: everyone was at zero."""
+    season = insert_season(db_conn, merge_episode=7)
+    a = current_user
+    b = insert_user(db_conn, display_name="B")
+    ca = insert_contestant(db_conn, season["id"], "CA")
+    cb = insert_contestant(db_conn, season["id"], "CB")
+    insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    insert_roster_pick(db_conn, a["id"], season["id"], ca["id"])
+    insert_roster_pick(db_conn, b["id"], season["id"], cb["id"])
+    insert_scoring_event(db_conn, ep2["id"], cb["id"], "acquire_active_idol")  # B +10
+
+    data = client.get(f"/league-seasons/{season['league_season_id']}/standings").json()
+    assert {e["trend"] for e in data} == {None}
+    assert {e["trend_delta"] for e in data} == {0}
+
+
+@pytest.mark.integration
 def test_standings_excludes_service_accounts(client, db_conn, current_user):
     """Service accounts (is_player=false) stay out of the leaderboard (#50),
     but a commissioner who also plays (admin + is_player) is included (#471)."""

@@ -192,7 +192,13 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
         )
     entries.sort(key=lambda s: (-s.total_points, s.display_name))
 
-    if last_scored is not None:
+    # Before the first episode that awards points, every player sits at zero and
+    # the "previous" order is alphabetical, so nobody has a place to have moved
+    # from. Movement starts once there is a standing to move from.
+    had_standing = any(
+        s.total_points - last_delta.get(str(s.user_id), 0) != 0 for s in entries
+    )
+    if last_scored is not None and had_standing:
         prev_rank = {
             s.user_id: i
             for i, s in enumerate(

@@ -274,6 +274,10 @@ def _rank_context(conn, season: dict, user_id: UUID, result_episode: dict):
         return current_rank, None, None
 
     delta = scoring.episode_points(conn, season["id"], latest_scored)
+    # No standing existed before the first episode that awarded points, so
+    # there is nothing to have moved from (see standings.py).
+    if all(totals[p["id"]] - delta.get(p["id"], 0) == 0 for p in profiles):
+        return current_rank, None, None
     previous = sorted(
         profiles,
         key=lambda p: (
