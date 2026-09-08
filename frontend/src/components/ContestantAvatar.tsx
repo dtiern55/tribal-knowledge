@@ -28,6 +28,9 @@ function initials(name: string): string {
 
 const sizeClass = {
   sm: 'w-6 h-6 text-[11px]',
+  // Standings row cluster: a notch up from sm so faces read at a glance,
+  // with a thinner tribe frame so the ring doesn't eat the photo.
+  row: 'w-7 h-7 text-xs',
   md: 'w-9 h-9 text-xs',
   // The My Team card's portrait scale (My Season redesign) — big enough that
   // the roster reads as your five people rather than a list of names.
@@ -37,8 +40,9 @@ const sizeClass = {
 /**
  * Contestant photo with an initials fallback when no image is set (#54).
  *
- * When a tribe color is given (#212), a crisp 2.5px frame connects the
- * castaway to their tribe. `tribeName` becomes the hover title.
+ * When a tribe color is given (#212), a crisp 2.5px frame (2px on the
+ * standings `row` size) connects the castaway to their tribe. `tribeName`
+ * becomes the hover title.
  *
  */
 export function ContestantAvatar({
@@ -58,7 +62,7 @@ export function ContestantAvatar({
   const base = `contestant-avatar ${sizeClass[size]} rounded-full shrink-0 border-solid object-cover object-top`
   const tribeStyle = {
     '--tribe-color': tribeColor ?? 'transparent',
-    '--tribe-border-width': tribeColor ? '2.5px' : '0',
+    '--tribe-border-width': tribeColor ? (size === 'row' ? '2px' : '2.5px') : '0',
   } as CSSProperties
   const inner = imageUrl ? (
     <img src={imageUrl} alt={name} className={base} style={tribeStyle} title={tribeName ?? undefined} />

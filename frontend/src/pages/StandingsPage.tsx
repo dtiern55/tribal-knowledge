@@ -96,14 +96,14 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
 }
 
 // The overlapping castaway cluster on a row: still-in at full color, recently
-// eliminated dimmed. Small (sm) so the row stays a single line.
+// eliminated dimmed. The row size (28px) keeps the row a single line.
 function SurvivorCluster({ active, eliminated }: { active: StandingSurvivor[]; eliminated: StandingSurvivor[] }) {
   if (active.length === 0 && eliminated.length === 0) return null
   return (
-    <span className="flex flex-none -space-x-2">
+    <span className="flex flex-none -space-x-3">
       {active.map((s) => (
         <span key={s.contestant_id} className="rounded-full" title={s.name}>
-          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
+          <ContestantAvatar name={s.name} imageUrl={s.image_url} size="row" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
         </span>
       ))}
       {eliminated.map((s) => (
@@ -118,7 +118,7 @@ function SurvivorCluster({ active, eliminated }: { active: StandingSurvivor[]; e
           title={`Eliminated ep ${s.eliminated_episode}`}
         >
           <span className={`block rounded-full ${ELIMINATED_DIM}`}>
-            <ContestantAvatar name={s.name} imageUrl={s.image_url} size="sm" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
+            <ContestantAvatar name={s.name} imageUrl={s.image_url} size="row" tribeColor={s.tribe_color} tribeName={s.tribe_name} />
           </span>
         </span>
       ))}
@@ -211,7 +211,7 @@ export function StandingsPage() {
                   <Link
                     to={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_5.5rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
+                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_5.75rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_6.25rem_3.75rem] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
