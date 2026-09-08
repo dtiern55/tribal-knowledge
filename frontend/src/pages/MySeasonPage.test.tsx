@@ -658,7 +658,7 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('Ballot · Charlie · Power Vote')).toBeVisible()
     expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     // The gold card holds the idol; the count is the regular names only.
-    expect(within(ballot).getByRole('button', { name: 'Charlie is your Power Vote' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Charlie' })).toBeEnabled()
     expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('1 of 3')
 
     // Voting is unchanged around it, and the save carries the Power Vote's
@@ -750,7 +750,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
-    expect(within(ballot).getByRole('button', { name: 'Kenzie is your Power Vote' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeEnabled()
     expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('Top pick')
 
     // The gold rung has the same arrows: down swaps the Power Vote with 1st,
@@ -794,12 +794,13 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
     await userEvent.click(within(ballot).getByRole('button', { name: 'Make Kenzie your Power Vote' }))
     expect(screen.getByText(/names written/)).toHaveTextContent('1 of 3 names written')
-    expect(within(ballot).getByRole('button', { name: 'Kenzie is your Power Vote' })).toBeDisabled()
+    expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeInTheDocument()
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
 
-    // Undo, in the hero, drops the name to the top rung: Kenzie leads again.
-    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    // The gold card taps off like any vote, and the name drops to the top
+    // rung: Kenzie leads again.
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalled())
     expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     await waitFor(() => expect(ballotTab).toHaveTextContent('2 of 3'))

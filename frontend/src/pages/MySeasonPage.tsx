@@ -3627,20 +3627,28 @@ function PicksSection({
                       const maxed = !isSelected && epPending.length >= maxPicks
                       // With the gold rung open, every live name is one tap
                       // from being the Power Vote — a regular vote included.
-                      const disabled = play.busy || isPower || (!designating && maxed)
+                      // The gold card taps off like any vote: the tap is the
+                      // ladder's Remove, once the play is a real row.
+                      const disabled =
+                        play.busy ||
+                        (isPower ? ballotPlay!.id.startsWith('pending-') : !designating && maxed)
                       const value = isSelected ? rungValue(ep, rungIndex + 1) : null
                       return (
                         <div key={c.id} className="relative rounded-xl">
                           <button
                             type="button"
                             onClick={() =>
-                              designating ? designatePower(c.id) : togglePick(ep.id, c.id, maxPicks)
+                              isPower
+                                ? void play.takeBack(ballotPlay!)
+                                : designating
+                                  ? designatePower(c.id)
+                                  : togglePick(ep.id, c.id, maxPicks)
                             }
                             disabled={disabled}
-                            aria-pressed={designating ? undefined : isSelected}
+                            aria-pressed={designating ? undefined : isSelected || isPower}
                             aria-label={
                               isPower
-                                ? `${name} is your Power Vote`
+                                ? `Remove Power Vote from ${name}`
                                 : designating
                                   ? `Make ${name} your Power Vote`
                                   : isSelected
