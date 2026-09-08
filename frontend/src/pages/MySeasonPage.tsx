@@ -365,6 +365,9 @@ export function MySeasonPage() {
     filled: number
     saved: boolean
   } | null>(null)
+  // The Tribe lane's Swap chip lands here, under the card (callback ref so
+  // the portal re-targets when the slot mounts and unmounts with the beat).
+  const [swapSlot, setSwapSlot] = useState<HTMLDivElement | null>(null)
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
   const [beat, setBeat] = useState<BeatKey>(() => {
@@ -903,6 +906,7 @@ export function MySeasonPage() {
                 onPickingDone={() => setPicking(null)}
                 onStartSwap={() => setPicking('swap')}
                 onStartDouble={() => setPicking('double')}
+                swapSlot={swapSlot}
               />
             </div>
           </RecordPanel>
@@ -929,6 +933,10 @@ export function MySeasonPage() {
             </div>
           </RecordPanel>
           </LaneStack>
+
+          {beat === 'roster' && (
+            <div ref={setSwapSlot} className="flex min-h-8 justify-end px-1 empty:hidden" />
+          )}
 
           {/* Promoted out of the record (#478 follow-on): one jade card under
               both lanes rather than an affordance that only existed on Roster.
@@ -2232,6 +2240,7 @@ function RosterSection({
   onPickingDone,
   onStartSwap,
   onStartDouble,
+  swapSlot,
 }: {
   season: Season
   contestants: Contestant[]
@@ -2252,6 +2261,8 @@ function RosterSection({
   onStartSwap?: () => void
   /** Start the Double Castaway Points pick: the rows answer it (#398). */
   onStartDouble?: () => void
+  /** Where the Swap chip renders: a slot the parent keeps under the lane card. */
+  swapSlot?: HTMLElement | null
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   // The swapped-out ledger, folded into the card's footer.
@@ -2516,45 +2527,47 @@ function RosterSection({
       </div>
     )
 
-  // The swap lives in the lane's footer, where Edit tribe sits pre-lock: a
-  // plain link, not a gold chip, so it stops reading as a second advantage
-  // beside the ×2 card (and its gold diamond as a tribe colour). While
-  // picking, Cancel rides on the instruction banner at the top instead.
-  const swapFoot = swapAvailable ? (
-    <button
-      type="button"
-      onClick={() => onStartSwap?.()}
-      aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
-      className="lane-card__foot justify-center text-sm text-stone-500"
-    >
-      <span className="font-semibold text-jade-700 underline underline-offset-2">Swap</span>
-      <span
-        className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
-          nextSwapCost === 0
-            ? 'bg-jade-600 text-cream-50'
-            : 'bg-terracotta-100 text-terracotta-800'
-        }`}
-      >
-        {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
-      </span>
-    </button>
-  ) : thisEpisodeSwap ? (
-    /* Reversible until picks lock — see the swap-undo decision. */
-    <div className="lane-card__foot justify-center text-sm">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
-        Swapped this episode
-        {thisEpisodeSwap.swap_penalty_points !== 0 && ` · ${thisEpisodeSwap.swap_penalty_points}`}
-      </span>
+  // The swap sits under the lane card, not in it: as a gold chip beside the
+  // ×2 card it read as a second advantage (its gold diamond as a tribe
+  // colour), and as a footer row it collided with Snuffed. The parent owns
+  // the slot so the chip can leave the card; while picking, Cancel rides on
+  // the instruction banner instead.
+  const swapFoot =
+    picking === 'swap' ? null : swapAvailable ? (
       <button
         type="button"
-        onClick={() => void undoSwap()}
-        disabled={swapping}
-        className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+        onClick={() => onStartSwap?.()}
+        aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-jade-600/50 bg-white px-2.5 py-1 font-display text-sm font-semibold text-jade-700 shadow-sm transition-colors hover:bg-jade-50"
       >
-        Undo
+        <span>Swap</span>
+        <span
+          className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
+            nextSwapCost === 0
+              ? 'bg-jade-600 text-cream-50'
+              : 'bg-terracotta-100 text-terracotta-800'
+          }`}
+        >
+          {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
+        </span>
       </button>
-    </div>
-  ) : null
+    ) : thisEpisodeSwap ? (
+      /* Reversible until picks lock — see the swap-undo decision. */
+      <span className="inline-flex items-baseline gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
+          Swapped this episode
+          {thisEpisodeSwap.swap_penalty_points !== 0 && ` · ${thisEpisodeSwap.swap_penalty_points}`}
+        </span>
+        <button
+          type="button"
+          onClick={() => void undoSwap()}
+          disabled={swapping}
+          className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+        >
+          Undo
+        </button>
+      </span>
+    ) : null
 
   return (
     <>
@@ -2789,7 +2802,7 @@ function RosterSection({
           <span className="font-semibold text-jade-700 underline underline-offset-2">Edit tribe</span>
         </button>
       )}
-      {swapFoot}
+      {swapSlot && swapFoot && createPortal(swapFoot, swapSlot)}
       {retiredRoster.length > 0 && (
         <button
           type="button"

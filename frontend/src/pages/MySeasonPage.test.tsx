@@ -540,7 +540,7 @@ describe('MySeasonPage state shell', () => {
     // Tribe: the strip says what the advantage becomes here and starts the
     // pick. Designating lights the rows; Cancel puts the offer back.
     const roster = await openBeat('Tribe')
-    expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent('free')
+    expect(await screen.findByRole('button', { name: /^Swap ·/ })).toHaveTextContent('free')
     const tribeStrip = within(roster).getByRole('region', { name: 'Advantage' })
     expect(within(tribeStrip).getByText(/double point boost/)).toBeVisible()
     await userEvent.click(within(tribeStrip).getByRole('button', { name: 'Play it here' }))
@@ -874,7 +874,7 @@ describe('MySeasonPage state shell', () => {
 
     // The swap starts on the roster now, and the header carries its price.
     const rosterSection = await openBeat('Tribe')
-    const swap = await within(rosterSection).findByRole('button', { name: /^Swap ·/ })
+    const swap = await screen.findByRole('button', { name: /^Swap ·/ })
     expect(swap).toHaveTextContent('-10')
 
     await userEvent.click(swap)
@@ -925,11 +925,11 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const roster = await openBeat('Tribe')
+    await openBeat('Tribe')
     // No second swap this episode, but the one made is still reversible.
-    expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
-    expect(await within(roster).findByText(/Swapped this episode · -10/)).toBeVisible()
-    await userEvent.click(within(roster).getByRole('button', { name: 'Undo' }))
+    expect(screen.queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
+    expect(await screen.findByText(/Swapped this episode · -10/)).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
     await waitFor(() =>
       expect(api.delete).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap'),
