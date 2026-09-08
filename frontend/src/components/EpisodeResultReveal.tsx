@@ -11,13 +11,63 @@ function signed(value: number) {
 const NUMBER_WORDS = ['zero', 'one', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight']
 
 /** The headline is the night's story: name the one boot, count the torches
- *  beyond that (#477). The commissioner's own headline on the episode wins
- *  when set: this count can't tell a Redemption Island trip from an exit. */
-function snuffedHeadline(eliminated: EpisodeResult['eliminated']) {
+ *  beyond that (#477). On a Redemption Island week (#655) it is one line per
+ *  castaway, island trips first: "sent to Redemption" or "sent home". The
+ *  commissioner's own headline on the episode wins when set. */
+function defaultHeadline(eliminated: EpisodeResult['eliminated']) {
+  const island = eliminated.filter((e) => !e.is_final)
+  if (island.length > 0) {
+    const home = eliminated.filter((e) => e.is_final)
+    return [
+      ...island.map((e) => `${e.name} sent to Redemption.`),
+      ...home.map((e) => `${e.name} sent home.`),
+    ].join('\n')
+  }
   if (eliminated.length === 0) return 'No one was voted out'
   if (eliminated.length === 1) return `${eliminated[0].name}'s torch was snuffed`
   const count = NUMBER_WORDS[eliminated.length] ?? String(eliminated.length)
   return `${count} torches snuffed`
+}
+
+/** "Rachel", "Rachel and Candice", "Rachel, Candice and Marissa". */
+function nameList(names: string[]) {
+  if (names.length <= 1) return names.join('')
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/** The island line under the boot chips: who arrived this week and who was
+ *  already there. */
+function islandLine(arrived: string[], waiting: string[]) {
+  if (arrived.length > 0 && waiting.length > 0) {
+    const verb = arrived.length === 1 ? 'joins' : 'join'
+    return `${nameList(arrived)} ${verb} ${nameList(waiting)} on Redemption Island.`
+  }
+  if (arrived.length === 1) return `${arrived[0]} is alone on Redemption Island.`
+  if (arrived.length > 1) return `${nameList(arrived)} on Redemption Island.`
+  return `${nameList(waiting)} still on Redemption Island.`
+}
+
+/** A torch on the portrait's corner: lit for someone still playing on the
+ *  island, snuffed for someone sent home. */
+function Torch({ lit }: { lit: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`absolute -bottom-0.5 -right-1 inline-flex size-3.5 items-center justify-center rounded-full ring-2 ring-forest-800 ${
+        lit ? 'bg-gold-500 text-forest-900' : 'bg-stone-600 text-stone-300'
+      }`}
+    >
+      {lit ? (
+        <svg viewBox="0 0 24 24" className="size-2.5" fill="currentColor">
+          <path d="M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" className="size-2" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      )}
+    </span>
+  )
 }
 
 /** Finale ballots predict different things (winner, fire, first boot); a plain
@@ -80,6 +130,9 @@ export function EpisodeResultReveal({
   const rosterLane = result.roster_points + result.roster_adjustment_points + (rosterDouble?.bonus_points ?? 0)
   const ballotLane = result.ballot_points + (voteDouble?.bonus_points ?? 0)
   const eliminatedIds = new Set(result.eliminated.map((e) => e.contestant_id))
+  const island = result.eliminated.filter((e) => !e.is_final)
+  const home = result.eliminated.filter((e) => e.is_final)
+  const redemptionWeek = island.length > 0 || result.redemption.length > 0
   const insights = result.insights ?? []
   const delta = result.rank_delta
 
@@ -115,23 +168,27 @@ export function EpisodeResultReveal({
               id="episode-result-title"
               ref={headingRef}
               tabIndex={-1}
-              className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
+              className="mt-5 whitespace-pre-line font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              {result.headline ?? snuffedHeadline(result.eliminated)}
+              {result.headline ?? defaultHeadline(result.eliminated)}
             </h2>
 
             {result.title && (
               <p className="mt-1.5 text-sm text-cream-100/60">{result.title}</p>
             )}
 
-            {result.eliminated.length > 1 && (
+            {/* On a Redemption Island week only the people who left get a
+                boot chip, with a snuffed torch; the island line below carries
+                everyone still playing there (#655). Otherwise the chips list
+                every boot once there is more than one. */}
+            {(redemptionWeek ? home.length > 0 : result.eliminated.length > 1) && (
               <ul className="mt-3 flex flex-wrap gap-2" aria-label="Eliminated castaways">
-                {result.eliminated.map((castaway) => (
+                {(redemptionWeek ? home : result.eliminated).map((castaway) => (
                   <li
                     key={castaway.contestant_id}
                     className="flex min-w-0 items-center gap-2 rounded-full bg-black/25 py-1 pl-1 pr-3 text-sm ring-1 ring-white/10"
                   >
-                    <span className="grayscale opacity-80">
+                    <span className="relative grayscale opacity-80">
                       <ContestantAvatar
                         name={castaway.name}
                         imageUrl={castaway.image_url}
@@ -139,11 +196,47 @@ export function EpisodeResultReveal({
                         tribeName={null}
                         size="sm"
                       />
+                      {redemptionWeek && <Torch lit={false} />}
                     </span>
                     <span className={`truncate ${ELIMINATED_STRIKE}`}>{castaway.name}</span>
+                    {redemptionWeek && (
+                      <span className="font-display text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-cream-100/45">
+                        Sent home
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
+            )}
+
+            {result.redemption.length > 0 && (
+              <p className="mt-3 flex min-w-0 items-center gap-2.5 text-sm text-cream-100/70">
+                <span className="inline-flex shrink-0" aria-hidden="true">
+                  {result.redemption.map((castaway, index) => (
+                    <span
+                      key={castaway.contestant_id}
+                      className={`relative rounded-full ring-2 ring-forest-800 ${index > 0 ? '-ml-2' : ''}`}
+                    >
+                      <ContestantAvatar
+                        name={castaway.name}
+                        imageUrl={castaway.image_url}
+                        tribeColor={null}
+                        tribeName={null}
+                        size="sm"
+                      />
+                      <Torch lit />
+                    </span>
+                  ))}
+                </span>
+                <span className="min-w-0">
+                  {islandLine(
+                    island.map((e) => e.name),
+                    result.redemption
+                      .filter((c) => !island.some((e) => e.contestant_id === c.contestant_id))
+                      .map((c) => c.name),
+                  )}
+                </span>
+              </p>
             )}
 
             <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">

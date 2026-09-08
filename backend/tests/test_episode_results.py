@@ -70,6 +70,40 @@ def test_latest_reveal_reconciles_multiple_correct_picks_and_double_vote(
         + result["weekly_play_bonus"]
         == result["total_points"]
     )
+    assert [e["is_final"] for e in result["eliminated"]] == [True, True]
+    assert result["redemption"] == []
+
+
+@pytest.mark.integration
+def test_result_lists_redemption_island_as_of_that_episode(client, db_conn):
+    """A non-final boot is on the island until they lose a duel or return;
+    a replay of an earlier week shows the island as it stood then (#655)."""
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    ep3 = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
+    first = insert_contestant(db_conn, season["id"], "First")
+    second = insert_contestant(db_conn, season["id"], "Second")
+    third = insert_contestant(db_conn, season["id"], "Third")
+    # Ep 1: First and Second go to the island.
+    insert_elimination(db_conn, ep1["id"], first["id"], is_final=False)
+    insert_elimination(db_conn, ep1["id"], second["id"], is_final=False)
+    # Ep 2: Third joins them, First loses the duel and is out for good.
+    insert_elimination(db_conn, ep2["id"], third["id"], is_final=False)
+    insert_elimination(db_conn, ep2["id"], first["id"], "redemption_loss")
+    # Ep 3: Second returns to the game.
+    insert_scoring_event(db_conn, ep3["id"], second["id"], "return_from_redemption")
+
+    base = f"/league-seasons/{season['league_season_id']}/episode-results"
+    names = lambda r: [c["name"] for c in r.json()["redemption"]]  # noqa: E731
+    assert names(client.get(f"{base}/{ep1['id']}")) == ["First", "Second"]
+    ep2_result = client.get(f"{base}/{ep2['id']}").json()
+    assert {(e["name"], e["is_final"]) for e in ep2_result["eliminated"]} == {
+        ("Third", False),
+        ("First", True),
+    }
+    assert [c["name"] for c in ep2_result["redemption"]] == ["Second", "Third"]
+    assert names(client.get(f"{base}/{ep3['id']}")) == ["Third"]
 
 
 @pytest.mark.integration

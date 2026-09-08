@@ -291,7 +291,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
             """
             select c.id::text as contestant_id,
                    coalesce(c.nickname, c.name) as name, c.image_url,
-                   el.elimination_type
+                   el.elimination_type, el.is_final
             from eliminations el
             join contestants c on c.id = el.contestant_id
             where el.episode_id = %s
@@ -300,6 +300,37 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
             [str(episode["id"])],
         )
         eliminated = cur.fetchall()
+        # Who is on Redemption Island as of this episode (#655): sent there
+        # by a non-final boot up to now, and neither out for good nor back on
+        # a tribe yet. Read from the record rather than tribe membership so a
+        # replay of an old week shows the island as it stood then.
+        cur.execute(
+            """
+            select c.id::text as contestant_id,
+                   coalesce(c.nickname, c.name) as name, c.image_url
+            from eliminations el
+            join episodes ep on ep.id = el.episode_id
+            join contestants c on c.id = el.contestant_id
+            where ep.season_id = %(season_id)s
+              and not el.is_final
+              and ep.episode_number <= %(n)s
+              and not exists (
+                select 1 from eliminations x
+                join episodes xe on xe.id = x.episode_id
+                where x.contestant_id = c.id and x.is_final
+                  and xe.episode_number <= %(n)s)
+              and not exists (
+                select 1 from scoring_events se
+                join episodes see on see.id = se.episode_id
+                where se.contestant_id = c.id
+                  and se.event_type like 'return_from_redemption%%'
+                  and see.episode_number <= %(n)s
+                  and see.episode_number >= ep.episode_number)
+            order by ep.episode_number, el.created_at, c.name
+            """,
+            {"season_id": str(episode["season_id"]), "n": episode["episode_number"]},
+        )
+        redemption = cur.fetchall()
         cur.execute(
             """
             select ap.id::text as advantage_play_id, ap.advantage_type,
@@ -339,6 +370,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         "headline": episode["headline"],
         "is_finale": episode["is_finale"],
         "eliminated": eliminated,
+        "redemption": redemption,
         "ballot": ballot,
         "roster": roster,
         "roster_points": roster_points,

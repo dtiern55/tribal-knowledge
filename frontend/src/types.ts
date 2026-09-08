@@ -210,6 +210,8 @@ export interface EpisodeResultContestant {
 
 export interface EpisodeResultElimination extends EpisodeResultContestant {
   elimination_type: string
+  /** False for a Redemption Island boot: still in the game (#655). */
+  is_final: boolean
 }
 
 export interface EpisodeResultBallotPick extends EpisodeResultContestant {
@@ -260,6 +262,8 @@ export interface EpisodeResult {
   headline: string | null
   is_finale: boolean
   eliminated: EpisodeResultElimination[]
+  /** Everyone on Redemption Island as of this episode, in arrival order. */
+  redemption: EpisodeResultContestant[]
   ballot: EpisodeResultBallotPick[]
   roster: EpisodeResultRosterMember[]
   roster_points: number
