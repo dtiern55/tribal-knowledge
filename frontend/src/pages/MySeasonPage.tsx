@@ -2527,9 +2527,9 @@ function RosterSection({
       </div>
     )
 
-  // The swap sits under the lane card, not in it: as a gold chip beside the
-  // ×2 card it read as a second advantage (its gold diamond as a tribe
-  // colour), and as a footer row it collided with Snuffed. The parent owns
+  // The swap sits under the lane card, not in it: beside the ×2 card it read
+  // as a second advantage (its gold diamond as a tribe colour), and as a
+  // footer row it collided with Snuffed. The parent owns
   // the slot so the chip can leave the card; while picking, Cancel rides on
   // the instruction banner instead.
   const swapFoot =
@@ -2538,7 +2538,7 @@ function RosterSection({
         type="button"
         onClick={() => onStartSwap?.()}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-jade-600/50 bg-white px-2.5 py-1 font-display text-sm font-semibold text-jade-700 shadow-sm transition-colors hover:bg-jade-50"
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
       >
         <span>Swap</span>
         <span
