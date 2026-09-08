@@ -36,7 +36,7 @@ describe('StandingsPage', () => {
     expect(screen.getByText('No players yet')).toBeVisible()
   })
 
-  it('says how many of the roster are still in, without portraits or the points breakdown', async () => {
+  it('shows one lit torch per active pick, without portraits or the points breakdown', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -64,14 +64,15 @@ describe('StandingsPage', () => {
 
     renderWithApp(<StandingsPage />)
 
-    expect(await screen.findByText('2 still in')).toBeVisible()
-    expect(screen.queryByTitle('Kenzie')).not.toBeInTheDocument()
+    const torches = await screen.findByRole('img', { name: '2 still in' })
+    expect(torches.querySelectorAll('svg')).toHaveLength(2)
+    expect(screen.queryByAltText('Kenzie')).not.toBeInTheDocument()
     // #437: the roster/ballot/finale breakdown moved to the detail page.
     expect(screen.queryByText(/Roster 12/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Ballot 15/)).not.toBeInTheDocument()
   })
 
-  it('names who went home this week in place of the count (#457)', async () => {
+  it('keeps a snuffed torch for a pick booted in the last scored episode (#457)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -100,7 +101,9 @@ describe('StandingsPage', () => {
 
     renderWithApp(<StandingsPage />)
 
-    expect(await screen.findByText('Lost Charlie this week')).toBeVisible()
-    expect(screen.queryByText('1 still in')).not.toBeInTheDocument()
+    const torches = await screen.findByRole('img', { name: '1 still in, lost Charlie this week' })
+    const flames = torches.querySelectorAll('svg')
+    expect(flames).toHaveLength(2)
+    expect(flames[1]).toHaveClass('fill-stone-400')
   })
 })

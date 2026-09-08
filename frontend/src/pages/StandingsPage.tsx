@@ -94,19 +94,36 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// One faded line under the name for the roster: who went home this week, or
-// how many are still in. Words rather than a row of portraits (the cluster
-// made every row busy and the faces are one tap away on the Team page).
-// Nothing renders while rosters are still hidden (both lists empty).
-function RosterLine({ entry }: { entry: StandingEntry }) {
-  const lost = entry.recently_eliminated_survivors
-  if (lost.length > 0) {
-    const who = lost.length === 1 ? lost[0].name : lost.length === 2 ? `${lost[0].name} and ${lost[1].name}` : `${lost.length} castaways`
-    return <span className="block truncate text-[11px] font-medium text-terracotta-600">Lost {who} this week</span>
-  }
-  const n = entry.active_survivors.length
-  if (n === 0) return null
-  return <span className="block truncate text-[11px] text-paper-ink-faded">{n} still in</span>
+// The flame from the results card (EpisodeResultReveal's corner torch).
+const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
+
+// One torch per castaway on the roster, under the name: gold while they're in
+// the game, grey for the episode after they go home, then gone unless the
+// player swapped someone in. Torches shrink as the season goes on, so the
+// list visibly thins out. Replaces the portrait cluster, which made every row
+// busy; the faces are one tap away on the Team page. Nothing renders while
+// rosters are hidden (both lists empty).
+function Torches({ entry }: { entry: StandingEntry }) {
+  const lit = entry.active_survivors
+  const out = entry.recently_eliminated_survivors
+  if (lit.length === 0 && out.length === 0) return null
+  const label = out.length === 0 ? `${lit.length} still in` : `${lit.length} still in, lost ${out.map((s) => s.name).join(' and ')} this week`
+  return (
+    <span className="mt-1 flex h-[11px] gap-[3px]" role="img" aria-label={label}>
+      {lit.map((s) => (
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-[11px] fill-gold-500" aria-hidden>
+          <title>{s.name}</title>
+          <path d={FLAME_PATH} />
+        </svg>
+      ))}
+      {out.map((s) => (
+        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-[11px] fill-stone-400" aria-hidden>
+          <title>{`${s.name}, eliminated ep ${s.eliminated_episode}`}</title>
+          <path d={FLAME_PATH} />
+        </svg>
+      ))}
+    </span>
+  )
 }
 
 export function StandingsPage() {
@@ -209,7 +226,7 @@ export function StandingsPage() {
                           <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                         )}
                       </div>
-                      <RosterLine entry={entry} />
+                      <Torches entry={entry} />
                     </div>
                     <div className="text-right">
                       <p className="font-display text-lg font-bold leading-tight text-forest-800 tabular-nums">{entry.total_points}</p>
