@@ -1854,8 +1854,9 @@ function FirstLossMoment({ onClose }: { onClose: () => void }) {
           The tribe has spoken
         </h2>
         <p className="mt-3 text-sm text-paper-ink">
-          You've lost a castaway, but in this moment your tribe grows stronger. Use your free
-          swap to replace your snuffed castaway with a new pick.
+          You've lost a castaway, but in this moment your tribe grows stronger. Use your{' '}
+          <b className="text-gold-700">free swap</b> to replace your snuffed castaway with a new
+          pick.
         </p>
         <button
           type="button"
@@ -2608,8 +2609,12 @@ function RosterSection({
           onStartSwap?.()
         }}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
-        data-pulse={moment === 'nudge' || undefined}
-        className="swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
+        data-pulse={moment != null || undefined}
+        // Lifted over the card's scrim (z-50) so it pulses in the light while
+        // the tribe speaks; the nav sits at z-45.
+        className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 ${
+          moment != null ? 'relative z-[60]' : ''
+        }`}
       >
         <span>Swap</span>
         <span

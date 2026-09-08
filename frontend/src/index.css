@@ -625,16 +625,22 @@ html.locked-night .tribal-border {
 
 /* The first-loss nudge: a gold halo breathing on the Swap chip. */
 .swap-chip[data-pulse] {
-  animation: swap-pulse 1.6s ease-in-out infinite;
+  animation: swap-pulse 1.4s ease-in-out infinite;
 }
 @keyframes swap-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold-500) 55%, transparent); }
-  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-gold-500) 0%, transparent); }
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold-500) 85%, transparent);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 16px color-mix(in srgb, var(--color-gold-500) 0%, transparent);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .swap-chip[data-pulse] {
     animation: none;
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-gold-500) 45%, transparent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-gold-500) 60%, transparent);
   }
 }
 

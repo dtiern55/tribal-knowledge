@@ -968,10 +968,11 @@ describe('MySeasonPage state shell', () => {
 
     await openBeat('Tribe')
     const dialog = await screen.findByRole('dialog', { name: /tribe has spoken/i })
-    expect(within(dialog).getByText(/Use your free swap/)).toBeVisible()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
-
+    expect(within(dialog).getByText('free swap')).toBeVisible()
+    // The chip pulses under the card already, and keeps on after Got it.
     const swap = screen.getByRole('button', { name: /^Swap ·/ })
+    expect(swap).toHaveAttribute('data-pulse')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
     expect(swap).toHaveAttribute('data-pulse')
     await userEvent.click(swap)
     // Starting the swap ends the nudge: the chip leaves with the offer.
