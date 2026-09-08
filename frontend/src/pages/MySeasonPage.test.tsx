@@ -64,6 +64,7 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
     episode_id: 'episode-2',
     episode_number: 2,
     title: null,
+    headline: null,
     is_finale: false,
     eliminated: [
       { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, elimination_type: 'voted_out' },
@@ -1192,7 +1193,12 @@ describe('MySeasonPage state shell', () => {
         episode(2, 'scored', '2026-08-08T00:00:00Z'),
       ],
       undefined,
-      result({ current_rank: null, prior_rank: null, rank_delta: null }),
+      result({
+        current_rank: null,
+        prior_rank: null,
+        rank_delta: null,
+        headline: 'Rachel sent to Redemption. Rupert ends his Survivor career.',
+      }),
     )
     renderWithApp(<MySeasonPage />, { auth })
 
@@ -1203,6 +1209,9 @@ describe('MySeasonPage state shell', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Ep 2 replay')
+    // The commissioner's headline replaces the torch count.
+    expect(dialog).toHaveTextContent('Rachel sent to Redemption. Rupert ends his Survivor career.')
+    expect(dialog).not.toHaveTextContent('torches snuffed')
     expect(dialog).not.toHaveTextContent(/ranked|spots to|Held at/)
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
     await user.click(screen.getByRole('button', { name: 'Back to My Season' }))

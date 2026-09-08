@@ -11,7 +11,8 @@ function signed(value: number) {
 const NUMBER_WORDS = ['zero', 'one', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight']
 
 /** The headline is the night's story: name the one boot, count the torches
- *  beyond that (#477). */
+ *  beyond that (#477). The commissioner's own headline on the episode wins
+ *  when set: this count can't tell a Redemption Island trip from an exit. */
 function snuffedHeadline(eliminated: EpisodeResult['eliminated']) {
   if (eliminated.length === 0) return 'No one was voted out'
   if (eliminated.length === 1) return `${eliminated[0].name}'s torch was snuffed`
@@ -116,7 +117,7 @@ export function EpisodeResultReveal({
               tabIndex={-1}
               className="mt-5 font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              {snuffedHeadline(result.eliminated)}
+              {result.headline ?? snuffedHeadline(result.eliminated)}
             </h2>
 
             {result.title && (
