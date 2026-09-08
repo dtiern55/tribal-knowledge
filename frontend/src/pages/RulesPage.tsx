@@ -248,7 +248,7 @@ export function RulesPage() {
               <li>A swap costs {season.swap_token_cost} tokens.</li>
             ) : (
               <li>
-                You can swap one castaway per episode. The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
+                Swap as often as you like. The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
                 After that each swap costs points: {swapCostLadder(season)}.
               </li>
             )}

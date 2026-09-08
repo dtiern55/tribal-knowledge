@@ -540,7 +540,7 @@ describe('MySeasonPage state shell', () => {
     // Tribe: the strip says what the advantage becomes here and starts the
     // pick. Designating lights the rows; Cancel puts the offer back.
     const roster = await openBeat('Tribe')
-    expect(await within(roster).findByRole('button', { name: /^Swap ·/ })).toHaveTextContent('free')
+    expect(await screen.findByRole('button', { name: /^Swap ·/ })).toHaveTextContent('free')
     const tribeStrip = within(roster).getByRole('region', { name: 'Advantage' })
     expect(within(tribeStrip).getByText(/double point boost/)).toBeVisible()
     await userEvent.click(within(tribeStrip).getByRole('button', { name: 'Play it here' }))
@@ -874,7 +874,7 @@ describe('MySeasonPage state shell', () => {
 
     // The swap starts on the roster now, and the header carries its price.
     const rosterSection = await openBeat('Tribe')
-    const swap = await within(rosterSection).findByRole('button', { name: /^Swap ·/ })
+    const swap = await screen.findByRole('button', { name: /^Swap ·/ })
     expect(swap).toHaveTextContent('-10')
 
     await userEvent.click(swap)
@@ -926,14 +926,59 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     const roster = await openBeat('Tribe')
-    // No second swap this episode, but the one made is still reversible.
-    expect(within(roster).queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
-    expect(await within(roster).findByText(/Swapped this episode · -10/)).toBeVisible()
-    await userEvent.click(within(roster).getByRole('button', { name: 'Undo' }))
+    // Another swap is still on offer, and the one made is reversible from its row.
+    expect(await screen.findByRole('button', { name: /^Swap ·/ })).toBeVisible()
+    await userEvent.click(await within(roster).findByRole('button', { name: 'Undo swap' }))
 
     await waitFor(() =>
-      expect(api.delete).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap'),
+      expect(api.delete).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap/cast-2'),
     )
+  })
+
+  it('says the tribe has spoken the first time a castaway is voted out, then pulses Swap', async () => {
+    localStorage.removeItem('mytribe.first-loss.season-1')
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 10 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: 2 },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await openBeat('Tribe')
+    const dialog = await screen.findByRole('dialog', { name: /tribe has spoken/i })
+    expect(within(dialog).getByText('free swap')).toBeVisible()
+    // The chip pulses under the card already, and keeps on after Got it.
+    const swap = screen.getByRole('button', { name: /^Swap ·/ })
+    expect(swap).toHaveAttribute('data-pulse')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
+    expect(swap).toHaveAttribute('data-pulse')
+    await userEvent.click(swap)
+    // Starting the swap ends the nudge: the chip leaves with the offer.
+    expect(screen.queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Choose a castaway to drop')).toBeVisible()
+    expect(localStorage.getItem('mytribe.first-loss.season-1')).toBe('1')
   })
 
   it('keeps an unsaved ballot when you look at another beat', async () => {

@@ -26,6 +26,7 @@ export function RosterCard({
   isDoubled = false,
   ssWindowOpen = false,
   swappedInEpisode = null,
+  onUndoSwap,
   right,
   linkSuffix = '',
   bioLink = true,
@@ -47,6 +48,8 @@ export function RosterCard({
   isDoubled?: boolean
   ssWindowOpen?: boolean
   swappedInEpisode?: number | null
+  /** Reverse the swap that brought this castaway in; only while it is still open. */
+  onUndoSwap?: () => void
   right?: ReactNode
   // Query string carrying the context you came from, so the contestant page
   // can scope swiping to this roster and show what they earned you (#262).
@@ -161,6 +164,18 @@ export function RosterCard({
             >
               Swapped in · ep {swappedInEpisode}
             </span>
+          )}
+          {onUndoSwap && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onUndoSwap()
+              }}
+              className="text-[10px] font-semibold uppercase tracking-[0.08em] text-forest-700 underline underline-offset-2"
+            >
+              Undo swap
+            </button>
           )}
           {isSoleSurvivor && (
             <span

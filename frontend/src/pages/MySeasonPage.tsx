@@ -365,6 +365,9 @@ export function MySeasonPage() {
     filled: number
     saved: boolean
   } | null>(null)
+  // The Tribe lane's Swap chip lands here, under the card (callback ref so
+  // the portal re-targets when the slot mounts and unmounts with the beat).
+  const [swapSlot, setSwapSlot] = useState<HTMLDivElement | null>(null)
   // One beat at a time under the masthead. Deep links (#roster/#votes/#advantage)
   // select the matching beat instead of scrolling to it.
   const [beat, setBeat] = useState<BeatKey>(() => {
@@ -653,7 +656,7 @@ export function MySeasonPage() {
     // never nags. Nothing can be done about it at all once swaps are spent or
     // closed, and by then most rosters have one.
     const deadSlots = held.length - active.length
-    const canSwap = !swapsLocked(d.season!, d.episodes) && !swappedThisEpisode
+    const canSwap = !swapsLocked(d.season!, d.episodes)
     const heldDead = deadSlots > 0 && canSwap
     const rosterDone = held.length > 0 && (deadSlots === 0 || !canSwap)
     // A finale ballot is only "done" when a full bracket has been locked in —
@@ -903,6 +906,7 @@ export function MySeasonPage() {
                 onPickingDone={() => setPicking(null)}
                 onStartSwap={() => setPicking('swap')}
                 onStartDouble={() => setPicking('double')}
+                swapSlot={swapSlot}
               />
             </div>
           </RecordPanel>
@@ -929,6 +933,12 @@ export function MySeasonPage() {
             </div>
           </RecordPanel>
           </LaneStack>
+
+          {/* No slot under a recap: the first-loss moment keys off the slot, and
+              it has to wait for the reveal to be dismissed (#717). */}
+          {beat === 'roster' && !visibleResult && (
+            <div ref={setSwapSlot} className="flex min-h-8 justify-end px-1 empty:hidden" />
+          )}
 
           {/* Promoted out of the record (#478 follow-on): one jade card under
               both lanes rather than an affordance that only existed on Roster.
@@ -1820,6 +1830,46 @@ function HistorySection({
   )
 }
 
+// The tribe has spoken: the one-time nudge toward the free swap (#717).
+function FirstLossMoment({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.focus()
+  }, [])
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" role="presentation">
+      <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={ref}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="first-loss-title"
+        className="relative w-full max-w-sm rounded-2xl bg-cream-50 p-6 text-center shadow-[0_8px_40px_rgba(10,22,19,0.35)] outline-none"
+      >
+        <h2
+          id="first-loss-title"
+          className="font-display text-xl font-semibold uppercase tracking-wide text-forest-800"
+        >
+          The tribe has spoken
+        </h2>
+        <p className="mt-3 text-sm text-paper-ink">
+          You've lost a castaway, but in this moment your tribe grows stronger. Use your{' '}
+          <b className="text-gold-700">free swap</b> to replace your snuffed castaway with a new
+          pick.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // The recap replays + past ballots, in a bottom sheet
 // (#478) matching the app's other sheets. Replay closes the sheet; the recap
 // reveal opens over the page from MySeasonPage.
@@ -1880,7 +1930,8 @@ function HistorySheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end sm:justify-center sm:p-6" role="presentation">
+    // z-50: the tab bar sits at z-45 (#696) and was covering the sheet's last rows.
+    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:p-6" role="presentation">
       <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
@@ -2231,6 +2282,7 @@ function RosterSection({
   onPickingDone,
   onStartSwap,
   onStartDouble,
+  swapSlot,
 }: {
   season: Season
   contestants: Contestant[]
@@ -2251,6 +2303,8 @@ function RosterSection({
   onStartSwap?: () => void
   /** Start the Double Castaway Points pick: the rows answer it (#398). */
   onStartDouble?: () => void
+  /** Where the Swap chip renders: a slot the parent keeps under the lane card. */
+  swapSlot?: HTMLElement | null
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   // The swapped-out ledger, folded into the card's footer.
@@ -2381,25 +2435,54 @@ function RosterSection({
     swapOrdinal <= season.free_swaps
       ? 0
       : Math.max(season.swap_penalty_step * swapOrdinal, season.swap_penalty_floor)
-  // One swap per episode: a swap closes the outgoing pick at openEp - 1.
-  const thisEpisodeSwap =
-    weekly.openEpisode == null
-      ? undefined
-      : roster.find((r) => r.active_until_episode === weekly.openEpisode!.episode_number - 1)
-  const swappedThisEpisode = thisEpisodeSwap != null
+  // No cap on swaps in an episode: the rising price is the rate limit (#716). A
+  // swap made this episode is reversible from its row until picks lock.
+  const openEpNumber = weekly.openEpisode?.episode_number
   const swapAvailable =
     season.status !== 'completed' &&
     !windowOpen &&
     !swapsLocked(season, episodes) &&
-    !swappedThisEpisode &&
     activeRoster.length > 0 &&
     swapCandidates.length > 0
 
-  async function undoSwap() {
+  // The first time a castaway of yours is voted out (#717): the page dims,
+  // says the tribe has spoken, and the Swap chip pulses. Only while the free
+  // swap is still on the table and nothing has been swapped yet; remembered
+  // per browser, so a new phone may say it once more.
+  const [moment, setMoment] = useState<'popup' | 'nudge' | null>(null)
+  const lostOne = activeRoster.some(
+    (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode != null,
+  )
+  const firstLossDue =
+    rosterLoaded &&
+    lostOne &&
+    swappedRoster.length === 0 &&
+    swapAvailable &&
+    nextSwapCost === 0 &&
+    picking == null &&
+    swapSlot != null
+  const firstLossKey = `mytribe.first-loss.${season.id}`
+  useEffect(() => {
+    if (!firstLossDue || moment != null) return
+    try {
+      if (localStorage.getItem(firstLossKey) === '1') return
+      localStorage.setItem(firstLossKey, '1')
+    } catch {
+      return
+    }
+    setMoment('popup')
+    // The chip is what the card points at, and on a phone it can be sitting
+    // under the tab bar: bring it to mid-screen before the card comes up.
+    document.querySelector('.swap-chip')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    // The moment fires once per browser; `moment` is only read to not re-fire mid-way.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstLossDue, firstLossKey])
+
+  async function undoSwap(contestantId: string) {
     setSwapping(true)
     setError(null)
     try {
-      await api.delete(`/league-seasons/${season.id}/roster/swap`)
+      await api.delete(`/league-seasons/${season.id}/roster/swap/${contestantId}`)
       setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
       onRosterChange()
     } catch (e) {
@@ -2515,28 +2598,28 @@ function RosterSection({
       </div>
     )
 
-  // The swap chip / cancel / undo cluster, lifted out of the JSX (#529).
-  const swapAction = (
-    picking === 'swap' ? (
+  // The swap sits under the lane card, not in it: beside the ×2 card it read
+  // as a second advantage (its gold diamond as a tribe colour), and as a
+  // footer row it collided with Snuffed. The parent owns
+  // the slot so the chip can leave the card; while picking, Cancel rides on
+  // the instruction banner instead.
+  const swapFoot =
+    picking === 'swap' ? null : swapAvailable ? (
       <button
         type="button"
         onClick={() => {
-          setDropping(null)
-          onPickingDone?.()
+          setMoment(null)
+          onStartSwap?.()
         }}
-        className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
-      >
-        Cancel
-      </button>
-    ) : swapAvailable ? (
-      <button
-        type="button"
-        onClick={() => onStartSwap?.()}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
+        data-pulse={moment != null || undefined}
+        // Lifted over the card's scrim (z-50) so it pulses in the light while
+        // the tribe speaks; the nav sits at z-45.
+        className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 ${
+          moment != null ? 'relative z-[60]' : ''
+        }`}
       >
-        <span className="tribe-marker bg-gold-500" aria-hidden="true" />
-        <span>Tribe swap</span>
+        <span>Swap</span>
         <span
           className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
             nextSwapCost === 0
@@ -2547,49 +2630,32 @@ function RosterSection({
           {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
         </span>
       </button>
-    ) : thisEpisodeSwap ? (
-      /* Reversible until picks lock — see the swap-undo decision. */
-      <span className="inline-flex items-baseline gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
-          Swapped this episode
-          {thisEpisodeSwap.swap_penalty_points !== 0 &&
-            ` · ${thisEpisodeSwap.swap_penalty_points}`}
-        </span>
-        <button
-          type="button"
-          onClick={() => void undoSwap()}
-          disabled={swapping}
-          className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
-        >
-          Undo
-        </button>
-      </span>
-    ) : undefined
-  )
-
-  // Only the swap control lives above the strip now. The tribe subtotal it
-  // used to lead with is one line of the header chip's breakdown, and the
-  // Ballot tab has no such row. The strip renders first so it sits at the
-  // same height on both tabs; the swap row rides under it.
-  const toolbar = swapAction ? (
-    <div className="flex items-center justify-end border-b border-paper-line px-4 py-2">
-      {swapAction}
-    </div>
-  ) : null
+    ) : null
 
   return (
     <>
       {advantageStrip}
-      {toolbar}
       {picking === 'swap' && (
-        <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
-          {dropping
-            ? `Choose who replaces ${(() => {
-                const droppingC = contestantMap.get(dropping)
-                return droppingC ? displayName(droppingC) : 'them'
-              })()}`
-            : 'Choose a castaway to drop'}
-          <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
+        <p className="flex items-center gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
+          <span className="min-w-0 flex-1">
+            {dropping
+              ? `Choose who replaces ${(() => {
+                  const droppingC = contestantMap.get(dropping)
+                  return droppingC ? displayName(droppingC) : 'them'
+                })()}`
+              : 'Choose a castaway to drop'}
+            <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setDropping(null)
+              onPickingDone?.()
+            }}
+            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
         </p>
       )}
       {(error || weekly.error) && (
@@ -2623,6 +2689,15 @@ function RosterSection({
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
+                }
+                onUndoSwap={
+                  // Reversible until picks lock — see the swap-undo decision.
+                  picking == null &&
+                  !swapping &&
+                  pick.active_from_episode > rosterBaseEp &&
+                  pick.active_from_episode === openEpNumber
+                    ? () => void undoSwap(pick.contestant_id)
+                    : undefined
                 }
                 right={<TeamPoints value={rosterPoints.get(pick.contestant_id) ?? 0} />}
                 bioLink={false}
@@ -2673,7 +2748,7 @@ function RosterSection({
                     the castaway you drop
                   </>
                 )}
-                . One swap per episode, and you can undo it until picks lock.
+                , and you can undo it until picks lock.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {swapCandidates.map((c) => (
@@ -2799,6 +2874,16 @@ function RosterSection({
           <span className="font-semibold text-jade-700 underline underline-offset-2">Edit tribe</span>
         </button>
       )}
+      {swapSlot && swapFoot && createPortal(swapFoot, swapSlot)}
+      {moment === 'popup' &&
+        // On the body: the lane panel is its own stacking context (z-30), under
+        // the tab bar.
+        createPortal(
+          <FirstLossMoment
+            onClose={() => setMoment('nudge')}
+          />,
+          document.body,
+        )}
       {retiredRoster.length > 0 && (
         <button
           type="button"

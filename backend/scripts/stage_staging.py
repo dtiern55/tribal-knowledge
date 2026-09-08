@@ -40,7 +40,13 @@ STAGES = [
     ("complete", 13, False),
     # Finale night after the lock: bracket frozen, nothing scored (#685).
     ("finale-locked", 12, True),
+    # The morning after your first castaway is voted out (#717): episode 4
+    # scored, nothing filed for 5 yet, the free swap still in hand.
+    ("first-loss", 4, False),
 ]
+# Stages where nothing has been filed for the open episode: pending swaps,
+# ballots and plays into it stay behind, so the week is still to be played.
+FRESH = {"first-loss"}
 
 FROZEN = datetime(2099, 1, 6, 1, 0, tzinfo=timezone.utc)  # a Wednesday 7pm Central
 YESTERDAY = datetime.now(timezone.utc) - timedelta(days=1)
@@ -80,6 +86,8 @@ def copy_rows(cur, table, where, params, remap, override=None):
 def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_locked):
     """One frozen copy of the source season and league-season, cut after `scored`."""
     open_ep = scored + 1
+    # What has been filed so far: through the open episode, or only the scored ones.
+    filed_ep = scored if slug in FRESH else open_ep
     status = "upcoming" if scored == 0 else "completed" if scored == 13 else "active"
     seasons = copy_rows(
         cur,
@@ -187,12 +195,14 @@ def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_lock
         cur,
         "roster_picks",
         f"{in_ls} and active_from_episode <= %s",
-        (src_ls, members, open_ep),
+        (src_ls, members, filed_ep),
         by_ls,
+        # A swap into an episode not yet filed is not made yet: its outgoing
+        # pick reads as still held.
         lambda r: (
             {"active_until_episode": None}
             if r["active_until_episode"] is not None
-            and r["active_until_episode"] > scored
+            and r["active_until_episode"] >= filed_ep
             else {}
         ),
     )
@@ -205,7 +215,7 @@ def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_lock
             cur,
             t,
             f"{in_ls} and {open_eps}",
-            (src_ls, members, src_season, open_ep),
+            (src_ls, members, src_season, filed_ep),
             by_ls,
         )
     copy_rows(
