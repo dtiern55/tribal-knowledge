@@ -147,7 +147,8 @@ def get_import_proposal(
 
     return {
         "eliminations": mapped(
-            proposal["eliminations"], ["name", "elimination_type", "result"]
+            proposal["eliminations"],
+            ["name", "elimination_type", "result", "is_final"],
         ),
         "events": mapped(proposal["events"], ["name", "event_type", "quantity"]),
         "placements": mapped(proposal["placements"], ["name", "placement"]),

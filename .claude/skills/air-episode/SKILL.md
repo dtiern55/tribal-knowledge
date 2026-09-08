@@ -1,14 +1,17 @@
 ---
 name: air-episode
-description: Weekly real-season scoring ritual (#186) — pull the survivoR proposal for an aired episode, review it with context and flags, take the commissioner's rulings (including the judgment calls survivoR can't provide), apply through the additive admin endpoints, then verify the resulting standings. Use when scoring a real or practice season episode.
+description: Weekly real-season scoring ritual (#186) — pull the survivoR proposal for an aired episode, review it with context and flags, take the commissioner's rulings on the whole package (eliminations, events, judgment calls, the results card headline, and the tiles) before anything is written, apply through the additive admin endpoints, then verify the resulting standings. Use when scoring a real or practice season episode.
 ---
 
 # Air an episode — weekly scoring ritual (#186)
 
 Danny (the commissioner) runs this with you after an episode airs **and**
 survivoR has published its data. The rule from #186: never auto-apply —
-**propose → review → rule → apply → verify.** This is interactive; do it in the
-conversation, one step at a time, and wait for Danny's rulings before writing.
+**propose → review → rule → apply → verify.** The rule from #712: **nothing is
+written to a production backend until the whole package is approved** —
+eliminations, events, judgment calls, the results card headline, and every
+tile. This is interactive; do it in the conversation, and before each write
+say what it makes visible to players.
 
 ## 0. Connection & inputs
 
@@ -57,11 +60,19 @@ GET {API}/episodes/{episode_id}/import-proposal?source_season={US_season}&refres
   those people were dropped from the proposal. Report the names — fix the cast
   spelling or note the gap before applying.
 
-## 3. Present with context (what aired)
+## 3. Present the whole package — nothing written yet
 
-Show Danny one readable block:
+Every write from here on is player-visible somewhere (step 5 says where), so
+the commissioner reviews **everything** before the first one. Show Danny one
+readable block, in plain words — no skill vocabulary ("recap", "reveal",
+"manual note", "insight type"). Say "the results card", "the headline", "a
+tile".
 
-- **Eliminations** — who's out, and how.
+**A. What aired**
+- **Eliminations** — who's out, and how. On a Redemption Island week say for
+  each one whether they **left the game** (`is_final: true`) or **went to the
+  island** (`is_final: false`). The proposal carries the flag; if survivoR
+  has no next-episode tribe mapping yet it defaults to final, so ask.
 - **Scoring events per contestant** — grouped by person.
 - **A "what aired" read derived from the events** — immunity winner(s)
   (`win_individual_immunity` / `win_team_immunity`), reward winners, who voted
@@ -75,28 +86,81 @@ Show Danny one readable block:
     with the token economy — see #307.)
 - *(Optional context)* the episode's TVMaze summary, if quick to fetch.
 
-## 4. Take Danny's rulings
+**B. The results card headline** — the line every player reads first when the
+card opens. Quote the default exactly as it would render, and ask Danny for
+his own or an OK on the default. The default (computed by the card from the
+eliminations' final flag) is:
+- one boot: `{Name}'s torch was snuffed`
+- several: `Two torches snuffed` (number spelled out)
+- Redemption Island week: one line per castaway, island trips first —
+  `{Name} sent to Redemption.` / `{Name} sent home.`
+- nobody out: `No one was voted out`
 
-Ask him to: confirm or drop each flagged/auto-mapped item, and name any
-**judgment calls** to add (contestant + event). Pull valid slugs+labels from
+A wrong final flag makes a wrong default, so B depends on A being right.
+
+**C. The tiles** — the results card shows up to three tiles beside one
+automatic lead. Present each one **as it will render**: label / value /
+detail. Two kinds:
+
+- *Computed* tiles the app fills in per viewer at open time. Say what each
+  shows, not a number you made up:
+  - Automatic lead, always there, no config: "League call: {boot} — {pct}%"
+    (share of ballots that caught the boot), unless a `pick_popularity` tile
+    takes that slot.
+  - `performance_vs_median` — the viewer's own episode score vs the league
+    median. **The recurring baseline; propose it every week.**
+  - `multiple_correct_ballots` — ballots that called two or more boots. Only
+    on multi-boot weeks (a single-boot week caps every ballot at one).
+  - `pick_popularity` — needs an eliminated `contestant_id`; owns the League
+    Call slot. Redundant in single-boot weeks. Not for finales.
+  - `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
+    `double_vote_points` / `roster_swap`). Renders flat ("Double Ballot Points
+    usage: 9 of 21"); pair a swing with a written tile instead.
+- *Written* tiles (`manual_note`: `label` + `value` + optional `detail`) —
+  the story. **Compute one or two candidates now, from reads only:** the
+  approved batch from A plus the locked picks and plays already in the DB.
+  Advantage usage this week and its trend across recent episodes, boot-catch
+  rate vs last week, how many who doubled their ballot caught the boot,
+  roster ownership of the boot(s), the biggest point swing. A bare number is
+  not a tile; a trend or a whiff-rate is. Quote each candidate's exact label,
+  value, and detail.
+
+  **One row per episode, shown on every league's card.** A written tile's
+  numbers must be true for every league on this backend, so no per-league
+  counts ("9 of 21 in the main league"); say it as a share, or as a fact
+  about the show. `docs/scoring.md` → Episode Reveal insights.
+
+Danny picks or rewrites the written tile(s), or says none is worth it. **Never
+choose for him.**
+
+## 4. Take Danny's rulings — go on all of it
+
+Ask him to confirm or drop each flagged/auto-mapped item, name any
+**judgment calls** to add (contestant + event), settle the headline, and
+settle the tiles. Pull valid slugs+labels from
 `GET {API}/seasons/{season_id}/scoring-event-types` so you use real event
 types, never guessed ones. It returns only *enabled* types, so retired ones
-(the four TV moments) won't appear; the three judgment calls below still do. Assemble the final batch:
-**(approved proposal items) + (Danny's manual events).**
+(the four TV moments) won't appear; the three judgment calls above still do.
+
+Assemble the final package: **(approved proposal items) + (Danny's manual
+events) + headline (his text, or null for the default he approved) + the tile
+set.** Read it back in one block. Write nothing until he says go on the
+whole package. Note anything he **deferred** (an unsure judgment call) so it
+isn't lost.
 
 ## 5. Apply (additive, dedup-aware)
 
+**Visible to players the moment it lands:** standings (`active_survivors`
+drops the eliminated, `total_points` jumps) and the cast page. Neither gates
+on lock or scored status (#559). Say so before you POST.
+
 **First, confirm this episode's picks are LOCKED** — `picks_lock_at <= now()`
-(or `status = 'scored'`). Applying eliminations or scoring events *before* lock
-leaks the boots and the point changes to every player who hasn't locked yet:
-standings (`active_survivors` drops the eliminated, `total_points` jumps) and
-the cast page don't gate on lock or scored status (#559). The reveal endpoints
-*are* safe (gated on `status='scored'`), but standings/cast are not — so a
-pre-lock apply is a live spoiler. If the episode aired but picks are still open,
-either wait for the lock or, with Danny's OK, lock it now (the `episode-lock`
-skill, or `PATCH {API}/episodes/{episode_id}` `{"picks_lock_at": "<now>"}`)
-before applying. `GET {API}/seasons/{season_id}/episodes` shows each episode's
-`picks_lock_at`.
+(or `status = 'scored'`). Applying before lock leaks the boots and the point
+changes to every player who hasn't locked yet. If the episode aired but picks
+are still open, either wait for the lock or, with Danny's OK, lock it now
+(the `episode-lock` skill, or `PATCH {API}/episodes/{episode_id}`
+`{"picks_lock_at": "<now>"}`) before applying.
+`GET {API}/seasons/{season_id}/episodes` shows each episode's `picks_lock_at`.
 
 Then read what's already there so a re-run doesn't double-count (the admin UI
 does exactly this):
@@ -106,7 +170,9 @@ does exactly this):
 
 Skip anything already recorded (same contestant + type), then:
 
-- `POST {API}/episodes/{episode_id}/eliminations` — `[{contestant_id, elimination_type}, ...]`
+- `POST {API}/episodes/{episode_id}/eliminations` — `[{contestant_id, elimination_type, is_final}, ...]`
+  Pass `is_final` from the approved package; it defaults to true, and a
+  Redemption Island trip posted without it reads as an exit everywhere.
 - `POST {API}/episodes/{episode_id}/scoring-events` — `[{contestant_id, event_type, quantity, notes}, ...]`
   (scoring events are points-only now; the token grant path is inert — #307)
 - **Finale placements:** `PATCH {API}/contestants/{contestant_id}` — `{placement: 1|2|3}`.
@@ -125,6 +191,7 @@ Use a traceable `notes` like `import: {source}` on applied events.
 `POST {API}/seasons/{season_id}/sync-tribes?source_season={US}&up_to_episode={N}`
 — bounds tribe membership to what's aired, so the buffs follow swaps without
 leaking future tribes (#212). Run it every week with this episode's number.
+Visible on the cast page and the My Season tribe lane.
 
 **If the merge airs this episode**, also turn on post-merge scoring:
 `PATCH {API}/seasons/{season_id}` `{"merge_episode": N}`. (Don't set it before
@@ -139,39 +206,25 @@ change keep the old values.
   - per-contestant point deltas for this episode,
   - the new standings order,
   - and **flag anything suspicious**: a voted-out contestant not marked out, a
-    contestant sitting at 0 where you expected points.
+    contestant sitting at 0 where you expected points, a Redemption Island
+    castaway shown as out of the game.
   - **Not** an anomaly: a player with a *negative* swap delta you didn't enter.
     Roster swaps past the free one are priced in points (#405) and docked
     automatically at swap time (`roster_picks.swap_penalty_points`, summed into
     standings by scoring) — the commissioner enters nothing for them.
-- Note anything Danny **deferred** (an unsure judgment call) so it isn't lost.
+- If a written tile's numbers came from the pre-apply estimate in step 3,
+  confirm them against the real deltas now. A change goes back to Danny
+  before it is written.
 
-## 8. Set the baseline reveal cards (Results screen)
+## 8. Write the headline and the tiles
 
-The reveal shows up to three **curated** insight cards plus one **automatic**
-lead — `episode_insights` table, config via
-`PUT {API}/episodes/{episode_id}/insights` (admin). Set the standing cards here;
-**the commissioner's story pick comes after scoring (step 10).**
+Both are invisible until close-out (the results endpoints gate on
+`status = 'scored'`), so this is the safe write. Only the approved package:
 
-- **Automatic lead — nothing to do.** `_auto_league_call` always leads with
-  "League call: {boot} — {pct}%" (share of ballots that caught the boot),
-  *unless* a curated `pick_popularity` card takes that slot.
-- **Recurring baseline — keep every episode.** `performance_vs_median` (each
-  viewer's own episode score vs the league median; personalised, evergreen).
-  That plus the auto League Call is the standard set every week.
-- **Multi-boot weeks:** also add `multiple_correct_ballots` (ballots that called
-  ≥2 boots) — it only carries meaning when more than one person left.
-
-**The menu** (`insight_type`, up to 3, deduped on target; `display_order` sets
-order):
-- `pick_popularity` — needs an eliminated `contestant_id`; owns the League Call
-  slot. Redundant in single-boot weeks (same % as the auto lead). Not for finales.
-- `multiple_correct_ballots` — ballots that called ≥2 boots. Sits out single-boot
-  weeks (max any ballot can hit is one).
-- `performance_vs_median` — the recurring baseline above. No target.
-- `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
-  `double_vote_points` / `roster_swap`). Flat on its own — pair a swing with a note.
-- `manual_note` — free text `label` + `value` (+ optional `detail`), no target.
+- Headline: `PATCH {API}/episodes/{episode_id}` `{"headline": "..."}`. Leave
+  it null when Danny approved the default.
+- Tiles: `PUT {API}/episodes/{episode_id}/insights` (admin), up to 3,
+  deduped on target, `display_order` sets order:
 
 ```
 PUT {API}/episodes/{episode_id}/insights
@@ -179,42 +232,31 @@ PUT {API}/episodes/{episode_id}/insights
   { "insight_type": "manual_note", "label": "...", "value": "...", "detail": "..." } ]
 ```
 
-## 9. Close the episode out
+## 9. Close the episode out — the last write
+
+**Visible to players the moment it lands:** the results card (headline,
+tiles, ballot and roster scoring) opens for everyone, and standings trend
+arrows update. Say so, and confirm the headline and tiles are in first.
 
 `POST {API}/episodes/{episode_id}/score` — flips status `upcoming` → `scored`
-(#49). Easy to forget, and skipping it is silent: points still show, but
-standings `trend` / `last_episode_points` keep reporting the *previous* scored
-episode (they read `max(episode_number) where status = 'scored'`), and unused
-extra-vote plays never get auto-unplayed (#157). Do this **before** the bot week
-(step 11) — verify standings again after, since the trend arrows only become
-correct here. 409 "already scored" means it's done; picks must be locked first.
+(#49). Skipping it is silent: points still show, but standings `trend` /
+`last_episode_points` keep reporting the *previous* scored episode (they read
+`max(episode_number) where status = 'scored'`), and unused extra-vote plays
+never get auto-unplayed (#157). Do this **before** the bot week (step 11) —
+verify standings again after, since the trend arrows only become correct
+here. 409 "already scored" means it's done; picks must be locked first.
 
-## 9b. Back up prod (real seasons)
+Then open the card as a player would (`?recap={episode_id}` on My Season, or
+`GET /seasons/{season_id}/episode-results/{episode_id}`) and read the
+headline and tiles back to Danny as rendered. A fix after the fact is a
+`PATCH` on the headline or a `PUT` on the tiles; the card re-reads both.
+
+## 10. Back up prod (real seasons)
 
 Right after close-out, from `backend/`:
 `uv run --env-file .env.prod python scripts/backup_db.py prod`. Free tier has no
 backups; this weekly dump is the only copy. Needs Docker up. Details in
-`docs/operations.md` → Weekly airing and scoring, step 5.
-
-## 10. Commissioner insight pass — the recap story (after scoring)
-
-Now that the episode is scored, the standings deltas are final and the reveal
-renders — bring Danny the **story**. This is a required interactive checkpoint
-in a production season: **never auto-decide the manual note.**
-
-- **Compute the candidates** from the events applied in step 5 + the standings
-  deltas: advantage usage this week and its *trend* across recent episodes,
-  boot-catch rate vs last week, how many who doubled their ballot actually caught
-  the boot, roster ownership of the boot(s), the biggest point swing. A bare
-  number isn't an insight — the built-in `weekly_play_usage` renders flat
-  ("Double Ballot Points usage: 9 of 21") and can't say it *tripled* or that four
-  of the nine whiffed. Trends and whiff-rates only land as a written `manual_note`.
-- **STOP and present the candidates to Danny.** He picks or writes the
-  `manual_note` (`label` + `value` + optional `detail`), or decides none is worth
-  it. Don't skip this by choosing for him.
-- **PUT the final set** (baseline cards from step 8 + his note), then re-open the
-  reveal (`?recap={episode_id}` on My Season, or
-  `GET /seasons/{season_id}/episode-results/{episode_id}`) to eyeball it.
+`docs/operations.md` → Weekly airing and scoring, step 6.
 
 ## 11. Bot week (practice/bot seasons only)
 
@@ -259,6 +301,9 @@ the pipeline knows the result before the commissioner does.
   (step 5); if you must go early, lock the episode first with Danny's OK.
 - **Judgment calls are always manual** — survivoR never has blindsides, fake
   idols, or steals.
+- **The headline and the tiles are the commissioner's, every episode (#712).**
+  Present them as they will render, in plain words, before the first write.
+  Close-out is the last write and only after they are in.
 - **Tokens are retired (#307).** Players get one free advantage play per
   episode instead — **Double Castaway Points or Double Ballot Points** (the
   advantage is labeled "Double Ballot Points"; the key `double_vote_points` is
