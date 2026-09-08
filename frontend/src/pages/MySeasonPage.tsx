@@ -895,7 +895,6 @@ export function MySeasonPage() {
                 userId={d.userId}
                 rosterPoints={rosterPoints}
                 soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
-                seasonPoints={d.standing?.roster_points ?? null}
                 plays={d.plays}
                 setPlays={d.setPlays}
                 onRosterChange={d.bumpRoster}
@@ -2096,8 +2095,7 @@ function HeaderPoints({
 
 /**
  * The team card's tally (My Season redesign): the lane's jade, at display
- * scale, with no unit — the band already says "season pts" and the column is
- * unambiguous once the number is this size.
+ * scale, with no unit: the column is unambiguous once the number is this size.
  */
 function TeamPoints({ value }: { value: number | undefined }) {
   if (value == null) return null
@@ -2225,7 +2223,6 @@ function RosterSection({
   userId,
   rosterPoints,
   soleSurvivorBonus = 0,
-  seasonPoints = null,
   plays,
   setPlays,
   onRosterChange,
@@ -2242,8 +2239,6 @@ function RosterSection({
   rosterPoints: Map<string, number>
   /** The +50% Sole Survivor finale bonus, named on the designated card. */
   soleSurvivorBonus?: number
-  /** The season roster total for the card's band. */
-  seasonPoints?: number | null
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   onRosterChange: () => void
@@ -2572,30 +2567,20 @@ function RosterSection({
     ) : undefined
   )
 
-  // The lane's header is its tab now, so the season total leads this row
-  // instead of riding in a band that repeated the tab's own label.
-  const toolbar =
-    seasonPoints != null || swapAction ? (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-paper-line px-4 py-2">
-        {seasonPoints != null && (
-          <span className="inline-flex items-baseline gap-1.5">
-            <span className="font-display text-lg font-bold leading-none text-jade-700">
-              {seasonPoints > 0 ? '+' : ''}
-              {seasonPoints}
-            </span>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-stone-500">
-              Season pts
-            </span>
-          </span>
-        )}
-        {swapAction && <span className="ml-auto inline-flex shrink-0 items-center">{swapAction}</span>}
-      </div>
-    ) : null
+  // Only the swap control lives above the strip now. The tribe subtotal it
+  // used to lead with is one line of the header chip's breakdown, and the
+  // Ballot tab has no such row. The strip renders first so it sits at the
+  // same height on both tabs; the swap row rides under it.
+  const toolbar = swapAction ? (
+    <div className="flex items-center justify-end border-b border-paper-line px-4 py-2">
+      {swapAction}
+    </div>
+  ) : null
 
   return (
     <>
-      {toolbar}
       {advantageStrip}
+      {toolbar}
       {picking === 'swap' && (
         <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           {dropping
@@ -2888,27 +2873,6 @@ function RosterSection({
 // ─── Picks section ──────────────────────────────────────────────────────────
 
 /**
- * The masthead every ballot sheet wears: when it closes, which week it is, and
- * the ask. Shared so the open ballot and the locked one are visibly the same
- * piece of paper rather than two cards that happen to be adjacent.
- */
-function BallotSheetHead({ ep, prompt }: { ep: Episode; prompt?: string }) {
-  // Just the episode and the question: the hero above already says when it
-  // locks and what the episode is called, and the rules link lives in the
-  // Advantage menu (#673 review — the sheet read as a wall of text).
-  return (
-    <>
-      {/* Prose spells the word out, per the EpisodeLabel rule — this is a
-          title, not a chip. */}
-      <h3 className="ballot-sheet__title">
-        {ep.is_finale ? 'The Finale' : `Episode ${ep.episode_number}`}
-      </h3>
-      {prompt && <p className="ballot-sheet__prompt">{prompt}</p>}
-    </>
-  )
-}
-
-/**
  * One episode's ballot as a record line: the votes, which ones came true, and
  * what the ×2 paid. Drawn prominently for the episode you're waiting on, and
  * flat for a past one inside the History sheet.
@@ -2946,7 +2910,6 @@ function BallotRecord({
     return (
       <div className="ballot-sheet">
         {ballotDoubled && !x2 && <BallotStamp size={48} />}
-        <BallotSheetHead ep={ep} />
         {picks.length > 0 ? (
           <div className="ballot-sheet__slips mb-4">
             {picks.map((p, index) => {
@@ -3575,10 +3538,14 @@ function PicksSection({
           // gold card is the record, and the hero holds Undo.
           const advantageStrip =
             maxPicks === 0 || play.locked || play.play != null ? null : (
+              // The Tribe tab's band. The negative margins cancel this
+              // section's px-4 py-3.5 wrapper so the card sits flush under
+              // the tab, at the same height and inset as on Tribe.
+              <div className="-mx-4 -mt-3.5 border-b border-paper-line px-4 py-3">
               <div
                 role="region"
                 aria-label="Advantage"
-                className="mb-5 flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-left text-xs text-forest-800"
+                className="flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-left text-xs text-forest-800"
               >
                 {designating ? (
                   <>
@@ -3614,6 +3581,7 @@ function PicksSection({
                     </button>
                   </>
                 )}
+              </div>
               </div>
             )
 
@@ -3720,12 +3688,14 @@ function PicksSection({
           )
 
           return (
+            <>
+            {advantageStrip}
             <div className="ballot-sheet">
-              <BallotSheetHead
-                ep={ep}
-                prompt={confirmed ? undefined : 'Rank your picks. The top rung pays the most.'}
-              />
-              {advantageStrip}
+              {/* The hero already names the episode and when it locks, so the
+                  sheet opens on the ask alone. */}
+              {!confirmed && (
+                <p className="ballot-sheet__prompt">Rank your picks. The top rung pays the most.</p>
+              )}
               {confirmed ? (
                 /* Submitted is the state people look for, and the slips are the
                    record of it — so the mark and the strongest type in the card
@@ -4011,6 +3981,7 @@ function PicksSection({
                 </div>
               )}
             </div>
+            </>
           )
         })()}
 
