@@ -281,8 +281,8 @@ def test_other_players_locked_swaps_visible_pending_hidden(client, db_conn):
 @pytest.mark.integration
 def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
     """#404: first swap free, then step * ordinal, floored. With the defaults
-    (step -5, floor -25) that is 0, -10, -15, -20, -25, -25. One swap per
-    episode, so each one needs its own open episode."""
+    (step -5, floor -25) that is 0, -10, -15, -20, -25, -25. Spread over
+    episodes so each lands as the only swap of its week."""
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=7, lock_episode=2, free_swaps=1
     )
@@ -327,37 +327,45 @@ def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_only_one_swap_per_episode(client, db_conn, current_user):
-    """#404: the rate limit is the cap now, not the weekly play."""
+def test_two_swaps_in_one_episode_each_undoable(client, db_conn, current_user):
+    """No per-episode cap: the rising price is the rate limit. Each swap is
+    undone by the castaway it brought in, and undoing the first re-prices
+    the second down a rung."""
     season, contestants = _make_season_with_roster(
         db_conn, roster_size=3, lock_episode=2, free_swaps=1
     )
     insert_episode(db_conn, season["id"], episode_number=3)
     new1 = insert_contestant(db_conn, season["id"], "New 1")
     new2 = insert_contestant(db_conn, season["id"], "New 2")
+    ls = season["league_season_id"]
     client.post(
-        f"/league-seasons/{season['league_season_id']}/roster",
+        f"/league-seasons/{ls}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
+    for old, new in ((contestants[0], new1), (contestants[1], new2)):
+        r = client.post(
+            f"/league-seasons/{ls}/roster/swap",
+            json={
+                "old_contestant_id": str(old["id"]),
+                "new_contestant_id": str(new["id"]),
+            },
+        )
+        assert r.status_code == 200, r.json()
 
-    first = client.post(
-        f"/league-seasons/{season['league_season_id']}/roster/swap",
-        json={
-            "old_contestant_id": str(contestants[0]["id"]),
-            "new_contestant_id": str(new1["id"]),
-        },
-    )
-    assert first.status_code == 200
+    def penalties():
+        roster = client.get(f"/league-seasons/{ls}/roster/{current_user['id']}").json()
+        return {p["contestant_id"]: p["swap_penalty_points"] for p in roster}
 
-    second = client.post(
-        f"/league-seasons/{season['league_season_id']}/roster/swap",
-        json={
-            "old_contestant_id": str(contestants[1]["id"]),
-            "new_contestant_id": str(new2["id"]),
-        },
-    )
-    assert second.status_code == 400
-    assert "already swapped this episode" in second.json()["detail"]
+    assert penalties()[str(contestants[0]["id"])] == 0
+    assert penalties()[str(contestants[1]["id"])] == -10
+
+    r = client.delete(f"/league-seasons/{ls}/roster/swap/{new1['id']}")
+    assert r.status_code == 204
+    after = penalties()
+    assert str(new1["id"]) not in after
+    assert after[str(contestants[0]["id"])] == 0
+    # The remaining swap is now the season's first, so it is the free one.
+    assert after[str(contestants[1]["id"])] == 0
 
 
 @pytest.mark.integration
@@ -801,7 +809,9 @@ def test_undo_swap_restores_roster_and_clears_penalty(client, db_conn, current_u
         == 200
     )
 
-    r = client.delete(f"/league-seasons/{season['league_season_id']}/roster/swap")
+    r = client.delete(
+        f"/league-seasons/{season['league_season_id']}/roster/swap/{new1['id']}"
+    )
     assert r.status_code == 204
 
     roster = client.get(
@@ -812,7 +822,7 @@ def test_undo_swap_restores_roster_and_clears_penalty(client, db_conn, current_u
     assert str(new1["id"]) not in {p["contestant_id"] for p in roster}
     assert all(p["swap_penalty_points"] == 0 for p in roster)
 
-    # The once-per-episode allowance is free again.
+    # The undone swap no longer counts on the price ladder.
     assert (
         client.post(
             f"/league-seasons/{season['league_season_id']}/roster/swap",
@@ -835,7 +845,9 @@ def test_undo_swap_requires_a_swap_this_episode(client, db_conn):
         f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
-    r = client.delete(f"/league-seasons/{season['league_season_id']}/roster/swap")
+    r = client.delete(
+        f"/league-seasons/{season['league_season_id']}/roster/swap/{contestants[0]['id']}"
+    )
     assert r.status_code == 400
     assert "No swap to undo" in r.json()["detail"]
 
@@ -872,6 +884,8 @@ def test_undo_swap_blocked_while_double_targets_the_incoming_castaway(
         == 201
     )
 
-    r = client.delete(f"/league-seasons/{season['league_season_id']}/roster/swap")
+    r = client.delete(
+        f"/league-seasons/{season['league_season_id']}/roster/swap/{new1['id']}"
+    )
     assert r.status_code == 400
     assert "take it back first" in r.json()["detail"]

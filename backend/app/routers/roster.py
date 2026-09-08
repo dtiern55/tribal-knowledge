@@ -16,6 +16,15 @@ from app.schemas import (
 router = APIRouter(tags=["roster"])
 
 
+def _swap_penalty(ls, ordinal: int) -> int:
+    """What the Nth swap of the season costs (#404): the first free_swaps are
+    free, then step * N, floored. Mirrors nextSwapCost in MySeasonPage."""
+    if ordinal <= ls["free_swaps"]:
+        return 0
+    # Both operands are <= 0, so max() applies the floor.
+    return max(ls["swap_penalty_step"] * ordinal, ls["swap_penalty_floor"])
+
+
 def _effective_swap_lock(ls) -> int | None:
     """The episode from which roster swaps are locked (#84): explicit
     swap_lock_episode, else two past the episode the first juror went out in
@@ -253,8 +262,7 @@ def swap_roster_pick(
         with conn.cursor() as cur:
             ls = database.require_league_season(cur, league_season_id)
             database.require_member(cur, ls["league_id"], user_id)
-            # Guards the one-per-episode check and the penalty count below
-            # against concurrent swaps.
+            # Guards the penalty count below against concurrent swaps.
             database.lock_user_season(cur, user_id, league_season_id)
 
             if ls["status"] == "completed":
@@ -333,44 +341,20 @@ def swap_roster_pick(
                     detail="Contestant has already been on this roster",
                 )
 
-            # One swap per episode (#404). A swap closes the outgoing pick at
-            # swap_episode - 1, so that is exactly what identifies "already
-            # swapped this episode".
-            cur.execute(
-                "select 1 from roster_picks"
-                " where user_id = %s and league_season_id = %s"
-                " and active_until_episode = %s",
-                [str(user_id), str(league_season_id), swap_episode - 1],
-            )
-            if cur.fetchone():
-                raise HTTPException(
-                    status_code=400,
-                    detail="You have already swapped this episode",
-                )
-
-            # Swaps are priced in points again (#403/#404) and no longer touch
-            # the weekly play. The first free_swaps are free; after that the
-            # Nth swap of the season costs step * N, floored. The cost is
-            # written onto the pick being closed, so scoring attributes it to
-            # the castaway you dropped. There is deliberately no exception for
-            # dropping someone already voted out — that charge is the soft form
-            # of "losing a castaway costs you".
+            # Swaps are priced in points (#403/#404) and no longer touch the
+            # weekly play; there is no per-episode cap either, the rising
+            # price is the rate limit. The cost is written onto the pick being
+            # closed, so scoring attributes it to the castaway you dropped.
+            # There is deliberately no exception for dropping someone already
+            # voted out — that charge is the soft form of "losing a castaway
+            # costs you".
             cur.execute(
                 "select count(*) as n from roster_picks"
                 " where user_id = %s and league_season_id = %s"
                 " and active_until_episode is not null",
                 [str(user_id), str(league_season_id)],
             )
-            ordinal = cur.fetchone()["n"] + 1
-            penalty = (
-                0
-                if ordinal <= ls["free_swaps"]
-                # Both operands are <= 0, so max() applies the floor.
-                else max(
-                    ls["swap_penalty_step"] * ordinal,
-                    ls["swap_penalty_floor"],
-                )
-            )
+            penalty = _swap_penalty(ls, cur.fetchone()["n"] + 1)
 
             cur.execute(
                 """
@@ -403,8 +387,9 @@ def swap_roster_pick(
             cur.execute(
                 """
                 insert into roster_picks
-                    (user_id, league_season_id, contestant_id, active_from_episode)
-                values (%s, %s, %s, %s)
+                    (user_id, league_season_id, contestant_id,
+                     active_from_episode, replaced_pick_id)
+                values (%s, %s, %s, %s, %s)
                 returning *
                 """,
                 [
@@ -412,6 +397,7 @@ def swap_roster_pick(
                     str(league_season_id),
                     str(body.new_contestant_id),
                     swap_episode,
+                    str(old_pick["id"]),
                 ],
             )
             new_pick = cur.fetchone()
@@ -419,9 +405,13 @@ def swap_roster_pick(
             return new_pick
 
 
-@router.delete("/league-seasons/{league_season_id}/roster/swap", status_code=204)
+@router.delete(
+    "/league-seasons/{league_season_id}/roster/swap/{contestant_id}",
+    status_code=204,
+)
 def undo_roster_swap(
     league_season_id: UUID,
+    contestant_id: UUID,
     user_id: UUID = Depends(get_current_user),
 ):
     """Undo this episode's swap while the episode is still open.
@@ -454,27 +444,17 @@ def undo_roster_swap(
                 )
             swap_episode = episode["episode_number"]
 
+            # The swap is the pair (incoming pick, the pick it replaced); more
+            # than one can be open in an episode, so the incoming castaway
+            # names which.
             cur.execute(
                 """
                 select * from roster_picks
-                where user_id = %s and league_season_id = %s
-                  and active_until_episode = %s
-                """,
-                [str(user_id), str(league_season_id), swap_episode - 1],
-            )
-            dropped = cur.fetchone()
-            if not dropped:
-                raise HTTPException(
-                    status_code=400, detail="No swap to undo this episode"
-                )
-
-            cur.execute(
-                """
-                select * from roster_picks
-                where user_id = %s and league_season_id = %s
+                where user_id = %s and league_season_id = %s and contestant_id = %s
                   and active_from_episode = %s and active_until_episode is null
+                  and replaced_pick_id is not null
                 """,
-                [str(user_id), str(league_season_id), swap_episode],
+                [str(user_id), str(league_season_id), str(contestant_id), swap_episode],
             )
             added = cur.fetchone()
             if not added:
@@ -508,8 +488,33 @@ def undo_roster_swap(
                 "update roster_picks"
                 " set active_until_episode = null, swap_penalty_points = 0"
                 " where id = %s",
-                [str(dropped["id"])],
+                [str(added["replaced_pick_id"])],
             )
+
+            # The episode's other swaps were priced with this one on the
+            # ladder; walk them back a rung, in the order they were made.
+            cur.execute(
+                "select count(*) as n from roster_picks"
+                " where user_id = %s and league_season_id = %s"
+                " and active_until_episode < %s",
+                [str(user_id), str(league_season_id), swap_episode - 1],
+            )
+            base = cur.fetchone()["n"]
+            cur.execute(
+                """
+                select d.id from roster_picks d
+                join roster_picks a on a.replaced_pick_id = d.id
+                where d.user_id = %s and d.league_season_id = %s
+                  and d.active_until_episode = %s
+                order by a.created_at
+                """,
+                [str(user_id), str(league_season_id), swap_episode - 1],
+            )
+            for i, row in enumerate(cur.fetchall()):
+                cur.execute(
+                    "update roster_picks set swap_penalty_points = %s where id = %s",
+                    [_swap_penalty(ls, base + i + 1), str(row["id"])],
+                )
 
 
 @router.post(
