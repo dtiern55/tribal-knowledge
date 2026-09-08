@@ -426,3 +426,28 @@ def test_duel_loss_and_return():
         True,
     )
     assert [x["castaway_id"] for x in _events(p, "return_from_redemption")] == ["c"]
+    assert [x["castaway_id"] for x in _events(p, "win_redemption_duel")] == ["c"]
+
+
+def test_return_after_the_merge_is_the_endgame_return():
+    mapping = [
+        _island("c", "Cat", 4),
+        _tribe("c", "Cat", 5, "Solarrion", status="Merged"),
+    ]
+    at_merge = _build(tribe_mapping=mapping, merge_episode=5)
+    assert [x["castaway_id"] for x in _events(at_merge, "return_from_redemption")] == [
+        "c"
+    ]
+    assert _events(at_merge, "return_from_redemption_endgame") == []
+
+    endgame = _build(tribe_mapping=mapping, merge_episode=3)
+    assert [
+        x["castaway_id"] for x in _events(endgame, "return_from_redemption_endgame")
+    ] == ["c"]
+    assert _events(endgame, "return_from_redemption") == []
+
+    unknown = _build(tribe_mapping=mapping)
+    assert [x["castaway_id"] for x in _events(unknown, "return_from_redemption")] == [
+        "c"
+    ]
+    assert any("merge episode" in w for w in unknown["warnings"])
