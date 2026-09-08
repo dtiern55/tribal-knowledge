@@ -2470,6 +2470,8 @@ function RosterSection({
     weekly.openEpisode == null ||
     weekly.openEpisode.is_finale ||
     picking === 'swap' ||
+    // The picker replaces the rows the idol would land on (#706).
+    (windowOpen && editing) ||
     weekly.locked ||
     weekly.play != null ||
     !canDouble ? null : (
