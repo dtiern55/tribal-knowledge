@@ -67,9 +67,10 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
     headline: null,
     is_finale: false,
     eliminated: [
-      { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, elimination_type: 'voted_out' },
-      { contestant_id: 'cast-2', name: 'Charlie', image_url: null, elimination_type: 'voted_out' },
+      { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, elimination_type: 'voted_out', is_final: true },
+      { contestant_id: 'cast-2', name: 'Charlie', image_url: null, elimination_type: 'voted_out', is_final: true },
     ],
+    redemption: [],
     ballot: [
       { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, prediction_type: 'elimination', correct: true, points: 15 },
       { contestant_id: 'cast-2', name: 'Charlie', image_url: null, prediction_type: 'elimination', correct: true, points: 15 },
@@ -1218,6 +1219,38 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Between episodes' })).toBeVisible()
     expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('tells a Redemption Island week apart: island trips in the headline, only the exit gets a boot chip, the island line names everyone there (#655)', async () => {
+    arrange(
+      [
+        episode(1, 'scored', '2026-08-01T00:00:00Z'),
+        episode(2, 'scored', '2026-08-08T00:00:00Z'),
+      ],
+      result({
+        eliminated: [
+          { contestant_id: 'cast-1', name: 'Rachel', image_url: null, elimination_type: 'voted_out', is_final: false },
+          { contestant_id: 'cast-2', name: 'Rupert', image_url: null, elimination_type: 'redemption_loss', is_final: true },
+        ],
+        redemption: [
+          { contestant_id: 'cast-5', name: 'Candice', image_url: null },
+          { contestant_id: 'cast-6', name: 'Marissa', image_url: null },
+          { contestant_id: 'cast-1', name: 'Rachel', image_url: null },
+        ],
+      }),
+    )
+    vi.mocked(api.post).mockResolvedValue({})
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { level: 2 })).toHaveTextContent(
+      'Rachel sent to Redemption. Rupert sent home.',
+    )
+    expect(within(dialog).getByRole('heading', { level: 2 })).toHaveClass('whitespace-pre-line')
+    const chips = within(dialog).getByRole('list', { name: 'Eliminated castaways' })
+    expect(within(chips).getAllByRole('listitem')).toHaveLength(1)
+    expect(chips).toHaveTextContent(/Rupert.*Sent home/)
+    expect(dialog).toHaveTextContent('Rachel joins Candice and Marissa on Redemption Island.')
   })
 
   it('continues an automatic reveal to Intermission when no next episode exists', async () => {

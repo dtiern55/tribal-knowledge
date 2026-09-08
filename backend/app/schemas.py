@@ -501,6 +501,8 @@ class EpisodeResultContestant(BaseModel):
 
 class EpisodeResultElimination(EpisodeResultContestant):
     elimination_type: str
+    # False for a Redemption Island boot: still in the game (#655).
+    is_final: bool = True
 
 
 class EpisodeResultBallotPick(EpisodeResultContestant):
@@ -549,6 +551,8 @@ class EpisodeResult(BaseModel):
     headline: Optional[str] = None
     is_finale: bool
     eliminated: list[EpisodeResultElimination]
+    # Everyone on Redemption Island as of this episode, in arrival order.
+    redemption: list[EpisodeResultContestant] = []
     ballot: list[EpisodeResultBallotPick]
     roster: list[EpisodeResultRosterMember]
     roster_points: int
