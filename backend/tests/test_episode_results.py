@@ -85,24 +85,49 @@ def test_result_lists_redemption_island_as_of_that_episode(client, db_conn):
     first = insert_contestant(db_conn, season["id"], "First")
     second = insert_contestant(db_conn, season["id"], "Second")
     third = insert_contestant(db_conn, season["id"], "Third")
+    # Dayone arrived by tribe sync alone, the way a day-one exit or a
+    # volunteer does: no elimination row, just the island tribe from ep 1.
+    dayone = insert_contestant(db_conn, season["id"], "Dayone")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "insert into tribes (season_id, name, color, is_redemption)"
+            " values (%s, 'Redemption Island', '#000000', true) returning id",
+            [str(season["id"])],
+        )
+        island = cur.fetchone()["id"]
+        cur.execute(
+            "insert into tribes (season_id, name, color)"
+            " values (%s, 'Home', '#111111') returning id",
+            [str(season["id"])],
+        )
+        home = cur.fetchone()["id"]
+        cur.execute(
+            "insert into contestant_tribes (contestant_id, tribe_id, from_episode)"
+            " values (%s, %s, 1), (%s, %s, 3)",
+            [str(dayone["id"]), str(island), str(dayone["id"]), str(home)],
+        )
     # Ep 1: First and Second go to the island.
     insert_elimination(db_conn, ep1["id"], first["id"], is_final=False)
     insert_elimination(db_conn, ep1["id"], second["id"], is_final=False)
     # Ep 2: Third joins them, First loses the duel and is out for good.
     insert_elimination(db_conn, ep2["id"], third["id"], is_final=False)
     insert_elimination(db_conn, ep2["id"], first["id"], "redemption_loss")
-    # Ep 3: Second returns to the game.
+    # Ep 3: Second returns to the game by the event, Dayone by a tribe row.
     insert_scoring_event(db_conn, ep3["id"], second["id"], "return_from_redemption")
 
     base = f"/league-seasons/{season['league_season_id']}/episode-results"
     names = lambda r: [c["name"] for c in r.json()["redemption"]]  # noqa: E731
-    assert names(client.get(f"{base}/{ep1['id']}")) == ["First", "Second"]
+    assert names(client.get(f"{base}/{ep1['id']}")) == ["Dayone", "First", "Second"]
     ep2_result = client.get(f"{base}/{ep2['id']}").json()
     assert {(e["name"], e["is_final"]) for e in ep2_result["eliminated"]} == {
         ("Third", False),
         ("First", True),
     }
-    assert [c["name"] for c in ep2_result["redemption"]] == ["Second", "Third"]
+    assert [c["name"] for c in ep2_result["redemption"]] == [
+        "Dayone",
+        "Second",
+        "Third",
+    ]
     assert names(client.get(f"{base}/{ep3['id']}")) == ["Third"]
 
 
