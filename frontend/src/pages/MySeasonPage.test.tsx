@@ -586,6 +586,8 @@ describe('MySeasonPage state shell', () => {
     // Edit sits in the lane's footer with the lock date, not on the toolbar.
     const edit = within(roster).getByRole('button', { name: /locks when episode 2 starts.*Edit tribe/ })
     await userEvent.click(edit)
+    // The picker has no rows to play on, so the gold card leaves with them.
+    expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
     await userEvent.click(within(roster).getByRole('button', { name: /Maria/ }))
     await userEvent.click(within(roster).getByRole('button', { name: 'Save changes' }))
