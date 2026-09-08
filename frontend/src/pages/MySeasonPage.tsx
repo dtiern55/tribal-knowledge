@@ -1880,7 +1880,8 @@ function HistorySheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end sm:justify-center sm:p-6" role="presentation">
+    // z-50: the tab bar sits at z-45 (#696) and was covering the sheet's last rows.
+    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:p-6" role="presentation">
       <div className="absolute inset-0 bg-forest-900/60" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
@@ -2515,81 +2516,70 @@ function RosterSection({
       </div>
     )
 
-  // The swap chip / cancel / undo cluster, lifted out of the JSX (#529).
-  const swapAction = (
-    picking === 'swap' ? (
-      <button
-        type="button"
-        onClick={() => {
-          setDropping(null)
-          onPickingDone?.()
-        }}
-        className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+  // The swap lives in the lane's footer, where Edit tribe sits pre-lock: a
+  // plain link, not a gold chip, so it stops reading as a second advantage
+  // beside the ×2 card (and its gold diamond as a tribe colour). While
+  // picking, Cancel rides on the instruction banner at the top instead.
+  const swapFoot = swapAvailable ? (
+    <button
+      type="button"
+      onClick={() => onStartSwap?.()}
+      aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
+      className="lane-card__foot justify-center text-sm text-stone-500"
+    >
+      <span className="font-semibold text-jade-700 underline underline-offset-2">Swap</span>
+      <span
+        className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
+          nextSwapCost === 0
+            ? 'bg-jade-600 text-cream-50'
+            : 'bg-terracotta-100 text-terracotta-800'
+        }`}
       >
-        Cancel
-      </button>
-    ) : swapAvailable ? (
-      <button
-        type="button"
-        onClick={() => onStartSwap?.()}
-        aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
-      >
-        <span className="tribe-marker bg-gold-500" aria-hidden="true" />
-        <span>Tribe swap</span>
-        <span
-          className={`rounded-full px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.08em] ${
-            nextSwapCost === 0
-              ? 'bg-jade-600 text-cream-50'
-              : 'bg-terracotta-100 text-terracotta-800'
-          }`}
-        >
-          {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
-        </span>
-      </button>
-    ) : thisEpisodeSwap ? (
-      /* Reversible until picks lock — see the swap-undo decision. */
-      <span className="inline-flex items-baseline gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
-          Swapped this episode
-          {thisEpisodeSwap.swap_penalty_points !== 0 &&
-            ` · ${thisEpisodeSwap.swap_penalty_points}`}
-        </span>
-        <button
-          type="button"
-          onClick={() => void undoSwap()}
-          disabled={swapping}
-          className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
-        >
-          Undo
-        </button>
+        {nextSwapCost === 0 ? 'free' : `${nextSwapCost} pts`}
       </span>
-    ) : undefined
-  )
-
-  // Only the swap control lives above the strip now. The tribe subtotal it
-  // used to lead with is one line of the header chip's breakdown, and the
-  // Ballot tab has no such row. The strip renders first so it sits at the
-  // same height on both tabs; the swap row rides under it.
-  const toolbar = swapAction ? (
-    <div className="flex items-center justify-end border-b border-paper-line px-4 py-2">
-      {swapAction}
+    </button>
+  ) : thisEpisodeSwap ? (
+    /* Reversible until picks lock — see the swap-undo decision. */
+    <div className="lane-card__foot justify-center text-sm">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-terracotta-700">
+        Swapped this episode
+        {thisEpisodeSwap.swap_penalty_points !== 0 && ` · ${thisEpisodeSwap.swap_penalty_points}`}
+      </span>
+      <button
+        type="button"
+        onClick={() => void undoSwap()}
+        disabled={swapping}
+        className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+      >
+        Undo
+      </button>
     </div>
   ) : null
 
   return (
     <>
       {advantageStrip}
-      {toolbar}
       {picking === 'swap' && (
-        <p className="border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
-          {dropping
-            ? `Choose who replaces ${(() => {
-                const droppingC = contestantMap.get(dropping)
-                return droppingC ? displayName(droppingC) : 'them'
-              })()}`
-            : 'Choose a castaway to drop'}
-          <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
+        <p className="flex items-center gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
+          <span className="min-w-0 flex-1">
+            {dropping
+              ? `Choose who replaces ${(() => {
+                  const droppingC = contestantMap.get(dropping)
+                  return droppingC ? displayName(droppingC) : 'them'
+                })()}`
+              : 'Choose a castaway to drop'}
+            <span className="ml-3 font-normal"><RuleLink anchor="swaps">How swaps work</RuleLink></span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setDropping(null)
+              onPickingDone?.()
+            }}
+            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
         </p>
       )}
       {(error || weekly.error) && (
@@ -2799,6 +2789,7 @@ function RosterSection({
           <span className="font-semibold text-jade-700 underline underline-offset-2">Edit tribe</span>
         </button>
       )}
+      {swapFoot}
       {retiredRoster.length > 0 && (
         <button
           type="button"
