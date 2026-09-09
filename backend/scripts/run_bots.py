@@ -19,9 +19,11 @@ Usage (from backend/):
     uv run python scripts/run_bots.py ballot --league Bots --season 101
     uv run python scripts/run_bots.py ballot --league Bots --season 101 --check
 
-Bots play in a league of their own (#595): `setup` enrolls them in the named
-league, and every writing command names the league AND the season it plays,
-so a stray run can never file picks into a league real players are in.
+Bots play only where they are enrolled (#595): `setup` puts them in the named
+league, every writing command names the league AND the season it plays, and
+a league with no bots in it is refused outright — which is what keeps a stray
+run off the real league. Practice leagues do hold real players; that is what
+makes them worth practising in.
 
 `week N` runs BEFORE episode N airs. Import and score the episode afterwards
 with scripts/import_episode.py, then run `week N+1`.
@@ -179,16 +181,29 @@ def league_by_name(cur, name: str) -> dict:
 
 def league_season(cur, league_name: str, season_number: int) -> dict:
     """The league-season the bots play: `id` is the league-season, `season_id`
-    the show. Refuses a league with any real (non-bot, non-admin) member —
-    bots only ever play among themselves and the commissioner."""
+    the show.
+
+    Refuses a league the bots are not enrolled in. That is the whole guard,
+    and it is the direct question rather than a proxy for it: enrolling the
+    bots is a deliberate act, so a league with none is a league they were
+    never meant to touch, and the real league has none.
+
+    It used to refuse any league holding a non-admin human, which was the
+    wrong test. A practice league is for practising against, so it has real
+    players in it alongside the bots — that is the point of one.
+    """
     league = league_by_name(cur, league_name)
     cur.execute(
         "select 1 from league_members m join profiles p on p.id = m.user_id"
-        " where m.league_id = %s and not p.is_admin and not p.is_bot limit 1",
+        " where m.league_id = %s and p.is_bot limit 1",
         [league["id"]],
     )
-    if cur.fetchone():
-        sys.exit(f"{league_name!r} has real players — bots only play bot leagues")
+    if not cur.fetchone():
+        sys.exit(
+            f"{league_name!r} has no bots in it — bots only play where they"
+            f" are enrolled. Run `setup --league {league_name}` first if this"
+            " really is a practice league."
+        )
     cur.execute(
         "select ls.*, s.name, s.season_number, s.merge_episode, s.status,"
         " (select min(ep.episode_number) from scoring_events se"
@@ -260,12 +275,28 @@ def create_bot_account(cur, http) -> str:
     return uid
 
 
-def load_bots(cur) -> list[dict]:
+def load_bots(cur, league_id=None) -> list[dict]:
+    """Bot accounts, oldest first. With `league_id`, only those enrolled in
+    that league.
+
+    Every per-league command needs the scoped list. A bot that never joined
+    has no roster there, so filing a ballot for it invents a player the
+    league does not have — which is exactly what happened to a league set up
+    with fewer bots than the persona grid.
+    """
     # profiles.is_bot is the marker: the oldest bot accounts sit on the
     # commissioner's own email, so nothing looser is safe.
-    cur.execute(
-        "select id, display_name from profiles where is_bot order by created_at"
-    )
+    if league_id is None:
+        cur.execute(
+            "select id, display_name from profiles where is_bot order by created_at"
+        )
+    else:
+        cur.execute(
+            "select p.id, p.display_name from profiles p"
+            " join league_members m on m.user_id = p.id and m.league_id = %s"
+            " where p.is_bot order by p.created_at",
+            [str(league_id)],
+        )
     return cur.fetchall()
 
 
@@ -323,7 +354,7 @@ def draft(cur, league_name: str, season_number: int):
     sid, lsid = str(season["season_id"]), str(season["id"])
     read = load_read(season)
     arche = archetypes()
-    bots = load_bots(cur)
+    bots = load_bots(cur, season["league_id"])
     lock_ep = season["roster_lock_episode"] or 1
     require_history_scored(cur, sid, lock_ep)
     # Anyone already voted out is off the board — nobody drafts a dead slot.
@@ -629,7 +660,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     # roster_swap counts PAID swaps now, not advantage plays (#404).
     tally = {"double_roster_points": 0, "double_vote_points": 0, "paid_swap": 0}
 
-    bot_rows = load_bots(cur)
+    bot_rows = load_bots(cur, season["league_id"])
     # Weighted mode: cap each boot's picks to its apportioned
     # share, so the read's vote split holds instead of collapsing onto the top
     # name. dbl_used spreads the double-roster plays across targets rather
@@ -893,7 +924,7 @@ def ballot(cur, league_name: str, season_number: int, check_only=False):
 
     by_name = {a["name"]: a for a in archetypes()}
     n = 0
-    for bot in load_bots(cur):
+    for bot in load_bots(cur, season["league_id"]):
         a = by_name.get(bot["display_name"])
         if not a:
             continue
