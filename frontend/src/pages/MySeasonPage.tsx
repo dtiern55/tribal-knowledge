@@ -1409,11 +1409,8 @@ function LeagueHub({
       aria-labelledby="league-hub-title"
       className={`mt-5 overflow-hidden rounded-2xl border p-5 sm:p-6 ${card}`}
     >
-      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}>
-        Ep {episodeNumber} · the field
-      </p>
-      <h2 id="league-hub-title" className="mt-1 font-display text-2xl tracking-wide">
-        The League
+      <h2 id="league-hub-title" className="font-display text-2xl tracking-wide">
+        Ep {episodeNumber} · The Field
       </h2>
       {children}
     </section>
@@ -1572,19 +1569,6 @@ function LeagueHub({
                       pick (a #303-era play with no target doubled the whole
                       ballot), a roster double on its target castaway. */}
                   <HubCastawayRow
-                    label="Ballot"
-                    survivors={entry.ballot}
-                    sub={sub}
-                    empty="No ballot submitted."
-                    doubled={entry.advantage_type === 'double_vote_points' && !entry.advantage_target}
-                    doubledContestantId={
-                      entry.advantage_type === 'double_vote_points'
-                        ? (entry.advantage_target?.contestant_id ?? null)
-                        : null
-                    }
-                    doubledTitle="Power Vote this episode"
-                  />
-                  <HubCastawayRow
                     label="Tribe"
                     survivors={entry.roster}
                     sub={sub}
@@ -1596,6 +1580,19 @@ function LeagueHub({
                     }
                     soleSurvivorId={entry.sole_survivor_contestant_id}
                     broadcast={broadcast}
+                  />
+                  <HubCastawayRow
+                    label="Ballot"
+                    survivors={entry.ballot}
+                    sub={sub}
+                    empty="No ballot submitted."
+                    doubled={entry.advantage_type === 'double_vote_points' && !entry.advantage_target}
+                    doubledContestantId={
+                      entry.advantage_type === 'double_vote_points'
+                        ? (entry.advantage_target?.contestant_id ?? null)
+                        : null
+                    }
+                    doubledTitle="Power Vote this episode"
                   />
                 </div>
               </details>
