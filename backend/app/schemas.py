@@ -103,8 +103,10 @@ class Contestant(BaseModel):
     # Current tribe (#212): None until tribes are synced / for pre-import seasons
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
-    # Sitting on Redemption Island (#655): still in, not a ballot target.
-    on_redemption: bool = False
+    # The episode their Redemption Island stint began (#655), null if they
+    # aren't on it. An episode number, not a flag, because "not a ballot
+    # target" is asked of a particular episode (#735).
+    on_redemption_from_episode: Optional[int] = None
     # Cast bio (#262): imported from survivoR, except the hand-written blurb
     age: Optional[int] = None
     occupation: Optional[str] = None
@@ -415,7 +417,6 @@ class CastMember(BaseModel):
     final_episode: Optional[int] = None
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
-    on_redemption: bool = False
     # Base gameplay score: raw scoring events only, no per-user advantage
     # doubling and no swap penalties (issue: full cast list).
     total_points: int

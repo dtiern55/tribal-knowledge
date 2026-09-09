@@ -50,6 +50,13 @@ def test_the_ballot_rule_is_a_separate_question():
     assert "is_redemption" in cur.sql and "is_final" not in cur.sql
 
 
+def test_the_ballot_rule_is_the_api_s_own():
+    # One definition of votable, not a copy that drifts (#727).
+    from app.routers import picks
+
+    assert run_bots.redemption_island_ids is picks.redemption_island_ids
+
+
 class ScriptedCursor(RecordingCursor):
     """Returns a queued row per fetchone(), recording each statement."""
 

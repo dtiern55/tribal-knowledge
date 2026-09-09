@@ -27,10 +27,18 @@ def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
             cur.execute(
                 """
                 select c.*, ep.episode_number as eliminated_in_episode,
-                       coalesce((select t.is_redemption from contestant_tribes ct
+                       -- When their island stint began, null if they aren't on
+                       -- it. The ballot has to ask "on the island going into
+                       -- episode N", the question submit_picks answers, not
+                       -- "on it right now": tribe_import back-dates the row to
+                       -- the vote's own episode, and that episode's ballot may
+                       -- name them (#726, #735).
+                       (select case when t.is_redemption then ct.from_episode end
+                        from contestant_tribes ct
                         join tribes t on t.id = ct.tribe_id
                         where ct.contestant_id = c.id
-                        order by ct.from_episode desc limit 1), false) as on_redemption,
+                        order by ct.from_episode desc limit 1)
+                         as on_redemption_from_episode,
                        (select t.name from contestant_tribes ct
                         join tribes t on t.id = ct.tribe_id
                         where ct.contestant_id = c.id

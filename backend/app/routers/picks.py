@@ -132,7 +132,13 @@ def pick_limit(
 
 
 def redemption_island_ids(cur, episode_number: int, ids: list[str]) -> list[str]:
-    """Which of `ids` sit on Redemption Island as of this episode (#655).
+    """Which of `ids` were on Redemption Island going into this episode (#655).
+
+    Strictly earlier episodes, the way already_eliminated_ids reads
+    eliminations (#726): tribe_import back-dates an island membership to the
+    episode of the vote, so `<=` would read someone voted out in episode N as
+    a resident for episode N — and a ballot naming them that week is a correct
+    prediction that scoring pays.
 
     Shared with advantage_plays.py, see already_eliminated_ids.
     """
@@ -142,7 +148,7 @@ def redemption_island_ids(cur, episode_number: int, ids: list[str]) -> list[str]
         join lateral (
           select t.is_redemption from contestant_tribes ct
           join tribes t on t.id = ct.tribe_id
-          where ct.contestant_id = c.id and ct.from_episode <= %s
+          where ct.contestant_id = c.id and ct.from_episode < %s
           order by ct.from_episode desc limit 1
         ) tribe on true
         where c.id::text = any(%s) and tribe.is_redemption

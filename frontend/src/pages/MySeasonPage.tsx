@@ -3709,12 +3709,15 @@ function PicksSection({
           // field is easy to scan (#249). Already-eliminated players aren't
           // pickable, so they're hidden entirely rather than shown disabled.
           // Redemption Island residents are in the game but can't be voted
-          // off a tribe, so they sit out the ballot too (#655).
+          // off a tribe, so they sit out the ballot too (#655) — from the
+          // episode after the vote that sent them there, since that vote's own
+          // week could fairly name them, and the API agrees (#726).
           const byTribe = new Map<string, Contestant[]>()
           for (const c of contestants) {
             if (c.eliminated_in_episode != null && c.eliminated_in_episode < ep.episode_number)
               continue
-            if (c.on_redemption) continue
+            const island = c.on_redemption_from_episode
+            if (island != null && island < ep.episode_number) continue
             const key = c.tribe_name ?? 'No tribe'
             const group = byTribe.get(key)
             if (group) group.push(c)
