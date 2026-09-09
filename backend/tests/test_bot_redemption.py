@@ -38,3 +38,9 @@ def test_finalists_only_counts_final_eliminations():
     cur = RecordingCursor()
     run_bots.finalists(cur, "season-1")
     assert "e.is_final" in cur.sql
+
+
+def test_redemption_ids_reads_the_island_tribe():
+    cur = RecordingCursor()
+    run_bots.redemption_ids(cur, "season-1", 3)
+    assert "is_redemption" in cur.sql

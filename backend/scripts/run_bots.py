@@ -429,6 +429,29 @@ def alive_ids(cur, sid) -> list[str]:
     return [r["cid"] for r in cur.fetchall()]
 
 
+def redemption_ids(cur, sid, episode_n: int) -> set[str]:
+    """Who sits on Redemption Island as of this episode (#655).
+
+    Mirrors picks.redemption_island_ids. These castaways are voted off a
+    tribe but still in the game, so they cannot be voted off again — the app
+    rejects a ballot naming one outright, and the bots must not write one
+    either. Distinct from `alive_ids`: they stay rostered, keep scoring, and
+    remain a valid Sole Survivor designee.
+    """
+    cur.execute(
+        """select c.id::text cid from contestants c
+           join lateral (
+             select t.is_redemption from contestant_tribes ct
+             join tribes t on t.id = ct.tribe_id
+             where ct.contestant_id = c.id and ct.from_episode <= %s
+             order by ct.from_episode desc limit 1
+           ) tribe on true
+           where c.season_id = %s and tribe.is_redemption""",
+        [episode_n, sid],
+    )
+    return {r["cid"] for r in cur.fetchall()}
+
+
 def used_play(cur, uid, epid) -> bool:
     cur.execute(
         "select 1 from advantage_plays where user_id=%s and episode_id=%s",
@@ -556,13 +579,20 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     # nobody wants them.
     shunned = set(resolve(cur, sid, read.get("avoid", []), "avoid"))
     alive = alive_ids(cur, sid)
+    # Two different questions. `alive` is who is still in the game — that
+    # drives rosters, swaps, doubles and the designation. `votable` is who
+    # can be voted off a tribe this week, which excludes Redemption Island
+    # (#655): they are already off a tribe and cannot be voted off twice.
+    island = redemption_ids(cur, sid, episode_n)
+    votable = [c for c in alive if c not in island]
     live_pairs = [
-        (c, w) for c, w in zip(boots, boot_weights) if c in alive and c not in safe
+        (c, w) for c, w in zip(boots, boot_weights) if c in votable and c not in safe
     ]
     boots = [c for c, _ in live_pairs]
     boot_weights = [w for _, w in live_pairs]
-    others = [c for c in alive if c not in boots and c not in safe]
-    # Can never vote for every remaining castaway (#240)
+    others = [c for c in votable if c not in boots and c not in safe]
+    # Can never vote for every remaining castaway (#240). Counts everyone
+    # still in the game, matching picks.pick_limit.
     max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
 
     # Mirrors roster.py _effective_swap_lock (#672).
