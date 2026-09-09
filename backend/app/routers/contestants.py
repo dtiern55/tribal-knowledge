@@ -52,10 +52,6 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                         join episodes ep2 on ep2.id = el.episode_id
                         where el.contestant_id = c.id and el.is_final
                           and {episode_locked_sql("ep2")}) as eliminated_in_episode,
-                       coalesce((select t.is_redemption from contestant_tribes ct
-                        join tribes t on t.id = ct.tribe_id
-                        where ct.contestant_id = c.id
-                        order by ct.from_episode desc limit 1), false) as on_redemption,
                        (select t.name from contestant_tribes ct
                         join tribes t on t.id = ct.tribe_id
                         where ct.contestant_id = c.id

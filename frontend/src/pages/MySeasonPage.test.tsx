@@ -146,6 +146,8 @@ function arrangePlayWorld(initial: {
   picks?: { id: string; episode_id: string; contestant_id: string }[]
   /** Week two: episode 2 open and the two-castaway tribe still editable. */
   preLock?: boolean
+  /** Contestant id → the episode their Redemption Island stint began (#655). */
+  island?: Record<string, number>
 }) {
   const openNumber = initial.preLock ? 2 : 3
   const open = { ...episode(openNumber, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
@@ -162,12 +164,17 @@ function arrangePlayWorld(initial: {
     if (path.endsWith('/episodes')) return [episode(openNumber - 1, 'scored', '2026-08-08T00:00:00Z'), open]
     if (path.endsWith('/contestants')) {
       return [
-        { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
-        { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
-        { id: 'cast-3', name: 'Maria', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
-        { id: 'cast-4', name: 'Tiffany', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null },
-        { id: 'cast-5', name: 'Venus', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
-      ]
+        { id: 'cast-1', name: 'Kenzie', tribe_name: 'Yanu' },
+        { id: 'cast-2', name: 'Charlie', tribe_name: 'Siga' },
+        { id: 'cast-3', name: 'Maria', tribe_name: 'Siga' },
+        { id: 'cast-4', name: 'Tiffany', tribe_name: 'Yanu' },
+        { id: 'cast-5', name: 'Venus', tribe_name: 'Siga' },
+      ].map((c) => ({
+        ...c,
+        image_url: null,
+        eliminated_in_episode: null,
+        on_redemption_from_episode: initial.island?.[c.id] ?? null,
+      }))
     }
     if (path.includes('/advantage-plays/')) return state.plays
     if (path.includes('/roster/')) return state.roster
@@ -462,6 +469,19 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
     await user.click(within(ballot).getByRole('button', { name: 'Done' }))
     expect(await screen.findByText('Ballot submitted')).toBeVisible()
+  })
+
+  it('keeps Redemption Island residents off the ballot from the week after the vote (#726)', async () => {
+    // Episode 3 is open. Maria has been on the island since episode 2, so she
+    // can't be voted off a tribe this week. Venus was sent there by episode
+    // 3's own vote — a ballot naming her that week is a correct prediction,
+    // and submit_picks accepts it, so the grid has to offer her.
+    arrangePlayWorld({ island: { 'cast-3': 2, 'cast-5': 3 } })
+    renderWithApp(<MySeasonPage />, { auth })
+    const ballot = await openBeat('Ballot')
+
+    expect(within(ballot).queryByRole('button', { name: 'Vote for Maria' })).not.toBeInTheDocument()
+    expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeEnabled()
   })
 
   it('lights the room on the Ballot beat and puts it out on the way off the page', async () => {

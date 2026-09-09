@@ -79,8 +79,10 @@ export interface Contestant {
   eliminated_in_episode: number | null
   tribe_name: string | null
   tribe_color: string | null
-  /** Sitting on Redemption Island (#655): still in, not a ballot target. */
-  on_redemption?: boolean
+  /** The episode their Redemption Island stint began (#655), null if they
+   *  aren't on it. Compare it to the episode being picked: the vote that sent
+   *  them there is itself a fair pick for that week (#726). */
+  on_redemption_from_episode?: number | null
   created_at: string
 }
 

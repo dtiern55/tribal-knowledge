@@ -139,8 +139,10 @@ def test_island_resident_is_not_a_ballot_target(client, db_conn):
     contestants = {
         c["name"]: c for c in client.get(f"/seasons/{season['id']}/contestants").json()
     }
-    assert contestants["Resident"]["on_redemption"] is True
-    assert contestants["Other"]["on_redemption"] is False
+    # The list says when the stint began, so the ballot grid can ask the same
+    # episode-relative question this endpoint just answered (#735).
+    assert contestants["Resident"]["on_redemption_from_episode"] == 1
+    assert contestants["Other"]["on_redemption_from_episode"] is None
 
 
 @pytest.mark.integration
@@ -165,3 +167,9 @@ def test_the_episode_of_the_vote_is_still_a_valid_pick(client, db_conn):
         json={"contestant_ids": [str(boot["id"])]},
     )
     assert r.status_code == 200, r.text
+    # ...and the ballot grid can tell the same story: island since episode 2,
+    # which is not before episode 2 (#735).
+    contestants = {
+        c["name"]: c for c in client.get(f"/seasons/{season['id']}/contestants").json()
+    }
+    assert contestants["Boot"]["on_redemption_from_episode"] == 2
