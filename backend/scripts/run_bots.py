@@ -411,10 +411,19 @@ def next_open_ep(cur, season):
 
 
 def alive_ids(cur, sid) -> list[str]:
+    """Everyone still in the game — `is_final` is the whole rule.
+
+    A non-final elimination is Redemption Island: voted out of the tribe but
+    still playing, still rosterable, still worth a vote. The app tests
+    `e.is_final` everywhere it asks this (seasons.py, picks.py, roster.py);
+    without it the bots bury a castaway who is very much alive and burn a
+    swap clearing them.
+    """
     cur.execute(
         """select c.id::text cid from contestants c
            where c.season_id=%s and not exists (
-             select 1 from eliminations e where e.contestant_id = c.id)""",
+             select 1 from eliminations e
+             where e.contestant_id = c.id and e.is_final)""",
         [sid],
     )
     return [r["cid"] for r in cur.fetchall()]
@@ -709,7 +718,8 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         # --- sole survivor: one per season, at random (Danny 2026-08-23) ---
         # The read is forward-looking and has no opinion on who wins, so this
         # is a coin toss across the bot's live roster rather than a judgement.
-        # alive_ids already excludes the eliminated, who aren't valid (#180).
+        # alive_ids already excludes the finally eliminated (#180); someone
+        # on Redemption is still a valid designee.
         if ss_open and not has_sole_survivor(cur, uid, lsid):
             live = [
                 p["cid"] for p in active_roster(cur, uid, lsid) if p["cid"] in alive
@@ -756,7 +766,8 @@ def finalists(cur, sid) -> list[str]:
            where c.season_id=%s and not exists (
              select 1 from eliminations e
              join episodes ep on ep.id = e.episode_id
-             where e.contestant_id = c.id and ep.is_finale = false)""",
+             where e.contestant_id = c.id and e.is_final
+               and ep.is_finale = false)""",
         [sid],
     )
     return [r["cid"] for r in cur.fetchall()]
