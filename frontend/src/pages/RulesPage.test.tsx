@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
 import type { RulesResponse, Season } from '../types'
@@ -115,7 +115,9 @@ describe('RulesPage', () => {
     renderWithApp(<RulesPage />, { route: '/rules#swaps' })
 
     const section = (await screen.findByRole('heading', { name: 'Swaps' })).closest('section')
-    expect(section).toHaveClass('rule-flash')
+    // The class lands in a passive effect, which can flush after the heading
+    // query resolves — assert on it rather than reading it synchronously.
+    await waitFor(() => expect(section).toHaveClass('rule-flash'))
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
 
