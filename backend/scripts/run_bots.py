@@ -83,6 +83,12 @@ import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# The driver writes picks with raw SQL, so the API's eligibility rules only
+# reach it if it applies them itself. Import the rule rather than mirror it
+# (#727): the copy that used to live here had already drifted twice.
+from app.routers.picks import redemption_island_ids  # noqa: E402
+
 ENV = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(ENV)
 
@@ -443,23 +449,6 @@ def next_open_ep(cur, season):
     # Locked but unscored means it's airing — nothing is open until it's
     # scored, same as the app.
     return ep if ep["picks_lock_at"] > datetime.now(timezone.utc) else None
-
-
-def redemption_island_ids(cur, episode_n: int, ids: list[str]) -> list[str]:
-    """Which of `ids` sit on Redemption Island as of this episode. Mirrors
-    app/routers/picks.py redemption_island_ids."""
-    cur.execute(
-        """select c.id::text cid from contestants c
-           join lateral (
-             select t.is_redemption from contestant_tribes ct
-             join tribes t on t.id = ct.tribe_id
-             where ct.contestant_id = c.id and ct.from_episode <= %s
-             order by ct.from_episode desc limit 1
-           ) tribe on true
-           where c.id::text = any(%s) and tribe.is_redemption""",
-        [episode_n, ids],
-    )
-    return [r["cid"] for r in cur.fetchall()]
 
 
 def alive_ids(cur, sid) -> list[str]:

@@ -222,7 +222,9 @@ def test_double_vote_target_on_redemption_island_rejected(
     client, db_conn, current_user
 ):
     season = insert_season(db_conn)
-    _open_episode(db_conn, season["id"])
+    # Episode 2's play, island since episode 1: the resident was voted out
+    # last week, which is what makes them unpickable this week (#726).
+    _open_episode(db_conn, season["id"], episode_number=2)
     resident = insert_contestant(db_conn, season["id"], "Resident")
     island = _redemption_tribe(db_conn, season["id"])
     _assign_tribe(db_conn, resident["id"], island, from_episode=1)

@@ -141,3 +141,27 @@ def test_island_resident_is_not_a_ballot_target(client, db_conn):
     }
     assert contestants["Resident"]["on_redemption"] is True
     assert contestants["Other"]["on_redemption"] is False
+
+
+@pytest.mark.integration
+def test_the_episode_of_the_vote_is_still_a_valid_pick(client, db_conn):
+    """#726: tribe_import back-dates the island row to the vote's own episode,
+    so an unchanged ballot must not go from valid to invalid once that episode
+    is imported — the pick was right and scoring pays it."""
+    season = insert_season(db_conn)
+    ls = season["league_season_id"]
+    boot = insert_contestant(db_conn, season["id"], name="Boot")
+    insert_contestant(db_conn, season["id"], name="Other")
+    island = _tribe(db_conn, season["id"], "Redemption Island", is_redemption=True)
+    _assign(db_conn, boot["id"], island, from_episode=2)
+    ep2 = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    r = client.post(
+        f"/league-seasons/{ls}/episodes/{ep2['id']}/picks",
+        json={"contestant_ids": [str(boot["id"])]},
+    )
+    assert r.status_code == 200, r.text
