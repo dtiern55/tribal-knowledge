@@ -110,8 +110,16 @@ export function TeamPage() {
         }
 
         // The finale is a bracket, not elimination votes — it gets its own
-        // Finale section, so keep it out of the weekly Ballot ledger.
-        const visible = episodeRows.filter((e) => episodeClosed(e) && !e.is_finale).sort((a, b) => b.episode_number - a.episode_number)
+        // Finale section, so keep it out of the weekly Ballot ledger. Premieres
+        // before roster lock accept no votes, so they aren't "No votes" rows (#82).
+        const visible = episodeRows
+          .filter(
+            (e) =>
+              episodeClosed(e) &&
+              !e.is_finale &&
+              e.episode_number >= (season.roster_lock_episode ?? 1),
+          )
+          .sort((a, b) => b.episode_number - a.episode_number)
         setVotes(await Promise.all(visible.map(async (episode) => {
           const [picks, eliminations] = await Promise.all([
             api.get<EliminationPick[]>(`/league-seasons/${leagueSeasonId}/episodes/${episode.id}/picks/${userId}`).catch(() => []),
