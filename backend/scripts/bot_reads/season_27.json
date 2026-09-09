@@ -38,6 +38,12 @@
    "double_targets": [],
    "note": "Wide open. Six names slightly ahead, nothing more.",
    "spread": 100
+  },
+  "3": {
+   "likely_boots": [],
+   "double_targets": [],
+   "note": "No read. Every ballot is a random draw from the live field.",
+   "spread": 100
   }
  }
 }
