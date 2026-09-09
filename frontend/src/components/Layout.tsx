@@ -7,19 +7,14 @@ import { resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode } from '../types'
 import { BrandWordmark } from './BrandWordmark'
 import { NavDrawer } from './NavDrawer'
-import {
-  BuffPairIcon,
-  GearIcon,
-  MenuIcon,
-  PalmIcon,
-  RankedTorchesIcon,
-} from './icons'
+import { BuffPairIcon, MenuIcon, PalmIcon, RankedTorchesIcon } from './icons'
 
 // Primary destinations. On desktop they sit inline in the top bar; on phones
 // they become a fixed bottom tab bar (thumb-reachable, can't overflow).
 // Roster, votes and the weekly advantage play are one page now (#307), so
-// there is a single weekly destination instead of three.
-const PRIMARY = [
+// there is a single weekly destination instead of three. Admin is not a
+// destination the league navigates to — it lives in the drawer.
+const TABS = [
   { to: '/', label: 'My Season', Icon: PalmIcon, end: true },
   { to: '/standings', label: 'Standings', Icon: RankedTorchesIcon, end: false },
   { to: '/cast', label: 'Cast', Icon: BuffPairIcon, end: false },
@@ -43,11 +38,6 @@ export function Layout() {
   // could lag behind the page you just landed on after a lock flips — leaving
   // the chrome one theme and the content the other until a refresh.
   const { pathname } = useLocation()
-  const tabs =
-    authed && profile?.is_admin
-      ? [...PRIMARY, { to: '/admin', label: 'Admin', Icon: GearIcon, end: false }]
-      : PRIMARY
-
   useEffect(() => {
     let live = true
 
@@ -134,7 +124,7 @@ export function Layout() {
 
           {authed && (
             <nav aria-label="Primary navigation" className="hidden items-center gap-1 md:flex">
-              {tabs.map(({ to, label, end }) => (
+              {TABS.map(({ to, label, end }) => (
                 <NavLink key={to} to={to} end={end} className={topLink}>
                   {label}
                 </NavLink>
@@ -187,7 +177,7 @@ export function Layout() {
           inert={drawerOpen || undefined}
           className="app-bottom-nav fixed inset-x-0 bottom-0 z-[45] flex border-t border-forest-700 bg-forest-600 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(30,58,47,0.18)] md:hidden"
         >
-          {tabs.map(({ to, label, Icon, end }) => (
+          {TABS.map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
               to={to}
