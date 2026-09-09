@@ -5,6 +5,7 @@ import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { Torch, TorchDefs } from '../components/Torch'
 import { api, getActiveSeason } from '../lib/api'
 import { rankStandings } from '../lib/standings'
 import type { Season, StandingEntry } from '../types'
@@ -94,15 +95,12 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// The flame from the results card (EpisodeResultReveal's corner torch).
-const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
-
-// One torch per castaway on the roster, beside the name: gold while they're in
-// the game, a hollow grey outline for the episode after they go home, then
+// One torch per castaway on the roster: lit while they're in the game, a
+// smoke curl over a cooling ember for the episode after they go home, then
 // gone unless the player swapped someone in. Torches shrink as the season
-// goes on, so the list visibly thins out. Replaces the portrait cluster, which made every row
-// busy; the faces are one tap away on the Team page. Nothing renders while
-// rosters are hidden (both lists empty).
+// goes on, so the list visibly thins out. Replaces the portrait cluster, which
+// made every row busy; the faces are one tap away on the Team page. Nothing
+// renders while rosters are hidden (both lists empty).
 function Torches({ entry }: { entry: StandingEntry }) {
   const lit = entry.active_survivors
   const out = entry.recently_eliminated_survivors
@@ -111,16 +109,10 @@ function Torches({ entry }: { entry: StandingEntry }) {
   return (
     <span className="flex flex-none gap-0.5" role="img" aria-label={label}>
       {lit.map((s) => (
-        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-gold-500" aria-hidden>
-          <title>{s.name}</title>
-          <path d={FLAME_PATH} />
-        </svg>
+        <Torch key={s.contestant_id} lit title={s.name} />
       ))}
       {out.map((s) => (
-        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-none stroke-stone-400" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
-          <title>{`${s.name}, eliminated ep ${s.eliminated_episode}`}</title>
-          <path d={FLAME_PATH} />
-        </svg>
+        <Torch key={s.contestant_id} lit={false} title={`${s.name}, eliminated ep ${s.eliminated_episode}`} />
       ))}
     </span>
   )
@@ -197,6 +189,7 @@ export function StandingsPage() {
           aria-label="League standings"
           className="overflow-hidden rounded-2xl border border-paper-edge record-paper shadow-[0_8px_24px_-12px_rgb(10_22_19_/_0.35)]"
         >
+          <TorchDefs />
           <div className="flex items-center justify-between border-b border-paper-line px-4 py-2.5">
             <span className="font-display text-[11px] font-bold uppercase tracking-[0.13em] text-forest-700">League</span>
             <span className="font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-paper-ink-faded">
@@ -211,7 +204,7 @@ export function StandingsPage() {
                   <Link
                     to={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_3.75rem] ${
+                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_5.5rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_5.5rem_3.75rem] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
@@ -224,6 +217,12 @@ export function StandingsPage() {
                       {isMe && (
                         <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                       )}
+                    </div>
+                    {/* Torches sit in a fixed-width column just left of the
+                        score and left-align inside it, so their left edges line
+                        up row to row as rows thin out. Five 16px flames with
+                        2px gaps fill the 5.5rem exactly. */}
+                    <div className="flex min-w-0 justify-start overflow-hidden">
                       <Torches entry={entry} />
                     </div>
                     <div className="text-right">

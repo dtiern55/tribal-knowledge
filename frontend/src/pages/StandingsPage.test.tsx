@@ -104,6 +104,8 @@ describe('StandingsPage', () => {
     const torches = await screen.findByRole('img', { name: '1 still in, lost Charlie this week' })
     const flames = torches.querySelectorAll('svg')
     expect(flames).toHaveLength(2)
-    expect(flames[1]).toHaveClass('fill-none', 'stroke-stone-400')
+    // The snuffed torch is the traced smoke-and-ember drawing, not the flame.
+    expect(flames[1].querySelector('path[fill="url(#torch-ember)"]')).not.toBeNull()
+    expect(flames[1].querySelector('title')?.textContent).toBe('Charlie, eliminated ep 4')
   })
 })
