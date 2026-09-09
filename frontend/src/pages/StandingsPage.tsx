@@ -5,7 +5,7 @@ import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
-import snuffedFlameFineSWisp from '../assets/snuffed-flame-fine-s-wisp.png'
+import { Torch, TorchDefs } from '../components/Torch'
 import { api, getActiveSeason } from '../lib/api'
 import { rankStandings } from '../lib/standings'
 import type { Season, StandingEntry } from '../types'
@@ -95,16 +95,9 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// The flame from the results card (EpisodeResultReveal's corner torch). Its
-// path spans x 7–17, y 2–18 of the 24-unit box, so the viewBox below crops
-// to that: the flame fills the 16px slot and its base lands on the slot's
-// bottom edge, level with the snuffed artwork, which has no padding.
-const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
-const FLAME_VIEWBOX = '4 2 16 16'
-
-// One torch per castaway on the roster: gold while they're in the game, a
-// narrow smoke curl over a cooling ember for the episode after they go home,
-// then gone unless the player swapped someone in. Torches shrink as the season
+// One torch per castaway on the roster: lit while they're in the game, a
+// smoke curl over a cooling ember for the episode after they go home, then
+// gone unless the player swapped someone in. Torches shrink as the season
 // goes on, so the list visibly thins out. Replaces the portrait cluster, which
 // made every row busy; the faces are one tap away on the Team page. Nothing
 // renders while rosters are hidden (both lists empty).
@@ -116,15 +109,10 @@ function Torches({ entry }: { entry: StandingEntry }) {
   return (
     <span className="flex flex-none gap-0.5" role="img" aria-label={label}>
       {lit.map((s) => (
-        <svg key={s.contestant_id} viewBox={FLAME_VIEWBOX} className="size-4 fill-gold-500" aria-hidden>
-          <title>{s.name}</title>
-          <path d={FLAME_PATH} />
-        </svg>
+        <Torch key={s.contestant_id} lit title={s.name} />
       ))}
       {out.map((s) => (
-        <span key={s.contestant_id} className="size-4 shrink-0" title={`${s.name}, eliminated ep ${s.eliminated_episode}`} aria-hidden>
-          <img src={snuffedFlameFineSWisp} alt="" className="size-full object-contain" />
-        </span>
+        <Torch key={s.contestant_id} lit={false} title={`${s.name}, eliminated ep ${s.eliminated_episode}`} />
       ))}
     </span>
   )
@@ -201,6 +189,7 @@ export function StandingsPage() {
           aria-label="League standings"
           className="overflow-hidden rounded-2xl border border-paper-edge record-paper shadow-[0_8px_24px_-12px_rgb(10_22_19_/_0.35)]"
         >
+          <TorchDefs />
           <div className="flex items-center justify-between border-b border-paper-line px-4 py-2.5">
             <span className="font-display text-[11px] font-bold uppercase tracking-[0.13em] text-forest-700">League</span>
             <span className="font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-paper-ink-faded">

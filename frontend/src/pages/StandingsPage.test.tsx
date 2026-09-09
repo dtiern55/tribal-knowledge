@@ -102,9 +102,10 @@ describe('StandingsPage', () => {
     renderWithApp(<StandingsPage />)
 
     const torches = await screen.findByRole('img', { name: '1 still in, lost Charlie this week' })
-    expect(torches.querySelectorAll('svg')).toHaveLength(1)
-    const snuffed = torches.querySelector('img')
-    expect(snuffed).toHaveAttribute('src', expect.stringContaining('snuffed-flame-fine-s-wisp'))
-    expect(snuffed).toHaveClass('size-full', 'object-contain')
+    const flames = torches.querySelectorAll('svg')
+    expect(flames).toHaveLength(2)
+    // The snuffed torch is the traced smoke-and-ember drawing, not the flame.
+    expect(flames[1].querySelector('path[fill="url(#torch-ember)"]')).not.toBeNull()
+    expect(flames[1].querySelector('title')?.textContent).toBe('Charlie, eliminated ep 4')
   })
 })
