@@ -1581,19 +1581,37 @@ function LeagueHub({
                     soleSurvivorId={entry.sole_survivor_contestant_id}
                     broadcast={broadcast}
                   />
-                  <HubCastawayRow
-                    label="Ballot"
-                    survivors={entry.ballot}
-                    sub={sub}
-                    empty="No ballot submitted."
-                    doubled={entry.advantage_type === 'double_vote_points' && !entry.advantage_target}
-                    doubledContestantId={
-                      entry.advantage_type === 'double_vote_points'
-                        ? (entry.advantage_target?.contestant_id ?? null)
-                        : null
-                    }
-                    doubledTitle="Power Vote this episode"
-                  />
+                  {/* Ballots are slips here too, same as your own card above:
+                      the ballot is where you write a name down. */}
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
+                      {entry.advantage_type === 'double_vote_points' && !entry.advantage_target && (
+                        <DoubleBadge size={18} title="Power Vote this episode" />
+                      )}
+                    </div>
+                    {entry.ballot.length > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap gap-2">
+                        {entry.ballot.map((vote, index) => {
+                          const doubled =
+                            entry.advantage_type === 'double_vote_points' &&
+                            entry.advantage_target?.contestant_id === vote.contestant_id
+                          return (
+                            <VoteSlip
+                              key={vote.contestant_id}
+                              name={vote.name}
+                              doubled={doubled}
+                              tribeColor={vote.tribe_color}
+                              rotation={[-0.9, 0.6, -0.3][index % 3]}
+                              leading={doubled ? <DoubleBadge size={18} title="Power Vote" /> : null}
+                            />
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className={`mt-1 text-xs ${sub}`}>No ballot submitted.</p>
+                    )}
+                  </div>
                 </div>
               </details>
             </li>
@@ -1609,9 +1627,7 @@ function HubCastawayRow({
   survivors,
   sub,
   empty,
-  doubled = false,
   doubledContestantId = null,
-  doubledTitle = 'Double Castaway Points this episode',
   soleSurvivorId = null,
   broadcast = false,
 }: {
@@ -1619,21 +1635,15 @@ function HubCastawayRow({
   survivors: StandingSurvivor[]
   sub: string
   empty: string
-  /** Whole-row double (a #303-era doubled ballot): the idol next to the label. */
-  doubled?: boolean
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
-  doubledTitle?: string
   /** Their Sole Survivor pick: a gold name, nothing louder (#685). */
   soleSurvivorId?: string | null
   broadcast?: boolean
 }) {
   return (
     <div>
-      <div className="flex items-center gap-1.5">
-        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {doubled && <DoubleBadge size={18} title="Power Vote this episode" />}
-      </div>
+      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
       {survivors.length > 0 ? (
         // Five to a row so a full tribe sits on one line; portrait over name,
         // the idol pinned to the portrait it doubled (#685).
@@ -1652,7 +1662,7 @@ function HubCastawayRow({
                   />
                   {s.contestant_id === doubledContestantId && (
                     <span className="absolute -right-1.5 -top-1.5">
-                      <DoubleBadge size={18} title={doubledTitle} />
+                      <DoubleBadge size={18} title="Double Castaway Points this episode" />
                     </span>
                   )}
                 </span>
