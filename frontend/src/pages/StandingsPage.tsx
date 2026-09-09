@@ -95,8 +95,12 @@ function StandingHero({ entry, rank, tied, count }: { entry: StandingEntry; rank
   )
 }
 
-// The flame from the results card (EpisodeResultReveal's corner torch).
+// The flame from the results card (EpisodeResultReveal's corner torch). Its
+// path spans x 7–17, y 2–18 of the 24-unit box, so the viewBox below crops
+// to that: the flame fills the 16px slot and its base lands on the slot's
+// bottom edge, level with the snuffed artwork, which has no padding.
 const FLAME_PATH = 'M12 2c1 4 5 5 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z'
+const FLAME_VIEWBOX = '4 2 16 16'
 
 // One torch per castaway on the roster: gold while they're in the game, a
 // narrow smoke curl over a cooling ember for the episode after they go home,
@@ -112,7 +116,7 @@ function Torches({ entry }: { entry: StandingEntry }) {
   return (
     <span className="flex flex-none gap-0.5" role="img" aria-label={label}>
       {lit.map((s) => (
-        <svg key={s.contestant_id} viewBox="0 0 24 24" className="size-4 fill-gold-500" aria-hidden>
+        <svg key={s.contestant_id} viewBox={FLAME_VIEWBOX} className="size-4 fill-gold-500" aria-hidden>
           <title>{s.name}</title>
           <path d={FLAME_PATH} />
         </svg>
