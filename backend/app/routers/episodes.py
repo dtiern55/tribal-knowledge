@@ -293,7 +293,7 @@ def get_episode_hub(
                 join contestants c on c.id = ep.contestant_id
                 {_TRIBE_LATERAL}
                 where ep.league_season_id = %s and ep.episode_id = %s
-                order by ep.created_at
+                order by ep.rank nulls first, ep.created_at
                 """,
                 [lsid, str(episode_id)],
             )
