@@ -432,10 +432,22 @@ def redemption_island_ids(cur, episode_n: int, ids: list[str]) -> list[str]:
 
 
 def alive_ids(cur, sid) -> list[str]:
+    """Everyone still in the game — `is_final` is the whole rule.
+
+    A non-final elimination is a trip to Redemption Island: voted off a tribe
+    but still playing, still rosterable, still scoring. The app tests
+    `e.is_final` everywhere it asks this (seasons.py, picks.py, roster.py);
+    without it the bots bury a castaway who is very much alive and burn a
+    free swap clearing them off a roster.
+
+    Distinct from `redemption_island_ids`, which answers a different
+    question: still in the game, but cannot be voted off a tribe this week.
+    """
     cur.execute(
         """select c.id::text cid from contestants c
            where c.season_id=%s and not exists (
-             select 1 from eliminations e where e.contestant_id = c.id)""",
+             select 1 from eliminations e
+             where e.contestant_id = c.id and e.is_final)""",
         [sid],
     )
     return [r["cid"] for r in cur.fetchall()]
@@ -825,7 +837,8 @@ def finalists(cur, sid) -> list[str]:
            where c.season_id=%s and not exists (
              select 1 from eliminations e
              join episodes ep on ep.id = e.episode_id
-             where e.contestant_id = c.id and ep.is_finale = false)""",
+             where e.contestant_id = c.id and e.is_final
+               and ep.is_finale = false)""",
         [sid],
     )
     return [r["cid"] for r in cur.fetchall()]
