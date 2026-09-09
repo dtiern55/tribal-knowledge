@@ -285,8 +285,11 @@ describe('MySeasonPage state shell', () => {
     ])
     renderWithApp(<MySeasonPage />, { auth })
 
-    expect(await screen.findByText('Ep 2 · locked')).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Results are pending' })).toBeVisible()
+    // The episode is named once, at page level, above the cards (#732) — it
+    // paints before the locked card's own load resolves, so the card's
+    // heading is what this waits on.
+    expect(await screen.findByRole('heading', { name: 'Results are pending' })).toBeVisible()
+    expect(screen.getByText('Ep 2 · locked')).toBeVisible()
     expect(screen.getByText('No ballot was submitted.')).toBeVisible()
     // #451: the redundant standalone Advantage section is dropped while locked.
     expect(screen.queryByRole('heading', { name: 'Advantage' })).not.toBeInTheDocument()

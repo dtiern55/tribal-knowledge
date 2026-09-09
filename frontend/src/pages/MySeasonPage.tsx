@@ -745,20 +745,18 @@ export function MySeasonPage() {
             </h1>
             <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
           </div>
-          {/* The Roster beat carries Episode History in the open state (#478);
-              the other states have no beat bar, so it rides here near the top so
-              replays stay reachable between and after episodes. */}
-          <HistorySection
-            season={d.season}
-            userId={d.userId}
-            episodes={d.episodes}
-            plays={d.plays}
-            contestants={d.contestants}
-            pickResults={pickResults}
-            onReplay={openReplay}
-            replayLoading={replayLoading}
-            replayError={replayError}
-          />
+          {/* The episode is named once, here: season, then episode, then the
+              cards below carry only their own name (#732). */}
+          {state.kind === 'locked' && (
+            <EpisodeLabel
+              episode={state.episode}
+              suffix="locked"
+              className={`text-xs font-semibold uppercase tracking-[0.18em] ${
+                isBroadcastWindow(state.episode) ? 'text-gold-300' : 'text-forest-700'
+              }`}
+              titleClassName={isBroadcastWindow(state.episode) ? 'text-white/60' : 'text-gray-500'}
+            />
+          )}
         </div>
       )}
 
@@ -969,6 +967,22 @@ export function MySeasonPage() {
           rosterPoints={rosterPoints}
           plays={d.plays}
           soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
+        />
+      )}
+
+      {/* History is the archive: last thing on the page in every state that
+          has no beat bar to carry it (#478). */}
+      {state.kind !== 'open' && state.kind !== 'watch_only' && (
+        <HistorySection
+          season={d.season}
+          userId={d.userId}
+          episodes={d.episodes}
+          plays={d.plays}
+          contestants={d.contestants}
+          pickResults={pickResults}
+          onReplay={openReplay}
+          replayLoading={replayLoading}
+          replayError={replayError}
         />
       )}
 
@@ -1193,30 +1207,29 @@ function LockedState({
     <section
       aria-labelledby="locked-state-title"
       data-variant={broadcast ? 'broadcast' : 'delayed'}
-      className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${
+      className={`overflow-hidden rounded-2xl border border-t-2 border-t-gold-400 p-5 sm:p-6 ${
         broadcast
           ? 'border-white/15 bg-[radial-gradient(circle_at_top_right,rgba(196,84,50,0.18),transparent_35%),linear-gradient(to_bottom,#132e25,#0e1f19)] text-cream-100 shadow-xl ring-1 ring-black/40'
           : 'border-cream-200 bg-white text-gray-900 shadow-sm'
       }`}
     >
-      <div>
-        <div>
-          <EpisodeLabel
-            episode={episode}
-            suffix="locked"
-            className={`text-xs font-semibold uppercase tracking-[0.18em] ${broadcast ? 'text-gold-300' : 'text-forest-700'}`}
-            titleClassName={broadcast ? 'text-white/60' : 'text-gray-500'}
-          />
-          <h2 id="locked-state-title" className="mt-1 font-display text-3xl tracking-wide">
-            {broadcast ? 'Tribal Council' : 'Results are pending'}
-          </h2>
-        </div>
+      {/* Your card is the only lit panel on the locked page: gold edge, shadow,
+          the larger name. The league's cards below sit flat behind it (#732). */}
+      <div className="flex items-center gap-2.5">
+        <h2 id="locked-state-title" className="font-display text-3xl tracking-wide">
+          {broadcast ? 'Tribal Council' : 'Results are pending'}
+        </h2>
+        {/* Beside the heading, not inside it: the card's accessible name stays
+            the two words a screen reader should hear. */}
+        <span className="rounded-full bg-gold-400 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-forest-900">
+          You
+        </span>
       </div>
 
       <div className="mt-8 grid gap-8">
         <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wide ${broadcast ? 'text-white/60' : 'text-gray-500'}`}>
-            Roster
+            Tribe
           </h3>
           {activeRoster.length > 0 ? <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {activeRoster.map((pick) => {
@@ -1354,7 +1367,6 @@ function LockedState({
       <LeagueHub
         leagueSeasonId={season.id}
         episodeId={episode.id}
-        episodeNumber={episode.episode_number}
         userId={userId}
         broadcast={broadcast}
       />
@@ -1370,13 +1382,11 @@ function LockedState({
 function LeagueHub({
   leagueSeasonId,
   episodeId,
-  episodeNumber,
   userId,
   broadcast,
 }: {
   leagueSeasonId: string
   episodeId: string
-  episodeNumber: number
   userId: string
   broadcast: boolean
 }) {
@@ -1397,20 +1407,19 @@ function LeagueHub({
     }
   }, [episodeId])
 
-  // Its own card, deliberately lighter than the personal one above so the two
-  // read as separate panels — your locked decisions vs. the league's. On the
-  // dark broadcast page a light hairline + elevation is what makes the card's
-  // edges legible; dark-on-dark borders disappear.
+  // Flat and unshadowed on purpose: the personal card above is the lit one,
+  // these are the league's paperwork. The episode is named at page level, so
+  // each card carries only its own name (#732).
   const card = broadcast
-    ? 'border-white/15 bg-white/[0.045] text-cream-100 shadow-xl ring-1 ring-black/40'
-    : 'border-cream-200 bg-cream-50 text-gray-900 shadow-sm'
-  const shell = (children: React.ReactNode) => (
+    ? 'border-white/10 bg-white/[0.035] text-cream-100'
+    : 'border-cream-200 bg-cream-50 text-gray-900'
+  const panel = (id: string, title: string, children: React.ReactNode) => (
     <section
-      aria-labelledby="league-hub-title"
-      className={`mt-5 overflow-hidden rounded-2xl border p-5 sm:p-6 ${card}`}
+      aria-labelledby={id}
+      className={`overflow-hidden rounded-2xl border p-5 sm:p-6 ${card}`}
     >
-      <h2 id="league-hub-title" className="font-display text-2xl tracking-wide">
-        Ep {episodeNumber} · The Field
+      <h2 id={id} className={`font-display text-xl tracking-wide ${broadcast ? 'text-cream-100/80' : 'text-gray-700'}`}>
+        {title}
       </h2>
       {children}
     </section>
@@ -1420,8 +1429,14 @@ function LeagueHub({
   // a load failure or empty field just hides it rather than erroring the page.
   if (failed || (entries && entries.length === 0)) return null
   if (entries == null) {
-    return shell(
-      <p className={`mt-3 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>,
+    return (
+      <div className="mt-10">
+        {panel(
+          'league-field-title',
+          'The Field',
+          <p className={`mt-3 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>,
+        )}
+      </div>
     )
   }
 
@@ -1459,10 +1474,16 @@ function LeagueHub({
   // cream card (delayed), a brighter frost on the faint panel (broadcast).
   const chip = broadcast ? 'border-white/15 bg-white/[0.07]' : 'border-cream-200 bg-white'
 
-  return shell(
-    <>
-      {/* Quick episode stats. */}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+  // The two league cards sit close together as one pair, a clear step below
+  // your own card above them.
+  return (
+    <div className="mt-10 space-y-3">
+      {panel(
+        'league-count-title',
+        'The Count',
+        // Where the league landed as a whole, one card before the per-player
+        // list. Two tiles side by side once there's room, stacked on a phone.
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className={`rounded-xl border p-3 ${chip}`}>
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Consensus boot</p>
           {topBoots.length > 0 ? (
@@ -1522,9 +1543,14 @@ function LeagueHub({
             )}
           </dl>
         </div>
-      </div>
+        </div>,
+      )}
 
-      {/* The full field — one collapsible row per player. */}
+      {panel(
+        'league-field-title',
+        'The Field',
+        <>
+      {/* One collapsible row per player. */}
       <div className="mt-4 flex justify-end">
         <button
           type="button"
@@ -1618,7 +1644,9 @@ function LeagueHub({
           )
         })}
       </ul>
-    </>,
+        </>,
+      )}
+    </div>
   )
 }
 
