@@ -11,7 +11,7 @@ import {
   promptInstall,
 } from '../lib/install'
 import type { Season } from '../types'
-import { CloseIcon, DownloadIcon, GearIcon, LogOutIcon, ProfileIcon, RulesIcon } from './icons'
+import { CloseIcon, DownloadIcon, GearIcon, HistoryIcon, LogOutIcon, ProfileIcon, RulesIcon } from './icons'
 import { InstallSteps } from './InstallSteps'
 
 const rowCls =
@@ -225,10 +225,16 @@ export function NavDrawer({
 
         <div className="border-t border-cream-200">
           {profile?.is_admin && (
-            <NavLink to="/admin" onClick={onClose} className={rowCls}>
-              <GearIcon />
-              Admin
-            </NavLink>
+            <>
+              <NavLink to="/watch" onClick={onClose} className={rowCls}>
+                <HistoryIcon />
+                Watch tracker
+              </NavLink>
+              <NavLink to="/admin" onClick={onClose} className={rowCls}>
+                <GearIcon />
+                Admin
+              </NavLink>
+            </>
           )}
           <button
             type="button"

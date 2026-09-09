@@ -14,6 +14,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { StandingsPage } from './pages/StandingsPage'
 import { TeamPage } from './pages/TeamPage'
+import { WatchPage } from './pages/WatchPage'
 
 export default function App() {
   return (
@@ -54,6 +55,10 @@ export default function App() {
             <Route
               path="profile"
               element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
+            />
+            <Route
+              path="watch"
+              element={<ProtectedRoute><WatchPage /></ProtectedRoute>}
             />
             <Route
               path="admin"
