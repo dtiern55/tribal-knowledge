@@ -23,7 +23,6 @@ from app.routers import (
     seasons,
     standings,
     survivor_import,
-    tokens,
     tribes,
     tvmaze,
 )
@@ -57,7 +56,6 @@ app.include_router(scoring_events.router)
 app.include_router(roster.router)
 app.include_router(picks.router)
 app.include_router(finale_predictions.router)
-app.include_router(tokens.router)
 app.include_router(standings.router)
 app.include_router(leagues.router)
 app.include_router(league_seasons.router)

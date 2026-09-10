@@ -111,11 +111,7 @@ def test_play_binds_the_open_episode_and_costs_nothing(client, db_conn, current_
     )
 
     assert play["episode_id"] == str(ep["id"])
-    assert play["token_cost"] == 0
-    balance = client.get(
-        f"/league-seasons/{season['league_season_id']}/tokens/{current_user['id']}"
-    ).json()
-    assert balance["balance"] == 0  # nothing spent, and nothing needed
+    assert play["token_cost"] == 0  # advantages are free since tokens retired (#307)
 
 
 @pytest.mark.integration
