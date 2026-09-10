@@ -277,31 +277,68 @@ backups; this weekly dump is the only copy. Needs Docker up. Details in
 ## 11. Bot week (practice/bot seasons only)
 
 If the season is bot-driven (a `bot_reads/season_<n>.json` exists), take the
-commissioner's read for episode N+1 — `likely_boots`, `confidence`,
-`double_targets` — append it as the `"<N+1>"` entry to
-`backend/scripts/bot_reads/season_<n>.json`, then:
+commissioner's read for episode N+1, append it as the `"<N+1>"` entry to
+`backend/scripts/bot_reads/season_<n>.json`, and run it for **every league
+playing the season** — the bots are members of the real leagues, there is no
+league called "Bots" on prod. S27 on prod is `secondary` and `qa`:
 
 ```
-uv run python scripts/run_bots.py week {N+1} --league Bots --season {season_number}
+uv run --env-file .env.prod python scripts/run_bots.py week {N+1} --league secondary --season 27
+uv run --env-file .env.prod python scripts/run_bots.py week {N+1} --league qa --season 27
 ```
 
-Turning the read into fields:
-- **`likely_boots`** as `[name, weight]` pairs controls the **ballot vote split**.
-  Weights are *relative shares*, apportioned across `max_picks × non-contrarian
-  bots` slots — so make them sum near that total and each weight reads roughly as
-  a vote count (e.g. Christian 14 / Angelina 8 / six others 2 → ~15 / ~8 / ~2
-  each). Use full names (`"Christian Hubicki"`); list only living castaways.
-- **`double_targets`** steers the **roster-point double** (Double Castaway
-  Points): bots prefer to double a held roster member named here. List *all*
-  living castaways to make that choice random/unsteered.
-- **`confidence`** (`high`/`medium`/`low`) is stated, not inferred — `high` nudges
-  the contrarians to double their ballot.
-- Ballot-doubling isn't targeted: it emerges — the more ballots a boot draws, the
-  more vote-doublers land on it ("some double him, fewer double her").
-- After running, spot-check the split: count `elimination_picks` for episode N+1
-  grouped by contestant, and confirm it matches the read before moving on.
-- The file is committed alongside the earlier weeks — open a PR (main is
-  protected), the DB already has the picks.
+**Ask Danny for two things only:** the tiers in his own words ("lean on Brad
+and Ciera, pepper in these five, spread a few here") and **roughly what share
+of ballots the top name should hold**. Everything below is yours to derive.
+
+**`spread` is what decides whether the read bites at all — set it every week.**
+It floors each bot's follow distance, and `run_bots` treats 8 as near a uniform
+shuffle, so the file's top-level 40 makes every bot ignore the read entirely.
+That is right for a week with no read (weeks 2 and 3 of S27 use 100) and wrong
+for every week with one. **A week with a real read sets `"spread": 0`**, which
+lets each persona follow at its own distance — three tight, one loose, two
+random per lean. Miss this and the weights alone produce a nearly flat split.
+
+**`likely_boots`** as `[name, weight]` pairs controls the ballot split. Weights
+are *relative shares*, apportioned across `max_picks × bots` slots — but they
+only **cap** a name, they never force it: the draw is still random within
+what's available, and about 75-85% of a cap actually fills. So treat the first
+run as a measurement, not the answer. Full names (`"Brad Culpepper"`), living
+castaways only.
+
+**Landing a target share is iterative** — run, count, adjust, re-run. Resolution
+is coarse: at ~33 bot ballots one weight step moves the top name roughly 9
+points, so "75%" may only be reachable as 70% or 79%. Say which you landed on
+rather than claiming the target. As a starting point, the top name wants
+**about a quarter of total weight** to hold three ballots in four.
+
+**Re-running the same week needs the slate cleared first.** `run_bots` skips a
+bot that already has picks or a play that episode, so a second run is a no-op.
+Delete that episode's `elimination_picks` and `advantage_plays` **for bot
+profiles only** (leave any human ballot alone), then run again. Swaps are
+guarded separately, on `roster_picks.active_until_episode`, so they do not
+repeat and must not be deleted.
+
+**`double_targets`** steers the roster-point double (Double Castaway Points):
+bots prefer to double a held roster member named here. List *all* living
+castaways to leave it unsteered. A named target with no bot holding them draws
+nothing — the play reads the roster, not the read.
+
+**Ballot-doubling is not steered directly.** The Power Vote goes on the bot's
+top rung when it follows the read closely, otherwise on the extra name the play
+buys (#740), and the rungs themselves are shuffled a little so the league does
+not rank in lockstep (#742).
+
+**`confidence` in the season 37 file is dead** — nothing reads it. Don't add it
+to new entries and don't cite it as a lever.
+
+After running, spot-check before moving on: `elimination_picks` for episode N+1
+grouped by contestant *and rank*, plus `advantage_plays` grouped by target.
+Confirm the split matches the read, no play is left without a matching pick
+row, and no swap repeated.
+
+The file is committed alongside the earlier weeks — open a PR (main is
+protected), the DB already has the picks.
 
 Bots pick BEFORE the episode airs, so this runs after scoring N and before
 N+1 locks. Never run it after the fact: the whole point is that nothing in
