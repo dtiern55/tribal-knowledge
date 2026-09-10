@@ -3897,10 +3897,9 @@ function PicksSection({
                   {rungValue(ep, 1) != null && (
                     <p
                       aria-hidden="true"
-                      className="mb-0.5 grid grid-cols-[44px_1fr] gap-x-3 text-left font-display text-[11px] font-bold uppercase leading-none tracking-[0.16em]"
+                      className="mb-0.5 w-11 text-center font-display text-[11px] font-bold uppercase leading-none tracking-[0.16em] text-terracotta-700"
                     >
-                      <span className="text-center text-terracotta-700">Pays</span>
-                      <span className="text-paper-ink-faded">Surest on top</span>
+                      Pts
                     </p>
                   )}
                   <ol aria-label="Your ballot, surest on top" className="ballot-rail text-left">
