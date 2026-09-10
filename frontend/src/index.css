@@ -835,6 +835,19 @@ html.locked-night .tribal-border {
 html.locked-night .app-shell .ballot-rail__node { --tw-ring-color: #132e25; }
 html.locked-night .app-shell .ballot-rail::before { background: rgb(196 84 50 / 45%); }
 
+/* The castaway picker's tray under the rail while editing: warm stone, sunk
+   below the ballot by a soft shadow off its top edge. */
+.ballot-tray {
+  border-top: 1px solid #e6dccd;
+  background: #f5efe6;
+  box-shadow: inset 0 9px 10px -9px rgb(73 60 49 / 24%);
+}
+html.locked-night .app-shell .ballot-tray {
+  border-top-color: rgb(242 233 219 / 12%);
+  background: #10271f;
+  box-shadow: none;
+}
+
 .ballot-slip {
   display: inline-flex;
   align-items: center;

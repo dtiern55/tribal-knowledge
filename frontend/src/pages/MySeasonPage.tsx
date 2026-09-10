@@ -3851,8 +3851,8 @@ function PicksSection({
                                   : disabled
                                     ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
                                     : designating
-                                      ? 'border-gold-500 bg-white/55 text-paper-ink hover:bg-gold-50'
-                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                                      ? 'border-gold-500 bg-white text-paper-ink hover:bg-gold-50'
+                                      : 'border-paper-edge bg-white text-paper-ink hover:border-forest-300',
                             ].join(' ')}
                           >
                             <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
@@ -3974,7 +3974,7 @@ function PicksSection({
                   {/* The ladder (#694) on the rail: each rung's disc is what it
                       pays, surest on top. A name drags to another rung; the
                       arrows are the tap path. The gold disc is the Power Vote. */}
-                  <ol aria-label="Your ballot, surest on top" className="ballot-rail mb-6 text-left">
+                  <ol aria-label="Your ballot, surest on top" className="ballot-rail mb-2 text-left">
                     {(ballotPlay || designating) && (
                       <li
                         data-drop-id="rung:pv"
@@ -4109,13 +4109,17 @@ function PicksSection({
                       )
                     })}
                   </ol>
-                  <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
-                  {grid}
                 </>
               )}
-
-              {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
-              {!confirmed && (
+            </div>
+            {!confirmed && (
+              // The picker sits in a recessed tray under the rail, so the
+              // ballot reads as the thing on top and the picker as where the
+              // names come from. The margins cancel this section's padding.
+              <div className="ballot-tray -mx-4 -mb-3.5 px-4 pt-4 pb-3.5 text-center">
+                <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
+                {grid}
+                {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
                 <div className="mx-auto flex max-w-xs gap-2">
                   <button
                     type="button"
@@ -4138,8 +4142,8 @@ function PicksSection({
                     </button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             {confirmed && (
               // The lane's own foot, where Tribe keeps Edit tribe. The margins
               // cancel this section's padding; width auto undoes the foot's
