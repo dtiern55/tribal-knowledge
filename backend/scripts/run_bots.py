@@ -160,6 +160,11 @@ def biased_order(items: list, spread: float, *seed) -> list:
 # confident about, so the seal rides the new name.
 SEAL_TOP_RUNG_BELOW = 2.0
 
+# Floor on how loosely a bot orders the three names it already chose. Even a
+# lockstep follower shuffles the rungs a little: at 1.0 its leader takes rung 1
+# about three ballots in four. A looser bot keeps its own, larger spread.
+RUNG_SHUFFLE = 1.0
+
 
 def power_vote_target(spread: float, top_pick, extra):
     """Which name on the ballot carries the Power Vote."""
@@ -742,8 +747,15 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                     :max_picks
                 ]
             # The ballot is a ladder (#694): the draw is already confidence
-            # order, so the first name takes the top rung.
-            for rank, cid in enumerate(chosen, start=1):
+            # order, so the first name takes the top rung — but loosened a
+            # touch first. Handing the rungs straight to the draw made the
+            # read's leader rung 1 on all but two of its ballots; nobody is
+            # that certain of their own order, and the ladder pays 20/16/12
+            # for getting it right.
+            for rank, cid in enumerate(
+                biased_order(chosen, max(spread, RUNG_SHUFFLE), uid, episode_n, "rung"),
+                start=1,
+            ):
                 cur.execute(
                     "insert into elimination_picks"
                     " (user_id, league_season_id, episode_id, contestant_id, rank)"
