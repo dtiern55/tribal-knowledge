@@ -638,6 +638,18 @@ html.locked-night .tribal-border {
   }
 }
 
+/* The name-your-Sole-Survivor nudge (#164): the same breathing gold halo on the
+   Sole Survivor line while the moment points you at it. */
+.ss-line[data-pulse] {
+  animation: swap-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-line[data-pulse] {
+    animation: none;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-gold-500) 45%, transparent);
+  }
+}
+
 .tribe-marker {
   display: inline-block;
   width: 8px;
