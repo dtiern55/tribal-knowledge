@@ -3134,6 +3134,70 @@ function BallotRecord({
   )
 }
 
+// The ballot rail: every row is a disc on the rail, the castaway, then the
+// rung's controls. The rail line itself is `.ballot-rail` in index.css.
+const RAIL_ROW = 'grid min-h-[62px] grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-3'
+const RAIL_NAME = 'block truncate font-display text-lg uppercase leading-tight'
+const RAIL_SUB = 'block text-[10px] font-semibold uppercase tracking-[0.1em]'
+
+/** A rung's disc on the ballot rail: what it pays, stepping down in size with
+ *  the rank so the payout order reads before the names do. */
+function RailNode({
+  value,
+  rank,
+  tone,
+}: {
+  value: number | null
+  /** 0 is the Power Vote, 1 the top pick. */
+  rank: number
+  tone: 'power' | 'power-open' | 'set' | 'open'
+}) {
+  const size = ['size-11 text-lg', 'size-10 text-[17px]', 'size-9 text-base', 'size-8 text-[15px]'][Math.min(rank, 3)]
+  const paint = {
+    power: 'bg-gold-500 text-forest-900',
+    'power-open': 'border-2 border-dashed border-gold-500 bg-gold-50 text-gold-700',
+    set: 'bg-terracotta-700 text-white',
+    open: 'border-2 border-dashed border-terracotta-300 bg-white text-terracotta-600',
+  }[tone]
+  return (
+    <b
+      className={`ballot-rail__node relative z-[1] inline-grid place-items-center justify-self-center rounded-full font-display font-bold leading-none tabular-nums ring-4 ring-white ${size} ${paint}`}
+    >
+      {value ?? ''}
+    </b>
+  )
+}
+
+/** The castaway on a rail row, with the idol on the Power Vote's corner; a
+ *  dashed ring when the rung is empty. */
+function RailAvatar({
+  contestant,
+  name,
+  power = false,
+}: {
+  contestant?: Contestant
+  name: string | null
+  power?: boolean
+}) {
+  if (name == null)
+    return <span aria-hidden="true" className="size-9 shrink-0 rounded-full border-[1.5px] border-dashed border-paper-edge" />
+  return (
+    <span className="relative flex shrink-0">
+      <ContestantAvatar
+        name={name}
+        imageUrl={contestant?.image_url ?? null}
+        tribeColor={contestant?.tribe_color ?? null}
+        tribeName={contestant?.tribe_name ?? null}
+      />
+      {power && (
+        <span className="absolute -right-2 -bottom-1.5">
+          <DoubleBadge size={20} title="Power Vote" />
+        </span>
+      )}
+    </span>
+  )
+}
+
 function PicksSection({
   season,
   contestants,
@@ -3787,8 +3851,8 @@ function PicksSection({
                                   : disabled
                                     ? 'border-paper-line bg-black/[.03] text-paper-ink-faded/60 cursor-not-allowed'
                                     : designating
-                                      ? 'border-gold-500 bg-white/55 text-paper-ink hover:bg-gold-50'
-                                      : 'border-paper-edge bg-white/55 text-paper-ink hover:border-forest-300',
+                                      ? 'border-gold-500 bg-white text-paper-ink hover:bg-gold-50'
+                                      : 'border-paper-edge bg-white text-paper-ink hover:border-forest-300',
                             ].join(' ')}
                           >
                             <ContestantAvatar name={name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} />
@@ -3824,51 +3888,31 @@ function PicksSection({
             <div className="ballot-sheet">
               {/* The hero already names the episode and when it locks, so the
                   sheet opens on the ask alone. */}
-              {!confirmed && (
-                <p className="ballot-sheet__prompt">Rank your picks. The top rung pays the most.</p>
-              )}
               {confirmed ? (
-                /* Submitted is the state people look for, and the slips are the
-                   record of it — so the mark and the strongest type in the card
-                   sit above the votes themselves. */
-                <div className="mb-5">
-                  <p className="mb-4 flex items-center justify-center gap-1.5 font-display text-base uppercase tracking-wide text-jade-700">
-                    <svg viewBox="0 0 24 24" className="size-4 flex-none" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                    Ballot submitted
-                  </p>
-                  {/* The record, once it is in: the roster's own manifest
-                      rows — portrait, name, the rung, and what it pays on the
-                      right. The Power Vote is the gold row; an unfilled rung
-                      is an open line, so "2 of 3" shows without a sentence. */}
-                  <ol
-                    aria-label="Your ballot, surest on top"
-                    className="record-paper overflow-hidden rounded-sm border border-paper-edge text-left shadow-sm"
-                  >
-                    <li aria-hidden="true" className="flex items-center justify-between border-b-2 border-paper-edge px-3 pt-1.5 pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-paper-ink-faded">
-                      <span>Your call</span>
-                      <span>If they go</span>
-                    </li>
+                /* The record, once it is in: the same rail the ladder is drawn
+                   on, each rung's disc carrying what it pays. The Power Vote is
+                   the gold disc; an unfilled rung is an open one, so "2 of 3"
+                   shows without a sentence. */
+                <>
+                  {rungValue(ep, 1) != null && (
+                    <p
+                      aria-hidden="true"
+                      className="mb-0.5 w-11 text-center font-display text-[11px] font-bold uppercase leading-none tracking-[0.16em] text-terracotta-700"
+                    >
+                      Pts
+                    </p>
+                  )}
+                  <ol aria-label="Your ballot, surest on top" className="ballot-rail text-left">
                     {ballotPlay && (
-                      <li className="flex items-center gap-3 bg-gold-50 px-3 py-2">
-                        <ContestantAvatar
-                          name={powerName}
-                          imageUrl={powerContestant?.image_url ?? null}
-                          tribeColor={powerContestant?.tribe_color ?? null}
-                          tribeName={powerContestant?.tribe_name ?? null}
-                        />
-                        <span className="min-w-0">
-                          <span className="block truncate font-display text-[1.05rem] font-semibold uppercase text-paper-ink">
-                            {powerName}
-                          </span>
-                          <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-gold-700">
-                            Power Vote
+                      <li className={RAIL_ROW}>
+                        <RailNode value={rungValue(ep, 0)} rank={0} tone="power" />
+                        <span className="flex min-w-0 items-center gap-3">
+                          <RailAvatar contestant={powerContestant} name={powerName} power />
+                          <span className="min-w-0">
+                            <span className={`${RAIL_NAME} font-semibold text-paper-ink`}>{powerName}</span>
+                            <span className={`${RAIL_SUB} text-gold-700`}>Power Vote</span>
                           </span>
                         </span>
-                        <b className="ml-auto font-display text-lg font-bold text-gold-700">
-                          {rungValue(ep, 0) != null ? `+${rungValue(ep, 0)}` : ''}
-                        </b>
                       </li>
                     )}
                     {savedPicks.map((p, index) => {
@@ -3878,95 +3922,80 @@ function PicksSection({
                         sc?.eliminated_in_episode != null &&
                         sc.eliminated_in_episode < ep.episode_number
                       const rank = p.rank ?? index + 1
-                      const rowValue = rungValue(ep, rank)
+                      const name = sc ? displayName(sc) : '—'
                       return (
-                        <li key={p.id} className="flex items-center gap-3 border-t border-paper-line px-3 py-2">
-                          <ContestantAvatar
-                            name={sc ? displayName(sc) : '—'}
-                            imageUrl={sc?.image_url ?? null}
-                            tribeColor={sc?.tribe_color ?? null}
-                            tribeName={sc?.tribe_name ?? null}
-                          />
-                          <span className="min-w-0">
-                            <span
-                              className={`block truncate font-display text-[1.05rem] font-semibold uppercase ${
-                                stale ? 'text-paper-ink-faded line-through' : 'text-paper-ink'
-                              }`}
-                            >
-                              {sc ? displayName(sc) : '—'}
-                            </span>
-                            <span className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">
-                              {ordinal(rank)}
-                              {stale && ' · out'}
+                        <li key={p.id} className={RAIL_ROW}>
+                          <RailNode value={stale ? null : rungValue(ep, rank)} rank={rank} tone={stale ? 'open' : 'set'} />
+                          <span className="flex min-w-0 items-center gap-3">
+                            <RailAvatar contestant={sc} name={name} />
+                            <span className="min-w-0">
+                              <span
+                                className={`${RAIL_NAME} font-semibold ${
+                                  stale ? 'text-paper-ink-faded line-through' : 'text-paper-ink'
+                                }`}
+                              >
+                                {name}
+                              </span>
+                              <span className={`${RAIL_SUB} text-paper-ink-faded`}>
+                                {ordinal(rank)}
+                                {stale && ' · out'}
+                              </span>
                             </span>
                           </span>
-                          <b className="ml-auto font-display text-lg font-bold text-forest-800">
-                            {rowValue != null && !stale ? `+${rowValue}` : ''}
-                          </b>
                         </li>
                       )
                     })}
                     {Array.from({ length: Math.max(0, maxPicks - savedPicks.length) }, (_, i) => {
                       const rank = savedPicks.length + i + 1
-                      const rowValue = rungValue(ep, rank)
                       return (
-                        <li key={`open-${rank}`} className="flex items-center gap-3 border-t border-paper-line px-3 py-2 opacity-60">
-                          <span aria-hidden="true" className="inline-flex size-9 shrink-0 rounded-full border-[1.5px] border-dashed border-paper-edge" />
-                          <span className="min-w-0">
-                            <span className="block font-display text-[1.05rem] font-medium uppercase text-paper-ink-faded">Open</span>
-                            <span className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">
-                              {ordinal(rank)}
+                        <li key={`open-${rank}`} className={RAIL_ROW}>
+                          <RailNode value={rungValue(ep, rank)} rank={rank} tone="open" />
+                          <span className="flex min-w-0 items-center gap-3">
+                            <RailAvatar name={null} />
+                            <span className="min-w-0">
+                              <span className={`${RAIL_NAME} font-medium text-paper-ink-faded`}>Open</span>
+                              <span className={`${RAIL_SUB} text-paper-ink-faded`}>{ordinal(rank)}</span>
                             </span>
                           </span>
-                          <b className="ml-auto font-display text-lg font-medium text-paper-ink-faded">
-                            {rowValue != null ? `+${rowValue}` : ''}
-                          </b>
                         </li>
                       )
                     })}
                   </ol>
-                </div>
+                </>
               ) : (
                 <>
-                  <p aria-live="polite" className="ballot-sheet__count mb-3">
-                    <b>{epPending.length}</b> of {maxPicks} names written
+                  <p className="mb-1 flex items-baseline justify-between gap-3 text-left text-sm text-stone-600">
+                    Rank your picks. The top pays most.
+                    <span aria-live="polite" className="ballot-sheet__count whitespace-nowrap">
+                      {epPending.length} of {maxPicks}
+                    </span>
                   </p>
-                  {/* The ladder (#694): the rungs and what each pays, surest on
-                      top. A slip drags to another rung; the arrows are the tap
-                      path. The gold rung is the Power Vote, above the ladder. */}
-                  <ol
-                    aria-label="Your ballot, surest on top"
-                    className="record-paper mx-auto mb-6 max-w-sm overflow-hidden rounded-sm border border-paper-edge text-left shadow-sm"
-                  >
-                    <li aria-hidden="true" className="flex items-center justify-between border-b-2 border-paper-edge px-3 pt-1.5 pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-paper-ink-faded">
-                      <span>Your ballot</span>
-                      <span>If they go</span>
-                    </li>
+                  {/* The ladder (#694) on the rail: each rung's disc is what it
+                      pays, surest on top. A name drags to another rung; the
+                      arrows are the tap path. The gold disc is the Power Vote. */}
+                  <ol aria-label="Your ballot, surest on top" className="ballot-rail mb-2 text-left">
                     {(ballotPlay || designating) && (
                       <li
                         data-drop-id="rung:pv"
-                        className={`flex min-h-12 items-center gap-2 px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-inset data-[drag-over]:ring-gold-500 ${
-                          ballotPlay ? 'bg-gold-50' : 'bg-gold-50/60 outline-dashed outline-1 -outline-offset-2 outline-gold-500'
-                        }`}
+                        className={`${RAIL_ROW} data-[drag-over]:ring-2 data-[drag-over]:ring-inset data-[drag-over]:ring-gold-500`}
                       >
-                        <b className="w-8 shrink-0 font-display text-xl font-bold leading-none text-gold-700">
-                          {rungValue(ep, 0) ?? ''}
-                        </b>
-                        <span className="w-14 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-gold-700">
-                          Power Vote
-                        </span>
+                        <RailNode value={rungValue(ep, 0)} rank={0} tone={ballotPlay ? 'power' : 'power-open'} />
                         {ballotPlay && powerTarget ? (
                           <>
                             <span
                               onPointerDown={play.locked ? undefined : startLadderDrag(powerTarget)}
-                              className={`inline-flex min-w-0 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
+                              className={`flex min-w-0 items-center gap-3 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
                               style={{ opacity: ladderDragging && dragName.current === powerTarget ? 0.3 : 1 }}
                             >
-                              <VoteSlip name={powerName} doubled tribeColor={powerContestant?.tribe_color} rotation={0} />
+                              <RailAvatar contestant={powerContestant} name={powerName} power />
+                              <span className="min-w-0">
+                                <span className={`${RAIL_NAME} font-semibold text-paper-ink`}>{powerName}</span>
+                                <span className={`${RAIL_SUB} text-gold-700`}>Power Vote</span>
+                              </span>
                             </span>
                             {/* The same controls as every rung: down swaps with
                                 1st, remove takes the advantage back. */}
-                            <span className="ml-auto inline-flex shrink-0 items-center gap-0.5">
+                            <span className="inline-flex shrink-0 items-center gap-0.5">
                               <button
                                 type="button"
                                 disabled
@@ -3996,8 +4025,11 @@ function PicksSection({
                             </span>
                           </>
                         ) : (
-                          // Empty: the dashed gold rung says it; the strip says what to do.
-                          <span className="min-h-8 flex-1" />
+                          // Empty: the dashed gold disc says it; the strip says what to do.
+                          <span className="flex min-w-0 items-center gap-3">
+                            <RailAvatar name={null} />
+                            <span className={`${RAIL_SUB} text-gold-700`}>Power Vote</span>
+                          </span>
                         )}
                       </li>
                     )}
@@ -4009,24 +4041,23 @@ function PicksSection({
                         <li
                           key={index}
                           data-drop-id={`rung:${index + 1}`}
-                          className="flex min-h-12 items-center gap-2 border-t border-paper-line px-2 py-1.5 data-[drag-over]:ring-2 data-[drag-over]:ring-inset data-[drag-over]:ring-gold-500"
+                          className={`${RAIL_ROW} data-[drag-over]:ring-2 data-[drag-over]:ring-inset data-[drag-over]:ring-gold-500`}
                         >
-                          <b className="w-8 shrink-0 font-display text-xl font-bold leading-none text-forest-800">
-                            {rungValue(ep, index + 1) ?? ''}
-                          </b>
-                          <span className="w-14 shrink-0 font-display text-[10px] font-bold uppercase leading-tight tracking-wide text-paper-ink-faded">
-                            {ordinal(index + 1)}
-                          </span>
+                          <RailNode value={rungValue(ep, index + 1)} rank={index + 1} tone={id && rungName ? 'set' : 'open'} />
                           {id && rungName ? (
                             <>
                               <span
                                 onPointerDown={play.locked ? undefined : startLadderDrag(id)}
-                                className={`inline-flex min-w-0 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
+                                className={`flex min-w-0 items-center gap-3 ${play.locked ? '' : 'cursor-grab touch-none active:cursor-grabbing'}`}
                                 style={{ opacity: ladderDragging && dragName.current === id ? 0.3 : 1 }}
                               >
-                                <VoteSlip name={rungName} tribeColor={rc?.tribe_color} rotation={0} />
+                                <RailAvatar contestant={rc} name={rungName} />
+                                <span className="min-w-0">
+                                  <span className={`${RAIL_NAME} font-semibold text-paper-ink`}>{rungName}</span>
+                                  <span className={`${RAIL_SUB} text-paper-ink-faded`}>{ordinal(index + 1)}</span>
+                                </span>
                               </span>
-                              <span className="ml-auto inline-flex shrink-0 items-center gap-0.5">
+                              <span className="inline-flex shrink-0 items-center gap-0.5">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -4063,31 +4094,31 @@ function PicksSection({
                               </span>
                             </>
                           ) : (
-                            <span className="text-xs text-paper-ink-faded">
-                              {index === epPending.length ? 'Tap a name below.' : ''}
+                            <span className="flex min-w-0 items-center gap-3">
+                              <RailAvatar name={null} />
+                              <span className="min-w-0">
+                                <span className="block text-sm text-paper-ink-faded">
+                                  {index === epPending.length ? 'Tap a name below.' : ''}
+                                </span>
+                                <span className={`${RAIL_SUB} text-paper-ink-faded`}>{ordinal(index + 1)}</span>
+                              </span>
                             </span>
                           )}
                         </li>
                       )
                     })}
                   </ol>
-                  <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
-                  {grid}
                 </>
               )}
-
-              {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
-              {confirmed ? (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="ruled-action"
-                  >
-                    Edit ballot
-                  </button>
-                </div>
-              ) : (
+            </div>
+            {!confirmed && (
+              // The picker sits in a recessed tray under the rail, so the
+              // ballot reads as the thing on top and the picker as where the
+              // names come from. The margins cancel this section's padding.
+              <div className="ballot-tray -mx-4 -mb-3.5 px-4 pt-4 pb-3.5 text-center">
+                <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
+                {grid}
+                {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
                 <div className="mx-auto flex max-w-xs gap-2">
                   <button
                     type="button"
@@ -4110,8 +4141,32 @@ function PicksSection({
                     </button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+            {confirmed && (
+              // The lane's own foot, where Tribe keeps Edit tribe. The margins
+              // cancel this section's padding; width auto undoes the foot's
+              // 100%, which is there for the button feet.
+              <div
+                className="lane-card__foot -mx-4 -mb-3.5 mt-2 justify-center gap-2.5 text-sm"
+                style={{ width: 'auto' }}
+              >
+                <span className="inline-flex items-center gap-1.5 font-semibold text-jade-700">
+                  <svg viewBox="0 0 24 24" className="size-3.5 flex-none" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                  Submitted
+                </span>
+                <span aria-hidden="true" className="size-[3px] rounded-full bg-paper-edge" />
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="font-semibold text-terracotta-700 underline underline-offset-2 hover:text-terracotta-800"
+                >
+                  Edit ballot
+                </button>
+              </div>
+            )}
             </>
           )
         })()}

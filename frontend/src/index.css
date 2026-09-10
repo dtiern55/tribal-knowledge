@@ -779,12 +779,6 @@ html.locked-night .tribal-border {
   background: var(--color-forest-600);
   opacity: 0.35;
 }
-.ballot-sheet__prompt {
-  font-family: "Kalam", cursive;
-  font-size: 19px;
-  line-height: 1.3;
-  color: var(--color-forest-700);
-}
 .ballot-sheet__count {
   font-family: var(--font-display);
   font-size: 13px;
@@ -793,7 +787,6 @@ html.locked-night .tribal-border {
   text-transform: uppercase;
   color: var(--color-stone-600);
 }
-.ballot-sheet__count b { color: var(--color-forest-800); }
 
 /* Submitted votes are the point of the sheet, so they are set larger here
    than the same slips are in the History ledger. */
@@ -807,6 +800,52 @@ html.locked-night .tribal-border {
 .ballot-sheet__slips .ballot-slip {
   padding: 9px 20px;
   font-size: 19px;
+}
+
+/* The ballot rail: one terracotta line down the ladder, with a disc per rung
+   carrying what it pays, so the payout order reads before any name does. The
+   line runs disc centre to disc centre (rows are at least 62px, so 31px in),
+   and each rung after the first draws a hairline from the name column. */
+.ballot-rail {
+  position: relative;
+}
+.ballot-rail::before {
+  content: '';
+  position: absolute;
+  top: 31px;
+  bottom: 31px;
+  left: 20.5px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-terracotta-200);
+}
+.ballot-rail > li {
+  position: relative;
+}
+.ballot-rail > li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 56px;
+  height: 1px;
+  background: var(--color-paper-line);
+}
+/* Admin night preview only: the disc's white ring becomes the dark lane. */
+html.locked-night .app-shell .ballot-rail__node { --tw-ring-color: #132e25; }
+html.locked-night .app-shell .ballot-rail::before { background: rgb(196 84 50 / 45%); }
+
+/* The castaway picker's tray under the rail while editing: warm stone, sunk
+   below the ballot by a soft shadow off its top edge. */
+.ballot-tray {
+  border-top: 1px solid #e6dccd;
+  background: #f5efe6;
+  box-shadow: inset 0 9px 10px -9px rgb(73 60 49 / 24%);
+}
+html.locked-night .app-shell .ballot-tray {
+  border-top-color: rgb(242 233 219 / 12%);
+  background: #10271f;
+  box-shadow: none;
 }
 
 .ballot-slip {
