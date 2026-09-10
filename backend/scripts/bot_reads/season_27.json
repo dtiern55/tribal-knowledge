@@ -47,7 +47,7 @@
   },
   "4": {
    "likely_boots": [
-    ["Brad Culpepper", 9],
+    ["Brad Culpepper", 11],
     ["Ciera Eastin", 9],
     ["Katie Collins", 4],
     ["Kat Edorsson", 4],
@@ -66,7 +66,8 @@
     "Vytas Baskauskas",
     "Caleb Bankston"
    ],
-   "note": "Brad and Ciera lead the ballots. Katie, Kat, Laura M., Tina and Laura B. peppered in behind them, a few votes out to Monica, Gervase and Caleb. Roster doubles lean Galang - Tyson, Aras, Gervase - plus Hayden, Vytas and Caleb on Tadhana."
+   "note": "Brad is the read, on three ballots in four, with Ciera close behind. Katie, Kat, Laura M., Tina and Laura B. peppered in, a few votes out to Monica, Gervase and Caleb. Roster doubles lean Galang - Tyson, Aras, Gervase - plus Hayden, Vytas and Caleb on Tadhana. First week with a real read, so no spread floor: each bot follows at its own persona's distance.",
+   "spread": 0
   }
  }
 }
