@@ -15,9 +15,7 @@ from tests.helpers import (
 
 
 def _entry(client, season, user_id):
-    rows = client.get(
-        f"/league-seasons/{season['league_season_id']}/standings"
-    ).json()
+    rows = client.get(f"/league-seasons/{season['league_season_id']}/standings").json()
     return next(r for r in rows if r["user_id"] == str(user_id))
 
 
@@ -41,9 +39,7 @@ def _lock(db_conn, episode_id):
 
 
 @pytest.mark.integration
-def test_swapping_the_corpse_out_keeps_its_snuffed_torch(
-    client, db_conn, current_user
-):
+def test_swapping_the_corpse_out_keeps_its_snuffed_torch(client, db_conn, current_user):
     """The torch records the episode they died in, not who is rostered today.
 
     S27 episode 3: Rachel went out while on 13 rosters and 11 of them swapped
@@ -106,13 +102,16 @@ def test_another_players_pending_swap_stays_hidden_until_it_locks(
 
 
 @pytest.mark.integration
-def test_your_own_pending_swap_shows_on_your_own_row(
-    client, db_conn, current_user
-):
-    """You already know what you did — hiding it from yourself reads as a bug."""
+def test_your_own_pending_swap_waits_for_the_lock_too(client, db_conn, current_user):
+    """Standings is the league as of the last locked episode, your row included.
+
+    The Team page shows your own pending swap; here it would pair next week's
+    roster with last week's points, and sit beside the snuffed torch of the
+    castaway it replaced — two torches for one slot.
+    """
     season = insert_season(db_conn, roster_lock_episode=1)
     insert_episode(db_conn, season["id"], episode_number=1, status="scored")
-    insert_episode(db_conn, season["id"], episode_number=2)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
     dropped = insert_contestant(db_conn, season["id"], "Dropped")
     added = insert_contestant(db_conn, season["id"], "Added")
     insert_roster_pick(
@@ -131,4 +130,36 @@ def test_your_own_pending_swap_shows_on_your_own_row(
         active_from_episode=2,
     )
 
+    assert _lit(client, season, current_user["id"]) == {"Dropped"}
+
+    _lock(db_conn, ep2["id"])
     assert _lit(client, season, current_user["id"]) == {"Added"}
+
+
+@pytest.mark.integration
+def test_snuffed_torches_clear_when_the_next_episode_locks(
+    client, db_conn, current_user
+):
+    """They stay through the wait and the airing, then go at the next lock.
+
+    Holding them past that would stack them on top of the replacements, which
+    go live at the same moment, and push the row past its roster size.
+    """
+    season = insert_season(db_conn, roster_lock_episode=1)
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    boot = insert_contestant(db_conn, season["id"], "Boot")
+    insert_roster_pick(
+        db_conn,
+        current_user["id"],
+        season["id"],
+        boot["id"],
+        active_from_episode=1,
+        active_until_episode=1,
+    )
+    insert_elimination(db_conn, ep1["id"], boot["id"], is_final=True)
+
+    assert _snuffed(client, season, current_user["id"]) == {"Boot"}
+
+    _lock(db_conn, ep2["id"])
+    assert _snuffed(client, season, current_user["id"]) == set()
