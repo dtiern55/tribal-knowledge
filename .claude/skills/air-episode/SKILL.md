@@ -68,11 +68,24 @@ readable block, in plain words — no skill vocabulary ("recap", "reveal",
 "manual note", "insight type"). Say "the results card", "the headline", "a
 tile".
 
+**How to write it.** State the proposal. Don't explain it. Danny watched the
+episode and can read a table — he does not need the reasoning behind a normal
+scoring line, only behind something genuinely unusual, and then in one
+sentence. Tables and short lines over prose.
+
+**Never ask a question in the body.** No "confirm this", no "is that right?",
+no "say the word" scattered through the sections — he can't answer a question
+buried on line 24. If you truly need a ruling beyond his go-ahead, put every
+one of them in a single **numbered list at the very end**, so he can answer
+"1 yes, 2 skip". Anything he can simply correct while reading is not a
+question; leave it out.
+
 **A. What aired**
 - **Eliminations** — who's out, and how. On a Redemption Island week say for
   each one whether they **left the game** (`is_final: true`) or **went to the
   island** (`is_final: false`). The proposal carries the flag; if survivoR
-  has no next-episode tribe mapping yet it defaults to final, so ask.
+  has no next-episode tribe mapping yet it defaults to final — that one goes
+  in the numbered list at the end.
 - **Scoring events per contestant** — grouped by person.
 - **A "what aired" read derived from the events** — immunity winner(s)
   (`win_individual_immunity` / `win_team_immunity`), reward winners, who voted
@@ -87,8 +100,8 @@ tile".
 - *(Optional context)* the episode's TVMaze summary, if quick to fetch.
 
 **B. The results card headline** — the line every player reads first when the
-card opens. Quote the default exactly as it would render, and ask Danny for
-his own or an OK on the default. The default (computed by the card from the
+card opens. Quote the default exactly as it would render, and stop there — he
+takes it or writes his own. The default (computed by the card from the
 eliminations' final flag) is:
 - one boot: `{Name}'s torch was snuffed`
 - several: `Two torches snuffed` (number spelled out)
@@ -130,8 +143,11 @@ detail. Two kinds:
   counts ("9 of 21 in the main league"); say it as a share, or as a fact
   about the show. `docs/scoring.md` → Episode Reveal insights.
 
-Danny picks or rewrites the written tile(s), or says none is worth it. **Never
-choose for him.**
+**The two computed tiles are standing defaults** (2026-09-09): the viewer's
+score against the league median every week, and multiple correct picks on any
+multi-boot week. Set them without asking. The **written** tile is the only
+tile question — Danny picks one, rewrites it, or wants none. **Never choose
+that one for him.**
 
 ## 4. Take Danny's rulings — go on all of it
 
