@@ -6,7 +6,7 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
-import idolRing from '../assets/sole-survivor-medallion-teeth-skull-flat-larger.webp'
+import { Torch, TorchDefs } from '../components/Torch'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket } from '../components/FinaleBracket'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
@@ -4613,7 +4613,13 @@ function SoleSurvivorLine({
   if (designee) {
     return (
       <div className="flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
-        <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
+        <TorchDefs />
+        <Torch
+          champion
+          lit
+          title={`${nameOf(designee.contestant_id)}, your Sole Survivor`}
+          className="h-7 w-7 shrink-0"
+        />
         <p className="min-w-0 flex-1 text-sm text-paper-ink">
           <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
             Sole Survivor
@@ -4642,7 +4648,10 @@ function SoleSurvivorLine({
           squeezed the sentence into a six-line column. The sentence gets the
           row, the badge and rules link get their own beneath it. */}
       <div className="flex items-center gap-3">
-        <img src={idolRing} alt="" aria-hidden className="h-7 w-7 shrink-0" />
+        <TorchDefs />
+        {/* An unlit gold torch until you name one, when it catches to the red
+            champion flame — no skull medallion (#164). */}
+        <Torch lit title="Your Sole Survivor torch, not yet named" className="h-7 w-7 shrink-0" />
         <p className="min-w-0 flex-1 text-sm leading-snug text-paper-ink">
           <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
             Sole Survivor

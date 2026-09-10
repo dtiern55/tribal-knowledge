@@ -106,14 +106,28 @@ function Torches({ entry }: { entry: StandingEntry }) {
   const out = entry.recently_eliminated_survivors
   if (lit.length === 0 && out.length === 0) return null
   const label = out.length === 0 ? `${lit.length} still in` : `${lit.length} still in, lost ${out.map((s) => s.name).join(' and ')} this week`
+  // The Sole Survivor leads the row as the red champion flame — lit while their
+  // pick is in, snuffed (mirrored) the week it goes out, then off with the rest
+  // once it's long gone (#164). Everyone else is a gold votive.
+  const ssId = entry.sole_survivor_contestant_id
+  const champLit = ssId ? lit.find((s) => s.contestant_id === ssId) : undefined
+  const champOut = ssId ? out.find((s) => s.contestant_id === ssId) : undefined
   return (
     <span className="flex flex-none gap-0.5" role="img" aria-label={label}>
-      {lit.map((s) => (
-        <Torch key={s.contestant_id} lit title={s.name} />
-      ))}
-      {out.map((s) => (
-        <Torch key={s.contestant_id} lit={false} title={`${s.name}, eliminated ep ${s.eliminated_episode}`} />
-      ))}
+      {champLit && <Torch champion lit title={`${champLit.name}, your Sole Survivor`} />}
+      {champOut && (
+        <Torch champion lit={false} title={`${champOut.name}, your Sole Survivor, eliminated ep ${champOut.eliminated_episode}`} />
+      )}
+      {lit
+        .filter((s) => s.contestant_id !== ssId)
+        .map((s) => (
+          <Torch key={s.contestant_id} lit title={s.name} />
+        ))}
+      {out
+        .filter((s) => s.contestant_id !== ssId)
+        .map((s) => (
+          <Torch key={s.contestant_id} lit={false} title={`${s.name}, eliminated ep ${s.eliminated_episode}`} />
+        ))}
     </span>
   )
 }

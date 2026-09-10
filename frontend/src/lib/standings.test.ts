@@ -15,6 +15,7 @@ function standing(total: number, trend: StandingEntry['trend'] = null): Standing
     last_episode_points: 0,
     active_survivors: [],
     recently_eliminated_survivors: [],
+    sole_survivor_contestant_id: null,
   }
 }
 

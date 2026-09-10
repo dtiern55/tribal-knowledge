@@ -108,4 +108,69 @@ describe('StandingsPage', () => {
     expect(flames[1].querySelector('path[fill="url(#torch-ember)"]')).not.toBeNull()
     expect(flames[1].querySelector('title')?.textContent).toBe('Charlie, eliminated ep 4')
   })
+
+  it('flies the Sole Survivor first as the red champion flame, not doubled among the votives (#164)', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [{
+          user_id: 'user-1', display_name: 'Danny',
+          roster_points: 0, elimination_points: 0, finale_points: 0, total_points: 0,
+          trend: null, trend_delta: 0, last_episode_points: 0,
+          active_survivors: [
+            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null },
+            { contestant_id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null },
+          ],
+          recently_eliminated_survivors: [],
+          sole_survivor_contestant_id: 'cast-2',
+        }]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+
+    const torches = await screen.findByRole('img', { name: '2 still in' })
+    const flames = torches.querySelectorAll('svg')
+    expect(flames).toHaveLength(2) // the champion is not also drawn as a votive
+    // Charlie leads as the red champion flame; Kenzie is a gold votive.
+    expect(flames[0].querySelector('path[fill="url(#torch-champion)"]')).not.toBeNull()
+    expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor')
+    expect(flames[1].querySelector('path[fill="url(#torch-heart)"]')).not.toBeNull()
+    expect(flames[1].querySelector('title')?.textContent).toBe('Kenzie')
+  })
+
+  it('snuffs the champion from the other side when the Sole Survivor is voted out (#164)', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [{
+          user_id: 'user-1', display_name: 'Danny',
+          roster_points: 0, elimination_points: 0, finale_points: 0, total_points: 0,
+          trend: null, trend_delta: 0, last_episode_points: 0,
+          active_survivors: [
+            { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null },
+          ],
+          recently_eliminated_survivors: [
+            { contestant_id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: 11 },
+          ],
+          sole_survivor_contestant_id: 'cast-2',
+        }]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+
+    const torches = await screen.findByRole('img', { name: '1 still in, lost Charlie this week' })
+    const flames = torches.querySelectorAll('svg')
+    expect(flames).toHaveLength(2)
+    // The champion's smoke is mirrored — snuffed from the other side.
+    expect(flames[0].querySelector('g[transform*="scale(-1 1)"]')).not.toBeNull()
+    expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor, eliminated ep 11')
+  })
 })

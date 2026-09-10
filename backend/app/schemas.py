@@ -195,6 +195,11 @@ class StandingEntry(BaseModel):
     # (greyed out in the UI) for one episode instead of vanishing immediately
     # (#457). Approximated as "until the next episode is scored", not "airs".
     recently_eliminated_survivors: list[StandingSurvivor] = []
+    # Which rostered castaway is this player's Sole Survivor, so standings can
+    # mark it with the champion flame (#164). None until the designation locks —
+    # same reveal rule as the locked-page gold name (#685) — so a still-changeable
+    # pick stays private.
+    sole_survivor_contestant_id: Optional[UUID] = None
 
 
 class HubEntry(BaseModel):

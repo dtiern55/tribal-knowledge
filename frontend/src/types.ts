@@ -137,6 +137,9 @@ export interface StandingEntry {
   // Rostered castaways eliminated in the latest scored episode; kept
   // visible (greyed out) for one episode instead of vanishing (#457).
   recently_eliminated_survivors: StandingSurvivor[]
+  // The player's Sole Survivor pick, flown as the champion flame; null until
+  // the designation locks (#164/#685).
+  sole_survivor_contestant_id: string | null
 }
 
 export interface RosterPick {
