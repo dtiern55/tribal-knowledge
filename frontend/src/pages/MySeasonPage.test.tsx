@@ -433,7 +433,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('heading', { name: 'Siga' })).toBeVisible()
     expect(within(ballot).getByRole('heading', { name: 'Nami' })).toBeVisible()
     expect(within(ballot).queryByText('Earlier Boot')).not.toBeInTheDocument()
-    expect(within(ballot).getByText(/names written/)).toHaveTextContent('0 of 2 names written')
+    expect(within(ballot).getByText('0 of 2')).toBeInTheDocument()
     expect(within(ballot).getByRole('button', { name: /Save ballot/ })).toBeDisabled()
 
     expect(within(ballot).getAllByRole('button', { name: /^Vote for/ })).toHaveLength(18)
@@ -444,14 +444,14 @@ describe('MySeasonPage state shell', () => {
     // Selection is a tick, not a rank — votes are unordered and equally weighted
     expect(kenzie).toHaveAttribute('aria-pressed', 'true')
     expect(charlie).toHaveAttribute('aria-pressed', 'true')
-    expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
+    expect(within(ballot).getByText('2 of 2')).toBeInTheDocument()
     expect(within(ballot).getByRole('button', { name: 'Vote for Venus' })).toBeDisabled()
 
     // The room is lit while the ballot is being written, and back to ordinary
     // light once it is submitted and tidy (#694 review).
     expect(document.documentElement).toHaveClass('ballot-room')
     await user.click(within(ballot).getByRole('button', { name: /Save ballot/ }))
-    expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
     await waitFor(() => expect(document.documentElement).not.toHaveClass('ballot-room'))
     // The record is the roster's own manifest: portrait, name, rung (#694).
     const record = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
@@ -466,9 +466,9 @@ describe('MySeasonPage state shell', () => {
     // Reopened with nothing changed, the button is Done: it closes the sheet
     // rather than sitting disabled (#694 review).
     await user.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
-    expect(within(ballot).getByText(/names written/)).toHaveTextContent('2 of 2 names written')
+    expect(within(ballot).getByText('2 of 2')).toBeInTheDocument()
     await user.click(within(ballot).getByRole('button', { name: 'Done' }))
-    expect(await screen.findByText('Ballot submitted')).toBeVisible()
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
   })
 
   it('keeps Redemption Island residents off the ballot from the week after the vote (#726)', async () => {
@@ -689,7 +689,7 @@ describe('MySeasonPage state shell', () => {
     // Voting is unchanged around it, and the save carries the Power Vote's
     // name so the server keeps it.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Vote for Maria' }))
-    expect(screen.getByText(/names written/)).toHaveTextContent('2 of 3 names written')
+    expect(within(ballot).getByText('2 of 3')).toBeInTheDocument()
     await userEvent.click(within(ballot).getByRole('button', { name: 'Save ballot' }))
     await waitFor(() =>
       expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/episodes/episode-3/picks', {
@@ -699,7 +699,7 @@ describe('MySeasonPage state shell', () => {
     )
     // The record: the Power Vote's gold row first, then the rungs, and the
     // Ballot tab wears the idol.
-    expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
     const record = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
     expect(within(record).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       expect.stringContaining('Charlie'),
@@ -752,7 +752,7 @@ describe('MySeasonPage state shell', () => {
         doubled_contestant_id: null,
       }),
     )
-    expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
     // The submitted ballot reads top to bottom in ladder order, rung named,
     // with an open line for the rung not yet filled.
     const submitted = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
@@ -811,14 +811,14 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
     const ballot = await openBeat('Ballot')
     const ballotTab = screen.getByRole('tab', { name: /^Ballot/ })
-    expect(await within(ballot).findByText('Ballot submitted')).toBeVisible()
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
     expect(ballotTab).toHaveTextContent('2 of 3')
 
     // Naming a regular vote as the Power Vote moves it off the ballot at once,
     // not a beat later when the re-read lands.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
     await userEvent.click(within(ballot).getByRole('button', { name: 'Make Kenzie your Power Vote' }))
-    expect(screen.getByText(/names written/)).toHaveTextContent('1 of 3 names written')
+    expect(within(ballot).getByText('1 of 3')).toBeInTheDocument()
     expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeInTheDocument()
     await waitFor(() => expect(ballotTab).toHaveTextContent('1 of 3'))
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
@@ -1025,12 +1025,12 @@ describe('MySeasonPage state shell', () => {
 
     const ballot = await openBeat('Ballot')
     await userEvent.click(within(ballot).getByRole('button', { name: /Kenzie/ }))
-    expect(within(ballot).getByText(/names written/)).toHaveTextContent('1 of 2 names written')
+    expect(within(ballot).getByText('1 of 2')).toBeInTheDocument()
 
     // Panels stay mounted rather than unmounting, so the pick survives the trip.
     await openBeat('Tribe')
     const again = await openBeat('Ballot')
-    expect(within(again).getByText(/names written/)).toHaveTextContent('1 of 2 names written')
+    expect(within(again).getByText('1 of 2')).toBeInTheDocument()
   })
 
   // #401: this control was unreachable for a while — rendered only under a
