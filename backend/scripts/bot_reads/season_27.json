@@ -44,6 +44,29 @@
    "double_targets": [],
    "note": "No read. Every ballot is a random draw from the live field.",
    "spread": 100
+  },
+  "4": {
+   "likely_boots": [
+    ["Brad Culpepper", 9],
+    ["Ciera Eastin", 9],
+    ["Katie Collins", 4],
+    ["Kat Edorsson", 4],
+    ["Laura Morett", 4],
+    ["Tina Wesson", 4],
+    ["Laura Boneham", 4],
+    ["Monica Culpepper", 2],
+    ["Gervase Peterson", 2],
+    ["Caleb Bankston", 2]
+   ],
+   "double_targets": [
+    "Tyson Apostol",
+    "Aras Baskauskas",
+    "Gervase Peterson",
+    "Hayden Moss",
+    "Vytas Baskauskas",
+    "Caleb Bankston"
+   ],
+   "note": "Brad and Ciera lead the ballots. Katie, Kat, Laura M., Tina and Laura B. peppered in behind them, a few votes out to Monica, Gervase and Caleb. Roster doubles lean Galang - Tyson, Aras, Gervase - plus Hayden, Vytas and Caleb on Tadhana."
   }
  }
 }
