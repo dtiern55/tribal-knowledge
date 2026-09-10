@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StandingEntry } from '../types'
-import { movementLabel, rankStandings } from './standings'
+import { rankStandings } from './standings'
 
 function standing(total: number, trend: StandingEntry['trend'] = null): StandingEntry {
   return {
@@ -28,12 +28,5 @@ describe('standings presentation helpers', () => {
       { rank: 4, tied: true },
       { rank: 4, tied: true },
     ])
-  })
-
-  it('describes movement without symbol-only abbreviations', () => {
-    expect(movementLabel(standing(1, 'up'))).toBe('Up 2')
-    expect(movementLabel(standing(1, 'down'))).toBe('Down 2')
-    expect(movementLabel(standing(1, 'same'))).toBe('No change')
-    expect(movementLabel(standing(1))).toBeNull()
   })
 })

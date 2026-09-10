@@ -26,10 +26,3 @@ function rankStandingsRank(entries: StandingEntry[], index: number): number {
   }
   return index + 1
 }
-
-export function movementLabel(entry: StandingEntry): string | null {
-  if (entry.trend === 'up') return `Up ${entry.trend_delta}`
-  if (entry.trend === 'down') return `Down ${entry.trend_delta}`
-  if (entry.trend === 'same') return 'No change'
-  return null
-}

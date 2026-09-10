@@ -648,38 +648,6 @@ class LeagueMemberAddRequest(BaseModel):
     email: str = Field(min_length=3)
 
 
-class TokenTransaction(BaseModel):
-    id: UUID
-    user_id: UUID
-    league_season_id: UUID
-    episode_id: Optional[UUID]
-    transaction_type: str
-    amount: int
-    scoring_event_id: Optional[UUID]
-    advantage_play_id: Optional[UUID]
-    notes: Optional[str]
-    created_at: datetime
-
-
-class TokenBalance(BaseModel):
-    user_id: UUID
-    league_season_id: UUID
-    balance: int
-
-
-class TokenLedgerEntry(BaseModel):
-    created_at: datetime
-    transaction_type: str
-    amount: int
-    episode_number: Optional[int] = None
-    description: Optional[str] = None
-
-
-class WeeklyAllocationRequest(BaseModel):
-    episode_id: UUID
-    amount: int = Field(gt=0)
-
-
 class UserProfile(BaseModel):
     id: UUID
     display_name: str
