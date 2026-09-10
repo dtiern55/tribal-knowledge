@@ -421,9 +421,10 @@ def undo_roster_swap(
     page stays editable until picks lock, so the swap did too (#403 follow-up).
 
     An exact reversal — the closed pick comes back as it was, penalty cleared,
-    the incoming pick is removed, and the once-per-episode allowance is free
-    again. Restoring the closed row also restores its Sole Survivor flag, if it
-    held one.
+    and the incoming pick is removed. There is no per-episode allowance to
+    restore; #715 dropped that cap and swaps are priced by ordinal instead.
+    Restoring the closed row also restores its Sole Survivor flag, if it held
+    one.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:

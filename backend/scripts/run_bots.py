@@ -523,16 +523,6 @@ def active_roster(cur, uid, lsid) -> list[dict]:
     return cur.fetchall()
 
 
-def swapped_this_episode(cur, uid, lsid, episode_n) -> bool:
-    """One swap per episode (#404): a swap closes the outgoing pick at N-1."""
-    cur.execute(
-        "select 1 from roster_picks where user_id=%s and league_season_id=%s"
-        " and active_until_episode=%s",
-        [uid, lsid, episode_n - 1],
-    )
-    return cur.fetchone() is not None
-
-
 def swaps_committed(cur, uid, lsid) -> int:
     cur.execute(
         "select count(*) n from roster_picks where user_id=%s and league_season_id=%s"
@@ -688,35 +678,42 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         uid = bot["id"]
         spread = max(a["spread"], floor)
 
-        # --- swap out dead weight (an eliminated castaway) ---
-        # No longer gated on the weekly play (#404) — swaps have their own
-        # economy: one per episode, priced in points.
-        if swaps_open and not swapped_this_episode(cur, uid, lsid, episode_n):
+        # --- swap out dead weight (every eliminated castaway) ---
+        # No longer gated on the weekly play (#404), and no longer one per
+        # episode: #715 removed that cap, so a bot holding two corpses buries
+        # both in the same week rather than carrying one into the next.
+        if swaps_open:
             roster = active_roster(cur, uid, lsid)
             held = {p["cid"] for p in roster}
-            swappable = [p for p in roster if p["af"] < episode_n]
             # Only a corpse is worth a swap. Danny's rule (2026-08-05): there
             # is never a reason to burn one unless your team is down to four
             # or fewer — which is exactly what holding an eliminated castaway
             # means. Dropping someone merely *likely* to go bails on players
             # who often survive, and spends a finite resource on a guess.
-            dead = [p for p in swappable if p["cid"] not in alive]
-            ordinal = swaps_committed(cur, uid, lsid) + 1
-            penalty = swap_penalty(season, ordinal)
-            add_pool = [c for c in alive if c not in held]
+            #
             # Always drop a corpse (Danny 2026-08-21): a dead castaway scores
             # zero going forward, so swapping in a live one pays for itself even
-            # at the point penalty. Every bot uses its swap when there's dead
-            # weight to clear — no persona opts out.
-            out = dead[0] if dead else None
-            if out and add_pool:
+            # at the point penalty. No persona opts out. Anyone swapped in this
+            # week (af == episode_n) is not swappable again — that would churn.
+            dead = [p for p in roster if p["af"] < episode_n and p["cid"] not in alive]
+            for out in dead:
+                add_pool = [c for c in alive if c not in held]
+                if not add_pool:
+                    break
+                # Priced per swap, so the second corpse in a week costs more
+                # than the first — the ordinal has to be re-read each time.
+                penalty = swap_penalty(season, swaps_committed(cur, uid, lsid) + 1)
                 # Order by how few people already own them, or every bot picks
                 # whoever sorts first and the whole league swaps in one name.
                 pool = [c for c in add_pool if c not in shunned] or add_pool
                 want = [c for c in pool if c in targets] or pool
                 want = sorted(want, key=lambda c: owned.get(c, 0))
-                new = biased_order(want, spread, uid, episode_n, "swapin")[0]
+                new = biased_order(want, spread, uid, episode_n, "swapin", out["cid"])[
+                    0
+                ]
                 owned[new] = owned.get(new, 0) + 1
+                held.discard(out["cid"])
+                held.add(new)
                 do_swap(cur, uid, lsid, ep, out, new, penalty)
                 swaps_made += 1
                 if penalty:

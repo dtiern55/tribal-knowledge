@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends
 
 from app import database, scoring
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, episode_locked_sql
+from app.locking import (
+    EPISODE_LOCKED_SQL,
+    episode_locked_sql,
+    latest_locked_episode,
+)
 from app.schemas import ScoringBreakdown, StandingEntry
 
 router = APIRouter(tags=["standings"])
@@ -90,6 +94,15 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                 )
                 rosters_visible = cur.fetchone() is not None
             if rosters_visible:
+                # Every roster here reads as it stood at the latest LOCKED
+                # episode, yours included (Danny 2026-09-09). The Team page
+                # bounds only other players (#164) because it answers "who is
+                # on this roster"; standings answers "where the league stands",
+                # and a row pairing next week's roster with last week's points
+                # is a mismatch. Bounding your own row too is also what keeps
+                # the torch count at roster size: a pending swap-in alongside
+                # the snuffed torch of the castaway it replaced would show both.
+                locked_through = latest_locked_episode(cur, season_id)
                 cur.execute(
                     f"""
                     select rp.user_id::text as user_id,
@@ -106,8 +119,14 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                       order by ct.from_episode desc
                       limit 1
                     ) tribe on true
-                    where rp.league_season_id = %s
-                      and rp.active_until_episode is null
+                    where rp.league_season_id = %(ls)s
+                      and case
+                            when %(through)s is null
+                            then rp.active_until_episode is null
+                            else rp.active_from_episode <= %(through)s
+                             and (rp.active_until_episode is null
+                                  or rp.active_until_episode >= %(through)s)
+                          end
                       and not exists (
                         select 1 from eliminations e
                         join episodes ep on ep.id = e.episode_id
@@ -115,7 +134,7 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                           and {episode_locked_sql("ep")})
                     order by c.name
                     """,
-                    [str(league_season_id)],
+                    {"ls": str(league_season_id), "through": locked_through},
                 )
                 for row in cur.fetchall():
                     survivors.setdefault(row["user_id"], []).append(
@@ -128,11 +147,22 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                         }
                     )
 
-                # Kept visible (greyed out) for one scored episode instead of
-                # vanishing the instant they're voted out (#457). "Recently"
-                # means eliminated in the latest *scored* episode specifically
-                # — approximated from "airs" for simplicity.
-                if last_scored is not None:
+                # Kept visible (greyed out) after they go home instead of
+                # vanishing the instant they're voted out (#457), and held
+                # through the wait and the airing — the week you lost someone is
+                # the context you want while watching the next one.
+                #
+                # The window is the roster as it stood during that scored
+                # episode, not the roster today: swapping the corpse out must
+                # not erase the week they died on your team. Rachel died in S27
+                # episode 3 while on 13 rosters and 11 of them swapped her out
+                # that night, which used to leave almost no trace of the boot.
+                #
+                # It clears when the NEXT episode locks (Danny 2026-09-09), not
+                # when that episode is scored: at lock the replacements go live
+                # above, and carrying the old snuffs as well would push a row
+                # past its roster size.
+                if last_scored is not None and locked_through == last_scored:
                     cur.execute(
                         """
                         select rp.user_id::text as user_id,
@@ -153,12 +183,14 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
                           order by ct.from_episode desc
                           limit 1
                         ) tribe on true
-                        where rp.league_season_id = %s
-                          and rp.active_until_episode is null
-                          and ep.episode_number = %s
+                        where rp.league_season_id = %(ls)s
+                          and rp.active_from_episode <= %(scored)s
+                          and (rp.active_until_episode is null
+                               or rp.active_until_episode >= %(scored)s)
+                          and ep.episode_number = %(scored)s
                         order by c.name
                         """,
-                        [str(league_season_id), last_scored],
+                        {"ls": str(league_season_id), "scored": last_scored},
                     )
                     for row in cur.fetchall():
                         recently_eliminated.setdefault(row["user_id"], []).append(
