@@ -152,6 +152,22 @@ def biased_order(items: list, spread: float, *seed) -> list:
     return [it for _, it in sorted(keyed, key=lambda kv: kv[0])]
 
 
+# A bot that tracks the read closely seals the Power Vote on its top rung; a
+# looser one leaves it on the fourth name the play bought (#740). Follow is
+# already the confidence signal — 0 to 1.5 is the read, 2.5 and up wanders —
+# so no new persona knob. An episode-level `spread` floor lifts every bot over
+# the line, which is what a week with no read should do: nothing to be
+# confident about, so the seal rides the new name.
+SEAL_TOP_RUNG_BELOW = 2.0
+
+
+def power_vote_target(spread: float, top_pick, extra):
+    """Which name on the ballot carries the Power Vote."""
+    if top_pick is not None and spread < SEAL_TOP_RUNG_BELOW:
+        return top_pick
+    return extra
+
+
 def largest_remainder(weights: list[float], total: int) -> list[int]:
     """Apportion `total` integer slots across weights (Hamilton method)."""
     s = sum(weights)
@@ -736,15 +752,19 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 )
                 picks_made += 1
 
-        # The Power Vote's name (#694): the bot's next name after its ballot,
-        # from the same ordered draw. Read back rather than reusing `chosen`
-        # so a re-run that skipped the picks still finds it.
+        # The extra name the Power Vote buys (#694): the bot's next name after
+        # its ballot, from the same ordered draw. Read back rather than reusing
+        # `chosen` so a re-run that skipped the picks still finds it, and keep
+        # the top rung — the seal may go there instead (#740).
         cur.execute(
-            "select contestant_id::text cid from elimination_picks"
-            " where user_id=%s and league_season_id=%s and episode_id=%s",
+            "select contestant_id::text cid, rank from elimination_picks"
+            " where user_id=%s and league_season_id=%s and episode_id=%s"
+            " order by rank nulls last",
             [uid, lsid, str(ep["id"])],
         )
-        on_ballot = {r["cid"] for r in cur.fetchall()}
+        ballot = cur.fetchall()
+        on_ballot = {r["cid"] for r in ballot}
+        top_pick = next((r["cid"] for r in ballot if r["rank"] is not None), None)
         extra = next(
             (
                 c
@@ -784,18 +804,21 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                     )
                     dbl_used[target] = dbl_used.get(target, 0) + 1
             if choice == "double_vote_points":
-                # One extra name above the ladder, saved as an unranked pick
-                # the way the API does (#694). No name left means no play:
-                # an untargeted Power Vote would score as the old
-                # whole-ballot double.
-                target = extra
-                if target is not None:
+                # The play buys one extra name above the ladder, saved as an
+                # unranked pick the way the API does (#694). The seal then goes
+                # on the strongest name the bot holds, not automatically the new
+                # one (#740) — the extra name stays a regular vote, exactly as
+                # dragging the seal off it does in the app.
+                if extra is not None:
                     cur.execute(
                         "insert into elimination_picks"
                         " (user_id, league_season_id, episode_id, contestant_id)"
                         " values (%s,%s,%s,%s)",
-                        [uid, lsid, str(ep["id"]), target],
+                        [uid, lsid, str(ep["id"]), extra],
                     )
+                # No name to seal at all means no play: an untargeted Power Vote
+                # would score as the old whole-ballot double.
+                target = power_vote_target(spread, top_pick, extra)
             if choice == "double_roster_points" or target is not None:
                 cur.execute(
                     """insert into advantage_plays
