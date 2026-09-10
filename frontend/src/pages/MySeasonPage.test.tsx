@@ -1038,6 +1038,8 @@ describe('MySeasonPage state shell', () => {
   // designate, so it gets a test of its own. #529 moved it from a select above
   // the roster onto the roster card's own ring; the guarantee is unchanged.
   it('names a Sole Survivor from the select once the merge is reached', async () => {
+    // The naming moment has its own test; keep this one on the select.
+    localStorage.setItem('mytribe.name-sole-survivor.season-1', '1')
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
@@ -1064,6 +1066,66 @@ describe('MySeasonPage state shell', () => {
         contestant_id: 'cast-1',
       }),
     )
+  })
+
+  it('dims the page to name your Sole Survivor when the window opens with nobody named (#164)', async () => {
+    localStorage.removeItem('mytribe.name-sole-survivor.season-1')
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T00:00:00Z'), episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const dialog = await screen.findByRole('dialog', { name: /name your sole survivor/i })
+    expect(within(dialog).getByText(/fire is life/i)).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
+    // The line keeps pulsing after Got it, until one is named.
+    await waitFor(() => expect(document.querySelector('.ss-line')).toHaveAttribute('data-pulse'))
+    expect(localStorage.getItem('mytribe.name-sole-survivor.season-1')).toBe('1')
+  })
+
+  it('dims the page and snuffs the champion when your Sole Survivor is voted out (#164)', async () => {
+    localStorage.setItem('mytribe.first-loss.season-1', '1') // not what this test is about
+    localStorage.removeItem('mytribe.lose-sole-survivor.season-1')
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: 3 }]
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'scored', '2026-08-15T00:00:00Z'),
+          episode(4, 'upcoming', '2099-09-27T00:00:00Z'),
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: true }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const dialog = await screen.findByRole('dialog', { name: /your sole survivor is out/i })
+    expect(within(dialog).getByText('Kenzie')).toBeVisible()
+    expect(within(dialog).getByText(/finale bonus goes with it/i)).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /your sole survivor is out/i })).not.toBeInTheDocument(),
+    )
+    expect(localStorage.getItem('mytribe.lose-sole-survivor.season-1')).toBe('1')
   })
 
   it('limits broadcast styling to the short window after lock without changing state', () => {

@@ -1865,8 +1865,20 @@ function HistorySection({
   )
 }
 
-// The tribe has spoken: the one-time nudge toward the free swap (#717).
-function FirstLossMoment({ onClose }: { onClose: () => void }) {
+// The shared "moment": the page dims and a card comes up over it. One shell for
+// the tribe-has-spoken free-swap nudge (#717), naming your Sole Survivor, and
+// losing it (#164). Click the dim or the button to dismiss.
+function Moment({
+  titleId,
+  title,
+  children,
+  onClose,
+}: {
+  titleId: string
+  title: React.ReactNode
+  children: React.ReactNode
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     ref.current?.focus()
@@ -1879,29 +1891,38 @@ function FirstLossMoment({ onClose }: { onClose: () => void }) {
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="first-loss-title"
+        aria-labelledby={titleId}
         className="relative w-full max-w-sm rounded-2xl bg-cream-50 p-6 text-center shadow-[0_8px_40px_rgba(10,22,19,0.35)] outline-none"
       >
         <h2
-          id="first-loss-title"
+          id={titleId}
           className="font-display text-xl font-semibold uppercase tracking-wide text-forest-800"
         >
-          The tribe has spoken
+          {title}
         </h2>
-        <p className="mt-3 text-sm text-paper-ink">
-          You've lost a castaway, but in this moment your tribe grows stronger. Use your{' '}
-          <b className="text-gold-700">free swap</b> to replace your snuffed castaway with a new
-          pick.
-        </p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
-        >
-          Got it
-        </button>
+        {children}
       </div>
     </div>
+  )
+}
+
+// The tribe has spoken: the one-time nudge toward the free swap (#717).
+function FirstLossMoment({ onClose }: { onClose: () => void }) {
+  return (
+    <Moment titleId="first-loss-title" title="The tribe has spoken" onClose={onClose}>
+      <p className="mt-3 text-sm text-paper-ink">
+        You've lost a castaway, but in this moment your tribe grows stronger. Use your{' '}
+        <b className="text-gold-700">free swap</b> to replace your snuffed castaway with a new
+        pick.
+      </p>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
+      >
+        Got it
+      </button>
+    </Moment>
   )
 }
 
@@ -2513,6 +2534,25 @@ function RosterSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstLossDue, firstLossKey])
 
+  // Losing your Sole Survivor (#164): the page dims and the champion's fire is
+  // snuffed. Once per browser, like the tribe-has-spoken nudge above.
+  const [ssSnuff, setSsSnuff] = useState(false)
+  const ssPick = roster.find((p) => p.is_sole_survivor)
+  const ssContestant = ssPick ? contestantMap.get(ssPick.contestant_id) : undefined
+  const ssSnuffKey = `mytribe.lose-sole-survivor.${season.id}`
+  useEffect(() => {
+    if (!rosterLoaded || ssContestant?.eliminated_in_episode == null || ssSnuff) return
+    try {
+      if (localStorage.getItem(ssSnuffKey) === '1') return
+      localStorage.setItem(ssSnuffKey, '1')
+    } catch {
+      return
+    }
+    setSsSnuff(true)
+    // Fires once per browser; `ssSnuff` is only read to not re-fire mid-way.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterLoaded, ssContestant?.eliminated_in_episode, ssSnuffKey])
+
   async function undoSwap(contestantId: string) {
     setSwapping(true)
     setError(null)
@@ -2917,6 +2957,30 @@ function RosterSection({
           <FirstLossMoment
             onClose={() => setMoment('nudge')}
           />,
+          document.body,
+        )}
+      {ssSnuff &&
+        createPortal(
+          <Moment titleId="lose-ss-title" title="Your Sole Survivor is out" onClose={() => setSsSnuff(false)}>
+            <div className="mt-4 flex justify-center">
+              <TorchDefs />
+              <Torch champion lit={false} title="" className="h-12 w-12" />
+            </div>
+            <p className="mt-3 text-sm text-paper-ink">
+              The fire you were backing is snuffed.{' '}
+              <b className="text-gold-700">
+                {ssContestant ? displayName(ssContestant) : 'Your Sole Survivor'}
+              </b>{' '}
+              is gone, and the finale bonus goes with it.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSsSnuff(false)}
+              className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
+            >
+              Got it
+            </button>
+          </Moment>,
           document.body,
         )}
       {retiredRoster.length > 0 && (
@@ -4545,6 +4609,10 @@ function SoleSurvivorLine({
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  // The name-your-Sole-Survivor moment (#164): dims the page and points at this
+  // line the first time the window is open with nobody named. Once per browser.
+  const [naming, setNaming] = useState<'popup' | 'nudge' | null>(null)
 
   // Refetch when the roster changes (rosterVersion) so a pre-lock swap can't
   // leave a removed castaway designated or hide the new pick (#180 follow-up).
@@ -4553,6 +4621,7 @@ function SoleSurvivorLine({
       .get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
       .then(setRoster)
       .catch(() => setRoster([]))
+      .finally(() => setLoaded(true))
   }, [season.id, userId, rosterVersion])
 
   const nameOf = (id: string) => {
@@ -4564,6 +4633,23 @@ function SoleSurvivorLine({
   const lockEp = swapLockEpisodeNumber(season)
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   const windowOpen = ssDesignationOpen(season, episodes)
+
+  const namingKey = `mytribe.name-sole-survivor.${season.id}`
+  useEffect(() => {
+    if (!loaded || !windowOpen || designee || naming != null) return
+    try {
+      if (localStorage.getItem(namingKey) === '1') return
+      localStorage.setItem(namingKey, '1')
+    } catch {
+      return
+    }
+    setNaming('popup')
+    // Bring the line to mid-screen before the card comes up — on a phone it can
+    // be sitting under the tab bar (mirrors the first-loss nudge).
+    document.querySelector('.ss-line')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    // Fires once per browser; `naming` is only read to not re-fire mid-way.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, windowOpen, designee, namingKey])
 
   async function clearDesignation() {
     setSaving(true)
@@ -4588,6 +4674,7 @@ function SoleSurvivorLine({
         contestant_id: contestantId,
       })
       setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === contestantId })))
+      setNaming(null)
       onRosterChange()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Designation failed')
@@ -4643,7 +4730,10 @@ function SoleSurvivorLine({
   // Undesignated: name one right here. A slim select in the line, not the
   // tall picker box #529 retired — the roster it lists sits just below.
   return (
-    <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
+    <div
+      className="ss-line rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm"
+      data-pulse={naming != null || undefined}
+    >
       {/* The lock badge runs ~170px wide; sharing one wrapping row with it
           squeezed the sentence into a six-line column. The sentence gets the
           row, the badge and rules link get their own beneath it. */}
@@ -4681,6 +4771,27 @@ function SoleSurvivorLine({
         <RuleLink anchor="sole-survivor">How it works</RuleLink>
       </div>
       {error && <p className="mt-1 text-xs text-terracotta-600">{error}</p>}
+      {naming === 'popup' &&
+        createPortal(
+          <Moment
+            titleId="name-ss-title"
+            title="Name your Sole Survivor"
+            onClose={() => setNaming('nudge')}
+          >
+            <p className="mt-3 text-sm text-paper-ink">
+              Fire is life in this game. Name the one castaway you think will outlast everyone. It
+              is the biggest points swing of the season, and you can change your pick until it locks.
+            </p>
+            <button
+              type="button"
+              onClick={() => setNaming('nudge')}
+              className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
+            >
+              Got it
+            </button>
+          </Moment>,
+          document.body,
+        )}
     </div>
   )
 }
