@@ -47,6 +47,25 @@ describe('WatchPage', () => {
     expect(screen.queryByText(/Title quote: Rizo/)).not.toBeInTheDocument()
   })
 
+  it('takes back the last tap with Undo', async () => {
+    const user = userEvent.setup()
+    renderWithApp(<WatchPage />, admin)
+
+    await user.click(await screen.findByRole('button', { name: /Treemail/ }))
+    await user.click(screen.getByRole('button', { name: /Sage/ }))
+    await user.click(screen.getByRole('button', { name: /Sage/ }))
+    expect(screen.getByText(/Treemail: Sage x2/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(screen.queryByText(/Treemail: Sage x2/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Treemail: Sage/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(screen.queryByText(/Treemail: Sage/)).not.toBeInTheDocument()
+
+    expect(screen.getByRole('link', { name: 'Back to My Season' })).toBeVisible()
+  })
+
   it('keeps the episode scratchpad in this browser', async () => {
     const user = userEvent.setup()
     renderWithApp(<WatchPage />, admin)
