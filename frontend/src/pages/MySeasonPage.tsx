@@ -4787,7 +4787,13 @@ function SoleSurvivorLine({
               <p className="font-display text-[11px] font-bold uppercase tracking-wide text-gold-800">
                 Example
               </p>
-              <p className="mt-0.5 text-sm text-paper-ink">Aubry is your Sole Survivor and wins it all:</p>
+              <p className="mt-0.5 text-sm text-paper-ink">
+                <span className="inline-flex items-center gap-1 align-[-4px]">
+                  <Torch champion lit title="" className="h-4 w-4" />
+                  <b className="font-display font-bold text-gold-800">Aubry</b>
+                </span>{' '}
+                is your Sole Survivor. In the finale she:
+              </p>
               <dl className="mt-2 space-y-1 text-sm tabular-nums text-paper-ink">
                 <div className="flex justify-between gap-4">
                   <dt>Wins immunity</dt>
