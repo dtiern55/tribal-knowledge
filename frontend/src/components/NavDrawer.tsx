@@ -80,16 +80,17 @@ export function NavDrawer({
     }
   }, [open, onClose, returnFocusRef])
 
-  // Load seasons + the current pick the first time the drawer opens.
+  // Load seasons + the current pick once, on mount rather than on first open:
+  // the drawer stays mounted the whole session (Layout), so fetching here means
+  // the switcher is already populated by the time the menu is opened (#164).
   useEffect(() => {
-    if (!open || seasons.length) return
     void Promise.all([api.get<Season[]>('/league-seasons'), getActiveSeason()]).then(
       ([ss, active]) => {
         setSeasons(ss)
         setActiveId(active?.id ?? '')
       },
     )
-  }, [open, seasons.length])
+  }, [])
 
   // Only name the league when there's more than one to tell apart (#595).
   const multiLeague = new Set(seasons.map((s) => s.league_id)).size > 1
