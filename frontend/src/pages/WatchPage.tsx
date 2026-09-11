@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
@@ -106,6 +107,9 @@ export function WatchPage() {
   const [cast, setCast] = useState<CastMember[]>([])
   const [selected, setSelected] = useState(EVENTS[0].type)
   const [counts, setCounts] = useState<Record<string, number>>({})
+  // Snapshot of counts before each tap, so a mistap on a per-unit event (which
+  // wraps 0→9→0) can be taken back in one press instead of tapping around.
+  const [history, setHistory] = useState<Record<string, number>[]>([])
   const [notes, setNotes] = useState('')
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -172,7 +176,15 @@ export function WatchPage() {
   const text = summarize(episode, cast, counts, notes)
 
   function tap(id: string) {
+    setHistory((h) => [...h, counts])
     setCounts((prev) => ({ ...prev, [`${id}|${event.type}`]: nextCount(prev[`${id}|${event.type}`] ?? 0, event.perUnit) }))
+    setCopied(false)
+  }
+
+  function undo() {
+    if (!history.length) return
+    setCounts(history[history.length - 1])
+    setHistory((h) => h.slice(0, -1))
     setCopied(false)
   }
 
@@ -225,6 +237,13 @@ export function WatchPage() {
 
   return (
     <div>
+      <Link
+        to="/"
+        aria-label="Back to My Season"
+        className="mb-4 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700 hover:underline"
+      >
+        <span aria-hidden>‹</span> My Season
+      </Link>
       <PageHeader
         eyebrow={`Episode ${episode.episode_number}`}
         title="Watch tracker"
@@ -248,7 +267,17 @@ export function WatchPage() {
           </button>
         ))}
       </div>
-      <p className="mt-3 text-sm text-gray-600">{event.hint}</p>
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <p className="text-sm text-gray-600">{event.hint}</p>
+        <button
+          type="button"
+          onClick={undo}
+          disabled={!history.length}
+          className="shrink-0 rounded-lg border border-forest-200 px-3 py-1 text-xs font-semibold text-forest-700 transition-colors hover:bg-cream-100 disabled:opacity-40"
+        >
+          Undo
+        </button>
+      </div>
 
       <ul className="mt-4 border-t border-cream-200">{active.map(castRow)}</ul>
       {out.length > 0 && (

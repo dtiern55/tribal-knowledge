@@ -388,12 +388,13 @@ export function MySeasonPage() {
   // in ordinary light (#694 review).
   const [ballotWorking, setBallotWorking] = useState(true)
   const ballotLit = beat === 'ballot' && picking == null && ballotWorking
-  // Choosing a double borrows the same lamp, swung over to the roster: the
-  // room goes down and the Tribe lane is the one thing left lit. Swaps keep
-  // the flat stage scrim.
-  const doubleLit = picking === 'double'
-  const roomLit = ballotLit || doubleLit
-  const litPanel = doubleLit ? 'panel-roster' : 'panel-ballot'
+  // Every pick — double, swap, or Sole Survivor — is answered on the roster, so
+  // they all borrow the ballot's lamp swung over to it: the room goes down and
+  // the Tribe lane is the one thing left lit. Swap and SS used to get a flat
+  // scrim instead, which flashed the field dark on the way in (#164 follow-up).
+  const rosterLit = picking != null
+  const roomLit = ballotLit || rosterLit
+  const litPanel = rosterLit ? 'panel-roster' : 'panel-ballot'
   // Aim the lamp at the ballot. Reads the panel by id rather than threading a
   // ref through LaneStack and RecordPanel — the id is already there for aria,
   // and this is the only thing that needs the box. Tracks the panel's VISIBLE
@@ -563,8 +564,9 @@ export function MySeasonPage() {
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
   useEffect(() => {
-    // Swap and Sole Survivor use the flat stage scrim; the double pick lights
-    // the room.
+    // Swap and Sole Survivor let the chosen card's halo out of the lane while
+    // picking; hold the overflow open a beat past the pick so the glow fades
+    // out instead of being clipped at the card edge.
     if (picking === 'swap' || picking === 'sole-survivor') {
       setStageOpen(true)
       return
@@ -828,15 +830,6 @@ export function MySeasonPage() {
           userId={d.userId}
           plays={d.plays}
           rosterPoints={rosterPoints}
-        />
-      )}
-
-      {state.kind === 'open' && (stageOpen || picking === 'swap' || picking === 'sole-survivor') && (
-        <div
-          className="stage-scrim"
-          data-on={picking === 'swap' || picking === 'sole-survivor'}
-          onClick={() => setPicking(null)}
-          aria-hidden="true"
         />
       )}
 
@@ -2668,39 +2661,44 @@ function RosterSection({
       // The same gold card the Ballot tab uses, on its own padded band, so
       // it reads as an object rather than a band bleeding out of the toolbar.
       <div className="border-b border-paper-line px-4 py-3">
+      {/* Both states share one grid cell so the box keeps the taller (default)
+          height when it flips to the shorter "Tap a Survivor" prompt — no jump
+          on "Play it here" (#164). The idle state is invisible, not removed, so
+          it still reserves that height and stays out of the a11y tree. */}
       <div
         role="region"
         aria-label="Advantage"
-        className="flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-xs text-forest-800"
+        className="grid grid-cols-1 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-xs text-forest-800"
       >
-        {picking === 'double' ? (
-          <>
-            <span className="min-w-0 flex-1">
-              <b>Tap a Survivor</b> to earn double points this episode.
-            </span>
-            <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="min-w-0 flex-1">
-              Play your <b className="text-gold-700">advantage</b>{' '}
-              <span aria-hidden="true" className="inline-flex align-[-3px]">
-                <DoubleBadge size={16} />
-              </span>{' '}
-              on your tribe to receive a <b>double point boost</b> for one Survivor.
-            </span>
-            <button
-              type="button"
-              onClick={() => onStartDouble?.()}
-              disabled={weekly.busy}
-              className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
-            >
-              Play it here
-            </button>
-          </>
-        )}
+        <div
+          className={`col-start-1 row-start-1 flex items-center gap-3 ${picking === 'double' ? 'invisible' : ''}`}
+        >
+          <span className="min-w-0 flex-1">
+            Play your <b className="text-gold-700">advantage</b>{' '}
+            <span aria-hidden="true" className="inline-flex align-[-3px]">
+              <DoubleBadge size={16} />
+            </span>{' '}
+            on your tribe to receive a <b>double point boost</b> for one Survivor.
+          </span>
+          <button
+            type="button"
+            onClick={() => onStartDouble?.()}
+            disabled={weekly.busy}
+            className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
+          >
+            Play it here
+          </button>
+        </div>
+        <div
+          className={`col-start-1 row-start-1 flex items-center gap-3 ${picking === 'double' ? '' : 'invisible'}`}
+        >
+          <span className="min-w-0 flex-1">
+            <b>Tap a Survivor</b> to earn double points this episode.
+          </span>
+          <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
+            Cancel
+          </button>
+        </div>
       </div>
       </div>
     )
@@ -2710,20 +2708,22 @@ function RosterSection({
   // footer row it collided with Snuffed. The parent owns
   // the slot so the chip can leave the card; while picking, Cancel rides on
   // the instruction banner instead.
-  const swapFoot =
-    picking != null ? null : swapAvailable ? (
+  const swapFoot = swapAvailable ? (
       <button
         type="button"
+        disabled={picking != null}
         onClick={() => {
           setMoment(null)
           onStartSwap?.()
         }}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
         data-pulse={moment != null || undefined}
+        // While picking the chip greys out and can't be tapped, but keeps its
+        // row so History doesn't jump up when the offer steps aside (#164).
         // Lifted over the card's scrim (z-50) so it pulses in the light while
         // the tribe speaks; the nav sits at z-45.
-        className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 ${
-          moment != null ? 'relative z-[60]' : ''
+        className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40 disabled:shadow-none ${
+          picking == null && moment != null ? 'relative z-[60]' : ''
         }`}
       >
         <span>Swap</span>
