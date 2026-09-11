@@ -23,6 +23,7 @@ export function RosterCard({
   contestantId,
   contestant,
   isSoleSurvivor = false,
+  showSoleSurvivorHalo = false,
   soleSurvivorBonus = 0,
   isDoubled = false,
   ssWindowOpen = false,
@@ -43,6 +44,7 @@ export function RosterCard({
   contestantId: string
   contestant: Contestant | undefined
   isSoleSurvivor?: boolean
+  showSoleSurvivorHalo?: boolean
   // The +50% finale bonus this designation earned, named on the badge so the
   // points land somewhere visible. 0 shows just the badge (no bonus yet).
   soleSurvivorBonus?: number
@@ -114,11 +116,18 @@ export function RosterCard({
     </>
   )
 
-  const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`
+  const hasSoleSurvivorHalo = isSoleSurvivor && showSoleSurvivorHalo
+  const avatarClass = `relative inline-flex shrink-0 ${
+    hasSoleSurvivorHalo
+      ? `sole-survivor-halo ${prominent ? 'sole-survivor-halo--prominent' : ''} ${
+          outEp != null ? 'sole-survivor-halo--snuffed' : ''
+        }`
+      : ''
+  } ${outEp != null ? ELIMINATED_DIM : ''}`
 
   // The Sole Survivor designation rides as the champion flame + a gold label on
-  // the row, nothing on the portrait: the ring that used to sit there (and offer
-  // itself on every undesignated card) is gone.
+  // every row. My Season can also opt its designated portrait into the restrained
+  // flame halo; undesignated rows never show an empty ring.
   const inner = (
     <>
       <span

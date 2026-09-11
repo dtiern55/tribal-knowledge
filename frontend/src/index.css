@@ -687,6 +687,36 @@ html.locked-night .app-shell .ss-champion::before {
   border-width: var(--tribe-border-width, 0);
 }
 
+.sole-survivor-halo {
+  --sole-survivor-halo-size: 56px;
+  isolation: isolate;
+}
+.sole-survivor-halo--prominent {
+  --sole-survivor-halo-size: 66px;
+}
+.sole-survivor-halo::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: var(--sole-survivor-halo-size);
+  height: var(--sole-survivor-halo-size);
+  pointer-events: none;
+  background: url("/sole-survivor-flame-halo.png") center / contain no-repeat;
+  opacity: 0.72;
+  filter: drop-shadow(0 0 2px rgb(238 169 47 / 28%));
+  transform: translate(-50%, -50%) rotate(-9deg);
+}
+.sole-survivor-halo > .contestant-avatar {
+  position: relative;
+  z-index: 1;
+}
+.sole-survivor-halo--snuffed::after {
+  opacity: 0.24;
+  filter: grayscale(1) sepia(0.2);
+}
+
 /* The lifted idol snaps back to where it was grabbed on a missed drop. */
 .seal-ghost {
   transition: none;
