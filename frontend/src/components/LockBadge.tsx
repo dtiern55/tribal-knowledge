@@ -50,7 +50,16 @@ function LockedBadge() {
 
 /** Live lock-state chip (#56): calm while distant, amber inside a day,
  * ember pulse in the final hour, a stamped "Locked" after. */
-export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: boolean }) {
+export function LockBadge({
+  lockAt,
+  scored,
+  bare = false,
+}: {
+  lockAt: string | null
+  scored?: boolean
+  /** Drop the leading "Locks" word where the glyph already carries it (#164). */
+  bare?: boolean
+}) {
   useLockTick()
   if (!lockAt) return null
   const { state, text } = lockPhrase(lockAt, scored)
@@ -64,7 +73,7 @@ export function LockBadge({ lockAt, scored }: { lockAt: string | null; scored?: 
         : 'bg-cream-100 text-gray-600'
   return (
     <span className={`${base} ${tone}`}>
-      <LockGlyph /> Locks {text}
+      <LockGlyph /> {bare ? text : `Locks ${text}`}
     </span>
   )
 }

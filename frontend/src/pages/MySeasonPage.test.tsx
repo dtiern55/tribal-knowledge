@@ -1033,12 +1033,10 @@ describe('MySeasonPage state shell', () => {
     expect(within(again).getByText('1 of 2')).toBeInTheDocument()
   })
 
-  // #401: this control was unreachable for a while — rendered only under a
-  // `compact={false}` that no call site ever passed. It is the only way to
-  // designate, so it gets a test of its own. #529 moved it from a select above
-  // the roster onto the roster card's own ring; the guarantee is unchanged.
-  it('names a Sole Survivor from the select once the merge is reached', async () => {
-    // The naming moment has its own test; keep this one on the select.
+  // Naming happens by tapping your Tribe in the pick mode the Sole Survivor
+  // button starts (#164) — the only path to designate, so it gets its own test.
+  it('names a Sole Survivor by tapping the tribe once the merge is reached', async () => {
+    // The naming popup has its own test; suppress it here.
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1')
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -1057,10 +1055,9 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const select = await screen.findByRole('combobox', { name: 'Name your Sole Survivor' })
-    // Options arrive with the roster fetch, after the select itself renders.
-    await screen.findByRole('option', { name: 'Kenzie' })
-    await userEvent.selectOptions(select, 'cast-1')
+    await userEvent.click(await screen.findByRole('button', { name: /name your sole survivor/i }))
+    // Now in the pick mode: tap the castaway's roster card.
+    await userEvent.click(await screen.findByRole('button', { name: /Kenzie/ }))
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
         contestant_id: 'cast-1',
@@ -1068,7 +1065,7 @@ describe('MySeasonPage state shell', () => {
     )
   })
 
-  it('dims the page to name your Sole Survivor when the window opens with nobody named (#164)', async () => {
+  it('pops the info card when the window opens with nobody named, then leaves the button pulsing (#164)', async () => {
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
     vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
@@ -1088,9 +1085,12 @@ describe('MySeasonPage state shell', () => {
 
     const dialog = await screen.findByRole('dialog', { name: /choose your sole survivor/i })
     expect(within(dialog).getByText(/finale are worth an extra 50%/i)).toBeVisible()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Not now' }))
-    // The line keeps pulsing after Not now, until one is named.
-    await waitFor(() => expect(document.querySelector('.ss-line')).toHaveAttribute('data-pulse'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
+    // Popup gone; the button keeps pulsing until one is named.
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /choose your sole survivor/i })).not.toBeInTheDocument(),
+    )
+    expect(document.querySelector('.ss-line')).toHaveAttribute('data-pulse')
     expect(localStorage.getItem('mytribe.name-sole-survivor.season-1')).toBe('1')
   })
 
@@ -1126,6 +1126,38 @@ describe('MySeasonPage state shell', () => {
       expect(screen.queryByRole('dialog', { name: /your sole survivor is out/i })).not.toBeInTheDocument(),
     )
     expect(localStorage.getItem('mytribe.lose-sole-survivor.season-1')).toBe('1')
+  })
+
+  it('prompts the hero for the Sole Survivor instead of "all set" while the window is open and none is named (#164)', async () => {
+    localStorage.setItem('mytribe.name-sole-survivor.season-1', '1') // suppress the popup
+    const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 1 }
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open, episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', nickname: null, eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', nickname: null, eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false }]
+      }
+      // A saved vote makes the ballot "done", so the only thing left is the pick.
+      if (/\/episodes\/[^/]+\/picks\//.test(path)) return [{ contestant_id: 'cast-2', episode_id: open.id }]
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const hero = await screen.findByRole('region', { name: /this week/i })
+    await waitFor(() => expect(within(hero).getByText('Name your Sole Survivor')).toBeVisible())
+    expect(within(hero).queryByText(/all set/i)).not.toBeInTheDocument()
   })
 
   it('limits broadcast styling to the short window after lock without changing state', () => {
