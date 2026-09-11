@@ -623,19 +623,26 @@ html.locked-night .tribal-border {
   opacity: 0.5;
 }
 
-/* The first-loss nudge: a gold halo breathing on the Swap chip. */
+/* The first-loss nudge breathes on the Swap chip. It only ever fires on a FREE
+   swap (the jade pill), and gold now belongs to the Sole Survivor (#164), so the
+   halo is jade to match the pill rather than compete with the champion's glow. */
 .swap-chip[data-pulse] {
-  animation: swap-pulse 1.6s ease-in-out infinite;
+  animation: chip-pulse 1.6s ease-in-out infinite;
 }
-@keyframes swap-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold-500) 55%, transparent); }
-  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-gold-500) 0%, transparent); }
+@keyframes chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-jade-600) 55%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-jade-600) 0%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .swap-chip[data-pulse] {
     animation: none;
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-gold-500) 45%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-jade-600) 45%, transparent);
   }
+}
+/* The gold breathe is the Sole Survivor's, used by .ss-line below. */
+@keyframes swap-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold-500) 55%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-gold-500) 0%, transparent); }
 }
 
 /* The name-your-Sole-Survivor nudge (#164): the same breathing gold halo on the
@@ -648,6 +655,47 @@ html.locked-night .tribal-border {
     animation: none;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-gold-500) 45%, transparent);
   }
+}
+
+/* The Sole Survivor's torch is spotlit so it reads as the champion out of a row
+   of gold votives (#164): a warm gold disc on the light ledger, brighter when
+   the page goes to night. Snuffed, the light cools to ash. The disc sits behind
+   the flame and can spill into the gaps around it, so its container must not clip. */
+.ss-champion {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+}
+.ss-champion::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 220%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-gold-500) 85%, transparent),
+    transparent 72%
+  );
+}
+.ss-champion.is-snuffed::before {
+  background: radial-gradient(closest-side, rgb(150 132 96 / 42%), transparent 72%);
+}
+.ss-champion > * {
+  position: relative;
+  z-index: 1;
+}
+html.locked-night .app-shell .ss-champion::before {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-gold-300) 80%, transparent),
+    transparent 70%
+  );
 }
 
 .tribe-marker {
