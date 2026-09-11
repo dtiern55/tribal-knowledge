@@ -688,11 +688,11 @@ html.locked-night .app-shell .ss-champion::before {
 }
 
 .sole-survivor-halo {
-  --sole-survivor-halo-size: 56px;
+  --sole-survivor-halo-size: 49px;
   isolation: isolate;
 }
 .sole-survivor-halo--prominent {
-  --sole-survivor-halo-size: 66px;
+  --sole-survivor-halo-size: 58px;
 }
 .sole-survivor-halo::after {
   content: "";
