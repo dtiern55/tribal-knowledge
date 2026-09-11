@@ -688,11 +688,11 @@ html.locked-night .app-shell .ss-champion::before {
 }
 
 .sole-survivor-halo {
-  --sole-survivor-halo-size: 49px;
+  --sole-survivor-halo-size: 44px;
   isolation: isolate;
 }
 .sole-survivor-halo--prominent {
-  --sole-survivor-halo-size: 58px;
+  --sole-survivor-halo-size: 52px;
 }
 .sole-survivor-halo::after {
   content: "";
@@ -705,7 +705,7 @@ html.locked-night .app-shell .ss-champion::before {
   pointer-events: none;
   background: url("/sole-survivor-flame-halo.png") center / contain no-repeat;
   opacity: 0.72;
-  filter: brightness(0.9) saturate(0.94) drop-shadow(0 0 2px rgb(185 91 28 / 38%));
+  filter: drop-shadow(0 0 2px rgb(238 169 47 / 42%));
   transform: translate(-50%, -50%) rotate(-9deg);
 }
 .sole-survivor-halo > .contestant-avatar {
