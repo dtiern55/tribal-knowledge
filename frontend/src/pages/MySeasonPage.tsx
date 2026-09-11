@@ -700,10 +700,15 @@ export function MySeasonPage() {
       !d.plays.some((p) => p.episode_id === openEp.id) &&
       !openEp.is_finale &&
       !advantagesLocked(openEp, d.season!)
+    // The winner pick (#164): while the designation window is open and nobody
+    // is named, "all set" is a lie — it's the biggest points swing of the
+    // season, so the hero prompts for it, above the optional nags.
+    const ssUnnamed =
+      ssDesignationOpen(d.season!, d.episodes) && !d.roster.some((r) => r.is_sole_survivor)
     return {
       beats,
       // Nothing left at all, owed or optional. Colours the hero.
-      settled: left === 0 && !heldDead && !advantageUnplayed,
+      settled: left === 0 && !heldDead && !advantageUnplayed && !ssUnnamed,
       // Name the thing rather than counting it: "1 task left" made you go
       // looking for which one.
       headline:
@@ -719,15 +724,17 @@ export function MySeasonPage() {
                 : `${saved} of ${maxPicks} votes cast`
             : noRoster
               ? 'Pick your tribe'
-              : heldDead
-                ? deadSlots === 1
-                  ? 'A castaway in your tribe is out'
-                  : `${deadSlots} castaways in your tribe are out`
-                : advantageUnplayed
-                  ? 'Your advantage is still unplayed'
-                  : isFinale
-                    ? "You're all set for the finale"
-                    : `You're all set for Ep ${openEp.episode_number}`,
+              : ssUnnamed
+                ? 'Name your Sole Survivor'
+                : heldDead
+                  ? deadSlots === 1
+                    ? 'A castaway in your tribe is out'
+                    : `${deadSlots} castaways in your tribe are out`
+                  : advantageUnplayed
+                    ? 'Your advantage is still unplayed'
+                    : isFinale
+                      ? "You're all set for the finale"
+                      : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
@@ -4767,7 +4774,7 @@ function SoleSurvivorLine({
           <p className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
             Sole Survivor
           </p>
-          <p className="text-sm leading-snug text-paper-ink">Back the one you think wins it all.</p>
+          <p className="text-sm leading-snug text-paper-ink">Your winner pick.</p>
         </div>
         <button
           type="button"
