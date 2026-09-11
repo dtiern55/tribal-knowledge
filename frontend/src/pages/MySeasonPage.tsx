@@ -2661,39 +2661,44 @@ function RosterSection({
       // The same gold card the Ballot tab uses, on its own padded band, so
       // it reads as an object rather than a band bleeding out of the toolbar.
       <div className="border-b border-paper-line px-4 py-3">
+      {/* Both states share one grid cell so the box keeps the taller (default)
+          height when it flips to the shorter "Tap a Survivor" prompt — no jump
+          on "Play it here" (#164). The idle state is invisible, not removed, so
+          it still reserves that height and stays out of the a11y tree. */}
       <div
         role="region"
         aria-label="Advantage"
-        className="flex items-center gap-3 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-xs text-forest-800"
+        className="grid grid-cols-1 rounded-lg border border-gold-500/60 bg-gold-50 px-3 py-2.5 text-xs text-forest-800"
       >
-        {picking === 'double' ? (
-          <>
-            <span className="min-w-0 flex-1">
-              <b>Tap a Survivor</b> to earn double points this episode.
-            </span>
-            <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="min-w-0 flex-1">
-              Play your <b className="text-gold-700">advantage</b>{' '}
-              <span aria-hidden="true" className="inline-flex align-[-3px]">
-                <DoubleBadge size={16} />
-              </span>{' '}
-              on your tribe to receive a <b>double point boost</b> for one Survivor.
-            </span>
-            <button
-              type="button"
-              onClick={() => onStartDouble?.()}
-              disabled={weekly.busy}
-              className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
-            >
-              Play it here
-            </button>
-          </>
-        )}
+        <div
+          className={`col-start-1 row-start-1 flex items-center gap-3 ${picking === 'double' ? 'invisible' : ''}`}
+        >
+          <span className="min-w-0 flex-1">
+            Play your <b className="text-gold-700">advantage</b>{' '}
+            <span aria-hidden="true" className="inline-flex align-[-3px]">
+              <DoubleBadge size={16} />
+            </span>{' '}
+            on your tribe to receive a <b>double point boost</b> for one Survivor.
+          </span>
+          <button
+            type="button"
+            onClick={() => onStartDouble?.()}
+            disabled={weekly.busy}
+            className="shrink-0 rounded-full border border-gold-500 bg-white px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40"
+          >
+            Play it here
+          </button>
+        </div>
+        <div
+          className={`col-start-1 row-start-1 flex items-center gap-3 ${picking === 'double' ? '' : 'invisible'}`}
+        >
+          <span className="min-w-0 flex-1">
+            <b>Tap a Survivor</b> to earn double points this episode.
+          </span>
+          <button type="button" onClick={() => onPickingDone?.()} className={stripLink}>
+            Cancel
+          </button>
+        </div>
       </div>
       </div>
     )
