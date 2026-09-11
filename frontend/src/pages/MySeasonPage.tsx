@@ -388,12 +388,13 @@ export function MySeasonPage() {
   // in ordinary light (#694 review).
   const [ballotWorking, setBallotWorking] = useState(true)
   const ballotLit = beat === 'ballot' && picking == null && ballotWorking
-  // Choosing a double borrows the same lamp, swung over to the roster: the
-  // room goes down and the Tribe lane is the one thing left lit. Swaps keep
-  // the flat stage scrim.
-  const doubleLit = picking === 'double'
-  const roomLit = ballotLit || doubleLit
-  const litPanel = doubleLit ? 'panel-roster' : 'panel-ballot'
+  // Every pick — double, swap, or Sole Survivor — is answered on the roster, so
+  // they all borrow the ballot's lamp swung over to it: the room goes down and
+  // the Tribe lane is the one thing left lit. Swap and SS used to get a flat
+  // scrim instead, which flashed the field dark on the way in (#164 follow-up).
+  const rosterLit = picking != null
+  const roomLit = ballotLit || rosterLit
+  const litPanel = rosterLit ? 'panel-roster' : 'panel-ballot'
   // Aim the lamp at the ballot. Reads the panel by id rather than threading a
   // ref through LaneStack and RecordPanel — the id is already there for aria,
   // and this is the only thing that needs the box. Tracks the panel's VISIBLE
@@ -563,8 +564,9 @@ export function MySeasonPage() {
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
   useEffect(() => {
-    // Swap and Sole Survivor use the flat stage scrim; the double pick lights
-    // the room.
+    // Swap and Sole Survivor let the chosen card's halo out of the lane while
+    // picking; hold the overflow open a beat past the pick so the glow fades
+    // out instead of being clipped at the card edge.
     if (picking === 'swap' || picking === 'sole-survivor') {
       setStageOpen(true)
       return
@@ -828,15 +830,6 @@ export function MySeasonPage() {
           userId={d.userId}
           plays={d.plays}
           rosterPoints={rosterPoints}
-        />
-      )}
-
-      {state.kind === 'open' && (stageOpen || picking === 'swap' || picking === 'sole-survivor') && (
-        <div
-          className="stage-scrim"
-          data-on={picking === 'swap' || picking === 'sole-survivor'}
-          onClick={() => setPicking(null)}
-          aria-hidden="true"
         />
       )}
 

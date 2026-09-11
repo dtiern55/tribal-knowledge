@@ -130,7 +130,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  /* Same floor as .stage-scrim: inset alone can come up short of the viewport. */
+  /* Same floor as the room light: inset alone can come up short of the viewport. */
   min-height: 100vh;
   z-index: -1;
   pointer-events: none;
@@ -390,30 +390,6 @@ html.locked-night .braid-rule { opacity: 0.55; }
    dark ground; leaving it lit makes the roster the one page you can still read
    by the fire, which is the whole conceit of the locked theme. */
 
-/* Theatre lighting for choosing a double (#398). The rest of the page drops
-   into shadow and the roster is lit, so the decision has one place to happen.
-   The glow is inset rather than a drop shadow: the roster sits inside the
-   record, whose overflow would clip anything spilling outside it. */
-.stage-scrim {
-  position: fixed;
-  inset: 0;
-  /* `inset: 0` alone left a ~40px undimmed band at the foot of the viewport —
-     the used height came back short of the viewport even though an identical
-     clone of this element measured full height. Floor it explicitly. `vh`
-     rather than `dvh`: a scrim must cover the largest the viewport can get,
-     not the smallest. */
-  min-height: 100vh;
-  z-index: 20;
-  background: rgb(14 31 25 / 58%);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.stage-scrim[data-on='true'] {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 /* ── The ballot's room light ───────────────────────────────────────────────
    A lamp over the table rather than a flat tint over the page: the dark
    deepens with distance from the ballot instead of sitting at one value
@@ -548,7 +524,6 @@ html.ballot-room::after {
 
 @media (prefers-reduced-motion: no-preference) {
   /* One curve, both directions — leaving is arriving reversed, not a cut. */
-  .stage-scrim { transition: opacity 520ms cubic-bezier(0.4, 0, 0.2, 1); }
   html::after { transition: opacity 1400ms cubic-bezier(0.4, 0, 0.2, 1); }
   /* Inside the motion query with the rest: a bare transition-duration outside
      it would default transition-property to `all` and animate under
@@ -1242,6 +1217,10 @@ html.locked-night .hero-points { filter: brightness(0.9); }
   flex: none;
   align-items: center;
   justify-content: center;
+  /* The idol art carries a touch of headroom, so dead-centre in the lane reads
+     a hair high against the two-line label; drop it a couple px (#164). */
+  position: relative;
+  top: 2px;
 }
 
 .hero-lane__label {
