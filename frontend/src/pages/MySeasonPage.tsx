@@ -4758,19 +4758,31 @@ function SoleSurvivorLine({
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
       <TorchDefs />
-      <button
-        type="button"
-        onClick={() => {
-          setNaming(null)
-          onStartSoleSurvivor?.()
-        }}
-        data-pulse={naming != null || undefined}
-        className="ss-line inline-flex items-center gap-2 rounded-full border border-gold-500 bg-gold-50 px-3.5 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
-      >
-        <Torch lit title="" className="h-5 w-5 shrink-0" />
-        Name your Sole Survivor
-      </button>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      {/* Full-width band, mirroring the Advantage strip: the label and a line
+          of what it's for on the left, the action pushed to the right, so the
+          box doesn't read as half empty. */}
+      <div className="flex items-center gap-3">
+        <Torch lit title="" className="h-7 w-7 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+            Sole Survivor
+          </p>
+          <p className="text-sm leading-snug text-paper-ink">Back the one you think wins it all.</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Name your Sole Survivor"
+          onClick={() => {
+            setNaming(null)
+            onStartSoleSurvivor?.()
+          }}
+          data-pulse={naming != null || undefined}
+          className="ss-line shrink-0 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
+        >
+          Choose
+        </button>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-10">
         {lockEpisode && (
           <LockBadge lockAt={lockEpisode.picks_lock_at} scored={lockEpisode.status === 'scored'} />
         )}
