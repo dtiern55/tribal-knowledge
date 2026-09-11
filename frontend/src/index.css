@@ -687,6 +687,46 @@ html.locked-night .app-shell .ss-champion::before {
   border-width: var(--tribe-border-width, 0);
 }
 
+/* Sizing is measured, not eyeballed (design/sole-survivor-flames/measure_asset.mjs):
+   this artwork's flames start on an IRREGULAR inner boundary whose widest point
+   sits at ~78% of its radius. Rendering it at 2*portraitRadius/0.78 tucks that
+   widest point behind the portrait, so the inner edge is hidden all the way round
+   and the flames read as coming off the rim, not a ring floating in whitespace.
+   Hence 54px behind the 42px (lg) portrait, 46px behind the 36px (md) one.
+   NB: the flame DENSITY is uneven in the artwork itself — a follow-up asset (#164)
+   evens that; this pass only fixes the fit. */
+.sole-survivor-halo {
+  --sole-survivor-halo-size: 46px;
+  isolation: isolate;
+}
+.sole-survivor-halo--prominent {
+  --sole-survivor-halo-size: 54px;
+}
+.sole-survivor-halo::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 0;
+  width: var(--sole-survivor-halo-size);
+  height: var(--sole-survivor-halo-size);
+  pointer-events: none;
+  background: url("/sole-survivor-flame-halo.png") center / contain no-repeat;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 2px rgb(238 169 47 / 42%));
+  transform: translate(-50%, -50%) rotate(-9deg);
+}
+/* Keep the portrait above the ring; its border stays the tribe colour (the
+   gold override read as a mismatched outline). */
+.sole-survivor-halo > .contestant-avatar {
+  position: relative;
+  z-index: 1;
+}
+.sole-survivor-halo--snuffed::after {
+  opacity: 0.24;
+  filter: grayscale(1) sepia(0.2);
+}
+
 /* The lifted idol snaps back to where it was grabbed on a missed drop. */
 .seal-ghost {
   transition: none;
