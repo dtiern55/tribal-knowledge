@@ -52,19 +52,41 @@ export function TorchDefs() {
           <stop offset=".45" stopColor="var(--color-gold-300)" />
           <stop offset="1" stopColor="var(--color-terracotta-600)" />
         </radialGradient>
+        {/* The Sole Survivor's flame burns red-orange — the hottest torch in a
+            row of gold votives, the one you're backing to the end (#164). */}
+        <radialGradient id="torch-champion" cx="12" cy="14.5" r="7.5" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#fff1c9" />
+          <stop offset=".33" stopColor="#f4a63a" />
+          <stop offset=".68" stopColor="#ec5f28" />
+          <stop offset="1" stopColor="#cf3319" />
+        </radialGradient>
       </defs>
     </svg>
   )
 }
 
-export function Torch({ lit, title }: { lit: boolean; title: string }) {
+export function Torch({
+  lit,
+  title,
+  champion = false,
+  className = 'size-4 shrink-0',
+}: {
+  lit: boolean
+  title: string
+  /** The Sole Survivor's torch: a red-orange flame, snuffed from the other side. */
+  champion?: boolean
+  className?: string
+}) {
   return (
-    <svg viewBox={VIEWBOX} className="size-4 shrink-0" aria-hidden>
+    <svg viewBox={VIEWBOX} className={className} aria-hidden>
       <title>{title}</title>
       {lit ? (
-        <path d={FLAME_PATH} fill="url(#torch-heart)" />
+        <path d={FLAME_PATH} fill={champion ? 'url(#torch-champion)' : 'url(#torch-heart)'} />
       ) : (
-        <g transform={PLACE}>
+        // The champion's torch is snuffed from the other side: the same smoke
+        // drawing mirrored around the flame's axis, so losing your Sole
+        // Survivor never looks like an ordinary boot.
+        <g transform={champion ? `translate(24 0) scale(-1 1) ${PLACE}` : PLACE}>
           <path d={SNUFFED.smoke} fill="url(#torch-smoke)" />
           <path d={SNUFFED.ember} fill="url(#torch-ember)" />
         </g>

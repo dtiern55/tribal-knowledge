@@ -137,6 +137,36 @@ def test_your_own_pending_swap_waits_for_the_lock_too(client, db_conn, current_u
 
 
 @pytest.mark.integration
+def test_sole_survivor_hidden_until_the_designation_locks(
+    client, db_conn, current_user
+):
+    """The champion flame's pick stays private until the designation locks.
+
+    Same rule as the locked-page gold name (#685): a still-changeable Sole
+    Survivor is strategy a rival can undo, so standings must not flag it early.
+    Rosters here are already visible (ep1 locked); only the designation lock
+    (swap_lock_episode 2) gates the reveal.
+    """
+    season = insert_season(
+        db_conn, roster_lock_episode=1, swap_lock_episode=2, merge_episode=1
+    )
+    insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    rival = insert_user(db_conn, display_name="Rival")
+    champ = insert_contestant(db_conn, season["id"], "Champ")
+    insert_roster_pick(
+        db_conn, rival["id"], season["id"], champ["id"], is_sole_survivor=True
+    )
+
+    assert _entry(client, season, rival["id"])["sole_survivor_contestant_id"] is None
+
+    _lock(db_conn, ep2["id"])
+    assert _entry(client, season, rival["id"])["sole_survivor_contestant_id"] == str(
+        champ["id"]
+    )
+
+
+@pytest.mark.integration
 def test_snuffed_torches_clear_when_the_next_episode_locks(
     client, db_conn, current_user
 ):

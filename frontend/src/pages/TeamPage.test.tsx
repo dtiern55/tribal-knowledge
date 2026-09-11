@@ -27,6 +27,7 @@ describe('TeamPage', () => {
       last_episode_points: 12,
       active_survivors: [],
       recently_eliminated_survivors: [],
+      sole_survivor_contestant_id: null,
     }
     const contestant = {
       id: 'cast-1',

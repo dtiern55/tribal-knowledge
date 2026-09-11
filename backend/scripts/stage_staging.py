@@ -44,10 +44,14 @@ STAGES = [
     # The morning after your first castaway is voted out (#717): episode 4
     # scored, nothing filed for 5 yet, the free swap still in hand.
     ("first-loss", 4, False),
+    # The morning after your Sole Survivor is voted out: episode 11 scored (the
+    # designation locked back at ep9), Danny's champion Gabby just snuffed while
+    # every other team's is still in. Tests the snuffed-champion state.
+    ("sole-survivor-lost", 11, False),
 ]
 # Stages where nothing has been filed for the open episode: pending swaps,
 # ballots and plays into it stay behind, so the week is still to be played.
-FRESH = {"first-loss"}
+FRESH = {"first-loss", "sole-survivor-lost"}
 
 FROZEN = datetime(2099, 1, 6, 1, 0, tzinfo=timezone.utc)  # a Wednesday 7pm Central
 YESTERDAY = datetime.now(timezone.utc) - timedelta(days=1)
@@ -87,6 +91,43 @@ def copy_rows(cur, table, where, params, remap, override=None, dst=None, cols=No
         )
         dst.execute(f"insert into {table} ({col_list}) values ({vals})", new)
     return id_map
+
+
+def snuff_danny_ss(cur, ls, scored):
+    """Re-point Danny's Sole Survivor at a pick he held through the designation
+    window that was then voted out by `scored`, so the "lost your Sole Survivor"
+    state is testable. Everyone else keeps theirs (all still in), so the standings
+    show a snuffed champion beside living ones. DvG: merge is ep7, designation
+    locks ep9; Gabby Pascuzzi (held from ep2, out ep11) is the natural pick."""
+    cur.execute("select id from auth.users where email = %s", (KEEP_EMAILS[0],))
+    danny = cur.fetchone()["id"]
+    cur.execute(
+        """
+        select rp.id, c.name
+        from roster_picks rp
+        join contestants c on c.id = rp.contestant_id
+        join eliminations el on el.contestant_id = c.id
+        join episodes e on e.id = el.episode_id
+        where rp.league_season_id = %s and rp.user_id = %s
+          and rp.active_from_episode <= 9       -- on the roster through the window
+          and rp.active_until_episode is null   -- still held when the torch went out
+          and e.episode_number <= %s
+        order by e.episode_number
+        limit 1
+        """,
+        (ls, danny, scored),
+    )
+    pick = cur.fetchone()
+    assert pick, "no eliminated held pick for Danny to lose as Sole Survivor"
+    cur.execute(
+        "update roster_picks set is_sole_survivor = false"
+        " where league_season_id = %s and user_id = %s",
+        (ls, danny),
+    )
+    cur.execute(
+        "update roster_picks set is_sole_survivor = true where id = %s", (pick["id"],)
+    )
+    print(f"  snuffed Danny's Sole Survivor: {pick['name']}")
 
 
 def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_locked):
@@ -245,6 +286,8 @@ def clone_stage(cur, src_season, src_ls, members, index, slug, scored, next_lock
                 "final_three_contestant_ids": contestants,
             },
         )
+    if slug == "sole-survivor-lost":
+        snuff_danny_ss(cur, ls, scored)
     return season, league, ls
 
 
