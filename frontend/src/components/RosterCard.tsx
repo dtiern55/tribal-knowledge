@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
+import { Torch, TorchDefs } from './Torch'
 import { displayName } from '../lib/cast'
 
 /**
@@ -115,9 +116,9 @@ export function RosterCard({
 
   const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`
 
-  // The Sole Survivor designation is the text tag on the row, nothing on the
-  // portrait: the ring that used to sit there (and offer itself on every
-  // undesignated card) is gone.
+  // The Sole Survivor designation rides as the champion flame + a gold label on
+  // the row, nothing on the portrait: the ring that used to sit there (and offer
+  // itself on every undesignated card) is gone.
   const inner = (
     <>
       <span
@@ -179,13 +180,17 @@ export function RosterCard({
           )}
           {isSoleSurvivor && (
             <span
-              className={`text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border ${
-                ssWindowOpen
-                  ? 'border-stone-400 text-stone-500'
-                  : 'border-gold-500 bg-gold-400/20 text-gold-800'
+              className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.08em] ${
+                ssWindowOpen ? 'text-stone-500' : 'text-gold-800'
               }`}
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
+              {/* The champion flame is the Sole Survivor's mark everywhere (#164),
+                  so this reads as the champion rather than another bordered tag
+                  like "Swapped in". Its own TorchDefs so the card stands alone on
+                  the Team page and once the designation has locked. */}
+              <TorchDefs />
+              <Torch champion lit title="" className="h-4 w-4 shrink-0" />
               Sole Survivor{soleSurvivorBonus > 0 && ` · +${soleSurvivorBonus}`}
             </span>
           )}
