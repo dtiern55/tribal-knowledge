@@ -998,8 +998,11 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
     expect(swap).toHaveAttribute('data-pulse')
     await userEvent.click(swap)
-    // Starting the swap ends the nudge: the chip leaves with the offer.
-    expect(screen.queryByRole('button', { name: /^Swap ·/ })).not.toBeInTheDocument()
+    // Starting the swap ends the nudge and hides the chip, but keeps its row
+    // reserved so History below doesn't jump; Cancel rides the banner instead.
+    const hiddenSwap = screen.getByRole('button', { name: /^Swap ·/ })
+    expect(hiddenSwap).toHaveClass('invisible')
+    expect(hiddenSwap).not.toHaveAttribute('data-pulse')
     expect(screen.getByText('Choose a castaway to drop')).toBeVisible()
     expect(localStorage.getItem('mytribe.first-loss.season-1')).toBe('1')
   })

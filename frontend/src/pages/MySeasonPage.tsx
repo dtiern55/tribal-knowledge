@@ -2708,8 +2708,7 @@ function RosterSection({
   // footer row it collided with Snuffed. The parent owns
   // the slot so the chip can leave the card; while picking, Cancel rides on
   // the instruction banner instead.
-  const swapFoot =
-    picking != null ? null : swapAvailable ? (
+  const swapFoot = swapAvailable ? (
       <button
         type="button"
         onClick={() => {
@@ -2718,10 +2717,12 @@ function RosterSection({
         }}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
         data-pulse={moment != null || undefined}
+        // While picking the chip stays but goes invisible: it still reserves its
+        // row so History doesn't jump up when the offer steps aside (#164).
         // Lifted over the card's scrim (z-50) so it pulses in the light while
         // the tribe speaks; the nav sits at z-45.
         className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 ${
-          moment != null ? 'relative z-[60]' : ''
+          picking != null ? 'invisible' : moment != null ? 'relative z-[60]' : ''
         }`}
       >
         <span>Swap</span>
