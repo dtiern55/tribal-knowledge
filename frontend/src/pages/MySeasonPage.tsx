@@ -4765,10 +4765,10 @@ function SoleSurvivorLine({
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
       <TorchDefs />
-      {/* The flame anchors both rows: label + Choose on the first, Rules + the
-          lock chip on the second — Rules under the label, the lock right-aligned
-          under Choose. One row isn't reachable at phone width with the full
-          lock timestamp. */}
+      {/* The flame anchors both rows: label + Choose on the first, the rules
+          link + the lock chip on the second — rules under the label, the lock
+          right-aligned under Choose. One row isn't reachable at phone width with
+          the full lock timestamp. */}
       <div className="flex items-center gap-3">
         <Torch lit title="" className="h-9 w-9 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -4790,7 +4790,7 @@ function SoleSurvivorLine({
             </button>
           </div>
           <div className="mt-1 flex items-center justify-between gap-2">
-            <RuleLink anchor="sole-survivor">Rules</RuleLink>
+            <RuleLink anchor="sole-survivor">How it works</RuleLink>
             {lockEpisode && (
               <LockBadge
                 lockAt={lockEpisode.picks_lock_at}
