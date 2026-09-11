@@ -4613,6 +4613,7 @@ function SoleSurvivorLine({
   // The name-your-Sole-Survivor moment (#164): dims the page and points at this
   // line the first time the window is open with nobody named. Once per browser.
   const [naming, setNaming] = useState<'popup' | 'nudge' | null>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
 
   // Refetch when the roster changes (rosterVersion) so a pre-lock swap can't
   // leave a removed castaway designated or hide the new pick (#180 follow-up).
@@ -4644,12 +4645,17 @@ function SoleSurvivorLine({
       return
     }
     setNaming('popup')
-    // Bring the line to mid-screen before the card comes up — on a phone it can
-    // be sitting under the tab bar (mirrors the first-loss nudge).
+    // Bring the line to mid-screen before it lifts into the light — on a phone
+    // it can be sitting under the tab bar (mirrors the first-loss nudge).
     document.querySelector('.ss-line')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     // Fires once per browser; `naming` is only read to not re-fire mid-way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, windowOpen, designee, namingKey])
+
+  // Focus the lifted line when the moment opens (it stands in for the dialog).
+  useEffect(() => {
+    if (naming === 'popup') boxRef.current?.focus()
+  }, [naming])
 
   async function clearDesignation() {
     setSaving(true)
@@ -4727,11 +4733,19 @@ function SoleSurvivorLine({
     )
   }
 
-  // Undesignated: name one right here. A slim select in the line, not the
-  // tall picker box #529 retired — the roster it lists sits just below.
+  // Undesignated: name one right here. When the naming moment fires (#164) the
+  // page dims and this line lifts into the light, pulsing, so the prompt, the
+  // stakes, and the picker are all in the spotlight — you name your pick in the
+  // moment. "Not now" drops the dim; the pulse stays until one is named.
+  const popup = naming === 'popup'
   return (
     <div
-      className="ss-line rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm"
+      ref={boxRef}
+      tabIndex={popup ? -1 : undefined}
+      role={popup ? 'dialog' : undefined}
+      aria-modal={popup || undefined}
+      aria-labelledby={popup ? 'name-ss-title' : undefined}
+      className={`ss-line rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm outline-none ${popup ? 'relative z-[60]' : ''}`}
       data-pulse={naming != null || undefined}
     >
       {/* The lock badge runs ~170px wide; sharing one wrapping row with it
@@ -4742,13 +4756,26 @@ function SoleSurvivorLine({
         {/* An unlit gold torch until you name one, when it catches to the red
             champion flame — no skull medallion (#164). */}
         <Torch lit title="Your Sole Survivor torch, not yet named" className="h-7 w-7 shrink-0" />
-        <p className="min-w-0 flex-1 text-sm leading-snug text-paper-ink">
-          <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
-            Sole Survivor
-          </span>
-          {' — '}
-          not named yet.
-        </p>
+        <div className="min-w-0 flex-1">
+          {popup ? (
+            <>
+              <p id="name-ss-title" className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+                Choose your Sole Survivor
+              </p>
+              <p className="text-sm leading-snug text-paper-ink">
+                Any points they earn in the finale are worth an extra 50%.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm leading-snug text-paper-ink">
+              <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+                Sole Survivor
+              </span>
+              {' — '}
+              not named yet.
+            </p>
+          )}
+        </div>
         <select
           aria-label="Name your Sole Survivor"
           value=""
@@ -4769,27 +4796,24 @@ function SoleSurvivorLine({
           <LockBadge lockAt={lockEpisode.picks_lock_at} scored={lockEpisode.status === 'scored'} />
         )}
         <RuleLink anchor="sole-survivor">How it works</RuleLink>
+        {popup && (
+          <button
+            type="button"
+            onClick={() => setNaming('nudge')}
+            className="ml-auto font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Not now
+          </button>
+        )}
       </div>
       {error && <p className="mt-1 text-xs text-terracotta-600">{error}</p>}
-      {naming === 'popup' &&
+      {popup &&
         createPortal(
-          <Moment
-            titleId="name-ss-title"
-            title="Name your Sole Survivor"
-            onClose={() => setNaming('nudge')}
-          >
-            <p className="mt-3 text-sm text-paper-ink">
-              Fire is life in this game. Name the one castaway you think will outlast everyone. It
-              is the biggest points swing of the season, and you can change your pick until it locks.
-            </p>
-            <button
-              type="button"
-              onClick={() => setNaming('nudge')}
-              className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
-            >
-              Got it
-            </button>
-          </Moment>,
+          <div
+            className="fixed inset-0 z-50 bg-forest-900/60"
+            aria-hidden="true"
+            onClick={() => setNaming('nudge')}
+          />,
           document.body,
         )}
     </div>

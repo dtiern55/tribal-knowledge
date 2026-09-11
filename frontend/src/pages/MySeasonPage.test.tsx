@@ -1086,10 +1086,10 @@ describe('MySeasonPage state shell', () => {
 
     renderWithApp(<MySeasonPage />, { auth })
 
-    const dialog = await screen.findByRole('dialog', { name: /name your sole survivor/i })
-    expect(within(dialog).getByText(/fire is life/i)).toBeVisible()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
-    // The line keeps pulsing after Got it, until one is named.
+    const dialog = await screen.findByRole('dialog', { name: /choose your sole survivor/i })
+    expect(within(dialog).getByText(/finale are worth an extra 50%/i)).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Not now' }))
+    // The line keeps pulsing after Not now, until one is named.
     await waitFor(() => expect(document.querySelector('.ss-line')).toHaveAttribute('data-pulse'))
     expect(localStorage.getItem('mytribe.name-sole-survivor.season-1')).toBe('1')
   })
