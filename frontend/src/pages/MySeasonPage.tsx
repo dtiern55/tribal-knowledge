@@ -357,7 +357,7 @@ export function MySeasonPage() {
   // Doubling and swapping are both bought in Advantage and answered on the
   // roster (#394), so the mode has to be visible to the button that starts it
   // and the rows that answer it.
-  const [picking, setPicking] = useState<'double' | 'swap' | null>(null)
+  const [picking, setPicking] = useState<'double' | 'swap' | 'sole-survivor' | null>(null)
   // Live finale-ballot progress, reported up from the FinaleBallot as you build
   // the bracket, so the hero reflects picks the instant you make or remove them
   // — the saved ballot on its own can't (#86 follow-on).
@@ -563,8 +563,9 @@ export function MySeasonPage() {
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
   useEffect(() => {
-    // Only swap uses the flat stage scrim; the double pick lights the room.
-    if (picking === 'swap') {
+    // Swap and Sole Survivor use the flat stage scrim; the double pick lights
+    // the room.
+    if (picking === 'swap' || picking === 'sole-survivor') {
       setStageOpen(true)
       return
     }
@@ -823,10 +824,10 @@ export function MySeasonPage() {
         />
       )}
 
-      {state.kind === 'open' && (stageOpen || picking === 'swap') && (
+      {state.kind === 'open' && (stageOpen || picking === 'swap' || picking === 'sole-survivor') && (
         <div
           className="stage-scrim"
-          data-on={picking === 'swap'}
+          data-on={picking === 'swap' || picking === 'sole-survivor'}
           onClick={() => setPicking(null)}
           aria-hidden="true"
         />
@@ -871,6 +872,10 @@ export function MySeasonPage() {
               userId={d.userId}
               rosterVersion={d.rosterVersion}
               onRosterChange={d.bumpRoster}
+              onStartSoleSurvivor={() => {
+                setBeat('roster')
+                setPicking('sole-survivor')
+              }}
             />
           )}
 
@@ -2354,7 +2359,7 @@ function RosterSection({
   /** Roster rows answer the Advantage section's "who do you double?" (#398)
    *  and, since swaps left that economy (#404), the roster's own
    *  "who do you drop?". */
-  picking?: 'double' | 'swap' | null
+  picking?: 'double' | 'swap' | 'sole-survivor' | null
   onPickingDone?: () => void
   onStartSwap?: () => void
   /** Start the Double Castaway Points pick: the rows answer it (#398). */
@@ -2374,6 +2379,7 @@ function RosterSection({
   // Second half of a swap: who you tapped to drop, waiting on who replaces them.
   const [dropping, setDropping] = useState<string | null>(null)
   const [swapping, setSwapping] = useState(false)
+  const [designatingSS, setDesignatingSS] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Pre-lock, default to showing just your picks (so you can plan an advantage
@@ -2591,6 +2597,25 @@ function RosterSection({
     }
   }
 
+  // Name the Sole Survivor by tapping a roster card in the pick mode the
+  // SoleSurvivorLine button starts — mirrors commitSwap (#164).
+  async function designateSoleSurvivor(contestantId: string) {
+    setDesignatingSS(true)
+    setError(null)
+    try {
+      await api.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, {
+        contestant_id: contestantId,
+      })
+      setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
+      onRosterChange()
+      onPickingDone?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not name your Sole Survivor')
+    } finally {
+      setDesignatingSS(false)
+    }
+  }
+
   async function submitRoster() {
     setSubmitting(true)
     setError(null)
@@ -2679,7 +2704,7 @@ function RosterSection({
   // the slot so the chip can leave the card; while picking, Cancel rides on
   // the instruction banner instead.
   const swapFoot =
-    picking === 'swap' ? null : swapAvailable ? (
+    picking != null ? null : swapAvailable ? (
       <button
         type="button"
         onClick={() => {
@@ -2727,6 +2752,21 @@ function RosterSection({
               setDropping(null)
               onPickingDone?.()
             }}
+            className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
+          >
+            Cancel
+          </button>
+        </p>
+      )}
+      {picking === 'sole-survivor' && (
+        <p className="flex items-center gap-3 border-b border-gold-300 bg-gold-50 px-4 py-2 text-xs font-semibold text-gold-800">
+          <span className="min-w-0 flex-1">
+            <b>Tap the castaway</b> you're backing to win it all.
+            <span className="ml-3 font-normal"><RuleLink anchor="sole-survivor">How it works</RuleLink></span>
+          </span>
+          <button
+            type="button"
+            onClick={() => onPickingDone?.()}
             className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
           >
             Cancel
@@ -2788,12 +2828,21 @@ function RosterSection({
                           onPickingDone?.()
                           void weekly.replace('double_roster_points', pick.contestant_id)
                         }
-                      : undefined
+                      : // Only a still-active, still-in castaway can be the
+                        // Sole Survivor (#164); the backend rejects the rest.
+                        picking === 'sole-survivor' &&
+                          !designatingSS &&
+                          pick.active_until_episode === null &&
+                          contestantMap.get(pick.contestant_id)?.eliminated_in_episode == null
+                        ? () => void designateSoleSurvivor(pick.contestant_id)
+                        : undefined
                 }
                 selected={
                   picking === 'swap'
                     ? dropping === pick.contestant_id
-                    : doubledTarget === pick.contestant_id
+                    : picking === 'sole-survivor'
+                      ? pick.is_sole_survivor
+                      : doubledTarget === pick.contestant_id
                 }
                 expanded={expandedId === pick.contestant_id}
                 onToggle={() => toggleExpand(pick.contestant_id)}
@@ -4598,6 +4647,7 @@ function SoleSurvivorLine({
   userId,
   rosterVersion,
   onRosterChange,
+  onStartSoleSurvivor,
 }: {
   season: Season
   contestants: Contestant[]
@@ -4605,15 +4655,16 @@ function SoleSurvivorLine({
   userId: string
   rosterVersion: number
   onRosterChange: () => void
+  /** Start the pick: the roster rows answer it, the way Swap works (#164). */
+  onStartSoleSurvivor?: () => void
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
-  // The name-your-Sole-Survivor moment (#164): dims the page and points at this
-  // line the first time the window is open with nobody named. Once per browser.
+  // The name-your-Sole-Survivor moment (#164): a one-time popup that explains
+  // the stakes, then leaves the button pulsing. Once per browser.
   const [naming, setNaming] = useState<'popup' | 'nudge' | null>(null)
-  const boxRef = useRef<HTMLDivElement>(null)
 
   // Refetch when the roster changes (rosterVersion) so a pre-lock swap can't
   // leave a removed castaway designated or hide the new pick (#180 follow-up).
@@ -4645,17 +4696,11 @@ function SoleSurvivorLine({
       return
     }
     setNaming('popup')
-    // Bring the line to mid-screen before it lifts into the light — on a phone
-    // it can be sitting under the tab bar (mirrors the first-loss nudge).
+    // Bring the button to mid-screen so it's in view once the popup's dim lifts.
     document.querySelector('.ss-line')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     // Fires once per browser; `naming` is only read to not re-fire mid-way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, windowOpen, designee, namingKey])
-
-  // Focus the lifted line when the moment opens (it stands in for the dialog).
-  useEffect(() => {
-    if (naming === 'popup') boxRef.current?.focus()
-  }, [naming])
 
   async function clearDesignation() {
     setSaving(true)
@@ -4671,38 +4716,11 @@ function SoleSurvivorLine({
     }
   }
 
-  async function designate(contestantId: string) {
-    if (!contestantId) return
-    setSaving(true)
-    setError(null)
-    try {
-      await api.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, {
-        contestant_id: contestantId,
-      })
-      setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: p.contestant_id === contestantId })))
-      setNaming(null)
-      onRosterChange()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Designation failed')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Who can be named: still on the roster and still in the game (#180).
-  const candidates = roster.filter(
-    (p) =>
-      p.active_until_episode === null &&
-      contestants.find((c) => c.id === p.contestant_id)?.eliminated_in_episode == null,
-  )
-
   // Locked: the roster row already carries the Sole Survivor tag, so a second
   // box restating a decision nobody can change any more is just noise (#487).
   if (!windowOpen) return null
 
-  // Played: collapse to a slim confirmation with just an Undo, mirroring the
-  // Advantage played row (no header, lock, or rules — only the state and its
-  // undo).
+  // Named: a slim confirmation with the champion flame and an Undo.
   if (designee) {
     return (
       <div className="flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
@@ -4733,87 +4751,46 @@ function SoleSurvivorLine({
     )
   }
 
-  // Undesignated: name one right here. When the naming moment fires (#164) the
-  // page dims and this line lifts into the light, pulsing, so the prompt, the
-  // stakes, and the picker are all in the spotlight — you name your pick in the
-  // moment. "Not now" drops the dim; the pulse stays until one is named.
-  const popup = naming === 'popup'
+  // Unnamed: a compact button that starts the pick — the screen dims and you
+  // tap the castaway you're backing from your Tribe, the way a Swap works
+  // (#164). The lock date and rules sit beneath. The one-time popup explains
+  // the stakes and leaves the button pulsing.
   return (
-    <div
-      ref={boxRef}
-      tabIndex={popup ? -1 : undefined}
-      role={popup ? 'dialog' : undefined}
-      aria-modal={popup || undefined}
-      aria-labelledby={popup ? 'name-ss-title' : undefined}
-      className={`ss-line rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm outline-none ${popup ? 'relative z-[60]' : ''}`}
-      data-pulse={naming != null || undefined}
-    >
-      {/* The lock badge runs ~170px wide; sharing one wrapping row with it
-          squeezed the sentence into a six-line column. The sentence gets the
-          row, the badge and rules link get their own beneath it. */}
-      <div className="flex items-center gap-3">
-        <TorchDefs />
-        {/* An unlit gold torch until you name one, when it catches to the red
-            champion flame — no skull medallion (#164). */}
-        <Torch lit title="Your Sole Survivor torch, not yet named" className="h-7 w-7 shrink-0" />
-        <div className="min-w-0 flex-1">
-          {popup ? (
-            <>
-              <p id="name-ss-title" className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
-                Choose your Sole Survivor
-              </p>
-              <p className="text-sm leading-snug text-paper-ink">
-                Any points they earn in the finale are worth an extra 50%.
-              </p>
-            </>
-          ) : (
-            <p className="text-sm leading-snug text-paper-ink">
-              <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
-                Sole Survivor
-              </span>
-              {' — '}
-              not named yet.
-            </p>
-          )}
-        </div>
-        <select
-          aria-label="Name your Sole Survivor"
-          value=""
-          onChange={(e) => void designate(e.target.value)}
-          disabled={saving || candidates.length === 0}
-          className="shrink-0 rounded-lg border border-gold-300 bg-white px-2 py-1.5 text-sm text-paper-ink disabled:opacity-40"
-        >
-          <option value="">Name…</option>
-          {candidates.map((p) => (
-            <option key={p.contestant_id} value={p.contestant_id}>
-              {nameOf(p.contestant_id)}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-10">
+    <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
+      <TorchDefs />
+      <button
+        type="button"
+        onClick={() => {
+          setNaming(null)
+          onStartSoleSurvivor?.()
+        }}
+        data-pulse={naming != null || undefined}
+        className="ss-line inline-flex items-center gap-2 rounded-full border border-gold-500 bg-gold-50 px-3.5 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
+      >
+        <Torch lit title="" className="h-5 w-5 shrink-0" />
+        Name your Sole Survivor
+      </button>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         {lockEpisode && (
           <LockBadge lockAt={lockEpisode.picks_lock_at} scored={lockEpisode.status === 'scored'} />
         )}
         <RuleLink anchor="sole-survivor">How it works</RuleLink>
-        {popup && (
-          <button
-            type="button"
-            onClick={() => setNaming('nudge')}
-            className="ml-auto font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2"
-          >
-            Not now
-          </button>
-        )}
       </div>
       {error && <p className="mt-1 text-xs text-terracotta-600">{error}</p>}
-      {popup &&
+      {naming === 'popup' &&
         createPortal(
-          <div
-            className="fixed inset-0 z-50 bg-forest-900/60"
-            aria-hidden="true"
-            onClick={() => setNaming('nudge')}
-          />,
+          <Moment titleId="name-ss-title" title="Choose your Sole Survivor" onClose={() => setNaming('nudge')}>
+            <p className="mt-3 text-sm text-paper-ink">
+              Any points they earn in the finale are worth an extra 50%.
+            </p>
+            <button
+              type="button"
+              onClick={() => setNaming('nudge')}
+              className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
+            >
+              Got it
+            </button>
+          </Moment>,
           document.body,
         )}
     </div>
