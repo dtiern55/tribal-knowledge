@@ -1287,6 +1287,12 @@ html.locked-night .hero-points { filter: brightness(0.9); }
 .lane-tabs {
   display: flex;
   align-items: stretch;
+  /* Round the strip's own top corners (14px = the stack's 15px radius inside
+     its 1px border). The stack clips these while overflow is hidden, but a lit
+     lane opens the overflow to let a pick's halo out — which would otherwise
+     expose the square-cornered gradient above the tabs (#164 follow-up). */
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
 }
 
 /* The strip carries the band's paint across its whole width, and an unselected
