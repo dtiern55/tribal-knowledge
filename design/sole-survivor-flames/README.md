@@ -26,7 +26,7 @@ This study tests two still-in-game treatments for the designated Sole Survivor o
 - Keep the existing Sole Survivor label for clarity and accessibility.
 - Apply flame artwork with `pointer-events: none` so row selection and expansion remain unchanged.
 - For an eliminated designee, remove the live orange flame or convert it to a dim ash treatment so it matches the existing snuffed-champion behavior.
-- Retain the tribe-color portrait border beneath the halo.
+- Match the designated castaway's portrait border to the flame's pale-gold highlight.
 
 ## Assets
 
