@@ -699,13 +699,13 @@ html.locked-night .app-shell .ss-champion::before {
   position: absolute;
   left: 50%;
   top: 50%;
-  z-index: 2;
+  z-index: 0;
   width: var(--sole-survivor-halo-size);
   height: var(--sole-survivor-halo-size);
   pointer-events: none;
   background: url("/sole-survivor-flame-halo.png") center / contain no-repeat;
   opacity: 0.72;
-  filter: drop-shadow(0 0 2px rgb(238 169 47 / 28%));
+  filter: drop-shadow(0 0 2px rgb(238 169 47 / 42%));
   transform: translate(-50%, -50%) rotate(-9deg);
 }
 .sole-survivor-halo > .contestant-avatar {
