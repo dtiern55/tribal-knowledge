@@ -87,7 +87,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # The driver writes picks with raw SQL, so the API's eligibility rules only
 # reach it if it applies them itself. Import the rule rather than mirror it
 # (#727): the copy that used to live here had already drifted twice.
-from app.routers.picks import redemption_island_ids  # noqa: E402
+from app.routers.picks import redemption_island_ids, rerank_ballot  # noqa: E402
 
 ENV = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(ENV)
@@ -813,11 +813,10 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                     )
                     dbl_used[target] = dbl_used.get(target, 0) + 1
             if choice == "double_vote_points":
-                # The play buys one extra name above the ladder, saved as an
-                # unranked pick the way the API does (#694). The seal then goes
-                # on the strongest name the bot holds, not automatically the new
-                # one (#740) — the extra name stays a regular vote, exactly as
-                # dragging the seal off it does in the app.
+                # The play buys one extra name above the ladder (#694). The seal
+                # goes on the strongest name the bot holds, not automatically the
+                # new one (#740) — the extra name stays a regular vote, exactly
+                # as dragging the seal off it does in the app.
                 if extra is not None:
                     cur.execute(
                         "insert into elimination_picks"
@@ -828,6 +827,16 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 # No name to seal at all means no play: an untargeted Power Vote
                 # would score as the old whole-ballot double.
                 target = power_vote_target(spread, top_pick, extra)
+                # Rank the ballot the way the API does: the sealed name unranked
+                # on top, the rest 1..n in confidence order (rungs, then the
+                # extra). Whichever name the seal lands on is the one left
+                # unranked — so the extra is a plain rung unless the seal sits
+                # on it, and the top pick is unranked when the seal rides it.
+                if target is not None:
+                    order = [r["cid"] for r in ballot]
+                    if extra is not None:
+                        order.append(extra)
+                    rerank_ballot(cur, lsid, ep["id"], uid, order, target)
             if choice == "double_roster_points" or target is not None:
                 cur.execute(
                     """insert into advantage_plays

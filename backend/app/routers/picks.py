@@ -19,6 +19,33 @@ from app.schemas import (
 router = APIRouter(tags=["picks"])
 
 
+def rerank_ballot(cur, league_season_id, episode_id, user_id, ordered_ids, doubled_id):
+    """Set the ladder ranks for one user's episode ballot (#694).
+
+    Each name in `ordered_ids` takes the next rung 1..n, except `doubled_id` —
+    the Power Vote's sealed name — which is left unranked (rank NULL) so it sits
+    above the ladder. Ranks are cleared first so a name moving down a rung never
+    collides with one moving up. Every consumer (the locked Hub display, live
+    scoring) relies on the Power Vote being the ballot's one unranked pick; this
+    is the single place that invariant is written, so bots and seed scripts call
+    it too rather than inserting ranks by hand.
+    """
+    cur.execute(
+        "update elimination_picks set rank = null"
+        " where league_season_id = %s and episode_id = %s and user_id = %s",
+        [str(league_season_id), str(episode_id), str(user_id)],
+    )
+    rank = 0
+    for cid in ordered_ids:
+        rank_value = None if cid == doubled_id else (rank := rank + 1)
+        cur.execute(
+            "update elimination_picks set rank = %s"
+            " where league_season_id = %s and episode_id = %s and user_id = %s"
+            "   and contestant_id = %s",
+            [rank_value, str(league_season_id), str(episode_id), str(user_id), cid],
+        )
+
+
 @router.get(
     "/league-seasons/{league_season_id}/picks/{user_id}",
     response_model=dict[str, list[EliminationPick]],
@@ -403,32 +430,8 @@ def submit_picks(
                 )
 
             # The ladder (#694): names rank in the order sent, the Power Vote's
-            # name on top with no rank of its own. Cleared first so a name
-            # moving down a rung never collides with the one moving up.
-            cur.execute(
-                """
-                update elimination_picks set rank = null
-                where league_season_id = %s and episode_id = %s and user_id = %s
-                """,
-                [str(league_season_id), str(episode_id), str(user_id)],
-            )
-            rank = 0
-            for cid in ids:
-                rank_value = None if cid == doubled_id else (rank := rank + 1)
-                cur.execute(
-                    """
-                    update elimination_picks set rank = %s
-                    where league_season_id = %s and episode_id = %s and user_id = %s
-                      and contestant_id = %s
-                    """,
-                    [
-                        rank_value,
-                        str(league_season_id),
-                        str(episode_id),
-                        str(user_id),
-                        cid,
-                    ],
-                )
+            # name unranked on top.
+            rerank_ballot(cur, league_season_id, episode_id, user_id, ids, doubled_id)
 
             cur.execute(
                 """
