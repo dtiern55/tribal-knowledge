@@ -37,6 +37,15 @@ describe('cast ranking helpers', () => {
     expect(rows.find((row) => row.name === 'Ben')?.tribe_name).toBe('New tribe')
   })
 
+  it('orders same-episode double-boots by placement, not points', () => {
+    const rows = rankCast([
+      { ...member('Rachel', 5, 3), placement: 18 },
+      { ...member('Colton', 40, 3), placement: 19 },
+    ])
+    // Rachel (#18) lasted longer than Colton (#19) despite fewer points.
+    expect(rows.map((row) => row.name)).toEqual(['Rachel', 'Colton'])
+  })
+
   it('describes active, eliminated, and placed states in full', () => {
     expect(castStatus(member('A', 0))).toBe('Still in the game')
     expect(castStatus(member('B', 0, 4))).toBe('Eliminated in episode 4')
