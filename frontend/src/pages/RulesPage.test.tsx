@@ -69,7 +69,6 @@ describe('RulesPage', () => {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
-    expect(screen.getByText(/Episode 9 is the last one you can swap for/)).toBeVisible()
     expect(screen.getByText(/3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11/)).toBeVisible()
     expect(screen.getByText(/worth 16\. After the merge, 20\./)).toBeVisible()
     expect(screen.getByText(/\(Episode 7\)/)).toBeVisible()
@@ -82,8 +81,7 @@ describe('RulesPage', () => {
     )
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByText(/Swaps close after the episode that follows the first juror/)).toBeVisible()
-    expect(screen.queryByText(/is the last one you can swap for/)).not.toBeInTheDocument()
+    expect(await screen.findByText(/Your last swap is the episode right after the first castaway joins the jury/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
     expect(screen.queryByText(/\(Episode/)).not.toBeInTheDocument()
   })
