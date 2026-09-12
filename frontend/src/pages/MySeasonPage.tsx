@@ -1542,29 +1542,25 @@ function LeagueHub({
         <div className={`rounded-xl border p-3 ${chip}`}>
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
           <dl className="mt-2 space-y-3">
+            {topRosterDoubles.map(({ survivor, n }) => (
+              <div key={survivor.contestant_id} className="flex items-center gap-2">
+                <ContestantAvatar
+                  name={survivor.name}
+                  imageUrl={survivor.image_url}
+                  tribeColor={survivor.tribe_color}
+                  tribeName={survivor.tribe_name}
+                  size="sm"
+                />
+                <dt className="min-w-0 flex-1 truncate text-sm font-medium">{survivor.name}</dt>
+                <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{n}</dd>
+              </div>
+            ))}
+            {/* Power Vote has no target, so it sits last — below the castaway
+                doubles, not above them where it read as their header. */}
             <div className="flex items-center gap-2">
               <dt className="min-w-0 flex-1 truncate text-sm">Power Vote</dt>
-              <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>{doubleBallots}</dd>
+              <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{doubleBallots}</dd>
             </div>
-            {topRosterDoubles.length > 0 ? (
-              topRosterDoubles.map(({ survivor, n }) => (
-                <div key={survivor.contestant_id} className="flex items-center gap-2">
-                  <ContestantAvatar
-                    name={survivor.name}
-                    imageUrl={survivor.image_url}
-                    tribeColor={survivor.tribe_color}
-                    tribeName={survivor.tribe_name}
-                    size="sm"
-                  />
-                  <dt className="min-w-0 flex-1 truncate text-sm font-medium">{survivor.name}</dt>
-                  <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{n}</dd>
-                </div>
-              ))
-            ) : (
-              <div className="flex items-center gap-2">
-                <dt className={`flex-1 text-sm ${sub}`}>No roster doubles</dt>
-              </div>
-            )}
           </dl>
         </div>
         </div>,
