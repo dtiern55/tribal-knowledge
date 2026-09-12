@@ -256,8 +256,8 @@ export function RulesPage() {
             <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
             {rungScores.length > 0 ? (
               <li>
-                Your picks are a ladder: put the name you are surest of on top. Each correct pick scores by its rung, and wrong picks cost nothing.
-                {` Before the merge the rungs are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
+                Rank your picks: put the name you are surest of on top. Each correct pick scores by its rank, and wrong picks cost nothing.
+                {` Before the merge the ranks are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
                 {rungScores.some((score) => score.postmerge_point_value != null && score.postmerge_point_value !== score.point_value)
                   ? `; after the merge, ${rungScores.map((score) => score.postmerge_point_value ?? score.point_value).join(', ')}.`
                   : '.'}
@@ -289,7 +289,7 @@ export function RulesPage() {
               <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it.</li>
               <li><b>On your tribe:</b> a double point boost. One castaway on your tribe earns double this episode.</li>
               <li>
-                <b>On your ballot:</b> a Power Vote. One extra name above your ladder
+                <b>On your ballot:</b> a Power Vote. One extra name above your ranked picks
                 {powerVoteScore
                   ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
                   : ', and if they go home it pays double.'}
