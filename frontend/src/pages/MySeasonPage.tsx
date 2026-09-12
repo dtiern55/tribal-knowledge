@@ -4729,17 +4729,11 @@ function SoleSurvivorLine({
   // box restating a decision nobody can change any more is just noise (#487).
   if (!windowOpen) return null
 
-  // Named: a slim confirmation with the champion flame and an Undo.
+  // Named: a slim confirmation with the flame badge and an Undo.
   if (designee) {
     return (
       <div className="flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
-        <TorchDefs />
-        <Torch
-          champion
-          lit
-          title={`${nameOf(designee.contestant_id)}, your Sole Survivor`}
-          className="h-7 w-7 shrink-0"
-        />
+        <img src="/sole-survivor-flame-halo.png" alt="" className="h-8 w-auto shrink-0" />
         <p className="min-w-0 flex-1 text-sm text-paper-ink">
           <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
             Sole Survivor
@@ -4766,13 +4760,12 @@ function SoleSurvivorLine({
   // the stakes and leaves the button pulsing.
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
-      <TorchDefs />
-      {/* The flame anchors both rows: label + Choose on the first, the rules
+      {/* The badge anchors both rows: label + Choose on the first, the rules
           link + the lock chip on the second — rules under the label, the lock
           right-aligned under Choose. One row isn't reachable at phone width with
           the full lock timestamp. */}
       <div className="flex items-center gap-3">
-        <Torch lit title="" className="h-9 w-9 shrink-0" />
+        <img src="/sole-survivor-flame-halo.png" alt="" className="h-10 w-auto shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="min-w-0 flex-1 font-display text-sm font-bold uppercase tracking-wide text-gold-800">
@@ -4816,7 +4809,7 @@ function SoleSurvivorLine({
               </p>
               <p className="mt-0.5 text-sm text-paper-ink">
                 <span className="inline-flex items-center gap-1 align-[-4px]">
-                  <Torch champion lit title="" className="h-4 w-4" />
+                  <img src="/sole-survivor-flame-halo.png" alt="" className="h-5 w-auto" />
                   <b className="font-display font-bold text-gold-800">Aubry</b>
                 </span>{' '}
                 is your Sole Survivor. In the finale she:

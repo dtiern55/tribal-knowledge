@@ -715,6 +715,7 @@ html.locked-night .app-shell .ss-champion::before {
   pointer-events: none;
   background: url("/sole-survivor-flame-halo.png") center / contain no-repeat;
   filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 35%));
+  transform: rotate(10deg);
 }
 /* The portrait keeps its tribe border; the badge just sits on its corner. */
 .sole-survivor-halo > .contestant-avatar {
