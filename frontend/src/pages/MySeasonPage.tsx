@@ -6,7 +6,6 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
-import { Torch, TorchDefs } from '../components/Torch'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket } from '../components/FinaleBracket'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
@@ -3021,8 +3020,7 @@ function RosterSection({
         createPortal(
           <Moment titleId="lose-ss-title" title="Your Sole Survivor is out" onClose={() => setSsSnuff(false)}>
             <div className="mt-4 flex justify-center">
-              <TorchDefs />
-              <Torch champion lit={false} title="" className="h-12 w-12" />
+              <img src="/sole-survivor-flame-halo.png" alt="" className="h-14 w-auto grayscale opacity-70" />
             </div>
             <p className="mt-3 text-sm text-paper-ink">
               The fire you were backing is snuffed.{' '}
@@ -4809,7 +4807,7 @@ function SoleSurvivorLine({
               </p>
               <p className="mt-0.5 text-sm text-paper-ink">
                 <span className="inline-flex items-center gap-1 align-[-4px]">
-                  <img src="/sole-survivor-flame-halo.png" alt="" className="h-5 w-auto" />
+                  <img src="/sole-survivor-flame-halo.png" alt="" className="h-4 w-auto" />
                   <b className="font-display font-bold text-gold-800">Aubry</b>
                 </span>{' '}
                 is your Sole Survivor. In the finale she:
