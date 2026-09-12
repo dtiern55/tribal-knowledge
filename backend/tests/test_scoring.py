@@ -555,6 +555,38 @@ def test_finale_points_all_wrong_scores_nothing(db_conn):
     assert scoring.finale_points(db_conn, season["league_season_id"]) == {}
 
 
+@pytest.mark.integration
+def test_finale_final_four_from_placement_without_fire_making(db_conn):
+    """A finale with no fire-making (a Final 2, or a straight vote to the Final
+    3): the Final 4 still resolves from placement, so predicting the 4th-place
+    finisher scores even though no fire_making_loss row exists."""
+    season = insert_season(db_conn)
+    finale = insert_episode(
+        db_conn, season["id"], episode_number=13, is_finale=True, status="scored"
+    )
+    winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
+    runner_up = insert_contestant(db_conn, season["id"], "RunnerUp", placement=2)
+    third = insert_contestant(db_conn, season["id"], "Third", placement=3)
+    fourth = insert_contestant(db_conn, season["id"], "Fourth", placement=4)
+    # Voted out at the Final 4, not a fire-making loss — no fire row at all.
+    insert_elimination(
+        db_conn, finale["id"], fourth["id"], elimination_type="voted_out"
+    )
+    user = insert_user(db_conn)
+    insert_finale_prediction(
+        db_conn,
+        user["id"],
+        season["id"],
+        final_four=[winner["id"], runner_up["id"], third["id"], fourth["id"]],
+        final_three=[winner["id"], runner_up["id"], third["id"]],
+        winner=winner["id"],
+    )
+    # 4*6 + 3*8 + 12 + 40 — the 4th-place vote-out counts in the Final 4.
+    assert scoring.finale_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 100
+    }
+
+
 # --- per-user breakdown (My Season, #52) ---
 
 

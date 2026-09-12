@@ -10,8 +10,25 @@ current tribe is the row with the largest from_episode.
 # "no colour" on a buff. Override it with something that looks like a real
 # buff. Retune freely.
 REDEMPTION_TRIBE = "Redemption Island"
+EDGE_TRIBE = "Edge of Extinction"
 REDEMPTION_COLOR = "#6b7280"
 MERGE_COLOR = "#334155"
+
+# Holding-pen twists (#655, plus Edge of Extinction): a voted-out castaway who
+# is still in the game, waiting to return. survivoR marks residents with one of
+# these tribe_status tokens; we collapse them onto a single is_redemption tribe,
+# hidden from the ballot, named for whichever twist the season ran. The
+# is_redemption flag — not the name — is what scoring and picks read, so both
+# twists behave identically. The Edge has no duels: on it, everyone waits until
+# the final return challenge, then non-returnees are flipped to a final boot.
+HOLDING_PEN_TRIBES = {"redemption": REDEMPTION_TRIBE, "extinction": EDGE_TRIBE}
+
+
+def holding_pen_tribe(tribe_status: str | None) -> str | None:
+    """Our synthetic is_redemption tribe name for a survivoR holding-pen status
+    (Redemption Island / Edge of Extinction), or None for a normal tribe."""
+    s = (tribe_status or "").lower()
+    return next((name for tok, name in HOLDING_PEN_TRIBES.items() if tok in s), None)
 
 
 def build_tribe_data(
@@ -63,7 +80,7 @@ def build_tribe_data(
     last: dict[str, str] = {}
     for r in rows:
         cid = r.get("castaway_id")
-        tribe = REDEMPTION_TRIBE if _on_redemption(r) else r.get("tribe")
+        tribe = holding_pen_tribe(r.get("tribe_status")) or r.get("tribe")
         if not cid or not tribe or r.get("episode") is None:
             continue
         ep = effective_episode(r)
@@ -82,20 +99,21 @@ def build_tribe_data(
 
     used = {m["tribe_name"] for m in memberships}
     tribes = [dict(all_colors[n], is_redemption=False) for n in all_colors if n in used]
-    if REDEMPTION_TRIBE in used:
-        tribes.append(
-            {
-                "name": REDEMPTION_TRIBE,
-                "color": REDEMPTION_COLOR,
-                "is_merge": False,
-                "is_redemption": True,
-            }
-        )
+    for pen_name in HOLDING_PEN_TRIBES.values():
+        if pen_name in used:
+            tribes.append(
+                {
+                    "name": pen_name,
+                    "color": REDEMPTION_COLOR,
+                    "is_merge": False,
+                    "is_redemption": True,
+                }
+            )
     return {"tribes": tribes, "memberships": memberships}
 
 
 def _on_redemption(r: dict) -> bool:
-    return "redemption" in (r.get("tribe_status") or "").lower()
+    return holding_pen_tribe(r.get("tribe_status")) is not None
 
 
 def _demo() -> None:
@@ -180,6 +198,25 @@ def _demo() -> None:
         "US28", tribe_colours=colours, tribe_mapping=mapping + ri, up_to_episode=1
     )
     assert all(m["tribe_name"] != REDEMPTION_TRIBE for m in early["memberships"])
+
+    # Edge of Extinction is the same holding-pen mechanic under a different name.
+    assert holding_pen_tribe("Edge of Extinction") == EDGE_TRIBE
+    assert holding_pen_tribe("Original") is None
+    eoe = [
+        {"version_season": "US28", "castaway_id": "D", "tribe": "Luzon", "episode": 1},
+        {
+            "version_season": "US28",
+            "castaway_id": "D",
+            "tribe": None,
+            "tribe_status": "Edge of Extinction",
+            "episode": 3,
+        },
+    ]
+    out = build_tribe_data("US28", tribe_colours=colours, tribe_mapping=mapping + eoe)
+    d = [m["tribe_name"] for m in out["memberships"] if m["castaway_id"] == "D"]
+    assert d == ["Luzon", EDGE_TRIBE], d
+    edge = next(t for t in out["tribes"] if t["name"] == EDGE_TRIBE)
+    assert edge["is_redemption"] and not edge["is_merge"]
 
     # Bounded to ep 1 (live season): the future merge is not leaked.
     early = build_tribe_data(

@@ -7,6 +7,8 @@ surfaced as warnings instead of guessed.
 
 from typing import Optional
 
+from app.tribe_import import holding_pen_tribe
+
 # survivoR boot_order.result → our elimination_type. Anything unlisted is
 # skipped (finale placements) or warned about.
 _SAFE_OUTCOMES = {"safe", "saved", "won"}
@@ -106,23 +108,30 @@ def build_proposal(
                 " sync tribes to place them"
             )
 
-    # --- Redemption Island (#655) ---
-    # A boot who shows up on the island (this episode for a day-one vote, next
-    # episode for a normal tribal) is still in the game: the ballot scores the
-    # vote, but the row is not final. Losing a duel is the terminal exit, and
-    # someone on the island last episode who is on a tribe this episode came
-    # back. If survivoR has no next-episode mapping yet (live season), the
-    # commissioner flips is_final in the admin UI instead.
+    # --- Redemption Island / Edge of Extinction (#655, EoE) ---
+    # A boot who shows up in the holding pen (this episode for a day-one vote,
+    # next episode for a normal tribal) is still in the game: the ballot scores
+    # the vote, but the row is not final. On Redemption a lost duel is the
+    # terminal exit; the Edge has no duels — everyone waits until the final
+    # return challenge, then the commissioner flips the non-returnees to final.
+    # Someone in the pen last episode who is on a tribe this episode came back.
+    # If survivoR has no next-episode mapping yet (live season), the commissioner
+    # flips is_final in the admin UI instead.
     mapping = [
         r for r in (tribe_mapping or []) if r.get("version_season") == season_key
     ]
 
-    def on_island(cid: str, ep: int) -> bool:
-        return any(
-            r.get("castaway_id") == cid
-            and r.get("episode") == ep
-            and "redemption" in (r.get("tribe_status") or "").lower()
-            for r in mapping
+    def island_pen(cid: str, ep: int) -> Optional[str]:
+        """The holding-pen tribe name for cid in episode ep, or None."""
+        return next(
+            (
+                pen
+                for r in mapping
+                if r.get("castaway_id") == cid
+                and r.get("episode") == ep
+                and (pen := holding_pen_tribe(r.get("tribe_status")))
+            ),
+            None,
         )
 
     def on_tribe(cid: str, ep: int) -> bool:
@@ -130,18 +139,18 @@ def build_proposal(
             r.get("castaway_id") == cid
             and r.get("episode") == ep
             and r.get("tribe")
-            and "redemption" not in (r.get("tribe_status") or "").lower()
+            and not holding_pen_tribe(r.get("tribe_status"))
             for r in mapping
         )
 
     if mapping:
         for e in eliminations:
-            if e["elimination_type"] == "voted_out" and (
-                on_island(e["castaway_id"], episode)
-                or on_island(e["castaway_id"], episode + 1)
-            ):
+            pen = island_pen(e["castaway_id"], episode) or island_pen(
+                e["castaway_id"], episode + 1
+            )
+            if e["elimination_type"] == "voted_out" and pen:
                 e["is_final"] = False
-                e["result"] += " → Redemption Island"
+                e["result"] += f" → {pen}"
         for r in _ep(challenge_results, season_key, episode):
             if (r.get("challenge_type") or "").lower() != "duel":
                 continue
@@ -163,7 +172,7 @@ def build_proposal(
             for r in mapping
             if r.get("episode") == episode
             and on_tribe(r["castaway_id"], episode)
-            and on_island(r["castaway_id"], episode - 1)
+            and island_pen(r["castaway_id"], episode - 1) is not None
         }
         # The merge return lands in the merge episode itself; anything later
         # is the endgame return, worth more. Merge unknown means merge return
