@@ -62,6 +62,16 @@ const REDEMPTION_EVENTS = new Set(['win_redemption_duel', 'return_from_redemptio
 
 const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
+// Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
+// back to their backend label.
+const BALLOT_LABELS: Record<string, string> = {
+  correct_elimination: 'Correct pick',
+  correct_elimination_1: '1st pick',
+  correct_elimination_2: '2nd pick',
+  correct_elimination_3: '3rd pick',
+  power_vote: 'Power Vote',
+}
+
 function pts(value: number) {
   return `${value > 0 ? '+' : ''}${value}`
 }
@@ -100,7 +110,7 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
     <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
       {rows.map((row) => (
         <li key={row.key} className="flex items-start justify-between gap-4 py-2.5">
-          <span className="text-sm text-gray-700">{row.key === 'correct_elimination' ? 'Correct pick' : row.key === 'power_vote' ? 'Power Vote goes home' : row.label}</span>
+          <span className="text-sm text-gray-700">{BALLOT_LABELS[row.key] ?? row.label}</span>
           <span className="shrink-0 text-sm font-semibold text-jade-700">
             {row.postmerge_point_value != null && row.postmerge_point_value !== row.point_value
               ? `${pts(row.point_value)} before merge, ${pts(row.postmerge_point_value)} after`
@@ -204,7 +214,7 @@ export function RulesPage() {
     .map((rank) => prediction_scores.find((score) => score.key === `correct_elimination_${rank}`))
     .filter((score): score is RulePredictionScore => score != null)
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
-  const ballotRows = rungScores.length > 0 ? [...rungScores, ...(powerVoteScore ? [powerVoteScore] : [])] : ballotScore ? [ballotScore] : []
+  const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
   const finaleScores = prediction_scores.filter((score) => FINALE_KEYS.includes(score.key))
 
   return (

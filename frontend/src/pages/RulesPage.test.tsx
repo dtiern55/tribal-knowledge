@@ -126,4 +126,25 @@ describe('RulesPage', () => {
     expect(screen.getByText('+5 tokens')).toBeVisible()
     expect(screen.getByText('5 tokens')).toBeVisible()
   })
+
+  it('lists ballot picks with the Power Vote first and plainly labeled ranks', async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      response({
+        prediction_scores: [
+          { key: 'correct_elimination_1', label: 'Correct 1st pick', point_value: 20, postmerge_point_value: 25 },
+          { key: 'correct_elimination_2', label: 'Correct 2nd pick', point_value: 16, postmerge_point_value: 20 },
+          { key: 'correct_elimination_3', label: 'Correct 3rd pick', point_value: 12, postmerge_point_value: 15 },
+          { key: 'power_vote', label: 'Power Vote hits', point_value: 30, postmerge_point_value: 35 },
+        ],
+      }),
+    )
+    renderWithApp(<RulesPage />)
+
+    const powerVote = await screen.findByText('Power Vote')
+    const firstPick = screen.getByText('1st pick')
+    expect(screen.getByText('2nd pick')).toBeVisible()
+    expect(screen.getByText('3rd pick')).toBeVisible()
+    // Power Vote sits above the ranked picks.
+    expect(powerVote.compareDocumentPosition(firstPick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })
