@@ -23,6 +23,7 @@ export function RosterCard({
   contestantId,
   contestant,
   isSoleSurvivor = false,
+  showSoleSurvivorHalo = false,
   soleSurvivorBonus = 0,
   isDoubled = false,
   ssWindowOpen = false,
@@ -43,6 +44,7 @@ export function RosterCard({
   contestantId: string
   contestant: Contestant | undefined
   isSoleSurvivor?: boolean
+  showSoleSurvivorHalo?: boolean
   // The +50% finale bonus this designation earned, named on the badge so the
   // points land somewhere visible. 0 shows just the badge (no bonus yet).
   soleSurvivorBonus?: number
@@ -114,11 +116,18 @@ export function RosterCard({
     </>
   )
 
-  const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`
+  const hasSoleSurvivorHalo = isSoleSurvivor && showSoleSurvivorHalo
+  const avatarClass = `relative inline-flex shrink-0 ${
+    hasSoleSurvivorHalo
+      ? `sole-survivor-halo ${prominent ? 'sole-survivor-halo--prominent' : ''} ${
+          outEp != null ? 'sole-survivor-halo--snuffed' : ''
+        }`
+      : ''
+  } ${outEp != null ? ELIMINATED_DIM : ''}`
 
-  // The Sole Survivor designation rides as the champion flame + a gold label on
-  // the row, nothing on the portrait: the ring that used to sit there (and offer
-  // itself on every undesignated card) is gone.
+  // The Sole Survivor's mark is the corner flame badge on the portrait (My
+  // Season, via showSoleSurvivorHalo). On cards without that badge (e.g. the Team
+  // page) it falls back to the champion flame + a gold label below the name.
   const inner = (
     <>
       <span
@@ -178,17 +187,16 @@ export function RosterCard({
               Undo swap
             </button>
           )}
-          {isSoleSurvivor && (
+          {isSoleSurvivor && !hasSoleSurvivorHalo && (
             <span
               className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.08em] ${
                 ssWindowOpen ? 'text-stone-500' : 'text-gold-800'
               }`}
               title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
             >
-              {/* The champion flame is the Sole Survivor's mark everywhere (#164),
-                  so this reads as the champion rather than another bordered tag
-                  like "Swapped in". Its own TorchDefs so the card stands alone on
-                  the Team page and once the designation has locked. */}
+              {/* Fallback mark for cards without the corner badge (e.g. the Team
+                  page): the champion flame + gold label. Its own TorchDefs so the
+                  card stands alone. */}
               <TorchDefs />
               <Torch champion lit title="" className="h-4 w-4 shrink-0" />
               Sole Survivor{soleSurvivorBonus > 0 && ` · +${soleSurvivorBonus}`}

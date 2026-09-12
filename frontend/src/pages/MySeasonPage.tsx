@@ -6,7 +6,6 @@ import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
-import { Torch, TorchDefs } from '../components/Torch'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket } from '../components/FinaleBracket'
 import { EpisodeResultReveal } from '../components/EpisodeResultReveal'
@@ -1092,6 +1091,7 @@ function CompleteState({
                   contestantId={pick.contestant_id}
                   contestant={contestantMap.get(pick.contestant_id)}
                   isSoleSurvivor={pick.is_sole_survivor}
+                  showSoleSurvivorHalo
                   soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                   swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
                   right={<TeamPoints value={rosterPoints.get(pick.contestant_id) ?? 0} />}
@@ -2540,25 +2540,6 @@ function RosterSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstLossDue, firstLossKey])
 
-  // Losing your Sole Survivor (#164): the page dims and the champion's fire is
-  // snuffed. Once per browser, like the tribe-has-spoken nudge above.
-  const [ssSnuff, setSsSnuff] = useState(false)
-  const ssPick = roster.find((p) => p.is_sole_survivor)
-  const ssContestant = ssPick ? contestantMap.get(ssPick.contestant_id) : undefined
-  const ssSnuffKey = `mytribe.lose-sole-survivor.${season.id}`
-  useEffect(() => {
-    if (!rosterLoaded || ssContestant?.eliminated_in_episode == null || ssSnuff) return
-    try {
-      if (localStorage.getItem(ssSnuffKey) === '1') return
-      localStorage.setItem(ssSnuffKey, '1')
-    } catch {
-      return
-    }
-    setSsSnuff(true)
-    // Fires once per browser; `ssSnuff` is only read to not re-fire mid-way.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rosterLoaded, ssContestant?.eliminated_in_episode, ssSnuffKey])
-
   async function undoSwap(contestantId: string) {
     setSwapping(true)
     setError(null)
@@ -2805,6 +2786,7 @@ function RosterSection({
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
+                showSoleSurvivorHalo
                 soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                 isDoubled={doubledTarget === pick.contestant_id}
                 seal={false}
@@ -3013,30 +2995,6 @@ function RosterSection({
           <FirstLossMoment
             onClose={() => setMoment('nudge')}
           />,
-          document.body,
-        )}
-      {ssSnuff &&
-        createPortal(
-          <Moment titleId="lose-ss-title" title="Your Sole Survivor is out" onClose={() => setSsSnuff(false)}>
-            <div className="mt-4 flex justify-center">
-              <TorchDefs />
-              <Torch champion lit={false} title="" className="h-12 w-12" />
-            </div>
-            <p className="mt-3 text-sm text-paper-ink">
-              The fire you were backing is snuffed.{' '}
-              <b className="text-gold-700">
-                {ssContestant ? displayName(ssContestant) : 'Your Sole Survivor'}
-              </b>{' '}
-              is gone, and the finale bonus goes with it.
-            </p>
-            <button
-              type="button"
-              onClick={() => setSsSnuff(false)}
-              className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
-            >
-              Got it
-            </button>
-          </Moment>,
           document.body,
         )}
       {retiredRoster.length > 0 && (
@@ -4727,17 +4685,11 @@ function SoleSurvivorLine({
   // box restating a decision nobody can change any more is just noise (#487).
   if (!windowOpen) return null
 
-  // Named: a slim confirmation with the champion flame and an Undo.
+  // Named: a slim confirmation with the flame badge and an Undo.
   if (designee) {
     return (
       <div className="flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
-        <TorchDefs />
-        <Torch
-          champion
-          lit
-          title={`${nameOf(designee.contestant_id)}, your Sole Survivor`}
-          className="h-7 w-7 shrink-0"
-        />
+        <img src="/sole-survivor-flame-halo.png" alt="" className="h-8 w-auto shrink-0" />
         <p className="min-w-0 flex-1 text-sm text-paper-ink">
           <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
             Sole Survivor
@@ -4764,13 +4716,12 @@ function SoleSurvivorLine({
   // the stakes and leaves the button pulsing.
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
-      <TorchDefs />
-      {/* The flame anchors both rows: label + Choose on the first, the rules
+      {/* The badge anchors both rows: label + Choose on the first, the rules
           link + the lock chip on the second — rules under the label, the lock
           right-aligned under Choose. One row isn't reachable at phone width with
           the full lock timestamp. */}
       <div className="flex items-center gap-3">
-        <Torch lit title="" className="h-9 w-9 shrink-0" />
+        <img src="/sole-survivor-flame-halo.png" alt="" className="h-10 w-auto shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="min-w-0 flex-1 font-display text-sm font-bold uppercase tracking-wide text-gold-800">
@@ -4814,7 +4765,7 @@ function SoleSurvivorLine({
               </p>
               <p className="mt-0.5 text-sm text-paper-ink">
                 <span className="inline-flex items-center gap-1 align-[-4px]">
-                  <Torch champion lit title="" className="h-4 w-4" />
+                  <img src="/sole-survivor-flame-halo.png" alt="" className="h-4 w-auto" />
                   <b className="font-display font-bold text-gold-800">Aubry</b>
                 </span>{' '}
                 is your Sole Survivor. In the finale she:

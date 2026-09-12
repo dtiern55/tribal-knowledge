@@ -251,6 +251,7 @@ export function TeamPage() {
                       contestantId={pick.contestant_id}
                       contestant={contestantMap.get(pick.contestant_id)}
                       isSoleSurvivor={pick.is_sole_survivor}
+                      showSoleSurvivorHalo
                       soleSurvivorBonus={pick.is_sole_survivor ? ssBonus : 0}
                       swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
                       right={<Points value={rosterPoints.get(pick.contestant_id)} />}
