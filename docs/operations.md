@@ -219,6 +219,13 @@ After any rebuild, re-run the data seeds the stages depend on:
 `scripts/seed_locked_stage.py --apply` (the locked-not-scored stage's empty
 states and Danny's named ×2).
 
+`scripts/backfill_ballot_ranks.py --apply` (#757) re-ranks any ballot whose
+Power Vote isn't its one unranked pick, so the locked Hub lists the sealed name
+first and scoring pays the right rungs. Idempotent; dry-runs without `--apply`.
+Needed once on prod for older bot ballots (S27); the seed scripts and
+`run_bots.py` now uphold the invariant themselves, so fresh stages don't need
+it.
+
 ## Migrations and deployment
 
 1. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every PR:
