@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.database import get_db  # noqa: E402
+from app.routers.picks import rerank_ballot  # noqa: E402
 
 
 def outcome(display_name: str, episode_number: int) -> str:
@@ -91,6 +92,23 @@ def main() -> None:
             cur.execute(
                 "update advantage_plays set target_contestant_id = %s where id = %s",
                 (target, row["play_id"]),
+            )
+            # Rank the ballot so the ×2 target is the one unranked pick and the
+            # rest fall 1..n (#694), keeping the current ladder order for the
+            # untargeted names — the invariant the display and scoring read.
+            cur.execute(
+                "select contestant_id::text cid from elimination_picks"
+                " where user_id=%s and league_season_id=%s and episode_id=%s"
+                " order by rank nulls last, created_at",
+                (row["user_id"], row["league_season_id"], row["episode_id"]),
+            )
+            rerank_ballot(
+                cur,
+                row["league_season_id"],
+                row["episode_id"],
+                row["user_id"],
+                [r["cid"] for r in cur.fetchall()],
+                target,
             )
             tally["hit" if target in eliminated else "miss"] += 1
         print("×2 plays targeted:", tally)
