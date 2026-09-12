@@ -30,9 +30,9 @@ const season = {
   ],
 } as Season
 
-function response(overrides: Partial<RulesResponse> = {}, tokenMode = false): RulesResponse {
+function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
   return {
-    season: { ...season, token_economy_enabled: tokenMode },
+    season,
     scoring_events: [
       { event_type: 'win_individual_immunity', label: 'Win individual immunity', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly at tribal', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
@@ -116,18 +116,6 @@ describe('RulesPage', () => {
     // query resolves — assert on it rather than reading it synchronously.
     await waitFor(() => expect(section).toHaveClass('rule-flash'))
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
-  })
-
-  it('keeps token events and costs readable for historical token seasons', async () => {
-    vi.mocked(api.get).mockResolvedValue(response({}, true))
-    renderWithApp(<RulesPage />)
-
-    expect(await screen.findByRole('heading', { name: 'Advantages and tokens' })).toBeVisible()
-    expect(screen.getByText('Cry')).toBeVisible()
-    expect(screen.getByText('+5 tokens')).toBeVisible()
-    expect(screen.getByText('5 tokens')).toBeVisible()
-    // Token seasons cap swaps by tokens, so the "no limit" line stays hidden.
-    expect(screen.queryByText(/no limit/i)).not.toBeInTheDocument()
   })
 
   it('lists ballot picks with the Power Vote first and plainly labeled ranks', async () => {

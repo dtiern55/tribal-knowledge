@@ -76,31 +76,28 @@ function pts(value: number) {
   return `${value > 0 ? '+' : ''}${value}`
 }
 
-function EventRow({ event, showTokens = false }: { event: RuleScoringEvent; showTokens?: boolean }) {
+function EventRow({ event }: { event: RuleScoringEvent }) {
   const post = event.postmerge_point_value
   return (
     <li className="flex items-start justify-between gap-4 py-2.5">
       <span className="text-sm text-gray-700">
         {event.label}{event.is_per_unit && <span className="text-gray-500"> each</span>}
       </span>
-      <span className="flex shrink-0 flex-wrap justify-end gap-2 text-sm font-semibold">
-        {event.point_value !== 0 || post != null ? (
-          <span className={event.point_value >= 0 ? 'text-jade-700' : 'text-terracotta-600'}>
-            {post != null && post !== event.point_value
-              ? `${pts(event.point_value)} before merge, ${pts(post)} after`
-              : `${pts(event.point_value)} pts`}
-          </span>
-        ) : null}
-        {showTokens && event.token_value !== 0 && <span className="text-gold-700">+{event.token_value} tokens</span>}
-      </span>
+      {(event.point_value !== 0 || post != null) && (
+        <span className={`shrink-0 text-sm font-semibold ${event.point_value >= 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
+          {post != null && post !== event.point_value
+            ? `${pts(event.point_value)} before merge, ${pts(post)} after`
+            : `${pts(event.point_value)} pts`}
+        </span>
+      )}
     </li>
   )
 }
 
-function EventList({ events, showTokens }: { events: RuleScoringEvent[]; showTokens: boolean }) {
+function EventList({ events }: { events: RuleScoringEvent[] }) {
   return (
     <ul className="divide-y divide-cream-200 border-y border-cream-200">
-      {events.map((event) => <EventRow key={event.event_type} event={event} showTokens={showTokens} />)}
+      {events.map((event) => <EventRow key={event.event_type} event={event} />)}
     </ul>
   )
 }
@@ -195,12 +192,10 @@ export function RulesPage() {
   if (error) return <Notice tone="error" title="Could not load the rules">{error}</Notice>
   if (!rules) return <ColdStart />
 
-  const { season, scoring_events, prediction_scores, advantages, has_redemption } = rules
-  const usesTokens = season.token_economy_enabled
+  const { season, scoring_events, prediction_scores, has_redemption } = rules
   const tribeEvents = scoring_events.filter(
     (event) => event.point_value !== 0 && (has_redemption || !REDEMPTION_EVENTS.has(event.event_type)),
   )
-  const tokenEvents = scoring_events.filter((event) => event.point_value === 0 && event.token_value !== 0)
   const grouped = EVENT_GROUPS.map(([title, keys]) => [
     title,
     keys.map((key) => tribeEvents.find((e) => e.event_type === key)).filter((e): e is RuleScoringEvent => e != null),
@@ -248,19 +243,12 @@ export function RulesPage() {
 
         <RuleSection id="swaps" title="Swaps">
           <RuleList>
-            {usesTokens ? (
-              <li>A swap costs {season.swap_token_cost} tokens.</li>
-            ) : (
-              <li>
-                The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
-                After that, each swap costs points: {swapCostLadder(season)}.
-              </li>
-            )}
-            <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
             <li>
-              {!usesTokens && 'There is no limit on the number of swaps while they are open. '}
-              The last episode you can swap for is the one right after the first castaway joins the jury.
+              The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
+              After that, each swap costs points: {swapCostLadder(season)}.
             </li>
+            <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
+            <li>There is no limit on the number of swaps while they are open. The last episode you can swap for is the one right after the first castaway joins the jury.</li>
           </RuleList>
         </RuleSection>
 
@@ -288,31 +276,21 @@ export function RulesPage() {
           </RuleList>
         </RuleSection>
 
-        <RuleSection id="weekly-play" title={usesTokens ? 'Advantages and tokens' : 'Weekly advantage'}>
-          {usesTokens ? (
-            <div className="space-y-5">
-              <p className="text-sm leading-6 text-gray-700">This season uses tokens. Advantage costs and token scoring are listed below.</p>
-              {tokenEvents.length > 0 && <EventList events={tokenEvents} showTokens />}
-              <ul className="divide-y divide-cream-200 border-y border-cream-200">
-                {advantages.map((advantage) => <li key={advantage.advantage_type} className="flex justify-between gap-3 py-2.5 text-sm"><span>{advantage.label}</span><b className="shrink-0 text-gold-700">{advantage.token_cost} tokens</b></li>)}
-              </ul>
-            </div>
-          ) : (
-            <RuleList>
-              <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it.</li>
-              <li><b>On your tribe:</b> a double point boost. One castaway on your tribe earns double this episode.</li>
-              <li>
-                <b>On your ballot:</b> a Power Vote. One extra name above your ranked picks
-                {powerVoteScore
-                  ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
-                  : ', and if they go home it pays double.'}
-              </li>
-              <li>
-                You can change or remove it until the episode locks.
-                {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`}
-              </li>
-            </RuleList>
-          )}
+        <RuleSection id="weekly-play" title="Weekly advantage">
+          <RuleList>
+            <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it.</li>
+            <li><b>On your tribe:</b> a double point boost. One castaway on your tribe earns double this episode.</li>
+            <li>
+              <b>On your ballot:</b> a Power Vote. One extra name above your ranked picks
+              {powerVoteScore
+                ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
+                : ', and if they go home it pays double.'}
+            </li>
+            <li>
+              You can change or remove it until the episode locks.
+              {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`}
+            </li>
+          </RuleList>
         </RuleSection>
 
         <RuleSection id="sole-survivor" title="Sole Survivor">
@@ -343,13 +321,13 @@ export function RulesPage() {
               {grouped.map(([title, events]) => events.length > 0 && (
                 <div key={title}>
                   <h3 className="mb-2 font-semibold text-gray-900">{title}</h3>
-                  <EventList events={events} showTokens={usesTokens} />
+                  <EventList events={events} />
                 </div>
               ))}
               {other.length > 0 && (
                 <div>
                   <h3 className="mb-2 font-semibold text-gray-900">Other</h3>
-                  <EventList events={other} showTokens={usesTokens} />
+                  <EventList events={other} />
                 </div>
               )}
             </div>
@@ -377,7 +355,6 @@ export function RulesPage() {
                 Every duel they win scores, and coming back scores more, most of all late in the season. Losing there is the real elimination.
               </li>
             )}
-            {usesTokens && <li><b>Personal background story:</b> the episode shows meaningful pre-game footage, photos, or life history.</li>}
           </RuleList>
         </RuleSection>
       </div>
