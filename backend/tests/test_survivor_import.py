@@ -50,6 +50,10 @@ def _island(cid, name, episode):
     return _tribe(cid, name, episode, None, status="Redemption Island")
 
 
+def _edge(cid, name, episode):
+    return _tribe(cid, name, episode, None, status="Edge of Extinction")
+
+
 def _events(proposal, event_type):
     return [e for e in proposal["events"] if e["event_type"] == event_type]
 
@@ -375,6 +379,27 @@ def test_redemption_island_boot_is_not_final():
     assert e["is_final"] is False
     assert e["elimination_type"] == "voted_out"
     assert "Redemption Island" in e["result"]
+
+
+def test_edge_of_extinction_boot_is_not_final():
+    """The Edge is the same holding pen: voted out but still in the game, so the
+    boot is not final and carries the Edge's name, not Redemption's."""
+    p = _build(
+        boot_order=[
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "a",
+                "castaway": "Ann",
+                "result": "5th person eliminated",
+            },
+        ],
+        tribe_mapping=[_tribe("a", "Ann", 5, "Luzon"), _edge("a", "Ann", 6)],
+    )
+    [e] = p["eliminations"]
+    assert e["is_final"] is False
+    assert e["elimination_type"] == "voted_out"
+    assert "Edge of Extinction" in e["result"]
 
 
 def test_redemption_island_boot_stays_final_without_island_mapping():
