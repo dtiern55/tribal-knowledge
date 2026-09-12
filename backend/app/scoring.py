@@ -233,37 +233,22 @@ def finale_actuals(cur, season_id: UUID):
     """The recorded finale outcome the bracket ballot resolves against (#534).
 
     Show data, so it takes the season. Returns (final_three, final_four,
-    winner_id): the Final 3 are placements 1-3, the Final 4 is the Final 3 plus
-    whoever lost fire-making, and the winner is placement 1. All are None/empty
-    until the finale is scored, so finale points stay 0 until then.
+    winner_id) straight from placement: the Final 4 are placements 1-4, the
+    Final 3 are placements 1-3, the winner is placement 1. Reading the Final 4
+    off placement (not off a fire-making-loss row) keeps it correct for any
+    endgame — a Final 2, or a finale with no fire-making — while staying
+    identical in the current era, where 4th place is the fire-making loser. All
+    are None/empty until the finale is scored, so finale points stay 0 then.
     """
     cur.execute(
         "select id::text as id, placement from contestants"
-        " where season_id = %s and placement in (1, 2, 3)",
+        " where season_id = %s and placement in (1, 2, 3, 4)",
         [str(season_id)],
     )
     rows = cur.fetchall()
-    final_three = {r["id"] for r in rows}
+    final_four = {r["id"] for r in rows}
+    final_three = {r["id"] for r in rows if r["placement"] <= 3}
     winner = next((r["id"] for r in rows if r["placement"] == 1), None)
-
-    cur.execute(
-        "select id from episodes where season_id = %s and is_finale = true",
-        [str(season_id)],
-    )
-    fin = cur.fetchone()
-    fire_loss = None
-    if fin:
-        cur.execute(
-            "select contestant_id::text as id from eliminations"
-            " where episode_id = %s and elimination_type = 'fire_making_loss'",
-            [str(fin["id"])],
-        )
-        row = cur.fetchone()
-        fire_loss = row["id"] if row else None
-
-    final_four = set(final_three)
-    if fire_loss:
-        final_four.add(fire_loss)
     return final_three, final_four, winner
 
 
