@@ -198,7 +198,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 12: Exile Island',
   },
   {
-    text: "I will. I'll drive up and I'll kill you in your shitty little apartment, and then I'll drive to my club and that will be it.",
+    text: "I'll drive up and I'll kill you in your shitty little apartment, and then I'll drive to my club and that will be it.",
     who: 'Shane',
     season: 'Season 12: Exile Island',
   },
@@ -327,5 +327,60 @@ export const QUOTES: Quote[] = [
     text: "I don't know how to spell it yet, but his name will be written down.",
     who: 'Q',
     season: 'Season 46',
+  },
+  {
+    text: "I have an issue with my penis. I'm so sorry.",
+    who: 'Shane',
+    season: 'Season 12: Exile Island',
+  },
+  {
+    text: "It's not even a million bucks! It's 600 grand by the time Obama takes it.",
+    who: 'Jeff Kent',
+    season: 'Season 25: Philippines',
+  },
+  {
+    text: "He said you'd crap your pants? What else we got out here but nature and opportunity.",
+    who: 'Sean Rector',
+    season: 'Season 4: Marquesas',
+  },
+  {
+    text: 'Fuck you, Brad Culpepper!!',
+    who: 'Marissa',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
+    text: "Lots of people like to watch adventure. It doesn't necessarily mean they should get up off the couch.",
+    who: 'Jeff Probst',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
+    text: "People actively seek out vanilla-flavored products. Children clamor to get a vanilla ice cream cone. No one's clamoring for anything Julia-flavored.",
+    who: 'Cochran',
+    season: 'Season 26: Caramoan',
+  },
+  {
+    text: "I'm against you, Russell.",
+    who: 'Sandra',
+    season: 'Season 20: Heroes vs. Villains',
+  },
+  {
+    text: 'I brought my bag of tricks with me tonight.',
+    who: 'Tony',
+    season: 'Season 40: Winners at War',
+  },
+  {
+    text: "Survivor ain't fun, golfing is fun.",
+    who: 'Keith Nale',
+    season: 'Season 29: San Juan del Sur',
+  },
+  {
+    text: 'I need somebody who has to pee. I need somebody who can pee on my hand!',
+    who: 'John Carroll',
+    season: 'Season 4: Marquesas',
+  },
+  {
+    text: "They told me today there's such a thing as a 'banana etiquette.'",
+    who: 'James',
+    season: 'Season 20: Heroes vs. Villains',
   },
 ]
