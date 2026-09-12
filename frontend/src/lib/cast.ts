@@ -21,7 +21,11 @@ export function rankCast(cast: CastMember[]): CastMember[] {
     const bOut = b.eliminated_in_episode
     if (aOut == null && bOut != null) return -1
     if (aOut != null && bOut == null) return 1
-    if (aOut != null && bOut != null && aOut !== bOut) return bOut - aOut
-    return b.total_points - a.total_points || a.name.localeCompare(b.name)
+    if (aOut == null && bOut == null) return b.total_points - a.total_points || a.name.localeCompare(b.name)
+    // Eliminated: boot order, first out at the bottom. Placement is the true
+    // order (it breaks same-episode double-boots); fall back to episode then
+    // name only when a placement hasn't been recorded yet. Points never apply.
+    if (a.placement != null && b.placement != null) return a.placement - b.placement
+    return bOut! - aOut! || a.name.localeCompare(b.name)
   })
 }
