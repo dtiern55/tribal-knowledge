@@ -239,6 +239,9 @@ Both are invisible until close-out (the results endpoints gate on
 
 - Headline: `PATCH {API}/episodes/{episode_id}` `{"headline": "..."}`. Leave
   it null when Danny approved the default.
+- Note (optional, #185): `PATCH {API}/episodes/{episode_id}` `{"note": "..."}`
+  — the ruling narrative under the headline (revote calls, deferred paper,
+  cry/cuss tokens). Newlines are kept. Leave null when there's nothing to say.
 - Tiles: `PUT {API}/episodes/{episode_id}/insights` (admin), up to 3,
   deduped on target, `display_order` sets order:
 

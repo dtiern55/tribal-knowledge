@@ -239,6 +239,12 @@ export function EpisodeResultReveal({
               </p>
             )}
 
+            {result.note && (
+              <p className="mt-4 whitespace-pre-line border-l-2 border-terracotta-200/40 pl-3 text-sm leading-relaxed text-cream-100/75">
+                {result.note}
+              </p>
+            )}
+
             <div className="mt-6 flex min-w-0 items-end justify-between gap-4 border-t border-white/15 pt-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">

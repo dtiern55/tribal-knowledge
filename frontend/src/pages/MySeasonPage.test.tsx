@@ -65,6 +65,7 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
     episode_number: 2,
     title: null,
     headline: null,
+    note: null,
     is_finale: false,
     eliminated: [
       { contestant_id: 'cast-1', name: 'Kenzie', image_url: null, elimination_type: 'voted_out', is_final: true },
@@ -1330,6 +1331,7 @@ describe('MySeasonPage state shell', () => {
         prior_rank: null,
         rank_delta: null,
         headline: 'Rachel sent to Redemption. Rupert ends his Survivor career.',
+        note: "Tony's mystery paper is a deferred call — no points yet.",
       }),
     )
     renderWithApp(<MySeasonPage />, { auth })
@@ -1343,6 +1345,8 @@ describe('MySeasonPage state shell', () => {
     expect(dialog).toHaveTextContent('Ep 2 replay')
     // The commissioner's headline replaces the torch count.
     expect(dialog).toHaveTextContent('Rachel sent to Redemption. Rupert ends his Survivor career.')
+    // The commissioner's note rides along under it (#185).
+    expect(dialog).toHaveTextContent("Tony's mystery paper is a deferred call — no points yet.")
     expect(dialog).not.toHaveTextContent('torches snuffed')
     expect(dialog).not.toHaveTextContent(/ranked|spots to|Held at/)
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
