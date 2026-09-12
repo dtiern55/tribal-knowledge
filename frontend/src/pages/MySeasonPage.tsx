@@ -20,7 +20,7 @@ import {
   EMPTY_EP_MAP,
   useRosterBreakdown,
 } from '../lib/rosterBreakdown'
-import { RosterCard, RosterManifest } from '../components/RosterCard'
+import { RosterCard } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
 import { RuleLink } from '../components/RuleLink'
@@ -971,7 +971,6 @@ export function MySeasonPage() {
           contestants={d.contestants}
           episodes={d.episodes}
           userId={d.userId}
-          roster={d.roster}
           rosterPoints={rosterPoints}
           plays={d.plays}
           soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
@@ -1047,7 +1046,6 @@ function CompleteState({
   contestants,
   episodes,
   userId,
-  roster,
   rosterPoints,
   plays,
   soleSurvivorBonus,
@@ -1059,7 +1057,6 @@ function CompleteState({
   contestants: Contestant[]
   episodes: Episode[]
   userId: string
-  roster: RosterPick[]
   rosterPoints: Map<string, number>
   plays: AdvantagePlay[]
   soleSurvivorBonus: number
@@ -1067,27 +1064,20 @@ function CompleteState({
   rank: number | null
   playerCount: number
 }) {
-  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
-  const contestantMap = new Map(contestants.map((c) => [c.id, c]))
-  const episodeTitles = new Map(episodes.map((e) => [e.episode_number, e.title]))
-  const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
-  // The bracket is marked against the real placements, as on the Team page.
+  // Mirror the live screen's lane tabs: Tribe, then the finale ballot.
+  const [beat, setBeat] = useState<BeatKey>('roster')
+  const finaleEp = episodes.find((e) => e.is_finale)
+  // The finale bracket marks each pick against the real placements.
   const finaleActuals: FinaleActuals = {
     finalFour: new Set(contestants.filter((c) => c.placement != null && c.placement <= 4).map((c) => c.id)),
     finalThree: new Set(contestants.filter((c) => c.placement != null && c.placement <= 3).map((c) => c.id)),
     winner: contestants.find((c) => c.placement === 1)?.id ?? null,
   }
-  const active = roster.filter((pick) => pick.active_until_episode === null)
-  const swappedOut = roster
-    .filter((pick) => pick.active_until_episode !== null)
-    .sort((a, b) => (b.active_until_episode ?? 0) - (a.active_until_episode ?? 0))
-  const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
-  const penaltyBooked = (pick: RosterPick) =>
-    episodes.some((e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e))
-  const finaleEp = episodes.find((e) => e.is_finale)
+  const beats: Beat[] = [{ key: 'roster', label: 'Tribe', done: true, note: 'Your final tribe' }]
+  if (finaleEp) beats.push({ key: 'ballot', label: 'Ballot', done: true, note: 'Your finale ballot' })
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3.5">
       {/* The result hero (#686): complete owns its points here, so the box is
           where you finished and the Tribe / Ballot / Finale split — on the This
           Week hero's green, the screen's last word. */}
@@ -1130,69 +1120,42 @@ function CompleteState({
         )}
       </section>
 
-      <section>
-        <h3 className="mb-3 font-display text-lg tracking-wide text-forest-800">Your tribe</h3>
-        {active.length === 0 ? (
-          <p className="text-sm text-gray-500">No tribe on record.</p>
-        ) : (
-          <RosterManifest>
-            {[...active]
-              .sort((a, b) => Number(contestantMap.get(a.contestant_id)?.eliminated_in_episode != null) - Number(contestantMap.get(b.contestant_id)?.eliminated_in_episode != null))
-              .map((pick) => (
-                <RosterCard
-                  key={pick.id}
-                  contestantId={pick.contestant_id}
-                  contestant={contestantMap.get(pick.contestant_id)}
-                  isSoleSurvivor={pick.is_sole_survivor}
-                  showSoleSurvivorHalo
-                  soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
-                  swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
-                  right={<TeamPoints value={rosterPoints.get(pick.contestant_id) ?? 0} />}
-                  bioLink={false}
-                  expanded={expandedId === pick.contestant_id}
-                  onToggle={() => toggleExpand(pick.contestant_id)}
-                >
-                  <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} />
-                </RosterCard>
-              ))}
-          </RosterManifest>
-        )}
-        {swappedOut.length > 0 && (
-          <div className="mt-6">
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Swapped-out castaways</h4>
-            <RosterManifest>
-              {swappedOut.map((pick) => (
-                <RosterCard
-                  key={pick.id}
-                  contestantId={pick.contestant_id}
-                  contestant={contestantMap.get(pick.contestant_id)}
-                  right={
-                    <span className="flex items-center gap-2 text-xs">
-                      <Points value={rosterPoints.get(pick.contestant_id)} />
-                      <span className="text-paper-ink-faded">ep {pick.active_from_episode}–{pick.active_until_episode}</span>
-                    </span>
-                  }
-                  bioLink={false}
-                  expanded={expandedId === pick.contestant_id}
-                  onToggle={() => toggleExpand(pick.contestant_id)}
-                >
-                  <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} swapPenalty={penaltyBooked(pick) ? pick.swap_penalty_points : 0} />
-                </RosterCard>
-              ))}
-            </RosterManifest>
+      {/* The same tribe and finale-ballot lanes the live screen shows, read-only
+          now the season is over: RosterSection and FinaleBallot render their own
+          locked views (#686). */}
+      <LaneStack lane={beat === 'roster' ? 'jade' : 'terracotta'}>
+        <RecordBeats value={beat} onChange={setBeat} beats={beats} />
+        <RecordPanel beat="roster" active={beat === 'roster'}>
+          <div id="roster">
+            <RosterSection
+              season={season}
+              contestants={contestants}
+              episodes={episodes}
+              userId={userId}
+              rosterPoints={rosterPoints}
+              soleSurvivorBonus={soleSurvivorBonus}
+              plays={plays}
+              setPlays={() => {}}
+              onRosterChange={() => {}}
+              rosterVersion={0}
+            />
           </div>
+        </RecordPanel>
+        {finaleEp && (
+          <RecordPanel beat="ballot" active={beat === 'ballot'}>
+            <div id="finale">
+              <FinaleBallot
+                season={season}
+                contestants={contestants}
+                episodes={episodes}
+                finaleEp={finaleEp}
+                userId={userId}
+                actuals={finaleActuals}
+              />
+            </div>
+          </RecordPanel>
         )}
-      </section>
-
-      {finaleEp && (
-        <section>
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h3 className="font-display text-lg tracking-wide text-forest-800">Your finale ballot</h3>
-            {standing && <TeamPoints value={standing.finale_points} />}
-          </div>
-          <FinaleBallot season={season} contestants={contestants} episodes={episodes} finaleEp={finaleEp} userId={userId} actuals={finaleActuals} />
-        </section>
-      )}
+      </LaneStack>
     </div>
   )
 }
