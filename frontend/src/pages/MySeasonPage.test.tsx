@@ -1429,6 +1429,9 @@ describe('MySeasonPage state shell', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Continue' }))
     expect(await screen.findByRole('heading', { name: 'Season complete' })).toBeVisible()
+    // No standing in this fixture, so the hero falls back to the plain line
+    // with no points total or split (#686).
+    expect(screen.getByText('Final standings are settled')).toBeVisible()
   })
 
   // #479: the recap is a durable, navigable state — a URL search param, not
