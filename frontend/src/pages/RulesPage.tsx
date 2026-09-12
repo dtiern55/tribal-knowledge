@@ -252,12 +252,15 @@ export function RulesPage() {
               <li>A swap costs {season.swap_token_cost} tokens.</li>
             ) : (
               <li>
-                Swap as often as you like. The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
-                After that each swap costs points: {swapCostLadder(season)}.
+                The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
+                After that, each swap costs points: {swapCostLadder(season)}.
               </li>
             )}
             <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
-            <li>Swaps close near the end of the season. Your last swap is the episode right after the first castaway joins the jury.</li>
+            <li>
+              {!usesTokens && 'There is no limit on the number of swaps while they are open. '}
+              The last episode you can swap for is the one right after the first castaway joins the jury.
+            </li>
           </RuleList>
         </RuleSection>
 
@@ -266,7 +269,7 @@ export function RulesPage() {
             <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
             {rungScores.length > 0 ? (
               <li>
-                Rank your picks: put the name you are surest of on top. Each correct pick scores by its rank, and wrong picks cost nothing.
+                Rank your picks: put the name you are surest of on top. Each correct pick scores by its rank.
                 {` Before the merge the ranks are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
                 {rungScores.some((score) => score.postmerge_point_value != null && score.postmerge_point_value !== score.point_value)
                   ? `; after the merge, ${rungScores.map((score) => score.postmerge_point_value ?? score.point_value).join(', ')}.`
@@ -274,7 +277,7 @@ export function RulesPage() {
               </li>
             ) : (
               <li>
-                Each correct pick scores on its own. Wrong picks cost nothing.
+                Each correct pick scores on its own.
                 {ballotScore && ballotScore.postmerge_point_value != null && ballotScore.postmerge_point_value !== ballotScore.point_value
                   ? ` Before the merge a correct pick is worth ${ballotScore.point_value}. After the merge, ${ballotScore.postmerge_point_value}.`
                   : ballotScore ? ` A correct pick is worth ${ballotScore.point_value}.` : ''}
@@ -317,7 +320,6 @@ export function RulesPage() {
             <li>Once the merge hits, name one castaway on your tribe as your Sole Survivor.</li>
             <li>Your Sole Survivor locks when swaps do.</li>
             <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
-            <li>If they are already out of the game, the bonus is zero.</li>
           </RuleList>
         </RuleSection>
 

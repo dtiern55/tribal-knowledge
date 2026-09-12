@@ -69,6 +69,7 @@ describe('RulesPage', () => {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
+    expect(screen.getByText(/There is no limit on the number of swaps/)).toBeVisible()
     expect(screen.getByText(/3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11/)).toBeVisible()
     expect(screen.getByText(/worth 16\. After the merge, 20\./)).toBeVisible()
     expect(screen.queryByText(/roster/i)).not.toBeInTheDocument()
@@ -80,7 +81,7 @@ describe('RulesPage', () => {
     )
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByText(/Your last swap is the episode right after the first castaway joins the jury/)).toBeVisible()
+    expect(await screen.findByText(/The last episode you can swap for is the one right after the first castaway joins the jury/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
   })
 
@@ -125,6 +126,8 @@ describe('RulesPage', () => {
     expect(screen.getByText('Cry')).toBeVisible()
     expect(screen.getByText('+5 tokens')).toBeVisible()
     expect(screen.getByText('5 tokens')).toBeVisible()
+    // Token seasons cap swaps by tokens, so the "no limit" line stays hidden.
+    expect(screen.queryByText(/no limit/i)).not.toBeInTheDocument()
   })
 
   it('lists ballot picks with the Power Vote first and plainly labeled ranks', async () => {
