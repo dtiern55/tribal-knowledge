@@ -2422,6 +2422,14 @@ function RosterSection({
   // arrived via swap (#162 — comparing against 1 badged everyone when the
   // lock episode was > 1).
   const rosterBaseEp = Math.min(...roster.map((r) => r.active_from_episode))
+  // The swap-in badge expires once the episode after a castaway's debut airs:
+  // it marks "this one's new" while you watch, then they're just roster. The
+  // recap keeps it permanently (it's history). Anchored to the latest aired/
+  // locked episode, not the open-episode pointer,
+  // which goes blank during airing and would flicker the badge off mid-episode.
+  const latestAired = episodes
+    .filter(episodeClosed)
+    .reduce((max, e) => Math.max(max, e.episode_number), 0)
   const swappedRoster = roster.filter((r) => r.active_until_episode !== null)
   // A swap's penalty is not booked until its episode locks (#164 follow-up) —
   // backend/app/scoring.py withholds it from the totals until then, because
@@ -2792,7 +2800,9 @@ function RosterSection({
                 seal={false}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
-                  pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null
+                  pick.active_from_episode > rosterBaseEp && latestAired <= pick.active_from_episode
+                    ? pick.active_from_episode
+                    : null
                 }
                 onUndoSwap={
                   // Reversible until picks lock — see the swap-undo decision.
