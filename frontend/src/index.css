@@ -695,13 +695,13 @@ html.locked-night .app-shell .ss-champion::before {
    photographic fire washed out, and "framed in gold" says the-one-who-wins.
    Recentred, keyed off white. Sized so the portrait fills the opening flush,
    with no whitespace between it and the rope — measured via fit_asset.py
-   (FIT=0.98): 50px behind the 42px (lg) portrait, 43px behind the 36px (md). */
+   (FIT=0.98): 51px behind the 42px (lg) portrait, 44px behind the 36px (md). */
 .sole-survivor-halo {
-  --sole-survivor-halo-size: 43px;
+  --sole-survivor-halo-size: 44px;
   isolation: isolate;
 }
 .sole-survivor-halo--prominent {
-  --sole-survivor-halo-size: 50px;
+  --sole-survivor-halo-size: 51px;
 }
 .sole-survivor-halo::after {
   content: "";
