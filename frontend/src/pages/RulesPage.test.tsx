@@ -30,9 +30,9 @@ const season = {
   ],
 } as Season
 
-function response(overrides: Partial<RulesResponse> = {}, tokenMode = false): RulesResponse {
+function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
   return {
-    season: { ...season, token_economy_enabled: tokenMode },
+    season,
     scoring_events: [
       { event_type: 'win_individual_immunity', label: 'Win individual immunity', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly at tribal', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
@@ -69,10 +69,9 @@ describe('RulesPage', () => {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
-    expect(screen.getByText(/Episode 9 is the last one you can swap for/)).toBeVisible()
+    expect(screen.getByText(/There is no limit on the number of swaps/)).toBeVisible()
     expect(screen.getByText(/3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11/)).toBeVisible()
     expect(screen.getByText(/worth 16\. After the merge, 20\./)).toBeVisible()
-    expect(screen.getByText(/\(Episode 7\)/)).toBeVisible()
     expect(screen.queryByText(/roster/i)).not.toBeInTheDocument()
   })
 
@@ -82,10 +81,8 @@ describe('RulesPage', () => {
     )
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByText(/Swaps close after the episode that follows the first juror/)).toBeVisible()
-    expect(screen.queryByText(/is the last one you can swap for/)).not.toBeInTheDocument()
+    expect(await screen.findByText(/The last episode you can swap for is the one right after the first castaway joins the jury/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
-    expect(screen.queryByText(/\(Episode/)).not.toBeInTheDocument()
   })
 
   it('groups tribe scoring and hides Redemption Island unless the season has it', async () => {
@@ -121,13 +118,24 @@ describe('RulesPage', () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
 
-  it('keeps token events and costs readable for historical token seasons', async () => {
-    vi.mocked(api.get).mockResolvedValue(response({}, true))
+  it('lists ballot picks with the Power Vote first and plainly labeled ranks', async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      response({
+        prediction_scores: [
+          { key: 'correct_elimination_1', label: 'Correct 1st pick', point_value: 20, postmerge_point_value: 25 },
+          { key: 'correct_elimination_2', label: 'Correct 2nd pick', point_value: 16, postmerge_point_value: 20 },
+          { key: 'correct_elimination_3', label: 'Correct 3rd pick', point_value: 12, postmerge_point_value: 15 },
+          { key: 'power_vote', label: 'Power Vote hits', point_value: 30, postmerge_point_value: 35 },
+        ],
+      }),
+    )
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Advantages and tokens' })).toBeVisible()
-    expect(screen.getByText('Cry')).toBeVisible()
-    expect(screen.getByText('+5 tokens')).toBeVisible()
-    expect(screen.getByText('5 tokens')).toBeVisible()
+    const powerVote = await screen.findByText('Power Vote')
+    const firstPick = screen.getByText('1st pick')
+    expect(screen.getByText('2nd pick')).toBeVisible()
+    expect(screen.getByText('3rd pick')).toBeVisible()
+    // Power Vote sits above the ranked picks.
+    expect(powerVote.compareDocumentPosition(firstPick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

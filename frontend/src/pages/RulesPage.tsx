@@ -62,35 +62,42 @@ const REDEMPTION_EVENTS = new Set(['win_redemption_duel', 'return_from_redemptio
 
 const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
+// Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
+// back to their backend label.
+const BALLOT_LABELS: Record<string, string> = {
+  correct_elimination: 'Correct pick',
+  correct_elimination_1: '1st pick',
+  correct_elimination_2: '2nd pick',
+  correct_elimination_3: '3rd pick',
+  power_vote: 'Power Vote',
+}
+
 function pts(value: number) {
   return `${value > 0 ? '+' : ''}${value}`
 }
 
-function EventRow({ event, showTokens = false }: { event: RuleScoringEvent; showTokens?: boolean }) {
+function EventRow({ event }: { event: RuleScoringEvent }) {
   const post = event.postmerge_point_value
   return (
     <li className="flex items-start justify-between gap-4 py-2.5">
       <span className="text-sm text-gray-700">
         {event.label}{event.is_per_unit && <span className="text-gray-500"> each</span>}
       </span>
-      <span className="flex shrink-0 flex-wrap justify-end gap-2 text-sm font-semibold">
-        {event.point_value !== 0 || post != null ? (
-          <span className={event.point_value >= 0 ? 'text-jade-700' : 'text-terracotta-600'}>
-            {post != null && post !== event.point_value
-              ? `${pts(event.point_value)} before merge, ${pts(post)} after`
-              : `${pts(event.point_value)} pts`}
-          </span>
-        ) : null}
-        {showTokens && event.token_value !== 0 && <span className="text-gold-700">+{event.token_value} tokens</span>}
-      </span>
+      {(event.point_value !== 0 || post != null) && (
+        <span className={`shrink-0 text-sm font-semibold ${event.point_value >= 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
+          {post != null && post !== event.point_value
+            ? `${pts(event.point_value)} before merge, ${pts(post)} after`
+            : `${pts(event.point_value)} pts`}
+        </span>
+      )}
     </li>
   )
 }
 
-function EventList({ events, showTokens }: { events: RuleScoringEvent[]; showTokens: boolean }) {
+function EventList({ events }: { events: RuleScoringEvent[] }) {
   return (
     <ul className="divide-y divide-cream-200 border-y border-cream-200">
-      {events.map((event) => <EventRow key={event.event_type} event={event} showTokens={showTokens} />)}
+      {events.map((event) => <EventRow key={event.event_type} event={event} />)}
     </ul>
   )
 }
@@ -100,7 +107,7 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
     <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
       {rows.map((row) => (
         <li key={row.key} className="flex items-start justify-between gap-4 py-2.5">
-          <span className="text-sm text-gray-700">{row.key === 'correct_elimination' ? 'Correct pick' : row.key === 'power_vote' ? 'Power Vote goes home' : row.label}</span>
+          <span className="text-sm text-gray-700">{BALLOT_LABELS[row.key] ?? row.label}</span>
           <span className="shrink-0 text-sm font-semibold text-jade-700">
             {row.postmerge_point_value != null && row.postmerge_point_value !== row.point_value
               ? `${pts(row.point_value)} before merge, ${pts(row.postmerge_point_value)} after`
@@ -185,12 +192,10 @@ export function RulesPage() {
   if (error) return <Notice tone="error" title="Could not load the rules">{error}</Notice>
   if (!rules) return <ColdStart />
 
-  const { season, scoring_events, prediction_scores, advantages, has_redemption } = rules
-  const usesTokens = season.token_economy_enabled
+  const { season, scoring_events, prediction_scores, has_redemption } = rules
   const tribeEvents = scoring_events.filter(
     (event) => event.point_value !== 0 && (has_redemption || !REDEMPTION_EVENTS.has(event.event_type)),
   )
-  const tokenEvents = scoring_events.filter((event) => event.point_value === 0 && event.token_value !== 0)
   const grouped = EVENT_GROUPS.map(([title, keys]) => [
     title,
     keys.map((key) => tribeEvents.find((e) => e.event_type === key)).filter((e): e is RuleScoringEvent => e != null),
@@ -204,11 +209,8 @@ export function RulesPage() {
     .map((rank) => prediction_scores.find((score) => score.key === `correct_elimination_${rank}`))
     .filter((score): score is RulePredictionScore => score != null)
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
-  const ballotRows = rungScores.length > 0 ? [...rungScores, ...(powerVoteScore ? [powerVoteScore] : [])] : ballotScore ? [ballotScore] : []
+  const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
   const finaleScores = prediction_scores.filter((score) => FINALE_KEYS.includes(score.key))
-  // Only the explicit lock is a fact. The words carry the rule for a live
-  // season where the number is not known yet.
-  const lastSwapEpisode = season.swap_lock_episode != null ? season.swap_lock_episode - 1 : null
 
   return (
     <div className="max-w-3xl">
@@ -218,15 +220,12 @@ export function RulesPage() {
         <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">How it works</h2>
         <div className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
           <p>
-            You draft a tribe of {season.roster_size} castaways. They earn you points for what they do on the show:
-            winning challenges, voting correctly, finding idols, making the merge.
+            Two things earn you points. First, the tribe of {season.roster_size} castaways you draft. All season they
+            score for what they do on the show: winning challenges, voting correctly, finding idols, making the merge.
+            Second, your weekly ballot: each episode you call who goes home, and every correct pick scores.
           </p>
           <p>
-            Every episode you also fill out a ballot. Each castaway you correctly call as the boot earns you points.
-          </p>
-          <p>
-            Before each episode airs: submit your ballot, choose your advantage, and swap a tribe member if you want.
-            Most points after the finale wins.
+            Before each episode airs, submit your ballot and choose your advantage. Most points after the finale wins.
           </p>
         </div>
       </section>
@@ -238,25 +237,18 @@ export function RulesPage() {
               Pick {season.roster_size} castaways. Your tribe locks before Episode {season.roster_lock_episode ?? 2}. Until then you can change it freely.
             </li>
             <li>A castaway scores for you only while they are on your tribe. A voted-out castaway stays on your tribe until you swap them out.</li>
-            <li>The finale is worth a lot. Finalists score big for making final tribal, finishing runner-up, and winning.</li>
+            <li>Finalists earn a lot at the finale, for making final tribal, finishing runner-up, and winning.</li>
           </RuleList>
         </RuleSection>
 
         <RuleSection id="swaps" title="Swaps">
           <RuleList>
-            {usesTokens ? (
-              <li>A swap costs {season.swap_token_cost} tokens.</li>
-            ) : (
-              <li>
-                Swap as often as you like. The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
-                After that each swap costs points: {swapCostLadder(season)}.
-              </li>
-            )}
-            <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
             <li>
-              Swaps close after the episode that follows the first juror being voted out.
-              {lastSwapEpisode != null && ` Episode ${lastSwapEpisode} is the last one you can swap for.`} No swaps on the finale.
+              The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
+              After that, each swap costs points: {swapCostLadder(season)}.
             </li>
+            <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
+            <li>There is no limit on the number of swaps while they are open. The last episode you can swap for is the one right after the first castaway joins the jury.</li>
           </RuleList>
         </RuleSection>
 
@@ -265,15 +257,15 @@ export function RulesPage() {
             <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
             {rungScores.length > 0 ? (
               <li>
-                Your picks are a ladder: put the name you are surest of on top. Each correct pick scores by its rung, and wrong picks cost nothing.
-                {` Before the merge the rungs are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
+                Rank your picks: put the name you are surest of on top. Each correct pick scores by its rank.
+                {` Before the merge the ranks are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
                 {rungScores.some((score) => score.postmerge_point_value != null && score.postmerge_point_value !== score.point_value)
                   ? `; after the merge, ${rungScores.map((score) => score.postmerge_point_value ?? score.point_value).join(', ')}.`
                   : '.'}
               </li>
             ) : (
               <li>
-                Each correct pick scores on its own. Wrong picks cost nothing.
+                Each correct pick scores on its own.
                 {ballotScore && ballotScore.postmerge_point_value != null && ballotScore.postmerge_point_value !== ballotScore.point_value
                   ? ` Before the merge a correct pick is worth ${ballotScore.point_value}. After the merge, ${ballotScore.postmerge_point_value}.`
                   : ballotScore ? ` A correct pick is worth ${ballotScore.point_value}.` : ''}
@@ -284,39 +276,28 @@ export function RulesPage() {
           </RuleList>
         </RuleSection>
 
-        <RuleSection id="weekly-play" title={usesTokens ? 'Advantages and tokens' : 'Weekly advantage'}>
-          {usesTokens ? (
-            <div className="space-y-5">
-              <p className="text-sm leading-6 text-gray-700">This season uses tokens. Advantage costs and token scoring are listed below.</p>
-              {tokenEvents.length > 0 && <EventList events={tokenEvents} showTokens />}
-              <ul className="divide-y divide-cream-200 border-y border-cream-200">
-                {advantages.map((advantage) => <li key={advantage.advantage_type} className="flex justify-between gap-3 py-2.5 text-sm"><span>{advantage.label}</span><b className="shrink-0 text-gold-700">{advantage.token_cost} tokens</b></li>)}
-              </ul>
-            </div>
-          ) : (
-            <RuleList>
-              <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it. It does not carry over.</li>
-              <li><b>On your tribe:</b> a double point boost. One Survivor on your tribe earns double this episode.</li>
-              <li>
-                <b>On your ballot:</b> a Power Vote. One extra name above your ladder
-                {powerVoteScore
-                  ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
-                  : ', and if they go home it pays double.'}
-              </li>
-              <li>
-                You can change or remove it until the episode locks.
-                {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`} No advantage on the finale.
-              </li>
-            </RuleList>
-          )}
+        <RuleSection id="weekly-play" title="Weekly advantage">
+          <RuleList>
+            <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it.</li>
+            <li><b>On your tribe:</b> a double point boost. One castaway on your tribe earns double this episode.</li>
+            <li>
+              <b>On your ballot:</b> a Power Vote. One extra name above your ranked picks
+              {powerVoteScore
+                ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
+                : ', and if they go home it pays double.'}
+            </li>
+            <li>
+              You can change or remove it until the episode locks.
+              {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`}
+            </li>
+          </RuleList>
         </RuleSection>
 
         <RuleSection id="sole-survivor" title="Sole Survivor">
           <RuleList>
             <li>Once the merge hits, name one castaway on your tribe as your Sole Survivor.</li>
-            <li>Your Sole Survivor locks when swaps do. Once your tribe is final, so is your pick.</li>
-            <li>At the finale, whatever your Sole Survivor scores, you get half again on top.</li>
-            <li>If they are already out of the game, the bonus is zero.</li>
+            <li>Your Sole Survivor locks when swaps do.</li>
+            <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
           </RuleList>
         </RuleSection>
 
@@ -340,13 +321,13 @@ export function RulesPage() {
               {grouped.map(([title, events]) => events.length > 0 && (
                 <div key={title}>
                   <h3 className="mb-2 font-semibold text-gray-900">{title}</h3>
-                  <EventList events={events} showTokens={usesTokens} />
+                  <EventList events={events} />
                 </div>
               ))}
               {other.length > 0 && (
                 <div>
                   <h3 className="mb-2 font-semibold text-gray-900">Other</h3>
-                  <EventList events={other} showTokens={usesTokens} />
+                  <EventList events={other} />
                 </div>
               )}
             </div>
@@ -361,10 +342,7 @@ export function RulesPage() {
 
         <RuleSection id="rulings" title="Rulings">
           <RuleList>
-            <li>
-              <b>Merge:</b> "after merge" values start the episode the tribes become one
-              {season.merge_episode != null ? ` (Episode ${season.merge_episode})` : ''}.
-            </li>
+            <li><b>Merge:</b> "after merge" values start the episode the tribes become one.</li>
             <li><b>Correct vote:</b> the castaway voted for the person who went home.</li>
             <li><b>Blindside:</b> the castaway voted correctly and the person who went home had an active idol.</li>
             <li><b>Quit or removal:</b> a quit, medical removal, or disqualification counts as a boot.</li>
@@ -377,8 +355,6 @@ export function RulesPage() {
                 Every duel they win scores, and coming back scores more, most of all late in the season. Losing there is the real elimination.
               </li>
             )}
-            {usesTokens && <li><b>Personal background story:</b> the episode shows meaningful pre-game footage, photos, or life history.</li>}
-            <li><b>Privacy:</b> nobody can see your tribe, ballot, advantage, or Sole Survivor until it locks.</li>
           </RuleList>
         </RuleSection>
       </div>
