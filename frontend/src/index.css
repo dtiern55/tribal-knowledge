@@ -722,9 +722,10 @@ html.locked-night .app-shell .ss-champion::before {
   position: relative;
   z-index: 1;
 }
-/* A snuffed Sole Survivor's badge goes to cold ash. */
+/* A snuffed Sole Survivor's badge goes to cold ash — greyed but still solid
+   enough to read on the dimmed row. */
 .sole-survivor-halo--snuffed::after {
-  opacity: 0.4;
+  opacity: 0.6;
   filter: grayscale(1);
 }
 

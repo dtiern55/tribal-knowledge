@@ -1097,40 +1097,6 @@ describe('MySeasonPage state shell', () => {
     expect(localStorage.getItem('mytribe.name-sole-survivor.season-1')).toBe('1')
   })
 
-  it('dims the page and snuffs the champion when your Sole Survivor is voted out (#164)', async () => {
-    localStorage.setItem('mytribe.first-loss.season-1', '1') // not what this test is about
-    localStorage.removeItem('mytribe.lose-sole-survivor.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: 3 }]
-      if (path.endsWith('/episodes')) {
-        return [
-          episode(1, 'scored', '2026-08-01T00:00:00Z'),
-          episode(2, 'scored', '2026-08-08T00:00:00Z'),
-          episode(3, 'scored', '2026-08-15T00:00:00Z'),
-          episode(4, 'upcoming', '2099-09-27T00:00:00Z'),
-        ]
-      }
-      if (path.includes('/roster/')) {
-        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: true }]
-      }
-      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
-      if (path.endsWith('/reveal')) return undefined
-      return []
-    })
-
-    renderWithApp(<MySeasonPage />, { auth })
-
-    const dialog = await screen.findByRole('dialog', { name: /your sole survivor is out/i })
-    expect(within(dialog).getByText('Kenzie')).toBeVisible()
-    expect(within(dialog).getByText(/finale bonus goes with it/i)).toBeVisible()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: /your sole survivor is out/i })).not.toBeInTheDocument(),
-    )
-    expect(localStorage.getItem('mytribe.lose-sole-survivor.season-1')).toBe('1')
-  })
-
   it('prompts the hero for the Sole Survivor instead of "all set" while the window is open and none is named (#164)', async () => {
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1') // suppress the popup
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 1 }

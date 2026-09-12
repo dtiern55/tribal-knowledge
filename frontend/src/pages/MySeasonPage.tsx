@@ -2540,25 +2540,6 @@ function RosterSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstLossDue, firstLossKey])
 
-  // Losing your Sole Survivor (#164): the page dims and the champion's fire is
-  // snuffed. Once per browser, like the tribe-has-spoken nudge above.
-  const [ssSnuff, setSsSnuff] = useState(false)
-  const ssPick = roster.find((p) => p.is_sole_survivor)
-  const ssContestant = ssPick ? contestantMap.get(ssPick.contestant_id) : undefined
-  const ssSnuffKey = `mytribe.lose-sole-survivor.${season.id}`
-  useEffect(() => {
-    if (!rosterLoaded || ssContestant?.eliminated_in_episode == null || ssSnuff) return
-    try {
-      if (localStorage.getItem(ssSnuffKey) === '1') return
-      localStorage.setItem(ssSnuffKey, '1')
-    } catch {
-      return
-    }
-    setSsSnuff(true)
-    // Fires once per browser; `ssSnuff` is only read to not re-fire mid-way.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rosterLoaded, ssContestant?.eliminated_in_episode, ssSnuffKey])
-
   async function undoSwap(contestantId: string) {
     setSwapping(true)
     setError(null)
@@ -3014,29 +2995,6 @@ function RosterSection({
           <FirstLossMoment
             onClose={() => setMoment('nudge')}
           />,
-          document.body,
-        )}
-      {ssSnuff &&
-        createPortal(
-          <Moment titleId="lose-ss-title" title="Your Sole Survivor is out" onClose={() => setSsSnuff(false)}>
-            <div className="mt-4 flex justify-center">
-              <img src="/sole-survivor-flame-halo.png" alt="" className="h-14 w-auto grayscale opacity-70" />
-            </div>
-            <p className="mt-3 text-sm text-paper-ink">
-              The fire you were backing is snuffed.{' '}
-              <b className="text-gold-700">
-                {ssContestant ? displayName(ssContestant) : 'Your Sole Survivor'}
-              </b>{' '}
-              is gone, and the finale bonus goes with it.
-            </p>
-            <button
-              type="button"
-              onClick={() => setSsSnuff(false)}
-              className="mt-5 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm hover:bg-gold-100"
-            >
-              Got it
-            </button>
-          </Moment>,
           document.body,
         )}
       {retiredRoster.length > 0 && (
