@@ -352,10 +352,7 @@ export function RulesPage() {
 
         <RuleSection id="rulings" title="Rulings">
           <RuleList>
-            <li>
-              <b>Merge:</b> "after merge" values start the episode the tribes become one
-              {season.merge_episode != null ? ` (Episode ${season.merge_episode})` : ''}.
-            </li>
+            <li><b>Merge:</b> "after merge" values start the episode the tribes become one.</li>
             <li><b>Correct vote:</b> the castaway voted for the person who went home.</li>
             <li><b>Blindside:</b> the castaway voted correctly and the person who went home had an active idol.</li>
             <li><b>Quit or removal:</b> a quit, medical removal, or disqualification counts as a boot.</li>

@@ -71,7 +71,6 @@ describe('RulesPage', () => {
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
     expect(screen.getByText(/3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11/)).toBeVisible()
     expect(screen.getByText(/worth 16\. After the merge, 20\./)).toBeVisible()
-    expect(screen.getByText(/\(Episode 7\)/)).toBeVisible()
     expect(screen.queryByText(/roster/i)).not.toBeInTheDocument()
   })
 
@@ -83,7 +82,6 @@ describe('RulesPage', () => {
 
     expect(await screen.findByText(/Your last swap is the episode right after the first castaway joins the jury/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
-    expect(screen.queryByText(/\(Episode/)).not.toBeInTheDocument()
   })
 
   it('groups tribe scoring and hides Redemption Island unless the season has it', async () => {
