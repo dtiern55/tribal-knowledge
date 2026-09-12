@@ -1541,7 +1541,7 @@ function LeagueHub({
 
         <div className={`rounded-xl border p-3 ${chip}`}>
           <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Advantages</p>
-          <dl className="mt-2 space-y-3">
+          <dl className="mt-2 space-y-1.5">
             {topRosterDoubles.map(({ survivor, n }) => (
               <div key={survivor.contestant_id} className="flex items-center gap-2">
                 <ContestantAvatar
@@ -1556,8 +1556,9 @@ function LeagueHub({
               </div>
             ))}
             {/* Power Vote has no target, so it sits last — below the castaway
-                doubles, not above them where it read as their header. */}
-            <div className="flex items-center gap-2">
+                doubles, not above them where it read as their header. min-h-6
+                keeps this avatar-less row the same height as the ones above. */}
+            <div className="flex min-h-6 items-center gap-2">
               <dt className="min-w-0 flex-1 truncate text-sm">Power Vote</dt>
               <dd className={`shrink-0 text-sm font-semibold tabular-nums ${sub}`}>×{doubleBallots}</dd>
             </div>
