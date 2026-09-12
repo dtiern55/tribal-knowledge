@@ -752,7 +752,11 @@ export function MySeasonPage() {
             <h1 className="font-display text-2xl md:text-3xl tracking-wide text-forest-800">
               {d.season.name}
             </h1>
-            <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
+            {/* Complete owns its points in the result hero below, so the chip
+                drops out of the masthead there (#686). */}
+            {state.kind !== 'complete' && (
+              <HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} />
+            )}
           </div>
           {/* The episode is named once, here: season, then episode, then the
               cards below carry only their own name (#732). */}
@@ -1084,15 +1088,32 @@ function CompleteState({
 
   return (
     <div className="space-y-8">
-      <section className="p-5 bg-white border border-cream-200 rounded-xl">
-        <h2 className="font-display text-xl tracking-wide text-forest-800">Season complete</h2>
-        {/* The result, not a tour of the page (#686): where you finished and
-            where the points came from. The episode history is the card above. */}
-        <p className="mt-1 text-sm text-gray-600">
-          {standing && rank != null
-            ? `You finished ${ordinal(rank)} of ${playerCount} with ${standing.total_points} points.`
-            : 'Final standings are settled.'}
-        </p>
+      {/* The result hero (#686): complete owns its points here, so the box is
+          where you finished and the Tribe / Ballot / Finale split — on the This
+          Week hero's green, the screen's last word. */}
+      <section className="week-hero relative rounded-2xl px-5 pt-4 pb-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="font-display text-xs font-bold uppercase tracking-[0.18em] text-gold-300">
+              Season complete
+            </h2>
+            <p className="mt-1 font-display text-2xl font-bold leading-tight text-cream-50">
+              {standing && rank != null
+                ? `You finished ${ordinal(rank)} of ${playerCount}`
+                : 'Final standings are settled'}
+            </p>
+          </div>
+          {standing && (
+            <div className="shrink-0 text-right">
+              <div className="font-display text-4xl font-bold leading-none tabular-nums text-gold-300">
+                {standing.total_points}
+              </div>
+              <div className="mt-1 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-cream-100/60">
+                points
+              </div>
+            </div>
+          )}
+        </div>
         {standing && (
           <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
             {[
@@ -1100,9 +1121,9 @@ function CompleteState({
               ['Ballot', standing.elimination_points],
               ['Finale', standing.finale_points],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-cream-200 bg-cream-50 px-2 py-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</dt>
-                <dd className="font-display text-xl tabular-nums text-forest-800">{value}</dd>
+              <div key={label} className="rounded-lg border border-white/10 bg-white/5 px-2 py-2">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-cream-100/70">{label}</dt>
+                <dd className="font-display text-xl tabular-nums text-gold-200">{value}</dd>
               </div>
             ))}
           </dl>
