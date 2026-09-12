@@ -131,6 +131,9 @@ class Episode(BaseModel):
     # The results card's headline, set by the commissioner. Null falls back
     # to the computed one.
     headline: Optional[str] = None
+    # The commissioner's note shown under the headline in the reveal (#185) —
+    # the judgment-call narrative the headline is too short to carry.
+    note: Optional[str] = None
 
 
 class RosterPick(BaseModel):
@@ -463,6 +466,7 @@ class EpisodeUpdateRequest(BaseModel):
     picks_lock_at: Optional[datetime] = None
     title: Optional[str] = None
     headline: Optional[str] = None
+    note: Optional[str] = None
 
 
 class AdvantagePlay(BaseModel):
@@ -555,6 +559,7 @@ class EpisodeResult(BaseModel):
     episode_number: int
     title: Optional[str] = None
     headline: Optional[str] = None
+    note: Optional[str] = None
     is_finale: bool
     eliminated: list[EpisodeResultElimination]
     # Everyone on Redemption Island as of this episode, in arrival order.

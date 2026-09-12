@@ -265,6 +265,8 @@ export interface EpisodeResult {
   episode_number: number
   title: string | null
   headline: string | null
+  /** The commissioner's note, shown under the headline (#185). */
+  note: string | null
   is_finale: boolean
   eliminated: EpisodeResultElimination[]
   /** Everyone on Redemption Island as of this episode, in arrival order. */

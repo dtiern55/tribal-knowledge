@@ -403,6 +403,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         "episode_number": episode["episode_number"],
         "title": episode["title"],
         "headline": episode["headline"],
+        "note": episode["note"],
         "is_finale": episode["is_finale"],
         "eliminated": eliminated,
         "redemption": redemption,
