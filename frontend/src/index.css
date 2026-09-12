@@ -694,18 +694,19 @@ html.locked-night .app-shell .ss-champion::before {
   border: 1.5px solid var(--color-avatar-ring);
 }
 
-/* Sizing is measured, not eyeballed (design/sole-survivor-flames/fit_asset.py):
-   a full photographic fire ring, recentred so the ring is dead-centre, with a
-   clear inner hole at ~53% of its radius. Rendered COMPACT — the portrait
-   covers the inner half of the thick flame band, so a ~7px ring licks out past
-   the rim and the footprint stays close to the old treatment's. 57px behind the
-   42px (lg) portrait, 49px behind the 36px (md) one. */
+/* Sizing is measured, not eyeballed (design/sole-survivor-flames/fit_asset.py,
+   FIT=1.0): an intentionally WINDSWEPT ring — flame piled up the left and top,
+   trailing to embers bottom-right — recentred (via circle fit; the ring is
+   one-sided so a hole-centroid breaks) so it's dead-centre, inner edge at ~62%
+   of radius. Fit LOOSE, not compact: the flames are concentrated, so tucking
+   them behind the portrait would leave only a tuft. 68px behind the 42px (lg)
+   portrait, 58px behind the 36px (md) one, so the top-left flames read. */
 .sole-survivor-halo {
-  --sole-survivor-halo-size: 49px;
+  --sole-survivor-halo-size: 58px;
   isolation: isolate;
 }
 .sole-survivor-halo--prominent {
-  --sole-survivor-halo-size: 57px;
+  --sole-survivor-halo-size: 68px;
 }
 .sole-survivor-halo::after {
   content: "";
