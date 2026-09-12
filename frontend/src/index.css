@@ -74,6 +74,11 @@
   --color-cream-300: #d5c4ad;
   --color-ink: #1c1917;
 
+  /* Neutral ring on every contestant avatar (#164). A thin metallic grey that
+     recedes, so the only avatar wearing a coloured/glowing ring is the Sole
+     Survivor. */
+  --color-avatar-ring: #aeb4bc;
+
   /* Bright textile midtones sampled from the installed app icon. */
   --color-brand-snake: #e0463a; /* the icon's burnt red, lifted just enough to hold 3:1 on forest-600 */
   --color-brand-flame: #eea92f;
@@ -681,26 +686,26 @@ html.locked-night .app-shell .ss-champion::before {
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
 }
 
+/* Every avatar gets the same thin neutral ring (#164). The tribe colour retired
+   from the border — post-merge it's uniform anyway, and reserving a coloured
+   ring for the Sole Survivor is what makes that treatment read. ContestantAvatar
+   still sets --tribe-color (dormant here) so this can flip back in one line. */
 .contestant-avatar {
-  border-color: var(--tribe-color, transparent);
-  border-style: solid;
-  border-width: var(--tribe-border-width, 0);
+  border: 1.5px solid var(--color-avatar-ring);
 }
 
-/* Sizing is measured, not eyeballed (design/sole-survivor-flames/measure_asset.mjs):
-   this artwork's flames start on an IRREGULAR inner boundary whose widest point
-   sits at ~78% of its radius. Rendering it at 2*portraitRadius/0.78 tucks that
-   widest point behind the portrait, so the inner edge is hidden all the way round
-   and the flames read as coming off the rim, not a ring floating in whitespace.
-   Hence 54px behind the 42px (lg) portrait, 46px behind the 36px (md) one.
-   NB: the flame DENSITY is uneven in the artwork itself — a follow-up asset (#164)
-   evens that; this pass only fixes the fit. */
+/* Sizing is measured, not eyeballed (design/sole-survivor-flames/fit_asset.py):
+   a full photographic fire ring, recentred so the ring is dead-centre, with a
+   clear inner hole at ~52% of its radius. Rendered COMPACT — the portrait
+   covers the inner half of the thick flame band, so a ~7px ring licks out past
+   the rim and the footprint stays close to the old treatment's. 59px behind the
+   42px (lg) portrait, 50px behind the 36px (md) one. */
 .sole-survivor-halo {
-  --sole-survivor-halo-size: 46px;
+  --sole-survivor-halo-size: 50px;
   isolation: isolate;
 }
 .sole-survivor-halo--prominent {
-  --sole-survivor-halo-size: 54px;
+  --sole-survivor-halo-size: 59px;
 }
 .sole-survivor-halo::after {
   content: "";
@@ -714,10 +719,10 @@ html.locked-night .app-shell .ss-champion::before {
   background: url("/sole-survivor-flame-halo.png") center / contain no-repeat;
   opacity: 0.8;
   filter: drop-shadow(0 0 2px rgb(238 169 47 / 42%));
-  transform: translate(-50%, -50%) rotate(-9deg);
+  transform: translate(-50%, -50%);
 }
-/* Keep the portrait above the ring; its border stays the tribe colour (the
-   gold override read as a mismatched outline). */
+/* Keep the portrait above the ring; its neutral grey border stays put so the
+   flame licks off a clean rim even where the ring runs thin. */
 .sole-survivor-halo > .contestant-avatar {
   position: relative;
   z-index: 1;
