@@ -169,10 +169,28 @@ export function RosterCard({
           )}
           {outEp == null && swappedInEpisode != null && (
             <span
-              className="text-[9px] font-extrabold uppercase tracking-[0.1em] px-1 py-px border border-paper-edge bg-black/[.03] text-paper-ink-faded"
+              className="inline-flex items-center gap-1 rounded-full border border-paper-edge bg-black/[.03] px-1.5 py-px text-[10px] font-extrabold tracking-[0.04em] text-paper-ink-faded"
               title={`Swapped onto your roster in episode ${swappedInEpisode}`}
             >
-              Swapped in · ep {swappedInEpisode}
+              {/* Two-arrow swap glyph + the episode it happened. Provenance, so
+                  it stays neutral — gold here would compete with the idol and
+                  Sole Survivor marks on the same row. */}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3 w-3 shrink-0"
+                aria-hidden
+              >
+                <path d="M3 9h15" />
+                <path d="M15 6l3 3-3 3" />
+                <path d="M21 15H6" />
+                <path d="M9 12l-3 3 3 3" />
+              </svg>
+              <span className="tabular-nums">{swappedInEpisode}</span>
             </span>
           )}
           {onUndoSwap && (
