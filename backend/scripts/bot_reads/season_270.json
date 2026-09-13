@@ -1,0 +1,117 @@
+{
+ "_note": "Danny's read for Survivor: Blood vs. Water (2026-09-06): no consensus. Rosters random; nobody drafts Candice or Marissa (Redemption Island), a team or two takes Rupert. Votes spread out, six names only lightly favoured. `spread` floors every bot's follow so the strict bots stop moving in lockstep; the episode value overrides the season's.",
+ "spread": 40,
+ "draft": [
+  "Tyson Apostol",
+  "Monica Culpepper",
+  "Hayden Moss",
+  "Laura Morett",
+  "Ciera Eastin",
+  "Aras Baskauskas",
+  "Katie Collins",
+  "Gervase Peterson",
+  "Brad Culpepper",
+  "Rachel Foulger",
+  "Vytas Baskauskas",
+  "Rupert Boneham",
+  "Kat Edorsson",
+  "Caleb Bankston",
+  "Tina Wesson",
+  "John Cody",
+  "Colton Cumbie",
+  "Laura Boneham"
+ ],
+ "avoid": [
+  "Candice Cody",
+  "Marissa Peterson"
+ ],
+ "episodes": {
+  "2": {
+   "likely_boots": [
+    "Colton Cumbie",
+    "Gervase Peterson",
+    "Kat Edorsson",
+    "Laura Boneham",
+    "Ciera Eastin",
+    "Katie Collins"
+   ],
+   "double_targets": [],
+   "note": "Wide open. Six names slightly ahead, nothing more.",
+   "spread": 100
+  },
+  "3": {
+   "likely_boots": [],
+   "double_targets": [],
+   "note": "No read. Every ballot is a random draw from the live field.",
+   "spread": 100
+  },
+  "4": {
+   "likely_boots": [
+    ["Brad Culpepper", 11],
+    ["Ciera Eastin", 9],
+    ["Katie Collins", 4],
+    ["Kat Edorsson", 4],
+    ["Laura Morett", 4],
+    ["Tina Wesson", 4],
+    ["Laura Boneham", 4],
+    ["Monica Culpepper", 2],
+    ["Gervase Peterson", 2],
+    ["Caleb Bankston", 2]
+   ],
+   "double_targets": [
+    "Tyson Apostol",
+    "Aras Baskauskas",
+    "Gervase Peterson",
+    "Hayden Moss",
+    "Vytas Baskauskas",
+    "Caleb Bankston"
+   ],
+   "note": "Brad is the read, on three ballots in four, with Ciera close behind. Katie, Kat, Laura M., Tina and Laura B. peppered in, a few votes out to Monica, Gervase and Caleb. Roster doubles lean Galang - Tyson, Aras, Gervase - plus Hayden, Vytas and Caleb on Tadhana. First week with a real read, so no spread floor: each bot follows at its own persona's distance.",
+   "spread": 0
+  },
+  "5": {
+   "likely_boots": [
+    "Caleb Bankston",
+    "Ciera Eastin",
+    "Monica Culpepper",
+    "Laura Morett",
+    "Kat Edorsson",
+    "Katie Collins",
+    "Hayden Moss"
+   ],
+   "double_targets": [
+    "Aras Baskauskas",
+    "Tyson Apostol",
+    "Gervase Peterson",
+    "Kat Edorsson",
+    "Laura Boneham",
+    "Laura Morett",
+    "Monica Culpepper",
+    "Tina Wesson",
+    "Ciera Eastin",
+    "Hayden Moss",
+    "Vytas Baskauskas"
+   ],
+   "note": "Weak read. Votes and advantages spread fairly evenly, with a light lean to Caleb, Ciera, Monica, Laura M., Kat, Katie and Hayden. Roster doubles lean Galang (Aras and Tyson most-held), with a few landing on Tadhana.",
+   "spread": 70
+  },
+  "6": {
+   "likely_boots": [
+    "Aras Baskauskas",
+    "Kat Edorsson",
+    "Laura Boneham",
+    "Ciera Eastin",
+    "Katie Collins",
+    "Caleb Bankston"
+   ],
+   "double_targets": [
+    "Tina Wesson",
+    "Tyson Apostol",
+    "Gervase Peterson",
+    "Vytas Baskauskas"
+   ],
+   "note": "Basically no read (Danny, 2026-09-12). Six names lightly and equally favoured, no top name: Aras, Kat, Laura B., Ciera, Katie, Caleb. Roster doubles lean to Tina, Tyson, Gervase, Vytas.",
+   "spread": 70
+  }
+ }
+}
