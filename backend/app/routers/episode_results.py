@@ -152,6 +152,7 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
                 left join eliminations el
                   on el.episode_id = pick.episode_id
                  and el.contestant_id = pick.contestant_id
+                 and {scoring.BALLOT_HIT_SQL}
                 {scoring.PICK_VALUE_JOIN_SQL}
                 where pick.user_id = %s and pick.league_season_id = %s
                   and pick.episode_id = %s

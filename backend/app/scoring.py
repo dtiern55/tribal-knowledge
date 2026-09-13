@@ -115,6 +115,16 @@ PICK_TOTAL_SQL = f"""(case
        else 2 * {PICK_BASE_SQL}
      end)"""
 
+# Which elimination rows a weekly ballot can catch. A pick is correct when its
+# contestant left that episode by any route EXCEPT losing a Redemption Island
+# duel: a redemption_loss is the second exit of someone already scored as a boot
+# at their vote-out, so re-scoring it would pay the same boot twice (Danny,
+# 2026-09-13). The single source of truth for "a ballot hit" — append to every
+# pick↔elimination join, all of which alias the eliminations row `el`. Do NOT
+# use it for game-state "who's out" checks; those want el.is_final, which a
+# redemption loss correctly satisfies (they leave the game for good).
+BALLOT_HIT_SQL = "el.elimination_type <> 'redemption_loss'"
+
 
 def _season_id(cur, league_season_id: UUID) -> str:
     cur.execute(
@@ -217,6 +227,7 @@ def elimination_points(conn, league_season_id: UUID) -> dict[str, int]:
             join seasons s on ep.season_id = s.id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
+             and {BALLOT_HIT_SQL}
             {DOUBLE_VOTE_JOIN_SQL}
             {PICK_VALUE_JOIN_SQL}
             -- Hidden until the episode locks, same as roster_points (#559).
@@ -482,6 +493,7 @@ def advantage_bonus_by_play(
             left join eliminations el
               on el.episode_id = dbl.episode_id
              and el.contestant_id = pick.contestant_id
+             and {BALLOT_HIT_SQL}
             {PICK_VALUE_JOIN_SQL}
             where dbl.league_season_id = %s and dbl.user_id = %s
               and dbl.advantage_type = 'double_vote_points'
@@ -525,6 +537,7 @@ def elimination_pick_results(conn, league_season_id: UUID, user_id: UUID) -> lis
             -- who can still change the pick.
             left join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
+             and {BALLOT_HIT_SQL}
              and {episode_locked_sql("ep")}
             {PICK_VALUE_JOIN_SQL}
             where pick.league_season_id = %s and pick.user_id = %s
@@ -606,6 +619,7 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
             join seasons s on s.id = ep.season_id
             join eliminations el
               on el.episode_id = ep.id and el.contestant_id = pick.contestant_id
+             and {BALLOT_HIT_SQL}
             {DOUBLE_VOTE_JOIN_SQL}
             {PICK_VALUE_JOIN_SQL}
             where pick.league_season_id = %s and ep.episode_number = %s
