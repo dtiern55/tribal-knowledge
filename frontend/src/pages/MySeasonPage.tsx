@@ -264,8 +264,9 @@ function useWeeklyPlay(
   const [error, setError] = useState<string | null>(null)
   const ep = openEpisode(episodes, season)
   const play = ep ? plays.find((p) => p.episode_id === ep.id) : undefined
-  // Locked once past the finale cutoff, or not open yet in the first week.
-  const locked = ep ? advantagesLocked(ep, season) || !advantagesOpenYet(ep) : true
+  // Locked once past the finale cutoff, or not open yet during the watch-only
+  // premiere (RosterSection also renders then, so its band must stay hidden).
+  const locked = ep ? advantagesLocked(ep, season) || !advantagesOpenYet(season, episodes) : true
 
   async function spend(advantageType: string, targetContestantId?: string) {
     setBusy(true)
@@ -701,7 +702,7 @@ export function MySeasonPage() {
     const advantageUnplayed =
       !d.plays.some((p) => p.episode_id === openEp.id) &&
       !openEp.is_finale &&
-      advantagesOpenYet(openEp) &&
+      advantagesOpenYet(d.season!, d.episodes) &&
       !advantagesLocked(openEp, d.season!)
     // The winner pick (#164): while the designation window is open and nobody
     // is named, "all set" is a lie — it's the biggest points swing of the
@@ -2280,8 +2281,8 @@ function AdvantageLane({
   // it holds the one control left: Undo. The tabs' strips leave with the play.
   const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
   const episode = weekly.openEpisode
-  // No advantage in the premiere (opens episode 2), and none at the finale.
-  if (!episode || episode.is_finale || !advantagesOpenYet(episode)) return null
+  // No advantage during the watch-only premiere, and none at the finale.
+  if (!episode || episode.is_finale || !advantagesOpenYet(season, episodes)) return null
   const play = weekly.play
   const locked = weekly.locked
 
