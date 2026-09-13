@@ -50,6 +50,29 @@ export const tabForEvent = (eventType: string): TabKey => TAB_FOR_EVENT[eventTyp
 export const chipEventsForTab = (events: RuleScoringEvent[], tab: TabKey): RuleScoringEvent[] =>
   events.filter((e) => !NON_CHIP.has(e.event_type) && tabForEvent(e.event_type) === tab)
 
+// Terser labels for the tracker — the commissioner knows these; the full
+// house-copy labels stay in the rules/results/admin views. Unlisted events
+// fall back to the season label.
+const SHORT_LABEL: Record<string, string> = {
+  steal_immunity_idol: 'Steal immunity idol',
+  fake_idol_played: 'Make fake idol that gets played',
+  blindside_with_active_idol: 'Blindside someone with active idol',
+  jeff_thats_how_you_do_it: '"That\'s How You Do It"',
+  read_treemail_or_instructions: 'Treemail',
+  episode_title_quote: 'Quote',
+  play_idol_nullifier: 'Play idol nullifier',
+  acquire_active_idol: 'Acquire active idol',
+  play_idol: 'Play immunity idol',
+  acquire_extra_vote: 'Acquire extra vote',
+  acquire_inactive_idol: 'Acquire inactive idol',
+  activate_inactive_idol: 'Activate inactive idol',
+  idol_played_successfully: 'Immunity idol saves target',
+  go_on_journey: 'Journey',
+  votes_blocked_by_idol: 'Vote blocked by immunity idol',
+}
+
+export const shortLabel = (eventType: string, fallback: string): string => SHORT_LABEL[eventType] ?? fallback
+
 export interface VoteEntry {
   target: string
   confirmed: boolean

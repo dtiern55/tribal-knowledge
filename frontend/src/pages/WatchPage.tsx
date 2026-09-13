@@ -15,6 +15,7 @@ import {
   chipEventsForTab,
   deriveScoringEvents,
   emptyState,
+  shortLabel,
   voteTally,
   WIN_EVENTS,
   type TabKey,
@@ -60,7 +61,6 @@ export function WatchPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [tab, setTab] = useState<TabKey>('wins')
-  const [phaseOverride, setPhaseOverride] = useState<'pre' | 'merge' | null>(null)
   const [chipSel, setChipSel] = useState<Record<string, string>>({})
   const [openVoters, setOpenVoters] = useState<Set<string>>(new Set())
   const [voterScope, setVoterScope] = useState<Record<string, 'tribe' | 'all'>>({})
@@ -110,19 +110,13 @@ export function WatchPage() {
     setSaved(false)
   }, [episode, watch])
 
-  const merged =
-    phaseOverride != null
-      ? phaseOverride === 'merge'
-      : season != null && episode != null && season.merge_episode != null && episode.episode_number >= season.merge_episode
-
+  // No pre/post-merge toggle: the tribes flatten on their own at the merge,
+  // since the merge tribe is one tribe. postMerge only picks the point rate.
   const active = useMemo(() => rankCast(cast).filter((c) => c.eliminated_in_episode == null), [cast])
-  const groups = useMemo(
-    () => (merged ? [{ name: null, color: null, people: active }] : groupByTribe(active)),
-    [merged, active],
-  )
+  const groups = useMemo(() => groupByTribe(active), [active])
   const labelFor = useMemo(() => {
     const map = new Map((rules?.scoring_events ?? []).map((e) => [e.event_type, e.label]))
-    return (et: string) => map.get(et) ?? et
+    return (et: string) => shortLabel(et, map.get(et) ?? et)
   }, [rules])
   const recorded = deriveScoringEvents(watch).length + watch.boots.length
 
@@ -135,6 +129,8 @@ export function WatchPage() {
       </Notice>
     )
   if (!season || !episode) return <ColdStart />
+
+  const postMerge = season.merge_episode != null && episode.episode_number >= season.merge_episode
 
   // ---- mutators ----
   const toggleWin = (eventType: string, id: string) =>
@@ -257,14 +253,12 @@ export function WatchPage() {
   ) => (
     <div className="mt-3 space-y-3">
       {groups.map((g) => (
-        <div key={g.name ?? 'merged'} className="overflow-hidden rounded-xl border border-cream-200 bg-white">
-          {!merged && (
-            <div className="flex items-center gap-2 bg-cream-50 px-3 py-2">
-              <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: g.color ?? 'var(--color-stone-400)' }} />
-              <span className="flex-1 font-display font-bold text-forest-900">{g.name ?? 'No tribe'}</span>
-              {header?.(g.name, g.color)}
-            </div>
-          )}
+        <div key={g.name ?? 'no-tribe'} className="overflow-hidden rounded-xl border border-cream-200 bg-white">
+          <div className="flex items-center gap-2 bg-cream-50 px-3 py-2">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: g.color ?? 'var(--color-stone-400)' }} />
+            <span className="flex-1 font-display font-bold text-forest-900">{g.name ?? 'No tribe'}</span>
+            {header?.(g.name, g.color)}
+          </div>
           <ul>{g.people.map((c) => <li key={c.id} className="border-t border-cream-100 first:border-t-0">{rowFn(c)}</li>)}</ul>
         </div>
       ))}
@@ -331,26 +325,9 @@ export function WatchPage() {
     </>
   )
 
-  const bootTab = (
+  const tribalTab = (
     <>
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">Voted out</p>
-      {peopleList((c) => {
-        const out = watch.boots.includes(c.id)
-        return (
-          <button
-            type="button"
-            onClick={() => toggleBoot(c.id)}
-            aria-pressed={out}
-            className={`flex min-h-14 w-full items-center gap-3 px-3 text-left ${out ? 'bg-terracotta-50' : 'hover:bg-cream-50'}`}
-          >
-            {avatar(c)}
-            {nameText(c)}
-            {out && <span className="ml-auto rounded-md bg-terracotta-100 px-2 py-1 text-[10px] font-bold uppercase text-terracotta-700">Out</span>}
-          </button>
-        )
-      })}
-
-      <div className="mt-6 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">The votes</p>
         <button
           type="button"
@@ -410,13 +387,37 @@ export function WatchPage() {
           </ul>
         )}
       </div>
+
+      <details className="mt-6">
+        <summary className="cursor-pointer rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 font-display text-sm font-semibold text-forest-900">
+          Voted out
+          {watch.boots.length > 0 && (
+            <span className="font-normal text-terracotta-700"> · {watch.boots.map((id) => cast.find((c) => c.id === id)?.name ?? id).join(', ')}</span>
+          )}
+        </summary>
+        {peopleList((c) => {
+          const out = watch.boots.includes(c.id)
+          return (
+            <button
+              type="button"
+              onClick={() => toggleBoot(c.id)}
+              aria-pressed={out}
+              className={`flex min-h-14 w-full items-center gap-3 px-3 text-left ${out ? 'bg-terracotta-50' : 'hover:bg-cream-50'}`}
+            >
+              {avatar(c)}
+              {nameText(c)}
+              {out && <span className="ml-auto rounded-md bg-terracotta-100 px-2 py-1 text-[10px] font-bold uppercase text-terracotta-700">Out</span>}
+            </button>
+          )
+        })}
+      </details>
     </>
   )
 
   function voteRow(c: CastMember) {
     const v = watch.votes[c.id]
     const open = openVoters.has(c.id)
-    const showAll = merged || voterScope[c.id] === 'all'
+    const showAll = voterScope[c.id] === 'all'
     const candidates = showAll ? active : active.filter((o) => o.tribe_name === c.tribe_name)
     return (
       <div>
@@ -451,15 +452,13 @@ export function WatchPage() {
                 </button>
               ))}
             </div>
-            {!merged && (
-              <button
-                type="button"
-                onClick={() => toggleScope(c.id)}
-                className="mt-2 rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-forest-700"
-              >
-                {showAll ? 'Show tribe only' : 'Show entire cast'}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => toggleScope(c.id)}
+              className="mt-2 rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-forest-700"
+            >
+              {showAll ? 'Show tribe only' : 'Show entire cast'}
+            </button>
           </div>
         )}
       </div>
@@ -471,7 +470,8 @@ export function WatchPage() {
     if (events.length === 0) return <p className="mt-4 text-sm text-stone-500">No events for this tab in this season.</p>
     const sel = chipSel[t] ?? events[0].event_type
     const cur = events.find((e) => e.event_type === sel) ?? events[0]
-    const pts = merged && cur.postmerge_point_value != null ? cur.postmerge_point_value : cur.point_value
+    const ptsOf = (e: typeof cur) => (postMerge && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value)
+    const pts = ptsOf(cur)
     return (
       <>
         <div className="flex flex-wrap gap-2">
@@ -485,10 +485,10 @@ export function WatchPage() {
                 e.event_type === cur.event_type ? 'border-terracotta-600 bg-terracotta-600 text-white' : 'border-forest-200 bg-white text-forest-700'
               }`}
             >
-              {e.label}
+              {shortLabel(e.event_type, e.label)}
               <span className="ml-1 font-normal opacity-70">
-                {(merged && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value) >= 0 ? '+' : ''}
-                {merged && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value}
+                {ptsOf(e) >= 0 ? '+' : ''}
+                {ptsOf(e)}
               </span>
             </button>
           ))}
@@ -645,22 +645,6 @@ export function WatchPage() {
         description={`${recorded} recorded · everything stays on this device`}
       />
 
-      <div className="mt-3 flex gap-2 rounded-lg border border-cream-200 bg-cream-100 p-1">
-        {(['pre', 'merge'] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            aria-pressed={(p === 'merge') === merged}
-            onClick={() => setPhaseOverride(p)}
-            className={`flex-1 rounded-md py-2 font-display text-sm font-semibold ${
-              (p === 'merge') === merged ? 'bg-forest-600 text-cream-50' : 'text-forest-600'
-            }`}
-          >
-            {p === 'pre' ? 'Pre-merge · by tribe' : 'Merged · flat'}
-          </button>
-        ))}
-      </div>
-
       <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
         {TABS.map((t) => (
           <button
@@ -679,7 +663,7 @@ export function WatchPage() {
 
       <div className="mt-4">
         {tab === 'wins' && winsTab}
-        {tab === 'tribal' && bootTab}
+        {tab === 'tribal' && tribalTab}
         {tab === 'extras' && chipTab('extras')}
         {tab === 'camp' && chipTab('camp')}
         {tab === 'final' && finaleTab}

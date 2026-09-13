@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
@@ -55,7 +55,10 @@ describe('WatchPage', () => {
     renderWithApp(<WatchPage />, admin)
 
     await user.click(await screen.findByRole('button', { name: /Tribal/ }))
-    await user.click(screen.getAllByRole('button', { name: /Rizo/ })[0]) // boot list is first
+    // "Voted out" is a collapsed section below the votes; scope to it so we
+    // pick the boot button, not the same-named voter row.
+    const votedOut = screen.getByText('Voted out').closest('details') as HTMLElement
+    await user.click(within(votedOut).getByRole('button', { name: /Rizo/ }))
     await user.click(screen.getByRole('button', { name: 'Notes' }))
     expect(screen.getByText(/Voted out: Rizo/)).toBeInTheDocument()
   })
