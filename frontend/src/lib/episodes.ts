@@ -48,6 +48,15 @@ export function advantagesLocked(ep: Episode, season: Season): boolean {
     : ep.is_finale
 }
 
+// Advantages don't open in the premiere — episode 1 is roster-building and cast
+// intros, so the weekly play only muddies it; it starts when episode 2 opens
+// (Danny, 2026-09-13). With advantagesLocked's upper cutoff this is the full
+// window the play is live. Frontend gate only: the box and both play strips
+// never appear in episode 1, so nothing offers the play there.
+export function advantagesOpenYet(ep: Episode): boolean {
+  return ep.episode_number > 1
+}
+
 // Effective swap lock: explicit swap_lock_episode, else two past the episode
 // the first juror went out in (#672), so the episode after that boot is the
 // last you can swap for. Sole Survivor designation locks with the swaps
