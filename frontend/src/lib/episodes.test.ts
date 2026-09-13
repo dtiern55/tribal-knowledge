@@ -40,9 +40,17 @@ describe('episode lifecycle helpers', () => {
 })
 
 describe('advantagesOpenYet', () => {
-  it('closes the premiere and opens from episode 2 on', () => {
-    expect(advantagesOpenYet(episode(1, '2026-08-20T00:00:00Z'))).toBe(false)
-    expect(advantagesOpenYet(episode(2, '2026-08-27T00:00:00Z'))).toBe(true)
+  it('stays closed through the watch-only premiere, opens once it is scored', () => {
+    // roster locks at episode 2 (see `season`), so episode 1 is watch-only.
+    const pending = [episode(1, '2026-08-20T00:00:00Z'), episode(2, '2026-08-27T00:00:00Z')]
+    expect(advantagesOpenYet(season, pending)).toBe(false)
+    const premiereDone = [episode(1, '2026-08-20T00:00:00Z', 'scored'), episode(2, '2026-08-27T00:00:00Z')]
+    expect(advantagesOpenYet(season, premiereDone)).toBe(true)
+  })
+
+  it('opens at episode 1 when the roster locks there (no watch-only premiere)', () => {
+    const rle1 = { roster_lock_episode: 1 } as Season
+    expect(advantagesOpenYet(rle1, [episode(1, '2026-08-20T00:00:00Z')])).toBe(true)
   })
 })
 

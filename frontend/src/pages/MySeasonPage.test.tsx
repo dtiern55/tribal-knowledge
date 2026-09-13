@@ -328,6 +328,38 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
+  it('does not offer the weekly advantage during the watch-only premiere', async () => {
+    // Season 51 shape: roster locks at episode 2, so episode 1 is watch-only.
+    // The tribe is draftable then, but RosterSection renders in both states
+    // and its useWeeklyPlay resolves to episode 2 — the one surface that used
+    // to leak the "double point boost" play into the premiere (regression).
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'upcoming', '2099-08-20T00:00:00Z'),
+          episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [{ id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: null }]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByText('Ep 1 · watch only')).toBeVisible()
+    const roster = await screen.findByRole('tabpanel', { name: /^Tribe/ })
+    expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
+    expect(within(roster).queryByText(/double point boost/i)).not.toBeInTheDocument()
+  })
+
   it('shows what each rostered castaway earned you, without a bio link', async () => {
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
