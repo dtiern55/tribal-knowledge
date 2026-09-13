@@ -2,23 +2,25 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
-import type { CastMember, Episode, Season } from '../types'
+import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { WatchPage } from './WatchPage'
 
 vi.mock('../lib/api', () => ({ api: { get: vi.fn() }, getActiveSeason: vi.fn() }))
 
-const season = { id: 'ls-1', season_id: 'season-1', name: 'Survivor 51', roster_lock_episode: 1 } as Season
-const episode = {
-  id: 'ep-1',
-  episode_number: 5,
-  picks_lock_at: '2020-01-01T00:00:00Z',
-  status: 'locked',
-} as Episode
+const season = { id: 'ls-1', season_id: 'season-1', name: 'Survivor 51', roster_lock_episode: 1, merge_episode: null } as Season
+const episode = { id: 'ep-1', episode_number: 5, picks_lock_at: '2020-01-01T00:00:00Z', status: 'locked' } as Episode
 const cast = [
   { id: 'c1', name: 'Sage', eliminated_in_episode: null, total_points: 0 },
   { id: 'c2', name: 'Rizo', eliminated_in_episode: null, total_points: 0 },
 ] as CastMember[]
+const rules = {
+  scoring_events: [
+    { event_type: 'read_treemail_or_instructions', label: 'Treemail', point_value: 3, postmerge_point_value: null, token_value: 0, is_per_unit: true },
+    { event_type: 'go_on_journey', label: 'Journey', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+  ],
+  has_redemption: false,
+} as unknown as RulesResponse
 
 const admin = { auth: { profile: { id: 'u1', display_name: 'Danny', is_admin: true, leagues: [] } } }
 
@@ -26,52 +28,40 @@ describe('WatchPage', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation((path: string) =>
-      Promise.resolve(path.endsWith('/episodes') ? [episode] : cast) as never,
-    )
-  })
-
-  it('counts repeats for a per-unit event and toggles a one-off off again', async () => {
-    const user = userEvent.setup()
-    renderWithApp(<WatchPage />, admin)
-
-    await user.click(await screen.findByRole('button', { name: /Treemail/ }))
-    await user.click(screen.getByRole('button', { name: /Sage/ }))
-    await user.click(screen.getByRole('button', { name: /Sage/ }))
-    expect(screen.getByText(/Treemail: Sage x2/)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Title quote/ }))
-    await user.click(screen.getByRole('button', { name: /Rizo/ }))
-    expect(screen.getByText(/Title quote: Rizo/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Rizo/ }))
-    expect(screen.queryByText(/Title quote: Rizo/)).not.toBeInTheDocument()
-  })
-
-  it('takes back the last tap with Undo', async () => {
-    const user = userEvent.setup()
-    renderWithApp(<WatchPage />, admin)
-
-    await user.click(await screen.findByRole('button', { name: /Treemail/ }))
-    await user.click(screen.getByRole('button', { name: /Sage/ }))
-    await user.click(screen.getByRole('button', { name: /Sage/ }))
-    expect(screen.getByText(/Treemail: Sage x2/)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(screen.queryByText(/Treemail: Sage x2/)).not.toBeInTheDocument()
-    expect(screen.getByText(/Treemail: Sage/)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(screen.queryByText(/Treemail: Sage/)).not.toBeInTheDocument()
-
-    expect(screen.getByRole('link', { name: 'Back to My Season' })).toBeVisible()
-  })
-
-  it('keeps the episode scratchpad in this browser', async () => {
-    const user = userEvent.setup()
-    renderWithApp(<WatchPage />, admin)
-    await user.click(await screen.findByRole('button', { name: /Sage/ }))
-    expect(JSON.parse(localStorage.getItem('tk-watch-ep-1') ?? '{}')).toMatchObject({
-      counts: { 'c1|episode_title_quote': 1 },
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.endsWith('/episodes')) return Promise.resolve([episode]) as never
+      if (path.endsWith('/rules')) return Promise.resolve(rules) as never
+      return Promise.resolve(cast) as never
     })
+  })
+
+  it('counts a per-unit chip and persists the new state shape', async () => {
+    const user = userEvent.setup()
+    renderWithApp(<WatchPage />, admin)
+
+    await user.click(await screen.findByRole('button', { name: /Extras/ }))
+    await user.click(screen.getByRole('button', { name: /Treemail/ }))
+    await user.click(screen.getByRole('button', { name: /Sage/ }))
+    await user.click(screen.getByRole('button', { name: /Sage/ }))
+    expect(screen.getByText('x2')).toBeInTheDocument()
+
+    expect(JSON.parse(localStorage.getItem('tk-watch-ep-1') ?? '{}')).toMatchObject({
+      events: { read_treemail_or_instructions: { c1: 2 } },
+    })
+  })
+
+  it('records a boot and shows it in the hand-off', async () => {
+    const user = userEvent.setup()
+    renderWithApp(<WatchPage />, admin)
+
+    await user.click(await screen.findByRole('button', { name: /Tribal/ }))
+    await user.click(screen.getAllByRole('button', { name: /Rizo/ })[0]) // boot list is first
+    await user.click(screen.getByRole('button', { name: 'Notes' }))
+    expect(screen.getByText(/Voted out: Rizo/)).toBeInTheDocument()
+  })
+
+  it('gates non-commissioners out', async () => {
+    renderWithApp(<WatchPage />, { auth: { profile: { id: 'u2', display_name: 'Player', is_admin: false, leagues: [] } } })
+    expect(await screen.findByText('Commissioner access required')).toBeInTheDocument()
   })
 })

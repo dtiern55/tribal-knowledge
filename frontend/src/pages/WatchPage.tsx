@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
@@ -9,111 +9,64 @@ import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
 import { rankCast } from '../lib/cast'
 import { airingEpisode } from '../lib/episodes'
-import type { CastMember, Episode, Season } from '../types'
+import type { CastMember, Episode, RulesResponse, Season } from '../types'
+import {
+  buildHandoff,
+  chipEventsForTab,
+  deriveScoringEvents,
+  emptyState,
+  voteTally,
+  WIN_EVENTS,
+  type TabKey,
+  type WatchState,
+} from '../lib/watchTracker'
 
-/**
- * The six scoring events survivoR never proposes, so the commissioner has to
- * watch for them. Kept in step by hand with the "Judgment calls not proposed"
- * warning in backend/app/survivor_import.py; everything else on the sheet
- * arrives in the import proposal.
- */
-const EVENTS = [
-  {
-    type: 'episode_title_quote',
-    short: 'Title quote',
-    points: 3,
-    perUnit: false,
-    hint: 'Says the line the episode is named after.',
-  },
-  {
-    type: 'read_treemail_or_instructions',
-    short: 'Treemail',
-    points: 3,
-    perUnit: true,
-    hint: 'Reads Treemail or challenge instructions aloud. Counts every time.',
-  },
-  {
-    type: 'jeff_thats_how_you_do_it',
-    short: 'Jeff quote',
-    points: 5,
-    perUnit: false,
-    hint: 'Jeff says "That’s how you do it on Survivor" straight to them.',
-  },
-  {
-    type: 'blindside_with_active_idol',
-    short: 'Blindside',
-    points: 7,
-    perUnit: false,
-    hint: 'Voted out someone who was holding an active idol and never played it.',
-  },
-  {
-    type: 'fake_idol_played',
-    short: 'Fake idol',
-    points: 12,
-    perUnit: false,
-    hint: 'Made the fake idol that somebody played.',
-  },
-  {
-    type: 'steal_immunity_idol',
-    short: 'Idol steal',
-    points: 15,
-    perUnit: false,
-    hint: 'Stole an immunity idol.',
-  },
-]
-
-/** The feed proposes these but gets them wrong or partial, so they need eyes. */
-const VERIFY = [
-  'Team immunity or reward: write down the whole winning tribe, not just the winner the feed names.',
-  'Redemption Island week: for each boot, island or gone for good.',
-  'First individual Tribal Council. That sets the merge episode.',
-  'Fire-making winner. The feed guesses it from a text field.',
-  'Nullified votes, and any correct vote that got nullified.',
-  'The episode title, which is typed in by hand.',
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'wins', label: 'Immunity & reward' },
+  { key: 'tribal', label: 'Tribal' },
+  { key: 'extras', label: 'Extras' },
+  { key: 'camp', label: 'Camp' },
+  { key: 'final', label: 'Final tribal' },
+  { key: 'notes', label: 'Notes' },
 ]
 
 const storageKey = (episodeId: string) => `tk-watch-${episodeId}`
 
-// Taps wrap back to zero so a mistap undoes itself without an undo control.
-const nextCount = (n: number, perUnit: boolean) => (perUnit ? (n + 1) % 10 : (n + 1) % 2)
-
-function summarize(
-  episode: Episode,
-  cast: CastMember[],
-  counts: Record<string, number>,
-  notes: string,
-): string {
-  const lines = [`Episode ${episode.episode_number} manual events`]
-  for (const event of EVENTS) {
-    const named = cast
-      .filter((c) => counts[`${c.id}|${event.type}`])
-      .map((c) => {
-        const n = counts[`${c.id}|${event.type}`]
-        return n > 1 ? `${c.name} x${n}` : c.name
-      })
-    if (named.length) lines.push(`${event.short}: ${named.join(', ')}`)
+function groupByTribe(members: CastMember[]) {
+  const groups: { name: string | null; color: string | null; people: CastMember[] }[] = []
+  const idx = new Map<string, number>()
+  for (const m of members) {
+    const key = m.tribe_name ?? '—'
+    if (!idx.has(key)) {
+      idx.set(key, groups.length)
+      groups.push({ name: m.tribe_name, color: m.tribe_color, people: [] })
+    }
+    groups[idx.get(key) as number].people.push(m)
   }
-  if (lines.length === 1) lines.push('Nothing recorded.')
-  if (notes.trim()) lines.push('', 'Notes:', notes.trim())
-  return lines.join('\n')
+  return groups
 }
 
-/** Commissioner scratchpad for watching an episode live (#737). Everything
- * here stays in this browser: it is a phone note, not league data. */
+/** Commissioner scratchpad for scoring an episode live (#737). Danny watches
+ *  and records here; survivoR validates it Friday. Everything stays in this
+ *  browser (localStorage per episode) — it hands off to admin, writes nothing. */
 export function WatchPage() {
   const { profile } = useAuth()
   const [season, setSeason] = useState<Season | null>(null)
   const [episode, setEpisode] = useState<Episode | null>(null)
   const [cast, setCast] = useState<CastMember[]>([])
-  const [selected, setSelected] = useState(EVENTS[0].type)
-  const [counts, setCounts] = useState<Record<string, number>>({})
-  // Snapshot of counts before each tap, so a mistap on a per-unit event (which
-  // wraps 0→9→0) can be taken back in one press instead of tapping around.
-  const [history, setHistory] = useState<Record<string, number>[]>([])
-  const [notes, setNotes] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [rules, setRules] = useState<RulesResponse | null>(null)
+  const [watch, setWatch] = useState<WatchState>(emptyState)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [tab, setTab] = useState<TabKey>('wins')
+  const [phaseOverride, setPhaseOverride] = useState<'pre' | 'merge' | null>(null)
+  const [chipSel, setChipSel] = useState<Record<string, string>>({})
+  const [openVoters, setOpenVoters] = useState<Set<string>>(new Set())
+  const [voterScope, setVoterScope] = useState<Record<string, 'tribe' | 'all'>>({})
+  const [predictMode, setPredictMode] = useState(false)
+  const [openSlot, setOpenSlot] = useState<{ tier: 'finalFour' | 'finalThree' | 'winner'; index: number } | null>(null)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -121,25 +74,19 @@ export function WatchPage() {
         const active = await getActiveSeason()
         setSeason(active)
         if (!active) return
-        const [members, episodes] = await Promise.all([
+        const [members, episodes, ruleset] = await Promise.all([
           api.get<CastMember[]>(`/seasons/${active.season_id}/cast`),
           api.get<Episode[]>(`/seasons/${active.season_id}/episodes`),
+          api.get<RulesResponse>(`/league-seasons/${active.id}/rules`),
         ])
         setCast(members)
-        // The airing episode is the one that has locked but isn't scored. Fall
-        // back to the latest scheduled one so the page still works early.
+        setRules(ruleset)
         const ep = airingEpisode(episodes, active) ?? episodes.at(-1) ?? null
         setEpisode(ep)
-        // Restored alongside the episode, not in its own effect, so the save
-        // below never races an empty state onto a stored episode.
         if (ep) {
           try {
-            const stored = JSON.parse(localStorage.getItem(storageKey(ep.id)) ?? '{}') as {
-              counts?: Record<string, number>
-              notes?: string
-            }
-            setCounts(stored.counts ?? {})
-            setNotes(stored.notes ?? '')
+            const stored = JSON.parse(localStorage.getItem(storageKey(ep.id)) ?? 'null') as WatchState | null
+            if (stored) setWatch({ ...emptyState(), ...stored })
           } catch {
             // Unreadable scratchpad, start clean.
           }
@@ -155,85 +102,533 @@ export function WatchPage() {
 
   useEffect(() => {
     if (!episode) return
-    localStorage.setItem(storageKey(episode.id), JSON.stringify({ counts, notes }))
-  }, [episode, counts, notes])
+    try {
+      localStorage.setItem(storageKey(episode.id), JSON.stringify(watch))
+    } catch {
+      // Storage unavailable — the tracker still works for this sitting.
+    }
+    setSaved(false)
+  }, [episode, watch])
+
+  const merged =
+    phaseOverride != null
+      ? phaseOverride === 'merge'
+      : season != null && episode != null && season.merge_episode != null && episode.episode_number >= season.merge_episode
+
+  const active = useMemo(() => rankCast(cast).filter((c) => c.eliminated_in_episode == null), [cast])
+  const groups = useMemo(
+    () => (merged ? [{ name: null, color: null, people: active }] : groupByTribe(active)),
+    [merged, active],
+  )
+  const labelFor = useMemo(() => {
+    const map = new Map((rules?.scoring_events ?? []).map((e) => [e.event_type, e.label]))
+    return (et: string) => map.get(et) ?? et
+  }, [rules])
+  const recorded = deriveScoringEvents(watch).length + watch.boots.length
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load the episode">{error}</Notice>
-  if (!profile?.is_admin) {
+  if (!profile?.is_admin)
     return (
       <Notice tone="error" title="Commissioner access required">
         Your account is not authorized to score the league.
       </Notice>
     )
-  }
   if (!season || !episode) return <ColdStart />
 
-  const event = EVENTS.find((e) => e.type === selected) ?? EVENTS[0]
-  const ranked = rankCast(cast)
-  const active = ranked.filter((c) => c.eliminated_in_episode == null)
-  const out = ranked.filter((c) => c.eliminated_in_episode != null)
-  const text = summarize(episode, cast, counts, notes)
-
-  function tap(id: string) {
-    setHistory((h) => [...h, counts])
-    setCounts((prev) => ({ ...prev, [`${id}|${event.type}`]: nextCount(prev[`${id}|${event.type}`] ?? 0, event.perUnit) }))
-    setCopied(false)
+  // ---- mutators ----
+  const toggleWin = (eventType: string, id: string) =>
+    setWatch((w) => {
+      const cur = new Set(w.wins[eventType] ?? [])
+      if (cur.has(id)) cur.delete(id)
+      else cur.add(id)
+      return { ...w, wins: { ...w.wins, [eventType]: [...cur] } }
+    })
+  const toggleTribeWin = (eventType: string, tribeName: string | null) => {
+    const ids = active.filter((c) => c.tribe_name === tribeName).map((c) => c.id)
+    setWatch((w) => {
+      const cur = new Set(w.wins[eventType] ?? [])
+      const allOn = ids.length > 0 && ids.every((id) => cur.has(id))
+      ids.forEach((id) => (allOn ? cur.delete(id) : cur.add(id)))
+      return { ...w, wins: { ...w.wins, [eventType]: [...cur] } }
+    })
+  }
+  const hasWin = (eventType: string, id: string) => (watch.wins[eventType] ?? []).includes(id)
+  const tribeAllWin = (eventType: string, tribeName: string | null) => {
+    const ids = active.filter((c) => c.tribe_name === tribeName).map((c) => c.id)
+    return ids.length > 0 && ids.every((id) => hasWin(eventType, id))
   }
 
-  function undo() {
-    if (!history.length) return
-    setCounts(history[history.length - 1])
-    setHistory((h) => h.slice(0, -1))
-    setCopied(false)
+  const toggleBoot = (id: string) =>
+    setWatch((w) => ({ ...w, boots: w.boots.includes(id) ? w.boots.filter((b) => b !== id) : [...w.boots, id] }))
+
+  const toggleVoter = (id: string) =>
+    setOpenVoters((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const expandTribeVotes = (tribeName: string | null) => {
+    const ids = active.filter((c) => c.tribe_name === tribeName).map((c) => c.id)
+    setOpenVoters((s) => {
+      const n = new Set(s)
+      const allOpen = ids.every((id) => n.has(id))
+      ids.forEach((id) => (allOpen ? n.delete(id) : n.add(id)))
+      return n
+    })
+  }
+  const setVote = (voter: string, target: string) => {
+    setWatch((w) => ({ ...w, votes: { ...w.votes, [voter]: { target, confirmed: !predictMode } } }))
+    setOpenVoters((s) => {
+      const n = new Set(s)
+      n.delete(voter)
+      return n
+    })
+  }
+  const toggleScope = (id: string) =>
+    setVoterScope((m) => ({ ...m, [id]: m[id] === 'all' ? 'tribe' : 'all' }))
+  const confirmPredicted = () => {
+    setWatch((w) => ({
+      ...w,
+      votes: Object.fromEntries(Object.entries(w.votes).map(([k, v]) => [k, { ...v, confirmed: true }])),
+    }))
+    setPredictMode(false)
   }
 
-  function castRow(member: CastMember) {
-    const count = counts[`${member.id}|${event.type}`] ?? 0
-    const eliminated = member.eliminated_in_episode != null
-    return (
-      <li key={member.id}>
+  const tapEvent = (eventType: string, id: string, perUnit: boolean) =>
+    setWatch((w) => {
+      const byId = { ...(w.events[eventType] ?? {}) }
+      const next = perUnit ? ((byId[id] ?? 0) + 1) % 10 : ((byId[id] ?? 0) + 1) % 2
+      if (next) byId[id] = next
+      else delete byId[id]
+      return { ...w, events: { ...w.events, [eventType]: byId } }
+    })
+
+  const setFinale = (tier: 'finalFour' | 'finalThree' | 'winner', index: number, id: string | null) => {
+    setWatch((w) => {
+      const f = { ...w.finale, finalFour: [...w.finale.finalFour], finalThree: [...w.finale.finalThree] }
+      if (tier === 'winner') f.winner = id
+      else {
+        const arr = f[tier]
+        if (id == null) arr.splice(index, 1)
+        else if (index < arr.length) arr[index] = id
+        else arr.push(id)
+      }
+      return { ...w, finale: f }
+    })
+    setOpenSlot(null)
+  }
+
+  const saveNow = () => {
+    try {
+      localStorage.setItem(storageKey(episode.id), JSON.stringify(watch))
+      setSaved(true)
+    } catch {
+      setSaved(false)
+    }
+  }
+  const wipe = () => {
+    if (!confirm('Wipe everything recorded for this episode?')) return
+    setWatch(emptyState())
+    setOpenVoters(new Set())
+    setVoterScope({})
+    setOpenSlot(null)
+    try {
+      localStorage.removeItem(storageKey(episode.id))
+    } catch {
+      // ignore
+    }
+  }
+
+  // ---- shared row bits ----
+  const avatar = (c: CastMember, size: 'md' | 'lg' = 'md') => (
+    <span className={c.eliminated_in_episode != null ? ELIMINATED_DIM : undefined}>
+      <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} size={size} />
+    </span>
+  )
+  const nameText = (c: CastMember) => (
+    <span className={`truncate font-display text-lg ${c.eliminated_in_episode != null ? ELIMINATED_STRIKE : ''}`}>{c.name}</span>
+  )
+
+  const peopleList = (
+    rowFn: (c: CastMember) => ReactNode,
+    header?: (tribeName: string | null, color: string | null) => ReactNode,
+  ) => (
+    <div className="mt-3 space-y-3">
+      {groups.map((g) => (
+        <div key={g.name ?? 'merged'} className="overflow-hidden rounded-xl border border-cream-200 bg-white">
+          {!merged && (
+            <div className="flex items-center gap-2 bg-cream-50 px-3 py-2">
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: g.color ?? 'var(--color-stone-400)' }} />
+              <span className="flex-1 font-display font-bold text-forest-900">{g.name ?? 'No tribe'}</span>
+              {header?.(g.name, g.color)}
+            </div>
+          )}
+          <ul>{g.people.map((c) => <li key={c.id} className="border-t border-cream-100 first:border-t-0">{rowFn(c)}</li>)}</ul>
+        </div>
+      ))}
+    </div>
+  )
+
+  // ---- tabs ----
+  const winsTab = (
+    <>
+      {peopleList(
+        (c) => (
+          <div className="flex min-h-14 items-center gap-3 px-3">
+            {avatar(c)}
+            {nameText(c)}
+            <span className="ml-auto flex shrink-0 gap-2">
+              <button
+                type="button"
+                aria-pressed={hasWin(WIN_EVENTS.individualImmunity, c.id)}
+                onClick={() => toggleWin(WIN_EVENTS.individualImmunity, c.id)}
+                className={`h-8 rounded-lg border px-3 text-xs font-bold ${
+                  hasWin(WIN_EVENTS.individualImmunity, c.id) ? 'border-jade-600 bg-jade-600 text-white' : 'border-stone-200 bg-white text-stone-500'
+                }`}
+              >
+                Imm
+              </button>
+              <button
+                type="button"
+                aria-pressed={hasWin(WIN_EVENTS.individualReward, c.id)}
+                onClick={() => toggleWin(WIN_EVENTS.individualReward, c.id)}
+                className={`h-8 rounded-lg border px-3 text-xs font-bold ${
+                  hasWin(WIN_EVENTS.individualReward, c.id) ? 'border-gold-600 bg-gold-600 text-white' : 'border-stone-200 bg-white text-stone-500'
+                }`}
+              >
+                Rew
+              </button>
+            </span>
+          </div>
+        ),
+        (tribeName) => (
+          <span className="flex gap-2">
+            <button
+              type="button"
+              aria-pressed={tribeAllWin(WIN_EVENTS.teamImmunity, tribeName)}
+              onClick={() => toggleTribeWin(WIN_EVENTS.teamImmunity, tribeName)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                tribeAllWin(WIN_EVENTS.teamImmunity, tribeName) ? 'border-jade-600 bg-jade-600 text-white' : 'border-stone-200 bg-white text-stone-700'
+              }`}
+            >
+              Tribe imm
+            </button>
+            <button
+              type="button"
+              aria-pressed={tribeAllWin(WIN_EVENTS.teamReward, tribeName)}
+              onClick={() => toggleTribeWin(WIN_EVENTS.teamReward, tribeName)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                tribeAllWin(WIN_EVENTS.teamReward, tribeName) ? 'border-gold-600 bg-gold-600 text-white' : 'border-stone-200 bg-white text-stone-700'
+              }`}
+            >
+              Tribe rew
+            </button>
+          </span>
+        ),
+      )}
+    </>
+  )
+
+  const bootTab = (
+    <>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">Voted out</p>
+      {peopleList((c) => {
+        const out = watch.boots.includes(c.id)
+        return (
+          <button
+            type="button"
+            onClick={() => toggleBoot(c.id)}
+            aria-pressed={out}
+            className={`flex min-h-14 w-full items-center gap-3 px-3 text-left ${out ? 'bg-terracotta-50' : 'hover:bg-cream-50'}`}
+          >
+            {avatar(c)}
+            {nameText(c)}
+            {out && <span className="ml-auto rounded-md bg-terracotta-100 px-2 py-1 text-[10px] font-bold uppercase text-terracotta-700">Out</span>}
+          </button>
+        )
+      })}
+
+      <div className="mt-6 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">The votes</p>
         <button
           type="button"
-          onClick={() => tap(member.id)}
-          aria-pressed={count > 0}
-          className={`flex min-h-14 w-full items-center justify-between gap-3 border-b border-cream-200 px-2 text-left transition-colors ${
-            count > 0 ? 'bg-jade-50' : 'hover:bg-cream-100'
+          onClick={() => setPredictMode((p) => !p)}
+          className={`rounded-lg border px-3 py-1 text-xs font-semibold ${
+            predictMode ? 'border-forest-700 bg-forest-700 text-white' : 'border-stone-200 bg-white text-forest-700'
           }`}
         >
-          <span className="flex min-w-0 items-center gap-3">
-            <span className={eliminated ? ELIMINATED_DIM : undefined}>
-              <ContestantAvatar
-                name={member.name}
-                imageUrl={member.image_url}
-                tribeColor={member.tribe_color}
-                tribeName={member.tribe_name}
-              />
-            </span>
-            <span className={`truncate font-display text-lg ${eliminated ? ELIMINATED_STRIKE : ''}`}>
-              {member.name}
-            </span>
-          </span>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${
-              count > 0 ? 'bg-jade-600 text-white' : 'text-stone-300'
-            }`}
-          >
-            {count > 0 ? (event.perUnit ? `x${count}` : '✓') : '·'}
+          {predictMode ? 'Done predicting' : 'Predict'}
+        </button>
+      </div>
+      {Object.values(watch.votes).some((v) => !v.confirmed) && (
+        <button
+          type="button"
+          onClick={confirmPredicted}
+          className="mt-2 w-full rounded-lg bg-forest-700 px-4 py-2 text-sm font-semibold text-white"
+        >
+          Lock in {Object.values(watch.votes).filter((v) => !v.confirmed).length} predicted votes
+        </button>
+      )}
+      {peopleList(
+        (c) => voteRow(c),
+        (tribeName) => {
+          const ids = active.filter((c) => c.tribe_name === tribeName).map((c) => c.id)
+          const allOpen = ids.length > 0 && ids.every((id) => openVoters.has(id))
+          return (
+            <button
+              type="button"
+              onClick={() => expandTribeVotes(tribeName)}
+              className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-forest-700"
+            >
+              {allOpen ? 'Collapse all' : 'Expand all'}
+            </button>
+          )
+        },
+      )}
+
+      <div className="mt-4 rounded-xl border border-cream-200 bg-white p-3">
+        <h3 className="font-display text-xs font-bold uppercase tracking-[0.14em] text-stone-500">Vote tally</h3>
+        {voteTally(watch).length === 0 ? (
+          <p className="mt-1 text-sm text-stone-400">No confirmed votes yet.</p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {voteTally(watch).map(({ target, count }) => {
+              const boot = watch.boots.includes(target)
+              return (
+                <li key={target} className="flex items-center gap-2 font-display">
+                  <span className="w-32 truncate font-semibold">
+                    {cast.find((c) => c.id === target)?.name ?? target}
+                    {boot && ' ←'}
+                  </span>
+                  <span className={`h-2.5 rounded ${boot ? 'bg-terracotta-600' : 'bg-stone-400'}`} style={{ width: `${18 + count * 26}px` }} />
+                  <span className="ml-auto font-bold text-forest-700">{count}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </>
+  )
+
+  function voteRow(c: CastMember) {
+    const v = watch.votes[c.id]
+    const open = openVoters.has(c.id)
+    const showAll = merged || voterScope[c.id] === 'all'
+    const candidates = showAll ? active : active.filter((o) => o.tribe_name === c.tribe_name)
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => toggleVoter(c.id)}
+          className="flex min-h-14 w-full items-center gap-3 px-3 text-left hover:bg-cream-50"
+        >
+          {avatar(c)}
+          {nameText(c)}
+          <span className={`ml-auto shrink-0 font-display text-sm font-semibold ${v && !v.confirmed ? 'italic text-stone-400' : 'text-stone-500'}`}>
+            {v ? (
+              <>→ <b className="text-forest-700">{cast.find((x) => x.id === v.target)?.name ?? v.target}</b>{!v.confirmed && ' (guess)'}</>
+            ) : (
+              '→'
+            )}
           </span>
         </button>
-      </li>
+        {open && (
+          <div className="border-t border-dashed border-stone-300 bg-cream-50 p-2">
+            <div className="flex flex-wrap gap-2">
+              {candidates.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  disabled={o.id === c.id}
+                  onClick={() => setVote(c.id, o.id)}
+                  style={{ borderColor: o.tribe_color ?? 'var(--color-stone-200)' }}
+                  className="rounded-lg border-2 bg-white px-3 py-1.5 font-display text-sm font-semibold text-forest-700 disabled:opacity-40"
+                >
+                  {o.name}
+                </button>
+              ))}
+            </div>
+            {!merged && (
+              <button
+                type="button"
+                onClick={() => toggleScope(c.id)}
+                className="mt-2 rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-forest-700"
+              >
+                {showAll ? 'Show tribe only' : 'Show entire cast'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     )
   }
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-    } catch {
-      setCopied(false)
-    }
+  const chipTab = (t: TabKey) => {
+    const events = chipEventsForTab(rules?.scoring_events ?? [], t)
+    if (events.length === 0) return <p className="mt-4 text-sm text-stone-500">No events for this tab in this season.</p>
+    const sel = chipSel[t] ?? events[0].event_type
+    const cur = events.find((e) => e.event_type === sel) ?? events[0]
+    const pts = merged && cur.postmerge_point_value != null ? cur.postmerge_point_value : cur.point_value
+    return (
+      <>
+        <div className="flex flex-wrap gap-2">
+          {events.map((e) => (
+            <button
+              key={e.event_type}
+              type="button"
+              aria-pressed={e.event_type === cur.event_type}
+              onClick={() => setChipSel((m) => ({ ...m, [t]: e.event_type }))}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                e.event_type === cur.event_type ? 'border-terracotta-600 bg-terracotta-600 text-white' : 'border-forest-200 bg-white text-forest-700'
+              }`}
+            >
+              {e.label}
+              <span className="ml-1 font-normal opacity-70">
+                {(merged && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value) >= 0 ? '+' : ''}
+                {merged && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value}
+              </span>
+            </button>
+          ))}
+        </div>
+        {peopleList((c) => {
+          const n = (watch.events[cur.event_type] ?? {})[c.id] ?? 0
+          return (
+            <button
+              type="button"
+              onClick={() => tapEvent(cur.event_type, c.id, cur.is_per_unit)}
+              aria-pressed={n > 0}
+              className={`flex min-h-14 w-full items-center gap-3 px-3 text-left ${n > 0 ? 'bg-jade-50' : 'hover:bg-cream-50'}`}
+            >
+              {avatar(c)}
+              {nameText(c)}
+              {n > 0 && (
+                <span className="ml-auto rounded-full bg-jade-600 px-3 py-1 text-sm font-semibold text-white">
+                  {cur.is_per_unit ? `x${n}` : '✓'}
+                </span>
+              )}
+            </button>
+          )
+        })}
+        <p className="mt-2 text-xs text-stone-400">Worth {pts >= 0 ? '+' : ''}{pts} {cur.is_per_unit ? 'each' : ''} this episode.</p>
+      </>
+    )
   }
+
+  const finaleTab = (
+    <>
+      {chipTab('final')}
+      <div className="mt-6">
+        <p className="text-center font-display text-xs font-bold uppercase tracking-[0.16em] text-gold-800">The finale</p>
+        {finaleTier('winner', watch.finale.winner ? [watch.finale.winner] : [], 1, 'Sole Survivor', true)}
+        {finaleTier('finalThree', watch.finale.finalThree, 3, 'Final 3')}
+        {finaleTier('finalFour', watch.finale.finalFour, 4, 'Final 4')}
+        {openSlot && (
+          <div className="mt-3 rounded-xl border border-dashed border-stone-300 bg-cream-50 p-2">
+            <div className="flex flex-wrap gap-2">
+              {active.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setFinale(openSlot.tier, openSlot.index, c.id)}
+                  style={{ borderColor: c.tribe_color ?? 'var(--color-stone-200)' }}
+                  className="rounded-lg border-2 bg-white px-3 py-1.5 font-display text-sm font-semibold text-forest-700"
+                >
+                  {c.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setFinale(openSlot.tier, openSlot.index, null)}
+                className="rounded-lg border-2 border-stone-300 bg-white px-3 py-1.5 font-display text-sm font-semibold text-stone-500"
+              >
+                Clear slot
+              </button>
+            </div>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-stone-400">
+          Records the finish; set the exact placements (and 2nd vs. 3rd) on the contestants — the finale scoring follows.
+        </p>
+      </div>
+    </>
+  )
+
+  function finaleTier(
+    tier: 'finalFour' | 'finalThree' | 'winner',
+    ids: string[],
+    max: number,
+    label: string,
+    apex = false,
+  ) {
+    const slots: ReactNode[] = ids.map((id, i) => {
+      const c = cast.find((x) => x.id === id)
+      return (
+        <button
+          key={`${tier}-${i}`}
+          type="button"
+          onClick={() => setOpenSlot({ tier, index: i })}
+          style={{ borderColor: c?.tribe_color ?? 'var(--color-stone-300)' }}
+          className={`flex flex-col items-center gap-1 rounded-xl border-2 p-2 ${apex ? 'w-36 bg-gold-100' : 'w-24'}`}
+        >
+          {c && <ContestantAvatar name={c.name} imageUrl={c.image_url} tribeColor={c.tribe_color} tribeName={c.tribe_name} size={apex ? 'lg' : 'md'} />}
+          <span className="max-w-full truncate font-display text-sm font-semibold">{c?.name ?? '—'}</span>
+        </button>
+      )
+    })
+    if (ids.length < max)
+      slots.push(
+        <button
+          key={`${tier}-add`}
+          type="button"
+          onClick={() => setOpenSlot({ tier, index: ids.length })}
+          className={`flex items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-white ${apex ? 'h-[72px] w-36' : 'h-[64px] w-24'} text-2xl text-stone-400`}
+        >
+          +
+        </button>,
+      )
+    return (
+      <div className="mt-3 flex flex-col items-center gap-1.5">
+        <span className={`font-display text-[10px] font-bold uppercase tracking-[0.16em] ${apex ? 'text-gold-800' : 'text-stone-500'}`}>{label}</span>
+        <div className="flex flex-wrap justify-center gap-2">{slots}</div>
+      </div>
+    )
+  }
+
+  const notesTab = (
+    <>
+      <textarea
+        value={watch.notes}
+        onChange={(e) => setWatch((w) => ({ ...w, notes: e.target.value }))}
+        rows={8}
+        aria-label="Notes"
+        placeholder="Anything to check, judgment calls, reminders…"
+        className="w-full rounded-xl border border-cream-200 bg-white px-3 py-2 text-sm"
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button type="button" onClick={saveNow} className="min-h-11 rounded-lg bg-forest-700 px-4 text-sm font-semibold text-white">
+          Save
+        </button>
+        <button type="button" onClick={wipe} className="min-h-11 rounded-lg border border-stone-200 px-4 text-sm font-semibold text-forest-700">
+          Wipe for next episode
+        </button>
+        {saved && <span className="font-display text-sm font-bold text-jade-600">Saved ✓</span>}
+      </div>
+
+      <h2 className="mt-8 font-display text-2xl tracking-wide text-forest-900">Hand off</h2>
+      <p className="mt-1 text-sm text-stone-500">Apply these on the admin page, then let survivoR validate on Friday.</p>
+      <pre className="mt-3 overflow-x-auto rounded-lg bg-cream-100 p-3 text-sm text-gray-700">{buildHandoff(watch, cast, labelFor)}</pre>
+      <button
+        type="button"
+        onClick={() => void navigator.clipboard?.writeText(buildHandoff(watch, cast, labelFor))}
+        className="mt-3 min-h-11 rounded-lg bg-forest-700 px-4 text-sm font-semibold text-white"
+      >
+        Copy
+      </button>
+    </>
+  )
 
   return (
     <div>
@@ -247,89 +642,49 @@ export function WatchPage() {
       <PageHeader
         eyebrow={`Episode ${episode.episode_number}`}
         title="Watch tracker"
-        description="The six things the import never proposes. Tap a castaway to record one. Everything stays on this device."
+        description={`${recorded} recorded · everything stays on this device`}
       />
 
-      <div className="flex flex-wrap gap-2">
-        {EVENTS.map((e) => (
+      <div className="mt-3 flex gap-2 rounded-lg border border-cream-200 bg-cream-100 p-1">
+        {(['pre', 'merge'] as const).map((p) => (
           <button
-            key={e.type}
+            key={p}
             type="button"
-            aria-pressed={e.type === selected}
-            onClick={() => setSelected(e.type)}
-            className={`min-h-11 rounded-lg border px-3 text-sm font-semibold transition-colors ${
-              e.type === selected
-                ? 'border-terracotta-600 bg-terracotta-600 text-cream-50'
-                : 'border-forest-200 bg-white text-forest-700 hover:bg-cream-100'
+            aria-pressed={(p === 'merge') === merged}
+            onClick={() => setPhaseOverride(p)}
+            className={`flex-1 rounded-md py-2 font-display text-sm font-semibold ${
+              (p === 'merge') === merged ? 'bg-forest-600 text-cream-50' : 'text-forest-600'
             }`}
           >
-            {e.short} <span className="font-normal opacity-70">+{e.points}</span>
+            {p === 'pre' ? 'Pre-merge · by tribe' : 'Merged · flat'}
           </button>
         ))}
       </div>
-      <div className="mt-3 flex items-start justify-between gap-3">
-        <p className="text-sm text-gray-600">{event.hint}</p>
-        <button
-          type="button"
-          onClick={undo}
-          disabled={!history.length}
-          className="shrink-0 rounded-lg border border-forest-200 px-3 py-1 text-xs font-semibold text-forest-700 transition-colors hover:bg-cream-100 disabled:opacity-40"
-        >
-          Undo
-        </button>
+
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            aria-pressed={t.key === tab}
+            onClick={() => setTab(t.key)}
+            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 font-display text-sm font-semibold ${
+              t.key === tab ? 'border-terracotta-600 bg-terracotta-600 text-white' : 'border-cream-300 bg-white text-forest-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <ul className="mt-4 border-t border-cream-200">{active.map(castRow)}</ul>
-      {out.length > 0 && (
-        <details className="mt-2">
-          <summary className="min-h-11 cursor-pointer py-3 text-sm text-gray-500">
-            Already out ({out.length})
-          </summary>
-          <ul className="border-t border-cream-200">{out.map(castRow)}</ul>
-        </details>
-      )}
-
-      <section className="mt-8">
-        <h2 className="font-display text-2xl tracking-wide text-forest-900">Also worth a note</h2>
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-600">
-          {VERIFY.map((line) => <li key={line}>{line}</li>)}
-        </ul>
-        <textarea
-          value={notes}
-          onChange={(e) => { setNotes(e.target.value); setCopied(false) }}
-          rows={4}
-          aria-label="Notes"
-          placeholder="Immunity winners, who was safe, anything to check"
-          className="mt-3 w-full rounded-lg border border-forest-200 bg-white px-3 py-2 text-sm"
-        />
-      </section>
-
-      <section className="mt-8">
-        <h2 className="font-display text-2xl tracking-wide text-forest-900">Hand off</h2>
-        <pre className="mt-3 overflow-x-auto rounded-lg bg-cream-100 p-3 text-sm text-gray-700">{text}</pre>
-        <div className="mt-3 flex gap-3">
-          <button
-            type="button"
-            onClick={() => void copy()}
-            className="min-h-11 rounded-lg bg-forest-700 px-4 text-sm font-semibold text-white hover:bg-forest-800"
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm('Clear everything recorded for this episode?')) {
-                setCounts({})
-                setNotes('')
-                setCopied(false)
-              }
-            }}
-            className="min-h-11 rounded-lg border border-forest-200 px-4 text-sm font-semibold text-forest-700 hover:bg-cream-100"
-          >
-            Clear
-          </button>
-        </div>
-      </section>
+      <div className="mt-4">
+        {tab === 'wins' && winsTab}
+        {tab === 'tribal' && bootTab}
+        {tab === 'extras' && chipTab('extras')}
+        {tab === 'camp' && chipTab('camp')}
+        {tab === 'final' && finaleTab}
+        {tab === 'notes' && notesTab}
+      </div>
     </div>
   )
 }

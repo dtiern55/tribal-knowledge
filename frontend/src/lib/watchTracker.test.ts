@@ -1,0 +1,78 @@
+import { describe, expect, it } from 'vitest'
+import {
+  chipEventsForTab,
+  deriveEliminations,
+  deriveScoringEvents,
+  emptyState,
+  tabForEvent,
+  voteTally,
+} from './watchTracker'
+import type { RuleScoringEvent } from '../types'
+
+describe('watchTracker derivation', () => {
+  it('wins become scoring events, one per contestant', () => {
+    const s = emptyState()
+    s.wins = { win_team_immunity: ['a', 'b'], win_individual_reward: ['c'] }
+    const ev = deriveScoringEvents(s)
+    expect(ev).toContainEqual({ contestant_id: 'a', event_type: 'win_team_immunity', quantity: 1 })
+    expect(ev.filter((e) => e.event_type === 'win_team_immunity')).toHaveLength(2)
+    expect(ev).toContainEqual({ contestant_id: 'c', event_type: 'win_individual_reward', quantity: 1 })
+  })
+
+  it('only a confirmed vote for a boot scores a correct vote', () => {
+    const s = emptyState()
+    s.boots = ['x']
+    s.votes = {
+      voter1: { target: 'x', confirmed: true }, // correct
+      voter2: { target: 'y', confirmed: true }, // wrong target
+      voter3: { target: 'x', confirmed: false }, // still a prediction
+    }
+    const correct = deriveScoringEvents(s).filter((e) => e.event_type === 'vote_correctly_at_tribal')
+    expect(correct).toEqual([{ contestant_id: 'voter1', event_type: 'vote_correctly_at_tribal', quantity: 1 }])
+  })
+
+  it('per-unit chip counts carry through as quantity', () => {
+    const s = emptyState()
+    s.events = { read_treemail_or_instructions: { a: 3 }, go_on_journey: { b: 1, c: 0 } }
+    const ev = deriveScoringEvents(s)
+    expect(ev).toContainEqual({ contestant_id: 'a', event_type: 'read_treemail_or_instructions', quantity: 3 })
+    expect(ev).toContainEqual({ contestant_id: 'b', event_type: 'go_on_journey', quantity: 1 })
+    expect(ev.find((e) => e.contestant_id === 'c')).toBeUndefined() // zeroed out
+  })
+
+  it('boots become voted-out, final eliminations (one per tribal)', () => {
+    const s = emptyState()
+    s.boots = ['x', 'y']
+    expect(deriveEliminations(s)).toEqual([
+      { contestant_id: 'x', elimination_type: 'voted_out', is_final: true },
+      { contestant_id: 'y', elimination_type: 'voted_out', is_final: true },
+    ])
+  })
+
+  it('vote tally counts only confirmed votes, most-voted first', () => {
+    const s = emptyState()
+    s.votes = {
+      a: { target: 'x', confirmed: true },
+      b: { target: 'x', confirmed: true },
+      c: { target: 'y', confirmed: true },
+      d: { target: 'y', confirmed: false },
+    }
+    expect(voteTally(s)).toEqual([
+      { target: 'x', count: 2 },
+      { target: 'y', count: 1 },
+    ])
+  })
+
+  it('routes events to tabs and keeps win/vote/placement events off the chips', () => {
+    expect(tabForEvent('jeff_thats_how_you_do_it')).toBe('extras')
+    expect(tabForEvent('win_fire_making_challenge')).toBe('final')
+    expect(tabForEvent('go_on_journey')).toBe('camp') // unmapped default
+    const events: RuleScoringEvent[] = [
+      { event_type: 'win_team_immunity', label: 'Team immunity', point_value: 5, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
+      { event_type: 'go_on_journey', label: 'Journey', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+    ]
+    const camp = chipEventsForTab(events, 'camp')
+    expect(camp.map((e) => e.event_type)).toEqual(['go_on_journey']) // win + vote excluded
+  })
+})
