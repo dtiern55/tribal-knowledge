@@ -2325,6 +2325,21 @@ export function AdminPage() {
 }
 
 const LOADER_THEMES = ['unlocked', 'locked'] as const
+const UNLOCKED_LOADER_TEXTURES = [
+  { id: 'current', label: 'Current', tileImage: undefined },
+  { id: 'teak', label: 'Teak', tileImage: '/puzzle-unlocked-teak.webp?v=20260913' },
+  { id: 'woven', label: 'Woven', tileImage: '/puzzle-unlocked-woven.webp?v=20260913' },
+  { id: 'stone', label: 'Stone', tileImage: '/puzzle-unlocked-stone.webp?v=20260913' },
+] as const
+const LOCKED_LOADER_TEXTURES = [
+  { id: 'current', label: 'Current', tileImage: undefined },
+  { id: 'alder', label: 'Alder', tileImage: '/puzzle-locked-alder.webp?v=20260913' },
+  { id: 'birch', label: 'Birch', tileImage: '/puzzle-locked-birch.webp?v=20260913' },
+  { id: 'maple', label: 'Maple', tileImage: '/puzzle-locked-maple.webp?v=20260913' },
+  { id: 'charred', label: 'Charred', tileImage: '/puzzle-locked-charred.webp?v=20260913' },
+  { id: 'walnut', label: 'Walnut', tileImage: '/puzzle-locked-walnut.webp?v=20260913' },
+  { id: 'weathered', label: 'Weathered', tileImage: '/puzzle-locked-weathered.webp?v=20260913' },
+] as const
 
 function LoaderPreviewSection() {
   const [open, setOpen] = useState(false)
@@ -2342,6 +2357,7 @@ function LoaderPreviewSection() {
 function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
   const [show, setShow] = useState(false)
   const [theme, setTheme] = useState<(typeof LOADER_THEMES)[number]>('unlocked')
+  const [textureId, setTextureId] = useState('current')
   // Bumped to remount the loader, which re-picks its random quote (the loader
   // freezes the quote at mount).
   const [quoteNonce, setQuoteNonce] = useState(0)
@@ -2349,24 +2365,45 @@ function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
     const t = setTimeout(() => setShow(true), LOADER_DELAY_MS)
     return () => clearTimeout(t)
   }, [])
+  const textures = theme === 'unlocked' ? UNLOCKED_LOADER_TEXTURES : LOCKED_LOADER_TEXTURES
+  const texture = textures.find((candidate) => candidate.id === textureId)
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-auto">
       {show && (
         <div className="tk-loader-fade flex flex-1 flex-col [&>div]:flex-1">
-          <SlidePuzzleLoader key={quoteNonce} theme={theme} />
+          <SlidePuzzleLoader
+            key={quoteNonce}
+            theme={theme}
+            tileImage={texture?.tileImage}
+          />
         </div>
       )}
       <div className="fixed inset-x-0 bottom-0 z-10 flex flex-wrap items-center justify-center gap-2 bg-black/60 p-3 backdrop-blur">
         {LOADER_THEMES.map((t) => (
           <button
             key={t}
-            onClick={() => setTheme(t)}
+            onClick={() => {
+              setTheme(t)
+              setTextureId('current')
+            }}
             aria-pressed={t === theme}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
               t === theme ? 'bg-terracotta-500 text-white' : 'bg-white/15 text-white hover:bg-white/25'
             }`}
           >
             {t}
+          </button>
+        ))}
+        {textures.map((candidate) => (
+          <button
+            key={candidate.id}
+            onClick={() => setTextureId(candidate.id)}
+            aria-pressed={candidate.id === textureId}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              candidate.id === textureId ? 'bg-gold-400 text-forest-950' : 'bg-white/15 text-white hover:bg-white/25'
+            }`}
+          >
+            {candidate.label}
           </button>
         ))}
         <button
