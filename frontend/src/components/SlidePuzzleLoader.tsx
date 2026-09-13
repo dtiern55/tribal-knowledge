@@ -95,6 +95,7 @@ function prefersReducedMotion(): boolean {
 
 export function SlidePuzzleLoader({
   theme = 'unlocked',
+  tileImage,
   tempo = 0.8,
   doubleChance = 0.32,
   liftTiles = true,
@@ -104,6 +105,9 @@ export function SlidePuzzleLoader({
   resume = false,
 }: {
   theme?: Theme
+  /** Preview a different square source artwork without changing the theme's
+   *  frame, well, lighting, or production default. */
+  tileImage?: string
   /** Paint the ground behind the puzzle. Off inside the app, where the page's
    *  own wash is already there and a second copy showed as a box. */
   scene?: boolean
@@ -272,7 +276,7 @@ export function SlidePuzzleLoader({
                   height: '112px',
                   borderRadius: '11px',
                   overflow: 'hidden',
-                  backgroundImage: TH.tileImg,
+                  backgroundImage: tileImage ? `url("${tileImage}")` : TH.tileImg,
                   backgroundSize: '384px 384px',
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: `${-((hc + 0.5) * 128 - 56)}px ${-((hr + 0.5) * 128 - 56)}px`,

@@ -66,6 +66,33 @@ describe('AdminPage current rules', () => {
     expect(screen.queryByText(/weekly token allocation/)).not.toBeInTheDocument()
   })
 
+  it('previews every unlocked and locked loading-screen texture', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/leagues') {
+        return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
+      }
+      if (path === '/league-seasons') return [season]
+      return []
+    })
+
+    renderWithApp(<AdminPage />, {
+      auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
+    })
+
+    await user.click(await screen.findByRole('button', { name: 'Preview loading screen' }))
+    for (const name of ['Current', 'Teak', 'Woven', 'Stone']) {
+      expect(screen.getByRole('button', { name })).toBeVisible()
+    }
+
+    await user.click(screen.getByRole('button', { name: 'locked' }))
+    for (const name of ['Current', 'Alder', 'Birch', 'Maple', 'Charred', 'Walnut', 'Weathered']) {
+      expect(screen.getByRole('button', { name })).toBeVisible()
+    }
+    expect(screen.queryByRole('button', { name: 'Teak' })).not.toBeInTheDocument()
+  })
+
   it('requires explicit confirmation before publishing episode scores', async () => {
     const user = userEvent.setup()
     vi.mocked(getActiveSeason).mockResolvedValue(season)
