@@ -8,7 +8,9 @@ import pytest
 from tests.helpers import (
     insert_contestant,
     insert_elimination,
+    insert_elimination_pick,
     insert_episode,
+    insert_roster_pick,
     insert_season,
 )
 
@@ -143,6 +145,41 @@ def test_island_resident_is_not_a_ballot_target(client, db_conn):
     # episode-relative question this endpoint just answered (#735).
     assert contestants["Resident"]["on_redemption_from_episode"] == 1
     assert contestants["Other"]["on_redemption_from_episode"] is None
+
+
+@pytest.mark.integration
+def test_redemption_duel_loss_pick_scores_nothing(client, db_conn, current_user):
+    """A ballot on a castaway who loses a Redemption Island duel pays zero — that
+    person was already scored as a boot at their vote-out, so the duel loss is
+    the same boot, not a new one (Danny, 2026-09-13). A quit is a first exit and
+    still scores. Guards scoring.BALLOT_HIT_SQL against re-drifting to matching
+    any elimination. Picks inserted directly: the API blocks balloting a current
+    island resident, but the scoring rule must hold however a row got there."""
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    episode = insert_episode(db_conn, season["id"], status="scored")
+    duelist = insert_contestant(db_conn, season["id"], "Duelist")
+    quitter = insert_contestant(db_conn, season["id"], "Quitter")
+    safe = insert_contestant(db_conn, season["id"], "Safe")
+    insert_roster_pick(db_conn, current_user["id"], season["id"], safe["id"])
+    for contestant in (duelist, quitter):
+        insert_elimination_pick(
+            db_conn, current_user["id"], episode["id"], contestant["id"]
+        )
+    insert_elimination(
+        db_conn, episode["id"], duelist["id"], elimination_type="redemption_loss"
+    )
+    insert_elimination(db_conn, episode["id"], quitter["id"], elimination_type="quit")
+
+    response = client.get(
+        f"/league-seasons/{season['league_season_id']}"
+        f"/episode-results/{episode['id']}"
+    )
+    assert response.status_code == 200, response.text
+    by_name = {pick["name"]: pick for pick in response.json()["ballot"]}
+    assert by_name["Duelist"]["correct"] is False
+    assert by_name["Duelist"]["points"] == 0
+    assert by_name["Quitter"]["correct"] is True
+    assert by_name["Quitter"]["points"] > 0
 
 
 @pytest.mark.integration

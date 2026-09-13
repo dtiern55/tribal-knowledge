@@ -86,6 +86,15 @@ question; leave it out.
   island** (`is_final: false`). The proposal carries the flag; if survivoR
   has no next-episode tribe mapping yet it defaults to final — that one goes
   in the numbered list at the end.
+  - **"Boot" means voted out — nothing else.** For the ballot game a pick is
+    correct only when its castaway was **voted out** that episode. A Redemption
+    Island **duel loss** (`redemption_loss`) scores nobody: that person was
+    already counted as a boot when they were voted out to the island, so the
+    duel loss is just their final exit, not a new boot (Danny, 2026-09-13).
+    The code enforces this everywhere via `scoring.BALLOT_HIT_SQL`. So a normal
+    Redemption week — one castaway voted out, one losing a duel — is a
+    **single-boot week**. `is_final` still marks who left the game (it drives
+    the headline and standings), but it does **not** make a duel loss a boot.
 - **Scoring events per contestant** — grouped by person.
 - **A "what aired" read derived from the events** — immunity winner(s)
   (`win_individual_immunity` / `win_team_immunity`), reward winners, who voted
@@ -123,7 +132,11 @@ detail. Two kinds:
   - `performance_vs_median` — the viewer's own episode score vs the league
     median. **The recurring baseline; propose it every week.**
   - `multiple_correct_ballots` — ballots that called two or more boots. Only
-    on multi-boot weeks (a single-boot week caps every ballot at one).
+    on a **multi-boot week: two or more castaways voted out in one episode** (a
+    double tribal). A Redemption week's vote-out + duel loss is a single-boot
+    week (see "Boot means voted out" above) — **skip this tile, and do not
+    reason about whether it "would read 0."** The count already ignores the
+    duel loss, so it is not a multi-boot week at all.
   - `pick_popularity` — needs an eliminated `contestant_id`; owns the League
     Call slot. Redundant in single-boot weeks. Not for finales.
   - `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
@@ -145,7 +158,8 @@ detail. Two kinds:
 
 **The two computed tiles are standing defaults** (2026-09-09): the viewer's
 score against the league median every week, and multiple correct picks on any
-multi-boot week. Set them without asking. The **written** tile is the only
+multi-boot week (two or more castaways *voted out* — never a Redemption week's
+vote-out + duel loss). Set them without asking. The **written** tile is the only
 tile question — Danny picks one, rewrites it, or wants none. **Never choose
 that one for him.**
 

@@ -154,14 +154,15 @@ def _auto_league_call(conn, ls: dict, episode: dict) -> Optional[dict]:
         cur.execute(
             "select coalesce(c.nickname, c.name) as name from eliminations el"
             " join contestants c on c.id = el.contestant_id"
-            " where el.episode_id = %s order by el.created_at, c.name",
+            f" where el.episode_id = %s and {scoring.BALLOT_HIT_SQL}"
+            " order by el.created_at, c.name",
             [str(episode["id"])],
         )
         boots = [row["name"] for row in cur.fetchall()]
         if not boots:
             return None
         cur.execute(
-            """
+            f"""
             select count(distinct pick.user_id)::int as total,
                    count(distinct pick.user_id) filter (
                      where el.contestant_id is not null)::int as caught
@@ -169,6 +170,7 @@ def _auto_league_call(conn, ls: dict, episode: dict) -> Optional[dict]:
             left join eliminations el
               on el.episode_id = pick.episode_id
              and el.contestant_id = pick.contestant_id
+             and {scoring.BALLOT_HIT_SQL}
             where pick.league_season_id = %s and pick.episode_id = %s
             """,
             [str(ls["id"]), str(episode["id"])],
@@ -260,7 +262,7 @@ def compute_episode_insights(
         elif kind == "multiple_correct_ballots":
             with conn.cursor() as cur:
                 cur.execute(
-                    """
+                    f"""
                     with ballot as (
                       select pick.user_id,
                              count(el.contestant_id)::int as correct
@@ -268,6 +270,7 @@ def compute_episode_insights(
                       left join eliminations el
                         on el.episode_id = pick.episode_id
                        and el.contestant_id = pick.contestant_id
+                       and {scoring.BALLOT_HIT_SQL}
                       where pick.league_season_id = %s and pick.episode_id = %s
                       group by pick.user_id
                     )

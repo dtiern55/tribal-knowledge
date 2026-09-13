@@ -72,8 +72,15 @@ weekly-play swaps write no point penalty.
 ### Ballot points
 
 For non-finale episodes, each `elimination_picks` row scores when the same
-contestant appears in that episode's `eliminations`. Incorrect picks score
-zero.
+contestant appears in that episode's `eliminations` by any route **except a
+Redemption Island duel loss** (`redemption_loss`). A duel loss is the second
+exit of someone already scored as a boot at their vote-out, so re-scoring it
+would pay the same boot twice — `scoring.BALLOT_HIT_SQL`
+(`el.elimination_type <> 'redemption_loss'`) is the single source of truth,
+appended to every pick↔elimination match. Quits and medical evacuations are
+first exits, not double-counts, so they still score. Incorrect picks score
+zero. (Game-state "who's out" checks use `is_final` instead, which a duel loss
+correctly satisfies — the two must not be confused.)
 
 The ballot is a ladder (#694): `elimination_picks.rank` is the name's rung,
 1 = most confident, written from the order of the picks POST. A ranked pick
