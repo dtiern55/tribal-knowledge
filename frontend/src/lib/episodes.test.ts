@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Episode, Season } from '../types'
-import { airingEpisode, openEpisode, ssDesignationOpen, ssWindowOpenYet, swapLockEpisodeNumber } from './episodes'
+import { advantagesOpenYet, airingEpisode, openEpisode, ssDesignationOpen, ssWindowOpenYet, swapLockEpisodeNumber } from './episodes'
 
 const season = { roster_lock_episode: 2 } as Season
 
@@ -36,6 +36,13 @@ describe('episode lifecycle helpers', () => {
     expect(openEpisode(episodes, season)).toBeUndefined()
     expect(airingEpisode(episodes, season)?.episode_number).toBe(2)
     vi.useRealTimers()
+  })
+})
+
+describe('advantagesOpenYet', () => {
+  it('closes the premiere and opens from episode 2 on', () => {
+    expect(advantagesOpenYet(episode(1, '2026-08-20T00:00:00Z'))).toBe(false)
+    expect(advantagesOpenYet(episode(2, '2026-08-27T00:00:00Z'))).toBe(true)
   })
 })
 

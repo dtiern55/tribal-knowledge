@@ -70,9 +70,11 @@ export function CastPage() {
                       <span className={`truncate font-display text-lg font-semibold ${eliminated ? ELIMINATED_STRIKE : ''}`}>
                         {member.name}
                       </span>
-                      <span className="shrink-0 text-[11px] uppercase tracking-wide text-stone-400">
-                        {member.tribe_name ?? 'No tribe'}
-                      </span>
+                      {member.tribe_name && (
+                        <span className="shrink-0 text-[11px] uppercase tracking-wide text-stone-400">
+                          {member.tribe_name}
+                        </span>
+                      )}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2.5">
