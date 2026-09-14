@@ -1,6 +1,6 @@
 ---
 name: catch-up
-description: Copy an already-scored episode's result from the fast lane (the secondary league) into the qa league so qa catches up — the "second ritual" (#737). No survivoR, no rulings; it mirrors eliminations, scoring events, and tiles, closes the episode out, and verifies the target matches the source. Use when the qa league needs to catch up to secondary on a locked episode — "catch qa up to episode N", "transfer episode N from secondary to qa", "mirror ep N to qa".
+description: Catch the qa league up to the fast-lane secondary league — the "second ritual" (#737). Two steps, no survivoR/rulings: while qa is OPEN, copy Danny's own picks (ballot + advantage play + roster swap) secondary→qa (scripts/copy_player_picks.py); after qa LOCKS, transfer the episode result — eliminations, scoring events, tiles — and close it out (scripts/transfer_episode.py). Both verify. Use for "catch qa up to episode N", "copy my picks to qa", "transfer episode N from secondary to qa", "mirror ep N to qa".
 ---
 
 # Catch up a league — mirror an episode (#737)
@@ -17,13 +17,41 @@ the bots', and Casali's) and **never enters anything for Casali** — her picks 
 hers. This is **not** the `air-episode` ritual: no survivoR, no headline/tile
 authoring, no rulings. It just mirrors what secondary already has.
 
-## Do it
+There are **two steps at opposite ends of the episode window** — picks are
+copied while qa is still **open**, the score is transferred after it **locks**.
+Both dry-run first (`--dry-run`), both match contestants by **name**, both are
+idempotent (a re-run skips what's already there), and both connect to prod
+(`uv run --env-file .env.prod`).
+
+## Step 1 (while qa is OPEN): copy Danny's picks
+
+Mirror Danny's own play for the episode from secondary into qa so he doesn't
+re-enter it by hand. Only **his** rows — never a real player's (Casali, Michele).
+Run it once he's played the episode in secondary and qa is still open (before he
+locks it for the humans). The tool refuses if the target episode is already
+locked.
+
+```bash
+cd backend
+uv run --env-file .env.prod python scripts/copy_player_picks.py \
+  --source-league secondary --target-league qa --episode N \
+  --player "Danny Fairplay" --dry-run
+# looks right? drop --dry-run:
+uv run --env-file .env.prod python scripts/copy_player_picks.py \
+  --source-league secondary --target-league qa --episode N --player "Danny Fairplay"
+```
+
+Copies his ballot (preserving the ladder ranks, incl. a Power Vote's sealed
+name), his advantage play, and a roster swap he made that episode (recomputing
+the swap penalty against qa). Writes directly to the DB like `run_bots.py`, one
+transaction. Verifies the ballot + play match secondary before committing.
+
+## Step 2 (after qa LOCKS): transfer the score
 
 The target episode must be **locked** (the tool refuses otherwise, so it can't
 leak the result). Dry-run first, then apply:
 
 ```bash
-cd backend
 uv run --env-file .env.prod python scripts/transfer_episode.py \
   --source-league secondary --target-league qa --episode N --dry-run
 # looks right? drop --dry-run to write:
@@ -31,10 +59,9 @@ uv run --env-file .env.prod python scripts/transfer_episode.py \
   --source-league secondary --target-league qa --episode N
 ```
 
-It copies eliminations, scoring events, and tiles (matched by contestant **name**
-— each league has its own season copy), copies secondary's headline/note if it
-set any, then **closes the episode out** (`--no-score` to leave it open).
-Additive and idempotent: a re-run skips anything already there.
+It copies eliminations, scoring events, and tiles (each league has its own season
+copy), copies secondary's headline/note if it set any, then **closes the episode
+out** (`--no-score` to leave it open). Additive and idempotent.
 
 ## Verify (built in)
 
