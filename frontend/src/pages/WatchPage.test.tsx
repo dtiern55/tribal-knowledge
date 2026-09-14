@@ -6,7 +6,7 @@ import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { WatchPage } from './WatchPage'
 
-vi.mock('../lib/api', () => ({ api: { get: vi.fn() }, getActiveSeason: vi.fn() }))
+vi.mock('../lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() }, getActiveSeason: vi.fn() }))
 
 const season = { id: 'ls-1', season_id: 'season-1', name: 'Survivor 51', roster_lock_episode: 1, merge_episode: null } as Season
 const episode = { id: 'ep-1', episode_number: 5, picks_lock_at: '2020-01-01T00:00:00Z', status: 'locked' } as Episode
@@ -28,7 +28,9 @@ describe('WatchPage', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.put).mockResolvedValue(undefined as never)
     vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.endsWith('/watch')) return Promise.resolve({ data: {} }) as never
       if (path.endsWith('/episodes')) return Promise.resolve([episode]) as never
       if (path.endsWith('/rules')) return Promise.resolve(rules) as never
       return Promise.resolve(cast) as never
@@ -50,7 +52,7 @@ describe('WatchPage', () => {
     })
   })
 
-  it('records a boot and shows it in the hand-off', async () => {
+  it('records a boot and persists it', async () => {
     const user = userEvent.setup()
     renderWithApp(<WatchPage />, admin)
 
@@ -59,8 +61,7 @@ describe('WatchPage', () => {
     // pick the boot button, not the same-named voter row.
     const votedOut = screen.getByText('Voted out').closest('details') as HTMLElement
     await user.click(within(votedOut).getByRole('button', { name: /Rizo/ }))
-    await user.click(screen.getByRole('button', { name: 'Notes' }))
-    expect(screen.getByText(/Voted out: Rizo/)).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('tk-watch-ep-1') ?? '{}')).toMatchObject({ boots: ['c2'] })
   })
 
   it('gates non-commissioners out', async () => {

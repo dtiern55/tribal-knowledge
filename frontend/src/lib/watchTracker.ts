@@ -4,7 +4,7 @@
  * and hands off a summary he applies on the admin page — it writes nothing to
  * the backend itself. Everything here is pure so the derivation is testable.
  */
-import type { CastMember, RuleScoringEvent } from '../types'
+import type { RuleScoringEvent } from '../types'
 
 export type TabKey = 'wins' | 'tribal' | 'extras' | 'camp' | 'final' | 'notes'
 
@@ -147,39 +147,6 @@ export function voteTally(state: WatchState): { target: string; count: number }[
     .sort((a, b) => b.count - a.count)
 }
 
-/** Plain-text summary the commissioner applies on the admin page, grouped by
- *  the admin action each part maps to. */
-export function buildHandoff(
-  state: WatchState,
-  cast: CastMember[],
-  labelFor: (eventType: string) => string,
-): string {
-  const nameOf = (id: string) => cast.find((c) => c.id === id)?.name ?? id
-  const lines: string[] = ['Commissioner entry', '']
-
-  if (state.boots.length) lines.push('ELIMINATIONS', `  Voted out: ${state.boots.map(nameOf).join(', ')}`, '')
-
-  const events = deriveScoringEvents(state)
-  if (events.length) {
-    lines.push('SCORING EVENTS')
-    const byType = new Map<string, DerivedEvent[]>()
-    for (const e of events) byType.set(e.event_type, [...(byType.get(e.event_type) ?? []), e])
-    for (const [eventType, rows] of byType) {
-      const named = rows.map((r) => (r.quantity > 1 ? `${nameOf(r.contestant_id)} x${r.quantity}` : nameOf(r.contestant_id)))
-      lines.push(`  ${labelFor(eventType)}: ${named.join(', ')}`)
-    }
-    lines.push('')
-  }
-
-  const f = state.finale
-  const placement: string[] = []
-  if (f.winner) placement.push(`  Winner (1st): ${nameOf(f.winner)}`)
-  if (f.finalThree.length) placement.push(`  Final 3: ${f.finalThree.map(nameOf).join(', ')} (set 2nd/3rd on admin)`)
-  if (f.finalFour.length) placement.push(`  Final 4: ${f.finalFour.map(nameOf).join(', ')}`)
-  if (placement.length) lines.push('PLACEMENTS (set on the contestant, the finale events follow)', ...placement, '')
-
-  if (state.notes.trim()) lines.push('NOTES', state.notes.trim())
-
-  if (lines.length <= 2) lines.push('Nothing recorded yet.')
-  return lines.join('\n').trimEnd()
-}
+// The scoring ritual reads the raw state from the server (deriveScoringEvents /
+// deriveEliminations describe how it maps to scores), so there's no text
+// hand-off to build here.

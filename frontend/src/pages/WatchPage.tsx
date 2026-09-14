@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
@@ -11,7 +11,6 @@ import { rankCast } from '../lib/cast'
 import { airingEpisode } from '../lib/episodes'
 import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import {
-  buildHandoff,
   chipEventsForTab,
   deriveScoringEvents,
   emptyState,
@@ -66,7 +65,9 @@ export function WatchPage() {
   const [voterScope, setVoterScope] = useState<Record<string, 'tribe' | 'all'>>({})
   const [predictMode, setPredictMode] = useState(false)
   const [openSlot, setOpenSlot] = useState<{ tier: 'finalFour' | 'finalThree' | 'winner'; index: number } | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [synced, setSynced] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     async function load() {
@@ -84,12 +85,27 @@ export function WatchPage() {
         const ep = airingEpisode(episodes, active) ?? episodes.at(-1) ?? null
         setEpisode(ep)
         if (ep) {
+          let initial: WatchState | null = null
           try {
-            const stored = JSON.parse(localStorage.getItem(storageKey(ep.id)) ?? 'null') as WatchState | null
-            if (stored) setWatch({ ...emptyState(), ...stored })
+            // Server is the source of truth (cross-device); the scoring ritual
+            // reads it. Fall back to this device's copy if the fetch fails.
+            const server = await api.get<{ data: Partial<WatchState> }>(
+              `/league-seasons/${active.id}/episodes/${ep.id}/watch`,
+            )
+            if (server.data && Object.keys(server.data).length) initial = { ...emptyState(), ...server.data }
           } catch {
-            // Unreadable scratchpad, start clean.
+            // Offline or nothing saved yet — try the local copy below.
           }
+          if (!initial) {
+            try {
+              const stored = JSON.parse(localStorage.getItem(storageKey(ep.id)) ?? 'null') as WatchState | null
+              if (stored) initial = { ...emptyState(), ...stored }
+            } catch {
+              // Unreadable scratchpad, start clean.
+            }
+          }
+          if (initial) setWatch(initial)
+          setLoaded(true)
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load the episode')
@@ -101,23 +117,31 @@ export function WatchPage() {
   }, [])
 
   useEffect(() => {
-    if (!episode) return
+    if (!episode || !season || !loaded) return
     try {
       localStorage.setItem(storageKey(episode.id), JSON.stringify(watch))
     } catch {
       // Storage unavailable — the tracker still works for this sitting.
     }
-    setSaved(false)
-  }, [episode, watch])
+    // Debounced so a burst of taps is one write. Server is authoritative;
+    // localStorage above is the offline fallback.
+    setSynced('saving')
+    clearTimeout(saveTimer.current)
+    const lsId = season.id
+    const epId = episode.id
+    saveTimer.current = setTimeout(() => {
+      api
+        .put(`/league-seasons/${lsId}/episodes/${epId}/watch`, { data: watch })
+        .then(() => setSynced('saved'))
+        .catch(() => setSynced('error'))
+    }, 800)
+    return () => clearTimeout(saveTimer.current)
+  }, [episode, season, watch, loaded])
 
   // No pre/post-merge toggle: the tribes flatten on their own at the merge,
   // since the merge tribe is one tribe. postMerge only picks the point rate.
   const active = useMemo(() => rankCast(cast).filter((c) => c.eliminated_in_episode == null), [cast])
   const groups = useMemo(() => groupByTribe(active), [active])
-  const labelFor = useMemo(() => {
-    const map = new Map((rules?.scoring_events ?? []).map((e) => [e.event_type, e.label]))
-    return (et: string) => shortLabel(et, map.get(et) ?? et)
-  }, [rules])
   const recorded = deriveScoringEvents(watch).length + watch.boots.length
 
   if (loading) return <PageLoader />
@@ -216,14 +240,6 @@ export function WatchPage() {
     setOpenSlot(null)
   }
 
-  const saveNow = () => {
-    try {
-      localStorage.setItem(storageKey(episode.id), JSON.stringify(watch))
-      setSaved(true)
-    } catch {
-      setSaved(false)
-    }
-  }
   const wipe = () => {
     if (!confirm('Wipe everything recorded for this episode?')) return
     setWatch(emptyState())
@@ -608,25 +624,22 @@ export function WatchPage() {
         className="w-full rounded-xl border border-cream-200 bg-white px-3 py-2 text-sm"
       />
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={saveNow} className="min-h-11 rounded-lg bg-forest-700 px-4 text-sm font-semibold text-white">
-          Save
-        </button>
         <button type="button" onClick={wipe} className="min-h-11 rounded-lg border border-stone-200 px-4 text-sm font-semibold text-forest-700">
           Wipe for next episode
         </button>
-        {saved && <span className="font-display text-sm font-bold text-jade-600">Saved ✓</span>}
+        <span className="text-sm text-stone-500">
+          {synced === 'saving'
+            ? 'Saving…'
+            : synced === 'saved'
+              ? 'Saved to your league ✓'
+              : synced === 'error'
+                ? 'Offline — saved on this device, will sync when you reconnect'
+                : ''}
+        </span>
       </div>
-
-      <h2 className="mt-8 font-display text-2xl tracking-wide text-forest-900">Hand off</h2>
-      <p className="mt-1 text-sm text-stone-500">Apply these on the admin page, then let survivoR validate on Friday.</p>
-      <pre className="mt-3 overflow-x-auto rounded-lg bg-cream-100 p-3 text-sm text-gray-700">{buildHandoff(watch, cast, labelFor)}</pre>
-      <button
-        type="button"
-        onClick={() => void navigator.clipboard?.writeText(buildHandoff(watch, cast, labelFor))}
-        className="mt-3 min-h-11 rounded-lg bg-forest-700 px-4 text-sm font-semibold text-white"
-      >
-        Copy
-      </button>
+      <p className="mt-6 text-sm text-stone-500">
+        This saves to your league, so it's here on any device — I read it during the scoring ritual. Nothing to copy over.
+      </p>
     </>
   )
 
@@ -642,7 +655,7 @@ export function WatchPage() {
       <PageHeader
         eyebrow={`Episode ${episode.episode_number}`}
         title="Watch tracker"
-        description={`${recorded} recorded · everything stays on this device`}
+        description={`${recorded} recorded${synced === 'error' ? ' · offline, saved on device' : synced === 'saving' ? ' · saving…' : synced === 'saved' ? ' · saved to your league' : ''}`}
       />
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
