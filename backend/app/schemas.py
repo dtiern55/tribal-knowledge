@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -708,3 +708,17 @@ class ScoringEventEntry(BaseModel):
     event_type: str
     quantity: int = Field(default=1, ge=1)
     notes: Optional[str] = None
+
+
+class WatchNotesEntry(BaseModel):
+    """The commissioner's Watch tracker scratchpad for one episode (#737).
+
+    The tracker owns the shape of `data`; the server just stores and returns
+    it, so the scoring ritual can read it from any device.
+    """
+
+    data: dict[str, Any]
+
+
+class WatchNotes(BaseModel):
+    data: dict[str, Any]

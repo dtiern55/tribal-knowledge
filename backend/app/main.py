@@ -25,6 +25,7 @@ from app.routers import (
     survivor_import,
     tribes,
     tvmaze,
+    watch_notes,
 )
 
 app = FastAPI(title="Snakes and Rats")
@@ -63,6 +64,7 @@ app.include_router(rules.router)
 app.include_router(survivor_import.router)
 app.include_router(tvmaze.router)
 app.include_router(tribes.router)
+app.include_router(watch_notes.router)
 
 
 @app.get("/health")
