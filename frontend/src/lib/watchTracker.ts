@@ -147,6 +147,28 @@ export function voteTally(state: WatchState): { target: string; count: number }[
     .sort((a, b) => b.count - a.count)
 }
 
+/** The most-voted target when confirmed votes exist but no boot is marked —
+ *  the prompt that catches "tracked the vote, forgot to tap the boot" (#774).
+ *  Null once any boot is set or there's nothing to go on. */
+export function suggestedBoot(state: WatchState): string | null {
+  if (state.boots.length) return null
+  return voteTally(state)[0]?.target ?? null
+}
+
+/** Move everyone marked for an individual win to the team equivalent — the
+ *  one-tap fix when a tribe win got tapped as individuals on a swap week
+ *  (#773). Individual immunity has one winner, so >1 is always this mistake. */
+export function convertWinsToTeam(
+  wins: WatchState['wins'],
+  individualType: string,
+  teamType: string,
+): WatchState['wins'] {
+  const ids = wins[individualType] ?? []
+  if (!ids.length) return wins
+  const team = [...new Set([...(wins[teamType] ?? []), ...ids])]
+  return { ...wins, [individualType]: [], [teamType]: team }
+}
+
 // The scoring ritual reads the raw state from the server (deriveScoringEvents /
 // deriveEliminations describe how it maps to scores), so there's no text
 // hand-off to build here.

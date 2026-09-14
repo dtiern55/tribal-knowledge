@@ -12,9 +12,11 @@ import { airingEpisode } from '../lib/episodes'
 import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import {
   chipEventsForTab,
+  convertWinsToTeam,
   deriveScoringEvents,
   emptyState,
   shortLabel,
+  suggestedBoot,
   voteTally,
   WIN_EVENTS,
   type TabKey,
@@ -157,6 +159,8 @@ export function WatchPage() {
   const postMerge = season.merge_episode != null && episode.episode_number >= season.merge_episode
 
   // ---- mutators ----
+  const makeTeamWin = (individualType: string, teamType: string) =>
+    setWatch((w) => ({ ...w, wins: convertWinsToTeam(w.wins, individualType, teamType) }))
   const toggleWin = (eventType: string, id: string) =>
     setWatch((w) => {
       const cur = new Set(w.wins[eventType] ?? [])
@@ -282,8 +286,35 @@ export function WatchPage() {
   )
 
   // ---- tabs ----
+  const indImm = watch.wins[WIN_EVENTS.individualImmunity] ?? []
+  const indRew = watch.wins[WIN_EVENTS.individualReward] ?? []
+
   const winsTab = (
     <>
+      {indImm.length > 1 && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-gold-400 bg-gold-100 px-3 py-2 text-sm text-forest-900">
+          <span>{indImm.length} marked for individual immunity — only one person wins that. A tribe win?</span>
+          <button
+            type="button"
+            onClick={() => makeTeamWin(WIN_EVENTS.individualImmunity, WIN_EVENTS.teamImmunity)}
+            className="shrink-0 rounded-lg bg-forest-700 px-3 py-1 text-xs font-semibold text-white"
+          >
+            Make team immunity
+          </button>
+        </div>
+      )}
+      {indRew.length > 1 && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-gold-400 bg-gold-100 px-3 py-2 text-sm text-forest-900">
+          <span>{indRew.length} marked for individual reward — a tribe win?</span>
+          <button
+            type="button"
+            onClick={() => makeTeamWin(WIN_EVENTS.individualReward, WIN_EVENTS.teamReward)}
+            className="shrink-0 rounded-lg bg-forest-700 px-3 py-1 text-xs font-semibold text-white"
+          >
+            Make team reward
+          </button>
+        </div>
+      )}
       {peopleList(
         (c) => (
           <div className="flex min-h-14 items-center gap-3 px-3">
@@ -341,6 +372,9 @@ export function WatchPage() {
     </>
   )
 
+  const suggestBootId = suggestedBoot(watch)
+  const suggestBootName = suggestBootId ? cast.find((c) => c.id === suggestBootId)?.name ?? '—' : null
+
   const tribalTab = (
     <>
       <div className="flex items-center justify-between">
@@ -355,6 +389,18 @@ export function WatchPage() {
           {predictMode ? 'Done predicting' : 'Predict'}
         </button>
       </div>
+      {suggestBootId && (
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-terracotta-400 bg-terracotta-50 px-3 py-2 text-sm text-forest-900">
+          <span>No one's marked out — <b>{suggestBootName}</b> has the most votes.</span>
+          <button
+            type="button"
+            onClick={() => toggleBoot(suggestBootId)}
+            className="shrink-0 rounded-lg bg-terracotta-600 px-3 py-1 text-xs font-semibold text-white"
+          >
+            Mark out
+          </button>
+        </div>
+      )}
       {Object.values(watch.votes).some((v) => !v.confirmed) && (
         <button
           type="button"

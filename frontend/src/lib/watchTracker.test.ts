@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   chipEventsForTab,
+  convertWinsToTeam,
   deriveEliminations,
   deriveScoringEvents,
   emptyState,
+  suggestedBoot,
   tabForEvent,
   voteTally,
 } from './watchTracker'
@@ -74,5 +76,26 @@ describe('watchTracker derivation', () => {
     ]
     const camp = chipEventsForTab(events, 'camp')
     expect(camp.map((e) => e.event_type)).toEqual(['go_on_journey']) // win + vote excluded
+  })
+
+  it('suggests the vote-tally leader as the boot when none is marked (#774)', () => {
+    const s = emptyState()
+    s.votes = {
+      a: { target: 'x', confirmed: true },
+      b: { target: 'x', confirmed: true },
+      c: { target: 'y', confirmed: true },
+    }
+    expect(suggestedBoot(s)).toBe('x')
+    s.boots = ['x'] // once a boot is marked, no suggestion
+    expect(suggestedBoot(s)).toBeNull()
+    expect(suggestedBoot(emptyState())).toBeNull() // nothing to go on
+  })
+
+  it('converts individual wins to team, deduping (#773)', () => {
+    const wins = { win_individual_immunity: ['a', 'b'], win_team_immunity: ['b'] }
+    const out = convertWinsToTeam(wins, 'win_individual_immunity', 'win_team_immunity')
+    expect(out.win_individual_immunity).toEqual([])
+    expect([...out.win_team_immunity].sort()).toEqual(['a', 'b'])
+    expect(convertWinsToTeam({}, 'win_individual_immunity', 'win_team_immunity')).toEqual({}) // no-op
   })
 })
