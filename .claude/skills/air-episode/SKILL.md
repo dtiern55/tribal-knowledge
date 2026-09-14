@@ -1,17 +1,23 @@
 ---
 name: air-episode
-description: Weekly real-season scoring ritual (#186) — pull the survivoR proposal for an aired episode, review it with context and flags, take the commissioner's rulings on the whole package (eliminations, events, judgment calls, the results card headline, and the tiles) before anything is written, apply through the additive admin endpoints, then verify the resulting standings. Use when scoring a real or practice season episode.
+description: Weekly real-season scoring ritual (#186, #737) — score an aired episode from the commissioner's Watch tracker (saved server-side) as soon as picks lock, review the whole package with context and flags, take the commissioner's rulings (eliminations, events, judgment calls, the results card headline, and the tiles) before anything is written, apply through the additive admin endpoints, verify the standings, then reconcile against survivoR when it publishes. Use when scoring a real or practice season episode.
 ---
 
-# Air an episode — weekly scoring ritual (#186)
+# Air an episode — weekly scoring ritual (#186, #737)
 
-Danny (the commissioner) runs this with you after an episode airs **and**
-survivoR has published its data. The rule from #186: never auto-apply —
-**propose → review → rule → apply → verify.** The rule from #712: **nothing is
-written to a production backend until the whole package is approved** —
-eliminations, events, judgment calls, the results card headline, and every
-tile. This is interactive; do it in the conversation, and before each write
-say what it makes visible to players.
+Danny (the commissioner) runs this with you after an episode airs. He watches
+live and records what happens in the **Watch tracker** (the `/watch` screen,
+saved server-side per episode), so **the tracker is the primary source** — you
+score from it as soon as picks lock, without waiting on survivoR. **survivoR is
+the validation pass**: when it publishes (a day+ after air), you diff it against
+what you entered and reconcile (the last section). For a season Danny didn't
+track live (practice / bot / historical), survivoR is the primary source instead.
+
+The rule from #186: never auto-apply — **propose → review → rule → apply →
+verify.** The rule from #712: **nothing is written to a production backend until
+the whole package is approved** — eliminations, events, judgment calls, the
+results card headline, and every tile. This is interactive; do it in the
+conversation, and before each write say what it makes visible to players.
 
 ## 0. Connection & inputs
 
@@ -41,24 +47,60 @@ POST {SUPABASE_URL}/auth/v1/token?grant_type=password
 ## 1. Resolve IDs
 
 - `GET {API}/seasons` → the one with `season_number` == league season → `season_id`.
+- `GET {API}/league-seasons` → the row for that show → `league_season_id` (its
+  `id`; its `season_id` matches above). Needed for the Watch tracker and rules
+  endpoints.
 - `GET {API}/seasons/{season_id}/episodes` → `episode_number` == N → `episode_id`.
   Missing? The episode row must exist first (create it from the TVMaze episode
   proposal, #197). Stop and tell Danny.
 
-## 2. Pull the proposal (endpoint-driven, server builds it)
+## 2. Build the proposal — the Watch tracker first, survivoR to validate
+
+**Read the commissioner's live capture (#737):**
+
+```
+GET {API}/league-seasons/{league_season_id}/episodes/{episode_id}/watch
+→ { data: <watch state> }
+```
+
+`data` is what Danny tapped while watching. Its contestant ids are already app
+contestant ids — no name-matching needed. Translate it into the same shape the
+rest of this ritual expects (this mirrors `frontend/src/lib/watchTracker.ts`):
+
+- **Eliminations** — each id in `boots` → `{contestant_id, elimination_type:
+  "voted_out", is_final: true}`. The tracker doesn't record the exit *type*, so a
+  Redemption Island trip (`is_final: false`), medical, quit, or fire-loss is a
+  ruling — put it in the numbered list at the end of step 3.
+- **Scoring events**
+  - `wins` (`{event_type: [id, ...]}`) → one event per id (`win_team_immunity` /
+    `win_individual_immunity` / `win_team_reward` / `win_individual_reward`).
+  - `votes` (`{voter: {target, confirmed}}`) → for each **confirmed** vote whose
+    `target` is in `boots`, a `vote_correctly_at_tribal` for the voter. (The
+    tracker's vote tally is context only; `votes_received` scores 0 now.)
+  - `events` (`{event_type: {id: count}}`) → one event per id, `quantity = count`.
+- **Placements (finale)** — from `finale`: `winner` → placement 1; the other two
+  of `finalThree` → 2 and 3 (Danny sets which is 2nd); a `finalFour` member not in
+  `finalThree` is the fire-loss / 4th (placement 4).
+
+Empty `data` (or a 404) means nothing was tracked — fall back to survivoR as the
+primary source, or Danny enters it in the admin UI.
+
+**survivoR — the validation source** (and the *primary* source for a season not
+tracked live):
 
 ```
 GET {API}/episodes/{episode_id}/import-proposal?source_season={US_season}&refresh=true
 → { eliminations, events, placements, warnings, unmatched, source }
 ```
 
-- **404 "No survivoR data for season US<n>"** → survivoR hasn't published this
-  season/episode yet (it lags air by a day+). **Stop.** Either wait for
-  survivoR, or Danny enters this episode manually in the admin UI. Never
-  fabricate scores.
-- **`unmatched` non-empty** → league cast names don't line up with survivoR;
-  those people were dropped from the proposal. Report the names — fix the cast
-  spelling or note the gap before applying.
+- **404 "No survivoR data for season US<n>"** → survivoR hasn't published yet (it
+  lags air by a day+, ~2 days typical). This **no longer blocks** scoring from the
+  tracker — note it and run the reconciliation pass (last section) once it's out.
+  If there's no tracker data *either*, **stop**: wait for survivoR or enter
+  manually. Never fabricate scores.
+- **`unmatched` non-empty** → league cast names don't line up with survivoR; those
+  people were dropped from its proposal. Report the names before relying on
+  survivoR for them.
 
 ## 3. Present the whole package — nothing written yet
 
@@ -361,16 +403,41 @@ Bots pick BEFORE the episode airs, so this runs after scoring N and before
 N+1 locks. Never run it after the fact: the whole point is that nothing in
 the pipeline knows the result before the commissioner does.
 
+## 12. Validate against survivoR — the later reconciliation pass
+
+When survivoR publishes (a day+ after air; ~2 days typical — see the S50
+calibration), diff it against what you entered from the tracker and fix any
+disagreements. Standings and the results card recompute live, so corrections
+flow without re-scoring or re-closing.
+
+1. Pull the survivoR proposal (step 2, the survivoR block) with `refresh=true`.
+2. Read back what's applied: `GET {API}/episodes/{episode_id}/eliminations` and
+   `.../scoring-events`.
+3. Present the **diff only** — where survivoR and the applied data disagree: a
+   boot survivoR has that you don't (or vice versa), an immunity / reward / vote /
+   idol event that differs, an extra or missing event. **Judgment calls survivoR
+   never has** (blindsides, fake idols, steals) are not diffs — leave them.
+4. Take Danny's rulings on each discrepancy — survivoR is not automatically right,
+   he watched it. Apply the agreed corrections additively; remove a wrong row with
+   `DELETE {API}/scoring-events/{id}` or `DELETE {API}/eliminations/{id}`.
+5. Re-verify standings (step 7). If a correction changed the results card, it
+   re-reads on open — a `PATCH` headline or `PUT` tiles fix still works after
+   close-out.
+
 ## Remember
 
-- **survivoR lag** gates everything: data lands a day+ after air. If it's
-  behind, this ritual waits or falls back to manual admin-UI entry.
+- **survivoR lag no longer blocks scoring.** Score from the Watch tracker the
+  moment picks lock; survivoR is the later validation pass (step 12). Lag still
+  gates a season nobody tracked live — that one waits or falls back to manual
+  admin-UI entry.
 - **Never apply before picks lock (#559).** Standings and the cast page count
   scoring events / eliminations with no lock or scored-status gate, so a
   pre-lock apply spoils the boots and point changes live. Check the lock first
   (step 5); if you must go early, lock the episode first with Danny's OK.
-- **Judgment calls are always manual** — survivoR never has blindsides, fake
-  idols, or steals.
+- **Judgment calls come from the tracker's Extras tab now** (blindsides, fake
+  idols, steals) — survivoR never has them, so they are never a reconciliation
+  diff (step 12). On a survivoR-primary season (not tracked live), they're still
+  manual: Danny names them.
 - **The headline and the tiles are the commissioner's, every episode (#712).**
   Present them as they will render, in plain words, before the first write.
   Close-out is the last write and only after they are in.
