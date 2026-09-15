@@ -7,12 +7,14 @@ import pytest
 from tests.helpers import (
     insert_advantage_play,
     insert_contestant,
+    insert_elimination,
     insert_elimination_pick,
     insert_episode,
     insert_roster_pick,
     insert_scoring_event,
     insert_season,
     insert_user,
+    score_episode,
 )
 
 
@@ -91,6 +93,45 @@ def test_hub_reveals_the_field_at_lock(client, db_conn, current_user):
         f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
     ).json()
     assert "NoShow" not in {r["display_name"] for r in rows}
+
+
+@pytest.mark.integration
+def test_hub_carries_lane_points_once_scored(client, db_conn, current_user):
+    """Scored, each row carries its tribe/ballot lane points — the two numbers
+    the recap Field shows per team (#490 recap Field). Null before scoring."""
+    from app import scoring
+
+    season = insert_season(db_conn)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        status="scored",
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    boot = insert_contestant(db_conn, season["id"], name="Boot")
+    winner = insert_contestant(db_conn, season["id"], name="Winner")
+
+    bianca = insert_user(db_conn, display_name="Bianca")
+    insert_roster_pick(db_conn, bianca["id"], season["id"], winner["id"])
+    insert_elimination_pick(db_conn, bianca["id"], ep["id"], boot["id"])
+    insert_scoring_event(db_conn, ep["id"], winner["id"], "win_individual_immunity")
+    insert_elimination(db_conn, ep["id"], boot["id"])
+    score_episode(db_conn, ep["id"])
+
+    row = {
+        r["display_name"]: r
+        for r in client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+        ).json()
+    }["Bianca"]
+    assert row["tribe_points"] > 0  # rostered the immunity winner
+    assert row["ballot_points"] > 0  # voted the boot correctly
+    # The split reconciles with the one-number episode delta the standings use.
+    total = scoring.episode_points(db_conn, season["league_season_id"], 1)[
+        str(bianca["id"])
+    ]
+    assert row["tribe_points"] + row["ballot_points"] == total
 
 
 @pytest.mark.integration

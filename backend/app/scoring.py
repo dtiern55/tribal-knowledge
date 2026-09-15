@@ -549,22 +549,22 @@ def elimination_pick_results(conn, league_season_id: UUID, user_id: UUID) -> lis
         return cur.fetchall()
 
 
-def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[str, int]:
-    """Points each user gained from one episode — the change in their total.
+def episode_points_split(
+    conn, league_season_id: UUID, episode_number: int
+) -> dict[str, tuple[int, int]]:
+    """(tribe, ballot) points each user gained from one episode.
 
-    Used for the Standings trend arrow: rank as of the prior episode = current
-    total minus this. Every point in the standings traces to exactly one
-    episode, so summing this over all episodes reconciles with the three
-    standings components (see the invariant test). Components: roster scoring
+    The two lanes the recap card shows, per player: tribe = roster scoring
     events (doubled where Double Castaway Points was played, plus 50% of a Sole
-    Survivor designee's finale total) + swap penalties charged that episode +
-    correct elimination picks (doubled); at the finale, also finale-ballot
-    points, which resolve then.
+    Survivor designee's finale total) + swap penalties charged that episode;
+    ballot = correct elimination picks (doubled) and, at the finale, the
+    finale-ballot points that resolve then. Their sum is episode_points.
     """
-    points: dict[str, int] = {}
+    tribe: dict[str, int] = {}
+    ballot: dict[str, int] = {}
 
-    def add(uid: str, val: int) -> None:
-        points[uid] = points.get(uid, 0) + val
+    def add(bucket: dict[str, int], uid: str, val: int) -> None:
+        bucket[uid] = bucket.get(uid, 0) + val
 
     with conn.cursor() as cur:
         cur.execute(
@@ -598,7 +598,7 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
             [str(league_season_id), episode_number],
         )
         for row in cur.fetchall():
-            add(row["user_id"], row["pts"])
+            add(tribe, row["user_id"], row["pts"])
 
         # A swap charged at this episode closed the old pick at episode_number-1.
         cur.execute(
@@ -609,7 +609,7 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
             [str(league_season_id), episode_number - 1],
         )
         for row in cur.fetchall():
-            add(row["user_id"], row["pen"])
+            add(tribe, row["user_id"], row["pen"])
 
         cur.execute(
             f"""
@@ -630,7 +630,7 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
             [str(league_season_id), episode_number],
         )
         for row in cur.fetchall():
-            add(row["user_id"], row["pts"])
+            add(ballot, row["user_id"], row["pts"])
 
         cur.execute(
             "select 1 from episodes ep"
@@ -644,6 +644,25 @@ def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[st
     # special case — it's ordinary finale scoring events now.
     if is_finale:
         for uid, val in finale_points(conn, league_season_id).items():
-            add(uid, val)
+            add(ballot, uid, val)
 
-    return points
+    return {
+        uid: (tribe.get(uid, 0), ballot.get(uid, 0)) for uid in set(tribe) | set(ballot)
+    }
+
+
+def episode_points(conn, league_season_id: UUID, episode_number: int) -> dict[str, int]:
+    """Points each user gained from one episode — the change in their total.
+
+    Used for the Standings trend arrow: rank as of the prior episode = current
+    total minus this. Every point in the standings traces to exactly one
+    episode, so summing this over all episodes reconciles with the three
+    standings components (see the invariant test). The tribe/ballot split is
+    episode_points_split; here they're summed to the one delta.
+    """
+    return {
+        uid: t + b
+        for uid, (t, b) in episode_points_split(
+            conn, league_season_id, episode_number
+        ).items()
+    }

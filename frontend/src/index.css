@@ -948,6 +948,19 @@ html.locked-night .app-shell .ballot-tray {
   box-shadow: 0 1px 2px rgb(28 25 23 / 0.12);
 }
 
+/* On a dark surface off the locked-night shell (the recap Field): the same
+   cream ink and gold wash the locked-night overrides give, so slips don't read
+   forest-on-forest. Mirrors the html.locked-night .ballot-slip rules. */
+.ballot-slip--dark {
+  border-color: rgb(242 233 219 / 45%);
+  color: rgb(242 233 219 / 90%);
+}
+.ballot-slip--dark.ballot-slip--doubled {
+  border-color: var(--color-gold-400);
+  background: rgb(214 178 92 / 14%);
+  color: #f2e9db;
+}
+
 /* A vote for someone already out. The slip stays; the name is struck. */
 .ballot-slip--stale {
   border-color: var(--color-stone-400);

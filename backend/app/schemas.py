@@ -221,6 +221,10 @@ class HubEntry(BaseModel):
     advantage_target: Optional[StandingSurvivor] = None
     # Their Sole Survivor pick, when it is on the active roster.
     sole_survivor_contestant_id: Optional[UUID] = None
+    # This episode's tribe/ballot lane points, once it's scored — the two
+    # numbers the recap card shows for you (#490 recap Field). None until then.
+    tribe_points: Optional[int] = None
+    ballot_points: Optional[int] = None
 
 
 class ContestantPoints(BaseModel):

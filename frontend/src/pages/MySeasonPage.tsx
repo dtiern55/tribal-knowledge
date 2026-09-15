@@ -1624,6 +1624,9 @@ function LeagueHub({
       <ul className="mt-2 space-y-2">
         {entries.map((entry) => {
           const isMe = entry.user_id === userId
+          // Points ride the row once the episode is scored (the recap Field);
+          // pre-scoring the Hub is picks only, so these gate the recap extras.
+          const scored = entry.tribe_points != null
           return (
             <li key={entry.user_id}>
               <details
@@ -1645,8 +1648,21 @@ function LeagueHub({
                     {entry.display_name}
                     {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
                   </span>
-                  {/* No idol here: everyone plays an advantage, so a "they
-                      played one" mark is redundant. The ×2 inside marks WHERE. */}
+                  {/* On the recap, mark where they aimed their advantage — the
+                      idol plus its target — so the field reads at a glance
+                      without opening every row. The detail below marks it again
+                      on the exact castaway/slip. Hidden pre-scoring (#490). */}
+                  {scored && entry.advantage_type && (
+                    <span className={`inline-flex min-w-0 shrink items-center gap-1 ${sub}`}>
+                      <DoubleBadge
+                        size={16}
+                        title={entry.advantage_type === 'double_roster_points' ? 'Double Castaway Points' : 'Power Vote'}
+                      />
+                      <span className="truncate text-xs font-medium">
+                        {entry.advantage_target ? entry.advantage_target.name : 'Power Vote'}
+                      </span>
+                    </span>
+                  )}
                   <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 transition-transform group-open:rotate-180 ${sub}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -1660,6 +1676,7 @@ function LeagueHub({
                     survivors={entry.roster}
                     sub={sub}
                     empty="No active tribe."
+                    points={entry.tribe_points}
                     doubledContestantId={
                       entry.advantage_type === 'double_roster_points'
                         ? (entry.advantage_target?.contestant_id ?? null)
@@ -1671,10 +1688,15 @@ function LeagueHub({
                   {/* Ballots are slips here too, same as your own card above:
                       the ballot is where you write a name down. */}
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
-                      {entry.advantage_type === 'double_vote_points' && !entry.advantage_target && (
-                        <DoubleBadge size={18} title="Power Vote this episode" />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
+                        {entry.advantage_type === 'double_vote_points' && !entry.advantage_target && (
+                          <DoubleBadge size={18} title="Power Vote this episode" />
+                        )}
+                      </div>
+                      {entry.ballot_points != null && (
+                        <LanePoints value={entry.ballot_points} broadcast={broadcast} />
                       )}
                     </div>
                     {entry.ballot.length > 0 ? (
@@ -1688,6 +1710,7 @@ function LeagueHub({
                               key={vote.contestant_id}
                               name={vote.name}
                               doubled={doubled}
+                              dark={broadcast}
                               tribeColor={vote.tribe_color}
                               rotation={[-0.9, 0.6, -0.3][index % 3]}
                               leading={doubled ? <DoubleBadge size={18} title="Power Vote" /> : null}
@@ -1711,11 +1734,28 @@ function LeagueHub({
   )
 }
 
+/** A signed lane total, coloured like the recap card's lane header. */
+function LanePoints({ value, broadcast }: { value: number; broadcast: boolean }) {
+  const tone =
+    value > 0
+      ? broadcast ? 'text-jade-200' : 'text-jade-700'
+      : value < 0
+        ? broadcast ? 'text-terracotta-200' : 'text-terracotta-600'
+        : broadcast ? 'text-white/50' : 'text-gray-400'
+  return (
+    <span className={`shrink-0 font-display text-sm font-semibold tabular-nums ${tone}`}>
+      {value > 0 ? '+' : ''}
+      {value}
+    </span>
+  )
+}
+
 function HubCastawayRow({
   label,
   survivors,
   sub,
   empty,
+  points = null,
   doubledContestantId = null,
   soleSurvivorId = null,
   broadcast = false,
@@ -1724,6 +1764,8 @@ function HubCastawayRow({
   survivors: StandingSurvivor[]
   sub: string
   empty: string
+  /** This lane's episode total, once scored (the recap Field); null before. */
+  points?: number | null
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
   /** Their Sole Survivor pick: a gold name, nothing louder (#685). */
@@ -1732,7 +1774,10 @@ function HubCastawayRow({
 }) {
   return (
     <div>
-      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
+        {points != null && <LanePoints value={points} broadcast={broadcast} />}
+      </div>
       {survivors.length > 0 ? (
         // Five to a row so a full tribe sits on one line; portrait over name,
         // the idol pinned to the portrait it doubled (#685).
