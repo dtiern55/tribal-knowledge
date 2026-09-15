@@ -9,19 +9,41 @@ import { SectionShell } from '../components/SectionShell'
 import { useAuth } from '../auth/useAuth'
 import { api, getActiveSeason } from '../lib/api'
 import { castStatus } from '../lib/cast'
+import { advantagesOpenYet } from '../lib/episodes'
 import { useSwipeNav } from '../lib/swipe'
-import type { CastMember, ContestantPerformance, RosterPick, ScoringBreakdown } from '../types'
+import type { CastMember, ContestantPerformance, Episode, RosterPick, ScoringBreakdown, Season } from '../types'
 
 function Points({ value, suffix = 'pts' }: { value: number; suffix?: string }) {
   const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
   return <span className={`font-semibold ${color}`}>{value > 0 ? '+' : ''}{value} {suffix}</span>
 }
 
+// Short labels for the standard S51+ cast questionnaire; anything unmapped
+// falls back to the question as written, so a reworded future-season question
+// still renders (just at full length). The keys use the data's curly apostrophe.
+const BIO_LABELS: Record<string, string> = {
+  'Why do you want to be part of Survivor?': 'Why Survivor',
+  'What’s one life experience you feel has prepared you for the game?': 'What prepared them',
+  'Which previous player do you identify with the most? Who do you think you will play most like?': 'Plays like',
+  'What will you value in an alliance partner?': 'In an ally',
+  'Favorite hobbies': 'Hobbies',
+  'Pet Peeves': 'Pet peeves',
+  'What is the accomplishment you are most proud of?': 'Proudest of',
+  'What is something we would never know from looking at you?': 'You’d never guess',
+  'Who in your life is your biggest inspiration and why?': 'Biggest inspiration',
+}
+const bioLabel = (q: string): string => BIO_LABELS[q] ?? q
+
 export function ContestantPage() {
   const { contestantId } = useParams()
   const [searchParams] = useSearchParams()
   const [perf, setPerf] = useState<ContestantPerformance | null>(null)
   const [cast, setCast] = useState<CastMember[]>([])
+  const [season, setSeason] = useState<Season | null>(null)
+  const [episodes, setEpisodes] = useState<Episode[]>([])
+  // null = follow the auto default (open while picking, closed after); once the
+  // reader toggles it, their choice sticks for the session.
+  const [bioOpen, setBioOpen] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const castQuery = searchParams.get('cast')
@@ -63,8 +85,17 @@ export function ContestantPage() {
   useEffect(() => {
     let live = true
     void getActiveSeason()
-      .then((season) => season && api.get<CastMember[]>(`/seasons/${season.season_id}/cast`))
-      .then((rows) => live && rows && setCast(rows))
+      .then(async (s) => {
+        if (!s || !live) return
+        setSeason(s)
+        const [rows, eps] = await Promise.all([
+          api.get<CastMember[]>(`/seasons/${s.season_id}/cast`),
+          api.get<Episode[]>(`/seasons/${s.season_id}/episodes`),
+        ])
+        if (!live) return
+        setCast(rows)
+        setEpisodes(eps)
+      })
       .catch(() => {})
     return () => { live = false }
   }, [])
@@ -125,6 +156,20 @@ export function ContestantPage() {
     perf.occupation,
     perf.hometown,
   ].filter((fact): fact is string => Boolean(fact))
+  // #262: the CBS cast questionnaire. Two evergreen questions get lifted out of
+  // the list — the three words become a header tagline, the Sole Survivor pitch
+  // a highlighted pull quote — and the rest render as a two-column grid.
+  const qa = perf.bio_qa ?? []
+  const threeWords = qa.find((q) => /3 words/i.test(q.question))?.answer
+  const solePitch = qa.find((q) => /sole survivor/i.test(q.question))?.answer
+  const interviewQa = qa.filter(
+    (q) => !/3 words/i.test(q.question) && !/sole survivor/i.test(q.question),
+  )
+  const firstName = perf.name.split(' ')[0]
+  // Open while people are still building teams (the pre-episode-2 watch-only
+  // window), tucked away once picking closes. Reuses the advantage window's
+  // signal so "still picking" means the same thing across the app (#769/#770).
+  const bioOpenNow = bioOpen ?? (season != null && !advantagesOpenYet(season, episodes))
   // Newest episode first — the most recent airing is what you check.
   const sortedEps = [...perf.episodes].sort((a, b) => b.episode_number - a.episode_number)
   const allEpsOpen = sortedEps.length > 0 && sortedEps.every((e) => openEps.has(e.episode_number))
@@ -189,29 +234,49 @@ export function ContestantPage() {
           {bioFacts.length > 0 && (
             <p className="mt-2 text-sm text-gray-600">{bioFacts.join(' · ')}</p>
           )}
-          {perf.bio && (
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-gray-600">{perf.bio}</p>
-          )}
-          {perf.bio_qa && perf.bio_qa.length > 0 && (
-            <details className="mt-5 max-w-xl">
-              <summary className="cursor-pointer text-sm font-medium text-forest-800">Bio</summary>
-              <div className="mt-3 space-y-3">
-                {perf.bio_qa.map((qa) => (
-                  <div key={qa.question}>
-                    <p className="text-sm font-medium text-forest-800">{qa.question}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-gray-600">{qa.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-          {!perf.bio && !perf.bio_qa?.length && (
-            <p className="mt-5 max-w-xl text-sm italic leading-relaxed text-gray-500">
-              Bio coming soon — {perf.name}'s background and story will live here once bios are added.
+          {threeWords && (
+            <p className="mt-2.5 text-lg text-terracotta-700" style={{ fontFamily: 'Kalam, cursive' }}>
+              &ldquo;{threeWords}&rdquo;
             </p>
           )}
         </div>
       </header>
+
+      {(interviewQa.length > 0 || solePitch) && (
+        <div className="mt-8">
+          <SectionShell title="Cast Bio" prominent open={bioOpenNow} onToggle={() => setBioOpen(!bioOpenNow)}>
+            {solePitch && (
+              <div className={interviewQa.length > 0 ? 'mb-6' : ''}>
+                <div className="mb-2 flex items-center gap-2">
+                  <svg viewBox="0 0 24 28" className="h-4 w-3.5 shrink-0" aria-hidden="true">
+                    <path d="M12 1C13 7 18 8 18 15a6 6 0 0 1-12 0c0-3 1.5-4.5 2.5-6C9.5 11 10 12 11 12 11 8 11 4 12 1Z" style={{ fill: 'var(--color-gold-500)' }} />
+                    <path d="M12 9c1.5 2 3 3.5 3 6a3 3 0 0 1-6 0c0-1.6 1.2-2.8 2-4 .3.7.6 1.2 1 1.4C12 11 12 10 12 9Z" style={{ fill: 'var(--color-gold-100)' }} />
+                  </svg>
+                  <span className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-gold-600">
+                    Why {firstName} will be Sole Survivor
+                  </span>
+                  <span className="h-px flex-1 bg-paper-line" aria-hidden="true" />
+                </div>
+                <p className="font-display text-xl font-medium leading-snug text-forest-900">
+                  &ldquo;{solePitch}&rdquo;
+                </p>
+              </div>
+            )}
+            {interviewQa.length > 0 && (
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+                {interviewQa.map((q) => (
+                  <div key={q.question}>
+                    <dt className="mb-1 text-[11px] font-bold uppercase tracking-[0.11em] text-forest-700">
+                      {bioLabel(q.question)}
+                    </dt>
+                    <dd className="text-sm leading-relaxed text-paper-ink">{q.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </SectionShell>
+        </div>
+      )}
 
       <div className="mt-8">
         <SectionShell title="Episodes" prominent>
