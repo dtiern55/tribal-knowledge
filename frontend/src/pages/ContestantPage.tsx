@@ -281,7 +281,12 @@ export function ContestantPage() {
       <div className="mt-8">
         <SectionShell title="Episodes" prominent>
           {perf.episodes.length === 0 ? (
-            <Notice title="No scored activity yet">Episode scoring will appear here once this castaway earns or loses points.</Notice>
+            <div className="rounded-2xl border border-paper-edge record-paper px-4 py-6 text-center">
+              <p className="font-medium text-paper-ink">No scored activity yet</p>
+              <p className="mt-1 text-sm text-paper-ink-faded">
+                Episode scoring will appear here once this castaway earns or loses points.
+              </p>
+            </div>
           ) : (
             <>
               {sortedEps.length > 1 && (
