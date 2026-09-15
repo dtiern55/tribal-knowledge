@@ -23,28 +23,31 @@ Both dry-run first (`--dry-run`), both match contestants by **name**, both are
 idempotent (a re-run skips what's already there), and both connect to prod
 (`uv run --env-file .env.prod`).
 
-## Step 1 (while qa is OPEN): copy Danny's picks
+## Step 1 (while qa is OPEN): copy the mirror players' picks
 
-Mirror Danny's own play for the episode from secondary into qa so he doesn't
-re-enter it by hand. Only **his** rows — never a real player's (Casali, Michele).
-Run it once he's played the episode in secondary and qa is still open (before he
-locks it for the humans). The tool refuses if the target episode is already
-locked.
+Mirror Danny's and the bots' play for the episode from secondary into qa so
+it's not re-entered by hand. Copies **only the named players' rows** — real
+players (Casali, and any other human) keep their own picks. The bot accounts are
+shared across leagues, so `--bots` copies every one of them. Run it once Danny
+has played the episode in secondary and qa is still open (before it locks for
+the humans). The tool refuses if the target episode is already locked.
 
 ```bash
 cd backend
 uv run --env-file .env.prod python scripts/copy_player_picks.py \
   --source-league secondary --target-league qa --episode N \
-  --player "Danny Fairplay" --dry-run
+  --player "Danny Fairplay" --bots --dry-run
 # looks right? drop --dry-run:
 uv run --env-file .env.prod python scripts/copy_player_picks.py \
-  --source-league secondary --target-league qa --episode N --player "Danny Fairplay"
+  --source-league secondary --target-league qa --episode N --player "Danny Fairplay" --bots
 ```
 
-Copies his ballot (preserving the ladder ranks, incl. a Power Vote's sealed
-name), his advantage play, and a roster swap he made that episode (recomputing
-the swap penalty against qa). Writes directly to the DB like `run_bots.py`, one
-transaction. Verifies the ballot + play match secondary before committing.
+`--player` copies one member by name; `--bots` copies every bot member; pass
+either or both. For each it copies the ballot (preserving ladder ranks, incl. a
+Power Vote's sealed name), the advantage play, and a roster swap that episode
+(recomputing the swap penalty against qa). Writes directly to the DB like
+`run_bots.py`, one transaction, and rolls back unless every player's ballot +
+play verify against secondary.
 
 ## Step 2 (after qa LOCKS): transfer the score
 
