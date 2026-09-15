@@ -346,9 +346,25 @@ uv run --env-file .env.prod python scripts/run_bots.py week {N+1} --league secon
 uv run --env-file .env.prod python scripts/run_bots.py week {N+1} --league qa --season 27
 ```
 
-**Ask Danny for two things only:** the tiers in his own words ("lean on Brad
-and Ciera, pepper in these five, spread a few here") and **roughly what share
-of ballots the top name should hold**. Everything below is yours to derive.
+**Generate the read (preferred) instead of hand-writing weights.** Ask Danny
+for a **conviction** and the **favored names**, and let `scripts/bot_read.py`
+turn it into the `season_<n>.json` entry:
+
+```
+uv run python scripts/bot_read.py --season <n> --episode {N+1} \
+  --conviction <pileon|strong|lean|crapshoot> \
+  --favor "..." --light "..." --cold "..." --double "..." --dry-run
+```
+
+`conviction` sets `spread` + weight steepness (pileon = one target; strong = a
+few; lean = favored, small edge; crapshoot = wide/no read); `favor`/`light`/
+`cold` are the boot lean; **power ballots always follow the votes** (baked in,
+never stated). Drop `--dry-run` to write the entry, then run `run_bots` above.
+The mechanics it encodes are documented below — read them to sanity-check or to
+hand-tune an edge case.
+
+(The older manual path: give the tiers in words plus roughly what share the top
+name should hold, and set the weights yourself.)
 
 **`spread` is what decides whether the read bites at all — set it every week.**
 It floors each bot's follow distance, and `run_bots` treats 8 as near a uniform
