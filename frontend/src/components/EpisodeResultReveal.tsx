@@ -373,11 +373,12 @@ export function EpisodeResultReveal({
                         tribeName={null}
                         size="sm"
                       />
-                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Power Vote" />}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
                         {label && <span className="block text-xs text-cream-100/45">{label}</span>}
                       </span>
+                      {/* Idol after the name, same as the Tribe lane, so names stay aligned. */}
+                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Power Vote" />}
                       <span
                         className={`shrink-0 font-display font-semibold tabular-nums ${
                           pick.correct ? 'text-jade-200' : 'text-cream-100/45'
@@ -546,7 +547,6 @@ function ResultRow({
         <span className={eliminated ? ELIMINATED_DIM : undefined}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
         </span>
-        {icon}
         <span
           className={`min-w-0 flex-1 truncate text-sm font-medium ${
             eliminated ? `text-cream-100/45 ${ELIMINATED_STRIKE}` : 'text-cream-100'
@@ -555,6 +555,9 @@ function ResultRow({
           {name}
         </span>
         {eliminated && <span className="sr-only">voted out this episode</span>}
+        {/* The idol rides after the name so a doubled row keeps its name's left
+            edge in line with the plain rows above and below it. */}
+        {icon}
         <span className="shrink-0 font-display font-semibold text-cream-100 tabular-nums">{signed(value)}</span>
         {expandable && (
           <svg
