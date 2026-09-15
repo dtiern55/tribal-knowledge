@@ -5,9 +5,9 @@ import type { Quote } from '../lib/quotes'
 
 /**
  * Loading screen: a Survivor 8-tile sliding puzzle built from the Snakes and
- * Rats mark. The unlocked board uses the selected lighter-walnut artwork;
- * tiles clack around a beveled tray
- * forever and never solve. Ported faithfully from the design handoff —
+ * Rats mark. The unlocked board uses Teak tiles in a darker Teak tray; the
+ * locked board uses Birch tiles in a figured Maple tray. Tiles clack around a
+ * beveled tray forever and never solve. Ported faithfully from the design handoff —
  * geometry, timing, and easing are final.
  *
  * `theme` follows the app's open/locked state (PageLoader reads `locked-night`
@@ -53,8 +53,8 @@ const THEMES: Record<Theme, PuzzleTheme> = {
   unlocked: {
     // The body::before ground wash (index.css), for the standalone preview.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
-    tileImg: 'url("/puzzle-wood-solid.webp?v=20260903-walnut-lighter")',
-    boardImg: 'url("/wood-walnut.png")',
+    tileImg: 'url("/puzzle-unlocked-teak.webp?v=20260913")',
+    boardImg: 'url("/wood-teak-dark.webp?v=20260915")',
     label: '#1e3a2f',
     frameTint: 'linear-gradient(158deg, rgba(151,107,72,0.10), rgba(28,12,5,0.28))',
     frameShadow: 'inset 5px 5px 9px rgba(255,225,180,0.12), inset -7px -9px 14px rgba(19,7,3,0.64), 0 7px 0 #241108, 0 36px 46px -12px rgba(62,32,15,0.58)',
@@ -66,8 +66,8 @@ const THEMES: Record<Theme, PuzzleTheme> = {
   },
   locked: {
     scene: 'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px), linear-gradient(180deg, #132e25, #0e1f19)',
-    tileImg: 'url("/puzzle-wood-light.webp?v=20260902-fine")',
-    boardImg: 'url("/wood-oak.png")',
+    tileImg: 'url("/puzzle-locked-birch.webp?v=20260913")',
+    boardImg: 'url("/wood-maple.webp?v=20260915")',
     label: '#f2e9db',
     frameTint: 'linear-gradient(158deg, rgba(255,241,210,0.08), rgba(112,65,29,0.16))',
     frameShadow: 'inset 5px 5px 9px rgba(255,247,220,0.42), inset -7px -9px 14px rgba(91,52,22,0.42), 0 7px 0 #80532d, 0 36px 50px -12px rgba(0,0,0,0.58)',
