@@ -85,12 +85,18 @@ describe('AdminPage current rules', () => {
     for (const name of ['Current', 'Teak', 'Woven', 'Stone']) {
       expect(screen.getByRole('button', { name })).toBeVisible()
     }
+    await user.click(screen.getByRole('button', { name: 'Teak' }))
+    expect((await screen.findByLabelText('Loading')).innerHTML).toContain('/wood-teak-dark.webp?v=20260915')
 
     await user.click(screen.getByRole('button', { name: 'locked' }))
-    for (const name of ['Current', 'Alder', 'Birch', 'Maple', 'Charred', 'Walnut', 'Weathered']) {
+    for (const name of ['Current', 'Alder', 'Birch / Alder', 'Birch / Maple', 'Maple', 'Charred', 'Walnut', 'Weathered']) {
       expect(screen.getByRole('button', { name })).toBeVisible()
     }
     expect(screen.queryByRole('button', { name: 'Teak' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Birch / Alder' }))
+    expect(screen.getByLabelText('Loading').innerHTML).toContain('/wood-alder.webp?v=20260915')
+    await user.click(screen.getByRole('button', { name: 'Birch / Maple' }))
+    expect(screen.getByLabelText('Loading').innerHTML).toContain('/wood-maple.webp?v=20260915')
   })
 
   it('requires explicit confirmation before publishing episode scores', async () => {

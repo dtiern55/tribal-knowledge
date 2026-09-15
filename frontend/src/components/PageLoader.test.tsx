@@ -2,7 +2,10 @@ import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LOADER_DELAY_MS, PageLoader } from './PageLoader'
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  document.documentElement.classList.remove('locked-night')
+})
 
 describe('PageLoader', () => {
   it('hands off to the loader that replaces it, so a cold open is one loading screen (#698)', () => {
@@ -15,6 +18,8 @@ describe('PageLoader', () => {
     act(() => vi.advanceTimersByTime(LOADER_DELAY_MS))
     const first = screen.getByRole('status', { name: 'Restoring your session…' })
     expect(first.parentElement).toHaveClass('tk-loader-fade')
+    expect(first.innerHTML).toContain('/puzzle-unlocked-teak.webp?v=20260913')
+    expect(first.innerHTML).toContain('/wood-teak-dark.webp?v=20260915')
     const quote = first.querySelector('blockquote')?.textContent
 
     // The route guard is done; the page mounts its own loader in the same commit.
@@ -34,5 +39,16 @@ describe('PageLoader', () => {
     expect(screen.queryByRole('status')).toBeNull()
     act(() => vi.advanceTimersByTime(LOADER_DELAY_MS))
     expect(screen.getByRole('status').parentElement).toHaveClass('tk-loader-fade')
+  })
+
+  it('uses Birch tiles and a Maple board after lock', () => {
+    vi.useFakeTimers()
+    document.documentElement.classList.add('locked-night')
+    render(<PageLoader />)
+    act(() => vi.advanceTimersByTime(LOADER_DELAY_MS))
+
+    const loader = screen.getByRole('status', { name: 'Loading' })
+    expect(loader.innerHTML).toContain('/puzzle-locked-birch.webp?v=20260913')
+    expect(loader.innerHTML).toContain('/wood-maple.webp?v=20260915')
   })
 })

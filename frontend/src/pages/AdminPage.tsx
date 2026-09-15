@@ -2325,16 +2325,33 @@ export function AdminPage() {
 }
 
 const LOADER_THEMES = ['unlocked', 'locked'] as const
-const UNLOCKED_LOADER_TEXTURES = [
-  { id: 'current', label: 'Current', tileImage: undefined },
-  { id: 'teak', label: 'Teak', tileImage: '/puzzle-unlocked-teak.webp?v=20260913' },
+type LoaderTextureOption = { id: string; label: string; tileImage?: string; boardImage?: string }
+const UNLOCKED_LOADER_TEXTURES: readonly LoaderTextureOption[] = [
+  { id: 'current', label: 'Current' },
+  {
+    id: 'teak',
+    label: 'Teak',
+    tileImage: '/puzzle-unlocked-teak.webp?v=20260913',
+    boardImage: '/wood-teak-dark.webp?v=20260915',
+  },
   { id: 'woven', label: 'Woven', tileImage: '/puzzle-unlocked-woven.webp?v=20260913' },
   { id: 'stone', label: 'Stone', tileImage: '/puzzle-unlocked-stone.webp?v=20260913' },
 ] as const
-const LOCKED_LOADER_TEXTURES = [
-  { id: 'current', label: 'Current', tileImage: undefined },
+const LOCKED_LOADER_TEXTURES: readonly LoaderTextureOption[] = [
+  { id: 'current', label: 'Current' },
   { id: 'alder', label: 'Alder', tileImage: '/puzzle-locked-alder.webp?v=20260913' },
-  { id: 'birch', label: 'Birch', tileImage: '/puzzle-locked-birch.webp?v=20260913' },
+  {
+    id: 'birch-alder',
+    label: 'Birch / Alder',
+    tileImage: '/puzzle-locked-birch.webp?v=20260913',
+    boardImage: '/wood-alder.webp?v=20260915',
+  },
+  {
+    id: 'birch-maple',
+    label: 'Birch / Maple',
+    tileImage: '/puzzle-locked-birch.webp?v=20260913',
+    boardImage: '/wood-maple.webp?v=20260915',
+  },
   { id: 'maple', label: 'Maple', tileImage: '/puzzle-locked-maple.webp?v=20260913' },
   { id: 'charred', label: 'Charred', tileImage: '/puzzle-locked-charred.webp?v=20260913' },
   { id: 'walnut', label: 'Walnut', tileImage: '/puzzle-locked-walnut.webp?v=20260913' },
@@ -2375,6 +2392,7 @@ function LoaderPreviewOverlay({ onClose }: { onClose: () => void }) {
             key={quoteNonce}
             theme={theme}
             tileImage={texture?.tileImage}
+            boardImage={texture?.boardImage}
           />
         </div>
       )}
