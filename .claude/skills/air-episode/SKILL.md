@@ -412,8 +412,11 @@ grouped by contestant *and rank*, plus `advantage_plays` grouped by target.
 Confirm the split matches the read, no play is left without a matching pick
 row, and no swap repeated.
 
-The file is committed alongside the earlier weeks — open a PR (main is
-protected), the DB already has the picks.
+The file is committed alongside the earlier weeks. It's a **record, not a
+runtime input** — the DB already has the picks and nothing reads the committed
+file — so there's nothing to review: open the PR and **auto-merge it**
+(`gh pr merge --squash --auto`, main is branch-protected). This is a standing OK
+Danny gave for read-only PRs (2026-09-14); it does not extend to code PRs.
 
 Bots pick BEFORE the episode airs, so this runs after scoring N and before
 N+1 locks. Never run it after the fact: the whole point is that nothing in
