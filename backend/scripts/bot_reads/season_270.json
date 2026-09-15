@@ -112,6 +112,33 @@
    ],
    "note": "Basically no read (Danny, 2026-09-12). Six names lightly and equally favoured, no top name: Aras, Kat, Laura B., Ciera, Katie, Caleb. Roster doubles lean to Tina, Tyson, Gervase, Vytas.",
    "spread": 70
+  },
+  "7": {
+   "likely_boots": [
+    ["Aras Baskauskas", 5],
+    ["Hayden Moss", 5],
+    ["Ciera Eastin", 5],
+    ["Monica Culpepper", 5],
+    ["Laura Boneham", 5],
+    ["Caleb Bankston", 3],
+    ["Laura Morett", 3],
+    ["John Cody", 3],
+    ["Katie Collins", 2],
+    ["Tina Wesson", 2],
+    ["Gervase Peterson", 2]
+   ],
+   "double_targets": [
+    "Vytas Baskauskas",
+    "Tyson Apostol",
+    "Tina Wesson",
+    "Katie Collins",
+    "Monica Culpepper",
+    "Gervase Peterson",
+    "Caleb Bankston",
+    "Hayden Moss"
+   ],
+   "note": "Weak, flat read (Danny, 2026-09-14). Slight lean to Aras, Hayden, Ciera, Monica, Laura B.; Tyson and Vytas get ~no votes; Katie, Tina, Gervase capped low. Power ballots follow the same lean. Roster doubles prefer Vytas and Tyson, then Tina/Katie/Monica/Gervase/Caleb/Hayden, never Ciera. spread 0 so the exclusions hold while the split stays flat.",
+   "spread": 0
   }
  }
 }
