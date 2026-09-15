@@ -85,6 +85,9 @@ export function EpisodeResultReveal({
   mode,
   onContinue,
   onClose,
+  onPrev,
+  onNext,
+  field,
 }: EpisodeResultRevealProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -153,14 +156,39 @@ export function EpisodeResultReveal({
                 Ep {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
               </p>
               {mode === 'replay' && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Close episode replay"
-                  className="shrink-0 rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white hover:bg-white/10"
-                >
-                  Close
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {/* Step through scored episodes without leaving the recap. */}
+                  {(onPrev || onNext) && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={onPrev}
+                        disabled={!onPrev}
+                        aria-label="Previous episode"
+                        className="inline-flex size-8 items-center justify-center rounded-full border border-white/25 text-lg text-white hover:bg-white/10 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <span aria-hidden>‹</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onNext}
+                        disabled={!onNext}
+                        aria-label="Next episode"
+                        className="inline-flex size-8 items-center justify-center rounded-full border border-white/25 text-lg text-white hover:bg-white/10 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <span aria-hidden>›</span>
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close episode replay"
+                    className="rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white hover:bg-white/10"
+                  >
+                    Close
+                  </button>
+                </div>
               )}
             </div>
 
@@ -345,11 +373,12 @@ export function EpisodeResultReveal({
                         tribeName={null}
                         size="sm"
                       />
-                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Power Vote" />}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
                         {label && <span className="block text-xs text-cream-100/45">{label}</span>}
                       </span>
+                      {/* Idol after the name, same as the Tribe lane, so names stay aligned. */}
+                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Power Vote" />}
                       <span
                         className={`shrink-0 font-display font-semibold tabular-nums ${
                           pick.correct ? 'text-jade-200' : 'text-cream-100/45'
@@ -422,6 +451,10 @@ export function EpisodeResultReveal({
               Back to My Season
             </button>
           )}
+
+          {/* The league's teams for this episode — the same tribe/ballot/
+              advantage you see once an episode locks (#490). */}
+          {field && <div className="mt-8">{field}</div>}
         </div>
       </article>
     </div>
@@ -514,7 +547,6 @@ function ResultRow({
         <span className={eliminated ? ELIMINATED_DIM : undefined}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
         </span>
-        {icon}
         <span
           className={`min-w-0 flex-1 truncate text-sm font-medium ${
             eliminated ? `text-cream-100/45 ${ELIMINATED_STRIKE}` : 'text-cream-100'
@@ -523,6 +555,9 @@ function ResultRow({
           {name}
         </span>
         {eliminated && <span className="sr-only">voted out this episode</span>}
+        {/* The idol rides after the name so a doubled row keeps its name's left
+            edge in line with the plain rows above and below it. */}
+        {icon}
         <span className="shrink-0 font-display font-semibold text-cream-100 tabular-nums">{signed(value)}</span>
         {expandable && (
           <svg
@@ -564,4 +599,9 @@ interface EpisodeResultRevealProps {
   mode: 'automatic' | 'replay'
   onContinue?: () => Promise<void>
   onClose?: () => void
+  /** Step to the neighbouring scored episode (replay mode only). */
+  onPrev?: () => void
+  onNext?: () => void
+  /** The league's teams for this episode — the locked-state Field. */
+  field?: React.ReactNode
 }

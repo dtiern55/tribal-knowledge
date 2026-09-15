@@ -1410,10 +1410,10 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('heading', { level: 2 })).toHaveTextContent(
-      'Rachel sent to Redemption. Rupert sent home.',
-    )
-    expect(within(dialog).getByRole('heading', { level: 2 })).toHaveClass('whitespace-pre-line')
+    // By id: the embedded Field panel adds its own level-2 heading.
+    const title = dialog.querySelector('#episode-result-title')!
+    expect(title).toHaveTextContent('Rachel sent to Redemption. Rupert sent home.')
+    expect(title).toHaveClass('whitespace-pre-line')
     const chips = within(dialog).getByRole('list', { name: 'Eliminated castaways' })
     expect(within(chips).getAllByRole('listitem')).toHaveLength(1)
     expect(chips).toHaveTextContent(/Rupert.*Sent home/)

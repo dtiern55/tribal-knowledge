@@ -246,8 +246,8 @@ def get_episode_hub(
             ls = database.require_league_season(cur, league_season_id)
             database.require_member(cur, ls["league_id"], user_id)
             cur.execute(
-                "select season_id, picks_lock_at, status from episodes"
-                " where id = %s and season_id = %s",
+                "select season_id, episode_number, picks_lock_at, status"
+                " from episodes where id = %s and season_id = %s",
                 [str(episode_id), str(ls["season_id"])],
             )
             episode = cur.fetchone()
@@ -346,6 +346,19 @@ def get_episode_hub(
                         "sole_survivor_contestant_id": sole_survivors.get(uid),
                     }
                 )
+
+            # Once scored, each row also carries what its tribe and ballot lanes
+            # earned this episode — the two numbers the recap Field shows per
+            # team (#490 recap Field). Pre-scoring the Hub is picks only.
+            if episode["status"] == "scored":
+                split = scoring.episode_points_split(
+                    conn, league_season_id, episode["episode_number"]
+                )
+                for e in entries:
+                    tribe, ballot = split.get(e["user_id"], (0, 0))
+                    e["tribe_points"] = tribe
+                    e["ballot_points"] = ballot
+
             # Standings order, not alphabetical (#490 follow-up): the lock
             # screen reads like the leaderboard. Same live sum + tiebreak the
             # standings endpoint uses (total desc, then display name).

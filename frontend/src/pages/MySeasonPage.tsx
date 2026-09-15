@@ -503,6 +503,9 @@ export function MySeasonPage() {
   const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
   const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
+  // Held a render behind the recap param so paging to a neighbour swaps the
+  // card in place instead of unmounting and replaying the enter animation.
+  const [displayResult, setDisplayResult] = useState<EpisodeResult | null>(null)
 
   const setRecapParam = useCallback(
     (id: string | null) => {
@@ -564,6 +567,22 @@ export function MySeasonPage() {
     }
   }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
 
+  // What the recap should show for the current param: the fresh automatic
+  // result, or the fetched replay once it matches.
+  const revealResult =
+    recapId == null
+      ? null
+      : recapId === d.automaticResult?.episode_id
+        ? d.automaticResult
+        : replayResult?.episode_id === recapId
+          ? replayResult
+          : null
+  const recapMode = recapId === d.automaticResult?.episode_id ? 'automatic' : 'replay'
+  useEffect(() => {
+    if (recapId == null) setDisplayResult(null)
+    else if (revealResult) setDisplayResult(revealResult)
+  }, [recapId, revealResult])
+
   useEffect(() => {
     // Swap and Sole Survivor let the chosen card's halo out of the lane while
     // picking; hold the overflow open a beat past the pick so the glow fades
@@ -604,15 +623,16 @@ export function MySeasonPage() {
     setRecapParam(null)
   }
 
-  const visibleResult =
-    recapId == null
-      ? null
-      : recapId === d.automaticResult?.episode_id
-        ? d.automaticResult
-        : replayResult?.episode_id === recapId
-          ? replayResult
-          : null
-  const recapMode = recapId === d.automaticResult?.episode_id ? 'automatic' : 'replay'
+  // Scored episodes in air order, so the recap pager can step to a neighbour by
+  // flipping the recap param (which refetches like any replay).
+  const rosterLockEp = d.season.roster_lock_episode
+  const scoredOrder = d.episodes
+    .filter((e) => e.status === 'scored' && rosterLockEp != null && e.episode_number >= rosterLockEp)
+    .sort((a, b) => a.episode_number - b.episode_number)
+    .map((e) => e.id)
+  const recapIdx = recapId ? scoredOrder.indexOf(recapId) : -1
+  const prevRecapId = recapIdx > 0 ? scoredOrder[recapIdx - 1] : null
+  const nextRecapId = recapIdx >= 0 && recapIdx < scoredOrder.length - 1 ? scoredOrder[recapIdx + 1] : null
 
   // What the week says about itself. All derived — nothing is stored (#396
   // follow-up); the hero's "all set" and each lane's done/outstanding status
@@ -746,8 +766,8 @@ export function MySeasonPage() {
     <>
       <div
         className="mx-auto max-w-2xl space-y-10"
-        aria-hidden={visibleResult ? true : undefined}
-        inert={visibleResult ? true : undefined}
+        aria-hidden={displayResult ? true : undefined}
+        inert={displayResult ? true : undefined}
       >
       {state.kind !== 'open' && state.kind !== 'watch_only' && (
         <div className="space-y-2">
@@ -945,7 +965,7 @@ export function MySeasonPage() {
 
           {/* No slot under a recap: the first-loss moment keys off the slot, and
               it has to wait for the reveal to be dismissed (#717). */}
-          {beat === 'roster' && !visibleResult && (
+          {beat === 'roster' && !displayResult && (
             <div ref={setSwapSlot} className="flex min-h-8 justify-end px-1 empty:hidden" />
           )}
 
@@ -1000,12 +1020,24 @@ export function MySeasonPage() {
       )}
 
       </div>
-      {visibleResult && (
+      {displayResult && (
         <EpisodeResultReveal
-          result={visibleResult}
+          result={displayResult}
           mode={recapMode}
           onContinue={recapMode === 'automatic' ? acknowledgeResult : undefined}
           onClose={recapMode === 'replay' ? () => setRecapParam(null) : undefined}
+          onPrev={recapMode === 'replay' && prevRecapId ? () => setRecapParam(prevRecapId) : undefined}
+          onNext={recapMode === 'replay' && nextRecapId ? () => setRecapParam(nextRecapId) : undefined}
+          field={
+            <LeagueHub
+              key={displayResult.episode_id}
+              leagueSeasonId={d.season.id}
+              episodeId={displayResult.episode_id}
+              userId={d.userId}
+              broadcast
+              showCount={false}
+            />
+          }
         />
       )}
     </>
@@ -1413,11 +1445,14 @@ function LeagueHub({
   episodeId,
   userId,
   broadcast,
+  showCount = true,
 }: {
   leagueSeasonId: string
   episodeId: string
   userId: string
   broadcast: boolean
+  /** The Count tiles ride the locked screen; a recap wants only The Field. */
+  showCount?: boolean
 }) {
   const [entries, setEntries] = useState<HubEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -1507,7 +1542,7 @@ function LeagueHub({
   // your own card above them.
   return (
     <div className="mt-10 space-y-3">
-      {panel(
+      {showCount && panel(
         'league-count-title',
         'The Count',
         // Where the league landed as a whole, one card before the per-player
@@ -1589,6 +1624,9 @@ function LeagueHub({
       <ul className="mt-2 space-y-2">
         {entries.map((entry) => {
           const isMe = entry.user_id === userId
+          // Points ride the row once the episode is scored (the recap Field);
+          // pre-scoring the Hub is picks only, so these gate the recap extras.
+          const scored = entry.tribe_points != null
           return (
             <li key={entry.user_id}>
               <details
@@ -1605,13 +1643,42 @@ function LeagueHub({
                   })
                 }}
               >
-                <summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-sm">
-                  <span className="min-w-0 flex-1 truncate font-semibold">
-                    {entry.display_name}
-                    {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
-                  </span>
-                  {/* No idol here: everyone plays an advantage, so a "they
-                      played one" mark is redundant. The ×2 inside marks WHERE. */}
+                <summary className="flex cursor-pointer list-none items-center gap-3 p-3 text-sm">
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate font-semibold">
+                      {entry.display_name}
+                      {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
+                    </span>
+                    {/* On the recap, mark where they aimed their advantage — the
+                        idol plus its target — so the field reads at a glance.
+                        The detail marks it again on the exact castaway/slip.
+                        Hidden pre-scoring (#490). */}
+                    {scored && entry.advantage_type && (
+                      <span className={`inline-flex min-w-0 items-center gap-1 ${sub}`}>
+                        <DoubleBadge
+                          size={14}
+                          title={entry.advantage_type === 'double_roster_points' ? 'Double Castaway Points' : 'Power Vote'}
+                        />
+                        <span className="truncate text-[11px] font-medium">
+                          {entry.advantage_target ? entry.advantage_target.name : 'Power Vote'}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  {/* What their tribe and ballot earned this episode, so the
+                      score reads at a glance without opening the row. */}
+                  {scored && (
+                    <span className="flex shrink-0 items-center gap-2.5 font-display tabular-nums">
+                      <span className="flex items-baseline gap-1">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${sub}`}>Tribe</span>
+                        <LanePoints value={entry.tribe_points ?? 0} broadcast={broadcast} />
+                      </span>
+                      <span className="flex items-baseline gap-1">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</span>
+                        <LanePoints value={entry.ballot_points ?? 0} broadcast={broadcast} />
+                      </span>
+                    </span>
+                  )}
                   <svg viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 transition-transform group-open:rotate-180 ${sub}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -1653,6 +1720,7 @@ function LeagueHub({
                               key={vote.contestant_id}
                               name={vote.name}
                               doubled={doubled}
+                              dark={broadcast}
                               tribeColor={vote.tribe_color}
                               rotation={[-0.9, 0.6, -0.3][index % 3]}
                               leading={doubled ? <DoubleBadge size={18} title="Power Vote" /> : null}
@@ -1673,6 +1741,22 @@ function LeagueHub({
         </>,
       )}
     </div>
+  )
+}
+
+/** A signed lane total, coloured like the recap card's lane header. */
+function LanePoints({ value, broadcast }: { value: number; broadcast: boolean }) {
+  const tone =
+    value > 0
+      ? broadcast ? 'text-jade-200' : 'text-jade-700'
+      : value < 0
+        ? broadcast ? 'text-terracotta-200' : 'text-terracotta-600'
+        : broadcast ? 'text-white/50' : 'text-gray-400'
+  return (
+    <span className={`shrink-0 font-display text-sm font-semibold tabular-nums ${tone}`}>
+      {value > 0 ? '+' : ''}
+      {value}
+    </span>
   )
 }
 

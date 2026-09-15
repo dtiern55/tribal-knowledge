@@ -13,6 +13,7 @@ export function VoteSlip({
   name,
   stale = false,
   doubled = false,
+  dark = false,
   tribeColor = null,
   rotation = 0,
   leading,
@@ -21,6 +22,9 @@ export function VoteSlip({
   stale?: boolean
   /** The vote wearing the Power Vote (#673): gold, so it reads at a glance. */
   doubled?: boolean
+  /** On a dark surface (the recap card) the app's locked-night slip colors
+   *  aren't in play, so carry them here instead of reading forest-on-forest. */
+  dark?: boolean
   tribeColor?: string | null
   /** Supplied per slip and stable across renders, so the pile never reshuffles. */
   rotation?: number
@@ -29,7 +33,7 @@ export function VoteSlip({
 }) {
   return (
     <span
-      className={`ballot-slip ${stale ? 'ballot-slip--stale' : ''} ${doubled ? 'ballot-slip--doubled' : ''}`}
+      className={`ballot-slip ${dark ? 'ballot-slip--dark' : ''} ${stale ? 'ballot-slip--stale' : ''} ${doubled ? 'ballot-slip--doubled' : ''}`}
       style={
         {
           '--ballot-tribe-color': tribeColor ?? 'var(--color-gold-500)',
