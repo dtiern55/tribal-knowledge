@@ -93,6 +93,8 @@ describe('AdminPage current rules', () => {
       expect(screen.getByRole('button', { name })).toBeVisible()
     }
     expect(screen.queryByRole('button', { name: 'Teak' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Birch' }))
+    expect(screen.getByLabelText('Loading').innerHTML).toContain('/wood-alder.webp?v=20260915')
   })
 
   it('requires explicit confirmation before publishing episode scores', async () => {

@@ -2340,7 +2340,12 @@ const UNLOCKED_LOADER_TEXTURES: readonly LoaderTextureOption[] = [
 const LOCKED_LOADER_TEXTURES: readonly LoaderTextureOption[] = [
   { id: 'current', label: 'Current' },
   { id: 'alder', label: 'Alder', tileImage: '/puzzle-locked-alder.webp?v=20260913' },
-  { id: 'birch', label: 'Birch', tileImage: '/puzzle-locked-birch.webp?v=20260913' },
+  {
+    id: 'birch',
+    label: 'Birch',
+    tileImage: '/puzzle-locked-birch.webp?v=20260913',
+    boardImage: '/wood-alder.webp?v=20260915',
+  },
   { id: 'maple', label: 'Maple', tileImage: '/puzzle-locked-maple.webp?v=20260913' },
   { id: 'charred', label: 'Charred', tileImage: '/puzzle-locked-charred.webp?v=20260913' },
   { id: 'walnut', label: 'Walnut', tileImage: '/puzzle-locked-walnut.webp?v=20260913' },
