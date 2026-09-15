@@ -1643,23 +1643,39 @@ function LeagueHub({
                   })
                 }}
               >
-                <summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-sm">
-                  <span className="min-w-0 flex-1 truncate font-semibold">
-                    {entry.display_name}
-                    {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
-                  </span>
-                  {/* On the recap, mark where they aimed their advantage — the
-                      idol plus its target — so the field reads at a glance
-                      without opening every row. The detail below marks it again
-                      on the exact castaway/slip. Hidden pre-scoring (#490). */}
-                  {scored && entry.advantage_type && (
-                    <span className={`inline-flex min-w-0 shrink items-center gap-1 ${sub}`}>
-                      <DoubleBadge
-                        size={16}
-                        title={entry.advantage_type === 'double_roster_points' ? 'Double Castaway Points' : 'Power Vote'}
-                      />
-                      <span className="truncate text-xs font-medium">
-                        {entry.advantage_target ? entry.advantage_target.name : 'Power Vote'}
+                <summary className="flex cursor-pointer list-none items-center gap-3 p-3 text-sm">
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate font-semibold">
+                      {entry.display_name}
+                      {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
+                    </span>
+                    {/* On the recap, mark where they aimed their advantage — the
+                        idol plus its target — so the field reads at a glance.
+                        The detail marks it again on the exact castaway/slip.
+                        Hidden pre-scoring (#490). */}
+                    {scored && entry.advantage_type && (
+                      <span className={`inline-flex min-w-0 items-center gap-1 ${sub}`}>
+                        <DoubleBadge
+                          size={14}
+                          title={entry.advantage_type === 'double_roster_points' ? 'Double Castaway Points' : 'Power Vote'}
+                        />
+                        <span className="truncate text-[11px] font-medium">
+                          {entry.advantage_target ? entry.advantage_target.name : 'Power Vote'}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  {/* What their tribe and ballot earned this episode, so the
+                      score reads at a glance without opening the row. */}
+                  {scored && (
+                    <span className="flex shrink-0 items-center gap-2.5 font-display tabular-nums">
+                      <span className="flex items-baseline gap-1">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${sub}`}>Tribe</span>
+                        <LanePoints value={entry.tribe_points ?? 0} broadcast={broadcast} />
+                      </span>
+                      <span className="flex items-baseline gap-1">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</span>
+                        <LanePoints value={entry.ballot_points ?? 0} broadcast={broadcast} />
                       </span>
                     </span>
                   )}
@@ -1676,7 +1692,6 @@ function LeagueHub({
                     survivors={entry.roster}
                     sub={sub}
                     empty="No active tribe."
-                    points={entry.tribe_points}
                     doubledContestantId={
                       entry.advantage_type === 'double_roster_points'
                         ? (entry.advantage_target?.contestant_id ?? null)
@@ -1688,15 +1703,10 @@ function LeagueHub({
                   {/* Ballots are slips here too, same as your own card above:
                       the ballot is where you write a name down. */}
                   <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
-                        {entry.advantage_type === 'double_vote_points' && !entry.advantage_target && (
-                          <DoubleBadge size={18} title="Power Vote this episode" />
-                        )}
-                      </div>
-                      {entry.ballot_points != null && (
-                        <LanePoints value={entry.ballot_points} broadcast={broadcast} />
+                    <div className="flex items-center gap-1.5">
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
+                      {entry.advantage_type === 'double_vote_points' && !entry.advantage_target && (
+                        <DoubleBadge size={18} title="Power Vote this episode" />
                       )}
                     </div>
                     {entry.ballot.length > 0 ? (
@@ -1755,7 +1765,6 @@ function HubCastawayRow({
   survivors,
   sub,
   empty,
-  points = null,
   doubledContestantId = null,
   soleSurvivorId = null,
   broadcast = false,
@@ -1764,8 +1773,6 @@ function HubCastawayRow({
   survivors: StandingSurvivor[]
   sub: string
   empty: string
-  /** This lane's episode total, once scored (the recap Field); null before. */
-  points?: number | null
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
   /** Their Sole Survivor pick: a gold name, nothing louder (#685). */
@@ -1774,10 +1781,7 @@ function HubCastawayRow({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
-        {points != null && <LanePoints value={points} broadcast={broadcast} />}
-      </div>
+      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
       {survivors.length > 0 ? (
         // Five to a row so a full tribe sits on one line; portrait over name,
         // the idol pinned to the portrait it doubled (#685).
