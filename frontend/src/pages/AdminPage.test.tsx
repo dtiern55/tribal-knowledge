@@ -85,6 +85,8 @@ describe('AdminPage current rules', () => {
     for (const name of ['Current', 'Teak', 'Woven', 'Stone']) {
       expect(screen.getByRole('button', { name })).toBeVisible()
     }
+    await user.click(screen.getByRole('button', { name: 'Teak' }))
+    expect((await screen.findByLabelText('Loading')).innerHTML).toContain('/wood-teak-dark.webp?v=20260915')
 
     await user.click(screen.getByRole('button', { name: 'locked' }))
     for (const name of ['Current', 'Alder', 'Birch', 'Maple', 'Charred', 'Walnut', 'Weathered']) {

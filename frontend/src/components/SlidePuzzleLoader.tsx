@@ -38,10 +38,11 @@ const BOARD = {
 type PuzzleTheme = {
   scene: string
   tileImg: string
+  boardImg: string
   label: string
-  frame: string
+  frameTint: string
   frameShadow: string
-  well: string
+  wellTint: string
   wellShadow: string
   lipShadow: string
   tileRest: string
@@ -53,10 +54,11 @@ const THEMES: Record<Theme, PuzzleTheme> = {
     // The body::before ground wash (index.css), for the standalone preview.
     scene: 'radial-gradient(circle at 100% 0%, rgba(196,84,50,0.08), transparent 62vw), linear-gradient(180deg, #f2e7d2, #e9dcc3)',
     tileImg: 'url("/puzzle-wood-solid.webp?v=20260903-walnut-lighter")',
+    boardImg: 'url("/wood-walnut.png")',
     label: '#1e3a2f',
-    frame: 'linear-gradient(158deg, rgba(151,107,72,0.10), rgba(28,12,5,0.28)), url("/wood-walnut.png") center / cover',
+    frameTint: 'linear-gradient(158deg, rgba(151,107,72,0.10), rgba(28,12,5,0.28))',
     frameShadow: 'inset 5px 5px 9px rgba(255,225,180,0.12), inset -7px -9px 14px rgba(19,7,3,0.64), 0 7px 0 #241108, 0 36px 46px -12px rgba(62,32,15,0.58)',
-    well: 'linear-gradient(158deg, rgba(30,13,6,0.34), rgba(10,4,1,0.54)), url("/wood-walnut.png") center / cover',
+    wellTint: 'linear-gradient(158deg, rgba(30,13,6,0.34), rgba(10,4,1,0.54))',
     wellShadow: 'inset 0 4px 12px rgba(10,4,1,0.72), inset 0 -2px 0 rgba(239,199,143,0.07)',
     lipShadow: 'inset 0 0 0 4px rgba(31,13,6,0.94), inset 8px 8px 11px rgba(10,4,1,0.56), inset -4px -4px 7px rgba(190,132,86,0.16)',
     tileRest: 'inset 0 2px 0 rgba(255,230,190,0.10), inset 0 -4px 8px rgba(20,7,2,0.34), 0 5px 0 #251208, 0 7px 9px rgba(24,9,3,0.40)',
@@ -65,10 +67,11 @@ const THEMES: Record<Theme, PuzzleTheme> = {
   locked: {
     scene: 'radial-gradient(circle at 78% 8%, rgba(196,84,50,0.18), transparent 520px), linear-gradient(180deg, #132e25, #0e1f19)',
     tileImg: 'url("/puzzle-wood-light.webp?v=20260902-fine")',
+    boardImg: 'url("/wood-oak.png")',
     label: '#f2e9db',
-    frame: 'linear-gradient(158deg, rgba(255,241,210,0.08), rgba(112,65,29,0.16)), url("/wood-oak.png") center / cover',
+    frameTint: 'linear-gradient(158deg, rgba(255,241,210,0.08), rgba(112,65,29,0.16))',
     frameShadow: 'inset 5px 5px 9px rgba(255,247,220,0.42), inset -7px -9px 14px rgba(91,52,22,0.42), 0 7px 0 #80532d, 0 36px 50px -12px rgba(0,0,0,0.58)',
-    well: 'linear-gradient(158deg, rgba(137,87,43,0.22), rgba(78,43,18,0.38)), url("/wood-oak.png") center / cover',
+    wellTint: 'linear-gradient(158deg, rgba(137,87,43,0.22), rgba(78,43,18,0.38))',
     wellShadow: 'inset 0 4px 12px rgba(57,29,11,0.58), inset 0 -2px 0 rgba(255,229,179,0.16)',
     lipShadow: 'inset 0 0 0 4px rgba(111,70,33,0.72), inset 8px 8px 11px rgba(57,29,11,0.42), inset -4px -4px 7px rgba(255,241,207,0.30)',
     tileRest: 'inset 0 2px 0 rgba(255,248,224,0.16), inset 0 -4px 8px rgba(69,35,13,0.28), 0 5px 0 #76502c, 0 7px 9px rgba(35,17,6,0.38)',
@@ -96,6 +99,7 @@ function prefersReducedMotion(): boolean {
 export function SlidePuzzleLoader({
   theme = 'unlocked',
   tileImage,
+  boardImage,
   tempo = 0.8,
   doubleChance = 0.32,
   liftTiles = true,
@@ -106,8 +110,11 @@ export function SlidePuzzleLoader({
 }: {
   theme?: Theme
   /** Preview a different square source artwork without changing the theme's
-   *  frame, well, lighting, or production default. */
+   *  board, lighting, or production default. */
   tileImage?: string
+  /** Preview a matching tray and well material without changing the theme's
+   *  bevels, shadows, or production default. */
+  boardImage?: string
   /** Paint the ground behind the puzzle. Off inside the app, where the page's
    *  own wash is already there and a second copy showed as a box. */
   scene?: boolean
@@ -202,6 +209,9 @@ export function SlidePuzzleLoader({
   }, [tempo, doubleChance, board])
 
   const TH = THEMES[theme]
+  const boardImg = boardImage ? `url("${boardImage}")` : TH.boardImg
+  const frameBackground = `${TH.frameTint}, ${boardImg} center / cover`
+  const wellBackground = `${TH.wellTint}, ${boardImg} center / cover`
 
   const sceneStyle: CSSProperties = {
     minHeight: '80vh',
@@ -246,7 +256,7 @@ export function SlidePuzzleLoader({
               zIndex: 1,
               padding: '20px',
               borderRadius: '31px',
-              background: TH.frame,
+              background: frameBackground,
               boxShadow: TH.frameShadow,
             }}
           >
@@ -257,7 +267,7 @@ export function SlidePuzzleLoader({
                 height: '360px',
                 borderRadius: '16px',
                 overflow: 'hidden',
-                background: TH.well,
+                background: wellBackground,
                 boxShadow: TH.wellShadow,
               }}
             >
