@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { QUOTES } from '../lib/quotes'
 import type { Quote } from '../lib/quotes'
@@ -10,8 +10,10 @@ import type { Quote } from '../lib/quotes'
  * beveled tray forever and never solve. Ported faithfully from the design handoff —
  * geometry, timing, and easing are final.
  *
- * `theme` follows the app's open/locked state (PageLoader reads `locked-night`
- * off <html>). Motion is timer-driven and paused under reduced-motion, which
+ * `theme` follows the app's open/locked state (PageLoader watches `locked-night`
+ * on <html>). A flip mid-load cross-fades the two boards rather than cutting:
+ * both layers are the same puzzle in the same position, so one wood dissolves
+ * into the other. Motion is timer-driven and paused under reduced-motion, which
  * leaves the board sitting in its scramble — still a legible "loading" state.
  */
 
@@ -19,15 +21,26 @@ type Theme = 'unlocked' | 'locked'
 
 const CELL = 120
 const GAP = 4
+// How long one wood dissolves into the other on an open/locked flip. Matches
+// the `tk-puzzle-crossfade` animation in index.css.
+const CROSSFADE_MS = 620
 const SOLVED = [0, 1, 2, 3, 4, 5, 6, 7, null]
 const INITIAL = [1, 4, 2, 7, null, 5, 0, 6, 3]
 
 type Grid = (number | null)[]
 type Board = { quote: Quote; grid: Grid }
-// The board of the puzzle currently mounted. A `resume` puzzle that mounts
-// while one is set (PageLoader's handoff, #698) starts from that board and
-// keeps its quote, so the swap is invisible.
+// How long a loader's board (and PageLoader's clock) outlive its unmount. The
+// #698 handoff only covered loaders that swap in a single commit; two loaders
+// separated by a commit or two of content — a page that lands and immediately
+// re-enters its own loading state, which is what a lock flip does — fell
+// through it and started a second loading screen. Anything inside this window
+// is the same loading screen still going.
+export const LOADER_HANDOFF_MS = 700
+// The board of the puzzle currently mounted, or the one just unmounted and
+// still inside the handoff window. A `resume` puzzle that mounts while one is
+// set starts from that board and keeps its quote, so the swap is invisible.
 let liveBoard: Board | null = null
+let boardExpiry: ReturnType<typeof setTimeout> | undefined
 
 // The soft floor shadow is shared. The tray, recessed well, and tile bevels
 // are theme-specific so each puzzle reads as one wooden box.
@@ -77,6 +90,122 @@ const THEMES: Record<Theme, PuzzleTheme> = {
     tileRest: 'inset 0 2px 0 rgba(255,248,224,0.16), inset 0 -4px 8px rgba(69,35,13,0.28), 0 5px 0 #76502c, 0 7px 9px rgba(35,17,6,0.38)',
     tileLift: 'inset 0 2px 0 rgba(255,248,224,0.22), inset 0 -4px 8px rgba(69,35,13,0.28), 0 8px 0 #76502c, 0 16px 22px rgba(35,17,6,0.48)',
   },
+}
+
+/** The tray and its eight tiles in one theme. Split out so a theme flip can
+ *  stack the outgoing wood over the incoming one and dissolve between them —
+ *  both layers read the same grid, so every tile lines up through the fade. */
+function PuzzleBoard({
+  th,
+  grid,
+  movingId,
+  liftTiles,
+  tileImage,
+  boardImage,
+  outgoing = false,
+}: {
+  th: PuzzleTheme
+  grid: Grid
+  movingId: number | null
+  liftTiles: boolean
+  tileImage?: string
+  boardImage?: string
+  /** The board being dissolved away: stacked over the live one, and a sibling
+   *  of it rather than a child, since the scene's `perspective` only projects
+   *  its own direct children — nested, the outgoing board would sit unprojected
+   *  and a few pixels off. */
+  outgoing?: boolean
+}) {
+  const boardImg = boardImage ? `url("${boardImage}")` : th.boardImg
+  return (
+    <div
+      aria-hidden={outgoing || undefined}
+      className={outgoing ? 'tk-puzzle-crossfade' : undefined}
+      style={{
+        position: outgoing ? 'absolute' : 'relative',
+        left: outgoing ? 0 : undefined,
+        top: outgoing ? 0 : undefined,
+        transform: 'rotateX(15deg) rotateZ(-6deg) rotateY(-3deg)',
+        transformStyle: 'flat',
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '86%',
+          width: '300px',
+          height: '70px',
+          transform: 'translate(-50%, 0)',
+          background: BOARD.shadow,
+          filter: 'blur(10px)',
+          zIndex: 0,
+        }}
+      />
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          padding: '20px',
+          borderRadius: '31px',
+          background: `${th.frameTint}, ${boardImg} center / cover`,
+          boxShadow: th.frameShadow,
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: '360px',
+            height: '360px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            background: `${th.wellTint}, ${boardImg} center / cover`,
+            boxShadow: th.wellShadow,
+          }}
+        >
+          {Array.from({ length: 8 }, (_, id) => {
+            const gi = grid.indexOf(id)
+            const r = Math.floor(gi / 3)
+            const c = gi % 3
+            const hr = Math.floor(id / 3)
+            const hc = id % 3
+            const moving = id === movingId
+            const tileStyle: CSSProperties = {
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '112px',
+              height: '112px',
+              borderRadius: '11px',
+              overflow: 'hidden',
+              backgroundImage: tileImage ? `url("${tileImage}")` : th.tileImg,
+              backgroundSize: '384px 384px',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: `${-((hc + 0.5) * 128 - 56)}px ${-((hr + 0.5) * 128 - 56)}px`,
+              transition: 'transform 0.2s cubic-bezier(.34,1.45,.5,1), box-shadow 0.2s ease',
+              willChange: 'transform, box-shadow',
+              transform: `translate(${c * CELL + GAP}px, ${r * CELL + GAP}px)`,
+              zIndex: moving ? 6 : 1,
+              boxShadow: moving && liftTiles ? th.tileLift : th.tileRest,
+            }
+            return <div key={id} aria-hidden="true" style={tileStyle} />
+          })}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: '-1px',
+              borderRadius: '17px',
+              boxShadow: th.lipShadow,
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function neighbors(i: number): number[] {
@@ -139,9 +268,12 @@ export function SlidePuzzleLoader({
   const [movingId, setMovingId] = useState<number | null>(null)
 
   useEffect(() => {
+    clearTimeout(boardExpiry)
     liveBoard = board
     return () => {
-      liveBoard = null
+      boardExpiry = setTimeout(() => {
+        liveBoard = null
+      }, LOADER_HANDOFF_MS)
     }
   }, [board])
 
@@ -208,10 +340,19 @@ export function SlidePuzzleLoader({
     }
   }, [tempo, doubleChance, board])
 
+  // The theme the board is dissolving out of, if the app flipped open/locked
+  // while this loader was on screen. Cleared once the fade has played.
+  const [outgoing, setOutgoing] = useState<Theme | null>(null)
+  const shownTheme = useRef(theme)
+  useEffect(() => {
+    if (shownTheme.current === theme) return
+    setOutgoing(shownTheme.current)
+    shownTheme.current = theme
+    const t = setTimeout(() => setOutgoing(null), CROSSFADE_MS)
+    return () => clearTimeout(t)
+  }, [theme])
+
   const TH = THEMES[theme]
-  const boardImg = boardImage ? `url("${boardImage}")` : TH.boardImg
-  const frameBackground = `${TH.frameTint}, ${boardImg} center / cover`
-  const wellBackground = `${TH.wellTint}, ${boardImg} center / cover`
 
   const sceneStyle: CSSProperties = {
     minHeight: '80vh',
@@ -228,90 +369,29 @@ export function SlidePuzzleLoader({
 
   return (
     <div style={sceneStyle} role="status" aria-live="polite" aria-label={label}>
-      <div className="slide-puzzle-scale" style={{ perspective: '1600px' }}>
-        <div
-          style={{
-            position: 'relative',
-            transform: 'rotateX(15deg) rotateZ(-6deg) rotateY(-3deg)',
-            transformStyle: 'flat',
-          }}
-        >
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '86%',
-              width: '300px',
-              height: '70px',
-              transform: 'translate(-50%, 0)',
-              background: BOARD.shadow,
-              filter: 'blur(10px)',
-              zIndex: 0,
-            }}
+      <div
+        className="slide-puzzle-scale"
+        style={{ perspective: '1600px', position: 'relative' }}
+      >
+        <PuzzleBoard
+          th={TH}
+          grid={grid}
+          movingId={movingId}
+          liftTiles={liftTiles}
+          tileImage={tileImage}
+          boardImage={boardImage}
+        />
+        {outgoing && (
+          <PuzzleBoard
+            outgoing
+            th={THEMES[outgoing]}
+            grid={grid}
+            movingId={movingId}
+            liftTiles={liftTiles}
+            tileImage={tileImage}
+            boardImage={boardImage}
           />
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              padding: '20px',
-              borderRadius: '31px',
-              background: frameBackground,
-              boxShadow: TH.frameShadow,
-            }}
-          >
-            <div
-              style={{
-                position: 'relative',
-                width: '360px',
-                height: '360px',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                background: wellBackground,
-                boxShadow: TH.wellShadow,
-              }}
-            >
-              {Array.from({ length: 8 }, (_, id) => {
-                const gi = grid.indexOf(id)
-                const r = Math.floor(gi / 3)
-                const c = gi % 3
-                const hr = Math.floor(id / 3)
-                const hc = id % 3
-                const moving = id === movingId
-                const tileStyle: CSSProperties = {
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: '112px',
-                  height: '112px',
-                  borderRadius: '11px',
-                  overflow: 'hidden',
-                  backgroundImage: tileImage ? `url("${tileImage}")` : TH.tileImg,
-                  backgroundSize: '384px 384px',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: `${-((hc + 0.5) * 128 - 56)}px ${-((hr + 0.5) * 128 - 56)}px`,
-                  transition: 'transform 0.2s cubic-bezier(.34,1.45,.5,1), box-shadow 0.2s ease',
-                  willChange: 'transform, box-shadow',
-                  transform: `translate(${c * CELL + GAP}px, ${r * CELL + GAP}px)`,
-                  zIndex: moving ? 6 : 1,
-                  boxShadow: moving && liftTiles ? TH.tileLift : TH.tileRest,
-                }
-                return <div key={id} aria-hidden="true" style={tileStyle} />
-              })}
-              <div
-                aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  inset: '-1px',
-                  borderRadius: '17px',
-                  boxShadow: TH.lipShadow,
-                  pointerEvents: 'none',
-                  zIndex: 10,
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {showLabel && (
@@ -321,6 +401,7 @@ export function SlidePuzzleLoader({
             maxWidth: 'min(90vw, 480px)',
             textAlign: 'center',
             color: TH.label,
+            transition: `color ${CROSSFADE_MS}ms ease-out`,
           }}
         >
           <blockquote
