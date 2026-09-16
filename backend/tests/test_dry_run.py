@@ -84,6 +84,14 @@ def test_jump_drafts_the_jumper_a_roster_past_the_lock(client, db_conn, current_
     client.post(f"/seasons/{season['id']}/jump", json={"episode": 2, "locked": True})
     with db_conn.cursor() as cur:
         cur.execute(
+            "select e.episode_number n, count(*) picks from elimination_picks p"
+            " join episodes e on e.id = p.episode_id where p.user_id=%s group by 1",
+            [str(current_user["id"])],
+        )
+        # A ballot for the locked week you skipped, none for the future.
+        assert {r["n"]: r["picks"] for r in cur.fetchall()} == {2: 3}
+    with db_conn.cursor() as cur:
+        cur.execute(
             "select count(*) n, min(active_from_episode) f from roster_picks"
             " where user_id=%s and league_season_id=%s",
             [str(current_user["id"]), season["league_season_id"]],

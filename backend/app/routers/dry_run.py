@@ -139,18 +139,18 @@ def jump(season_id: UUID, body: JumpRequest, admin: UUID = Depends(get_current_a
                 [sid, n],
             )
 
-            # Landing past the roster lock with no tribe of your own leaves
-            # every page thin, so the jumper gets a random one.
+            # Landing past the roster lock leaves the jumper's own history to
+            # fill in: a random tribe if there is none, and a random ballot for
+            # every locked week they never voted in, so the weeks they skipped
+            # read like weeks they played. The open episode stays theirs.
             cur.execute(
                 """
                 select ls.id, ls.roster_size, ls.roster_lock_episode
                 from league_seasons ls
                 join league_members m on m.league_id = ls.league_id and m.user_id = %s
-                where ls.season_id = %s and not exists (
-                  select 1 from roster_picks rp
-                  where rp.league_season_id = ls.id and rp.user_id = %s)
+                where ls.season_id = %s
                 """,
-                [str(admin), sid, str(admin)],
+                [str(admin), sid],
             )
             for ls in cur.fetchall():
                 lock = ls["roster_lock_episode"] or 1
@@ -158,6 +158,15 @@ def jump(season_id: UUID, body: JumpRequest, admin: UUID = Depends(get_current_a
                 # on that episode after the lock is past it too.
                 if n < lock or (n == lock and not body.locked):
                     continue
+                params = {
+                    "uid": str(admin),
+                    "ls": str(ls["id"]),
+                    "lock": lock,
+                    "sid": sid,
+                    "size": ls["roster_size"],
+                    "n": n,
+                    "locked": body.locked,
+                }
                 cur.execute(
                     """
                     insert into roster_picks
@@ -169,15 +178,41 @@ def jump(season_id: UUID, body: JumpRequest, admin: UUID = Depends(get_current_a
                       join episodes ep on ep.id = e.episode_id
                       where e.contestant_id = c.id and e.is_final
                         and ep.episode_number < %(lock)s)
+                      and not exists (
+                        select 1 from roster_picks rp
+                        where rp.league_season_id = %(ls)s and rp.user_id = %(uid)s)
                     order by random() limit %(size)s
                     """,
-                    {
-                        "uid": str(admin),
-                        "ls": str(ls["id"]),
-                        "lock": lock,
-                        "sid": sid,
-                        "size": ls["roster_size"],
-                    },
+                    params,
+                )
+                # Ballots: the episode's pick count, ranked, drawn from whoever
+                # was still in going into it. The finale's ballot is the
+                # bracket, which stays the jumper's own.
+                cur.execute(
+                    """
+                    insert into elimination_picks
+                      (user_id, league_season_id, episode_id, contestant_id, rank)
+                    select %(uid)s, %(ls)s, e.id, x.id, x.rn
+                    from episodes e
+                    join lateral (
+                      select c.id, row_number() over (order by random()) as rn
+                      from contestants c
+                      where c.season_id = e.season_id and not exists (
+                        select 1 from eliminations el
+                        join episodes ep on ep.id = el.episode_id
+                        where el.contestant_id = c.id and el.is_final
+                          and ep.episode_number < e.episode_number)
+                    ) x on x.rn <= e.max_elimination_picks
+                    where e.season_id = %(sid)s and not e.is_finale
+                      and e.episode_number >= %(lock)s
+                      and (e.episode_number < %(n)s
+                           or (e.episode_number = %(n)s and %(locked)s))
+                      and not exists (
+                        select 1 from elimination_picks p
+                        where p.user_id = %(uid)s and p.league_season_id = %(ls)s
+                          and p.episode_id = e.id)
+                    """,
+                    params,
                 )
 
             cur.execute(
