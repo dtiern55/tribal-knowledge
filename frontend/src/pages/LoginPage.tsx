@@ -11,6 +11,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   // Set once we've emailed the user; swaps the form for the dedicated "check
   // your email" moment (#508). `kind` picks the copy: account confirmation
@@ -37,6 +38,12 @@ export function LoginPage() {
         setError(error.message)
         setSubmitting(false)
       }
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords don’t match.')
+      setSubmitting(false)
       return
     }
 
@@ -91,6 +98,7 @@ export function LoginPage() {
               setSent(null)
               setMode('signin')
               setPassword('')
+              setConfirmPassword('')
               setError(null)
             }}
             className="mt-6 min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700"
@@ -154,6 +162,23 @@ export function LoginPage() {
             className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
         </div>
+        {mode === 'signup' && (
+          <div>
+            <label htmlFor="auth-confirm-password" className="mb-1 block text-sm font-medium text-gray-700">
+              Confirm password
+            </label>
+            <input
+              id="auth-confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
+            />
+          </div>
+        )}
         {error && <p id="auth-error" role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
         <button
           type="submit"
@@ -173,6 +198,7 @@ export function LoginPage() {
         type="button"
         onClick={() => {
           setMode(mode === 'signin' ? 'signup' : 'signin')
+          setConfirmPassword('')
           setError(null)
         }}
         className="mt-5 min-h-11 w-full cursor-pointer text-sm font-medium text-forest-700 hover:text-forest-900"
