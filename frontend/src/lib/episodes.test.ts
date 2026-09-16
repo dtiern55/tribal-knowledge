@@ -55,10 +55,10 @@ describe('advantagesOpenYet', () => {
 })
 
 describe('swapLockEpisodeNumber', () => {
-  it('prefers the explicit lock, else two past the first juror, else nothing', () => {
-    expect(swapLockEpisodeNumber({ swap_lock_episode: 9, jury_start_episode: 7 } as Season)).toBe(9)
-    expect(swapLockEpisodeNumber({ swap_lock_episode: null, jury_start_episode: 7 } as Season)).toBe(9)
-    expect(swapLockEpisodeNumber({ swap_lock_episode: null, jury_start_episode: null, merge_episode: 7 } as Season)).toBeNull()
+  it('prefers the explicit lock, else the default (ep 8)', () => {
+    expect(swapLockEpisodeNumber({ swap_lock_episode: 9 } as Season)).toBe(9)
+    expect(swapLockEpisodeNumber({ swap_lock_episode: null } as Season)).toBe(8)
+    expect(swapLockEpisodeNumber({} as Season)).toBe(8)
   })
 })
 

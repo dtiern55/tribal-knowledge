@@ -5,6 +5,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { api, getActiveSeason } from '../lib/api'
+import { swapLockEpisodeNumber } from '../lib/episodes'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } from '../types'
 
 // Tribe scoring reads as groups of like events, not a leaderboard of values
@@ -248,7 +249,7 @@ export function RulesPage() {
               After that, each swap costs points: {swapCostLadder(season)}.
             </li>
             <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
-            <li>There is no limit on the number of swaps while they are open. The last episode you can swap for is the one right after the first castaway joins the jury.</li>
+            <li>There is no limit on the number of swaps while they are open. The last episode you can swap for is episode {swapLockEpisodeNumber(season) - 1}. After that your tribe is locked for the rest of the season.</li>
           </RuleList>
         </RuleSection>
 

@@ -25,24 +25,22 @@ def _swap_penalty(ls, ordinal: int) -> int:
     return max(ls["swap_penalty_step"] * ordinal, ls["swap_penalty_floor"])
 
 
-def _effective_swap_lock(ls) -> int | None:
-    """The episode from which roster swaps are locked (#84): explicit
-    swap_lock_episode, else two past the episode the first juror went out in
-    (#672), so the last swappable episode is the one after that boot. None
-    until a juror has been scored. The finale is refused separately,
-    regardless of this value."""
-    if ls["swap_lock_episode"] is not None:
-        return ls["swap_lock_episode"]
-    if ls["jury_start_episode"] is not None:
-        return ls["jury_start_episode"] + 2
-    return None
+SWAP_LOCK_DEFAULT = 8  # last swappable episode is the one before this (#84)
+
+
+def effective_swap_lock(ls) -> int:
+    """The episode from which roster swaps are locked (#84): the explicit
+    swap_lock_episode, else the default. So the last swappable episode is the
+    one before it. The finale is refused separately, regardless of this value."""
+    lock = ls["swap_lock_episode"]
+    return lock if lock is not None else SWAP_LOCK_DEFAULT
 
 
 def _effective_ss_lock(ls) -> int | None:
     """Sole Survivor designation locks with the swaps (2026-09-03): once your
     roster is final for the season, so is your pick of who wins on it. There
     is deliberately no separate knob, so the two can never drift apart."""
-    return _effective_swap_lock(ls)
+    return effective_swap_lock(ls)
 
 
 def _episode_locked(cur, season_id, episode_number) -> bool:
@@ -299,7 +297,7 @@ def swap_roster_pick(
 
             # Swaps lock late-game (issue #84); the finale itself is always
             # off-limits.
-            swap_lock = _effective_swap_lock(ls)
+            swap_lock = effective_swap_lock(ls)
             if episode["is_finale"] or (
                 swap_lock is not None and swap_episode >= swap_lock
             ):

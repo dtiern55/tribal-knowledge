@@ -61,15 +61,13 @@ export function advantagesOpenYet(season: Season, episodes: Episode[]): boolean 
   return !episodes.some((e) => e.episode_number < rosterStarts && e.status !== 'scored')
 }
 
-// Effective swap lock: explicit swap_lock_episode, else two past the episode
-// the first juror went out in (#672), so the episode after that boot is the
-// last you can swap for. Sole Survivor designation locks with the swaps
-// (2026-09-03), so it is the same number. Mirrors backend app/routers/roster.py.
-export function swapLockEpisodeNumber(season: Season): number | null {
-  return (
-    season.swap_lock_episode ??
-    (season.jury_start_episode != null ? season.jury_start_episode + 2 : null)
-  )
+// Effective swap lock: explicit swap_lock_episode, else the default (ep 8), so
+// the last episode you can swap for is the one before it. Sole Survivor
+// designation locks with the swaps (2026-09-03), so it is the same number.
+// Mirrors backend app/routers/roster.py.
+export const SWAP_LOCK_DEFAULT = 8
+export function swapLockEpisodeNumber(season: Season): number {
+  return season.swap_lock_episode ?? SWAP_LOCK_DEFAULT
 }
 
 // Sole Survivor designation opens at the merge (#587): unavailable until the
@@ -94,7 +92,6 @@ export function ssDesignationOpen(season: Season, episodes: Episode[]): boolean 
   if (season.status === 'completed') return false
   if (!ssWindowOpenYet(season, episodes)) return false
   const lockEp = swapLockEpisodeNumber(season)
-  if (lockEp == null) return false
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   return (
     lockEpisode == null ||
@@ -110,8 +107,5 @@ export function swapsLocked(season: Season, episodes: Episode[]): boolean {
   // everything is locked — not unlocked (#283).
   if (!nextOpen) return true
   const effectiveLock = swapLockEpisodeNumber(season)
-  return (
-    (effectiveLock != null && nextOpen.episode_number >= effectiveLock) ||
-    nextOpen.is_finale
-  )
+  return nextOpen.episode_number >= effectiveLock || nextOpen.is_finale
 }
