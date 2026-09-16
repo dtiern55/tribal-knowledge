@@ -72,7 +72,16 @@ def test_jump_reopens_from_the_target_and_hides_later_boots(
 @pytest.mark.integration
 def test_jump_drafts_the_jumper_a_roster_past_the_lock(client, db_conn, current_user):
     season, _ = _seeded_season(db_conn, current_user)
-    client.post(f"/seasons/{season['id']}/jump", json={"episode": 3})
+    # The lock episode itself, open: nothing drafted yet.
+    client.post(f"/seasons/{season['id']}/jump", json={"episode": 2})
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "select count(*) n from roster_picks where user_id=%s",
+            [str(current_user["id"])],
+        )
+        assert cur.fetchone()["n"] == 0
+    # The same episode after its lock: the roster is locked, so you have one.
+    client.post(f"/seasons/{season['id']}/jump", json={"episode": 2, "locked": True})
     with db_conn.cursor() as cur:
         cur.execute(
             "select count(*) n, min(active_from_episode) f from roster_picks"

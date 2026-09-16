@@ -154,7 +154,9 @@ def jump(season_id: UUID, body: JumpRequest, admin: UUID = Depends(get_current_a
             )
             for ls in cur.fetchall():
                 lock = ls["roster_lock_episode"] or 1
-                if n <= lock:
+                # The roster locks with the lock episode's own lock, so landing
+                # on that episode after the lock is past it too.
+                if n < lock or (n == lock and not body.locked):
                     continue
                 cur.execute(
                     """
