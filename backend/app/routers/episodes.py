@@ -278,11 +278,12 @@ def get_episode_hub(
             )
             rosters: dict[str, list[dict]] = {}
             sole_survivors: dict[str, str] = {}
-            # A designation is strategy until its window closes (#164).
+            # Another player's designation is strategy until its window
+            # closes (#164); your own is always yours to see.
             revealed = ss_revealed(cur, ls)
             for row in cur.fetchall():
                 uid = row.pop("user_id")
-                if row.pop("is_sole_survivor") and revealed:
+                if row.pop("is_sole_survivor") and (revealed or uid == str(user_id)):
                     sole_survivors[uid] = row["contestant_id"]
                 rosters.setdefault(uid, []).append(row)
 
