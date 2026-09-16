@@ -9,7 +9,7 @@ from app.locking import (
     episode_locked_sql,
     latest_locked_episode,
 )
-from app.routers.roster import _effective_ss_lock, _episode_locked
+from app.routers.roster import swaps_locked
 from app.schemas import ScoringBreakdown, StandingEntry
 
 router = APIRouter(tags=["standings"])
@@ -211,20 +211,20 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
         # only on a torch already shown above, so this leaks nothing the roster
         # doesn't.
         sole_survivor: dict[str, str] = {}
-        ss_lock = _effective_ss_lock(season)
-        if ss_lock is not None:
-            with conn.cursor() as cur:
-                if _episode_locked(cur, season_id, ss_lock):
-                    cur.execute(
-                        "select user_id::text as user_id,"
-                        " contestant_id::text as contestant_id"
-                        " from roster_picks"
-                        " where league_season_id = %s and is_sole_survivor",
-                        [str(league_season_id)],
-                    )
-                    sole_survivor = {
-                        r["user_id"]: r["contestant_id"] for r in cur.fetchall()
-                    }
+        with conn.cursor() as cur:
+            # Revealed only once the pick locks — same moment as the swaps (one
+            # dial, #164/#685).
+            if swaps_locked(cur, season):
+                cur.execute(
+                    "select user_id::text as user_id,"
+                    " contestant_id::text as contestant_id"
+                    " from roster_picks"
+                    " where league_season_id = %s and is_sole_survivor",
+                    [str(league_season_id)],
+                )
+                sole_survivor = {
+                    r["user_id"]: r["contestant_id"] for r in cur.fetchall()
+                }
 
     entries = []
     for p in profiles:

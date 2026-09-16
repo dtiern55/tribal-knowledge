@@ -81,7 +81,9 @@ describe('RulesPage', () => {
     )
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByText(/The last episode you can swap for is the one right after the first castaway joins the jury/)).toBeVisible()
+    // Swaps still show a number: the lock defaults to episode 8, so the last
+    // swappable episode is 7 even when the season sets nothing explicit.
+    expect(await screen.findByText(/The last episode you can swap for is episode 7/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
   })
 

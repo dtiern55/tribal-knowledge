@@ -88,6 +88,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # reach it if it applies them itself. Import the rule rather than mirror it
 # (#727): the copy that used to live here had already drifted twice.
 from app.routers.picks import redemption_island_ids, rerank_ballot  # noqa: E402
+from app.routers.roster import effective_swap_lock  # noqa: E402
 
 ENV = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(ENV)
@@ -232,11 +233,7 @@ def league_season(cur, league_name: str, season_number: int) -> dict:
             " really is a practice league."
         )
     cur.execute(
-        "select ls.*, s.name, s.season_number, s.merge_episode, s.status,"
-        " (select min(ep.episode_number) from scoring_events se"
-        "  join episodes ep on ep.id = se.episode_id"
-        "  where ep.season_id = s.id and se.event_type = 'join_jury')"
-        " as jury_start_episode"
+        "select ls.*, s.name, s.season_number, s.merge_episode, s.status"
         " from league_seasons ls join seasons s on s.id = ls.season_id"
         " where ls.league_id = %s and s.season_number = %s",
         [league["id"], season_number],
@@ -627,25 +624,14 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     # Can never vote for every remaining castaway (#240)
     max_picks = max(0, min(ep["max_elimination_picks"], len(alive) - 1))
 
-    # Mirrors roster.py _effective_swap_lock (#672).
-    swap_lock = season["swap_lock_episode"]
-    if swap_lock is None and season["jury_start_episode"] is not None:
-        swap_lock = season["jury_start_episode"] + 2
-    swaps_open = not ep["is_finale"] and not (
-        swap_lock is not None and episode_n >= swap_lock
-    )
-    # Designation opens at the merge (app/routers/roster.py:
-    # _ss_window_open_yet, #587) and locks with the swaps (_effective_ss_lock).
-    # Bots only ever run on the episode that still accepts picks, so that
-    # episode is by definition unlocked — which makes "the lock has not locked
-    # yet" simply swap_lock >= episode_n. Without the merge half every bot
-    # crowned a winner at week 2, before any real player could.
-    merge = season["merge_episode"]
-    ss_open = (
-        merge is not None
-        and episode_n >= merge
-        and (swap_lock is None or swap_lock >= episode_n)
-    )
+    # Import the rule, don't mirror it (#727): swaps lock from effective_swap_lock.
+    swap_lock = effective_swap_lock(season)
+    swaps_open = not ep["is_finale"] and episode_n < swap_lock
+    # Sole Survivor rides the same lock (one dial, no merge): it is set going
+    # into the last swappable episode (swap_lock - 1), the one the roster
+    # finalizes on. Bots run on the upcoming episode, so that is simply
+    # episode_n == swap_lock - 1.
+    ss_open = swap_lock - 1 <= episode_n < swap_lock
 
     cur.execute(
         """select contestant_id::text cid, count(*) n from roster_picks

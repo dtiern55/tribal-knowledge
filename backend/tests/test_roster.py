@@ -8,7 +8,6 @@ from tests.helpers import (
     insert_elimination,
     insert_episode,
     insert_roster_pick,
-    insert_scoring_event,
     insert_season,
     insert_user,
 )
@@ -284,7 +283,7 @@ def test_swap_penalty_escalates_then_floors(client, db_conn, current_user):
     (step -5, floor -25) that is 0, -10, -15, -20, -25, -25. Spread over
     episodes so each lands as the only swap of its week."""
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=7, lock_episode=2, free_swaps=1
+        db_conn, roster_size=7, lock_episode=2, free_swaps=1, swap_lock_episode=20
     )
     client.post(
         f"/league-seasons/{season['league_season_id']}/roster",
@@ -414,22 +413,18 @@ def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_use
 
 
 @pytest.mark.integration
-def test_swap_lock_defaults_to_first_juror_plus_two(client, db_conn):
-    # Unset swap_lock_episode falls back to the first juror's episode + 2
-    # (#672): a juror out in episode 3 leaves episode 4 swappable, not 5.
-    # The merge alone (episode 3 here) does not lock anything.
+def test_swap_lock_defaults_to_episode_8(client, db_conn):
+    # Unset swap_lock_episode falls back to episode 8 (no jury stipulation):
+    # episode 8 refuses swaps, so episode 7 is the last swappable.
     season, contestants = _make_season_with_roster(
-        db_conn, roster_size=3, lock_episode=2, merge_episode=3, swap_token_cost=0
+        db_conn, roster_size=3, lock_episode=2, swap_token_cost=0
     )
-    ep3 = insert_episode(db_conn, season["id"], episode_number=3, status="scored")
-    juror = insert_contestant(db_conn, season["id"], "First Juror")
-    insert_scoring_event(db_conn, ep3["id"], juror["id"], "join_jury")
-    insert_episode(db_conn, season["id"], episode_number=5)
-    new = insert_contestant(db_conn, season["id"], "New Player")
     client.post(
         f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
+    insert_episode(db_conn, season["id"], episode_number=8)  # the default lock, open
+    new = insert_contestant(db_conn, season["id"], "New Player")
     r = client.post(
         f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={

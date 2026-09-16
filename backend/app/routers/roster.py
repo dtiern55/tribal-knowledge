@@ -25,55 +25,39 @@ def _swap_penalty(ls, ordinal: int) -> int:
     return max(ls["swap_penalty_step"] * ordinal, ls["swap_penalty_floor"])
 
 
-def _effective_swap_lock(ls) -> int | None:
-    """The episode from which roster swaps are locked (#84): explicit
-    swap_lock_episode, else two past the episode the first juror went out in
-    (#672), so the last swappable episode is the one after that boot. None
-    until a juror has been scored. The finale is refused separately,
-    regardless of this value."""
-    if ls["swap_lock_episode"] is not None:
-        return ls["swap_lock_episode"]
-    if ls["jury_start_episode"] is not None:
-        return ls["jury_start_episode"] + 2
-    return None
+SWAP_LOCK_DEFAULT = 8  # last swappable episode is the one before this (#84)
 
 
-def _effective_ss_lock(ls) -> int | None:
-    """Sole Survivor designation locks with the swaps (2026-09-03): once your
-    roster is final for the season, so is your pick of who wins on it. There
-    is deliberately no separate knob, so the two can never drift apart."""
-    return _effective_swap_lock(ls)
+def effective_swap_lock(ls) -> int:
+    """The episode from which roster swaps are locked (#84): the explicit
+    swap_lock_episode, else the default. So the last swappable episode is the
+    one before it. The finale is refused separately, regardless of this value."""
+    lock = ls["swap_lock_episode"]
+    return lock if lock is not None else SWAP_LOCK_DEFAULT
 
 
-def _episode_locked(cur, season_id, episode_number) -> bool:
-    cur.execute(
-        f"""
-        select 1 from episodes
-        where season_id = %s and episode_number = %s and {EPISODE_LOCKED_SQL}
-        """,
-        [str(season_id), episode_number],
-    )
-    return cur.fetchone() is not None
-
-
-def _ss_window_open_yet(cur, ls) -> bool:
-    """Whether Sole Survivor designation has opened yet (#587).
-
-    Designation opens at the merge — it's unavailable until the merge episode is
-    the open one or later, so nobody crowns a winner while two tribes still
-    stand. No merge set means not yet: the designation doubles a finale
-    contribution, meaningless before the merge is known (#529)."""
-    merge = ls["merge_episode"]
-    if merge is None:
-        return False
+def swaps_locked(cur, ls) -> bool:
+    """Swaps — and the Sole Survivor pick that rides them (one dial, #84) — are
+    locked once the next open episode reaches the swap lock, and always on the
+    finale. No open episode means play is over: everything is locked."""
     nxt = next_open_episode(cur, ls)
-    if nxt is not None:
-        return nxt["episode_number"] >= merge
-    # Nothing is open (an episode is airing, or play is over): fall back to how
-    # far the season has locked, so a window that has since CLOSED past the
-    # merge still reads as opened rather than not-yet.
-    latest = latest_locked_episode(cur, ls["season_id"])
-    return latest is not None and latest >= merge
+    return (
+        nxt is None
+        or bool(nxt["is_finale"])
+        or nxt["episode_number"] >= effective_swap_lock(ls)
+    )
+
+
+def ss_designation_open(cur, ls) -> bool:
+    """Whether the Sole Survivor pick can be set right now. It shares the swap
+    lock (one dial, no merge): it opens going into the last swappable episode
+    (swap lock - 1) — the one the roster finalizes on — and locks with the swaps
+    when that episode locks."""
+    nxt = next_open_episode(cur, ls)
+    if nxt is None or nxt["is_finale"]:
+        return False
+    lock = effective_swap_lock(ls)
+    return lock - 1 <= nxt["episode_number"] < lock
 
 
 @router.get(
@@ -130,10 +114,7 @@ def get_roster(
                 rows = visible
                 # Another player's designation is strategy until it locks (#164):
                 # the roster may already be visible, the flag is not.
-                ss_lock = _effective_ss_lock(ls)
-                if ss_lock is None or not _episode_locked(
-                    cur, ls["season_id"], ss_lock
-                ):
+                if not swaps_locked(cur, ls):
                     for r in rows:
                         r["is_sole_survivor"] = False
             return rows
@@ -299,7 +280,7 @@ def swap_roster_pick(
 
             # Swaps lock late-game (issue #84); the finale itself is always
             # off-limits.
-            swap_lock = _effective_swap_lock(ls)
+            swap_lock = effective_swap_lock(ls)
             if episode["is_finale"] or (
                 swap_lock is not None and swap_episode >= swap_lock
             ):
@@ -538,21 +519,15 @@ def designate_sole_survivor(
             if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
 
-            ss_lock = _effective_ss_lock(ls)
-            if ss_lock is None:
+            if swaps_locked(cur, ls):
                 raise HTTPException(
                     status_code=400,
-                    detail="Sole survivor lock not configured for this season",
+                    detail="Sole Survivor pick is locked for the rest of the season",
                 )
-            if not _ss_window_open_yet(cur, ls):
+            if not ss_designation_open(cur, ls):
                 raise HTTPException(
                     status_code=400,
-                    detail="Sole Survivor designation opens at the merge",
-                )
-            if _episode_locked(cur, ls["season_id"], ss_lock):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Sole survivor designation window has closed",
+                    detail="Sole Survivor pick has not opened yet",
                 )
 
             cur.execute(
@@ -607,11 +582,10 @@ def clear_sole_survivor(
             database.require_member(cur, ls["league_id"], user_id)
             if ls["status"] == "completed":
                 raise HTTPException(status_code=400, detail="Season is complete")
-            ss_lock = _effective_ss_lock(ls)
-            if ss_lock is not None and _episode_locked(cur, ls["season_id"], ss_lock):
+            if swaps_locked(cur, ls):
                 raise HTTPException(
                     status_code=400,
-                    detail="Sole survivor designation window has closed",
+                    detail="Sole Survivor pick is locked for the rest of the season",
                 )
             cur.execute(
                 "update roster_picks set is_sole_survivor = false"
