@@ -261,6 +261,11 @@ def get_episode_hub(
                 )
             lsid = str(league_season_id)
 
+            # Another player's designation is strategy until its window
+            # closes (#164); your own is always yours to see. Asked before the
+            # roster query: it shares the cursor.
+            revealed = ss_revealed(cur, ls)
+
             # Active rosters for the whole league (still-in-inventory picks).
             cur.execute(
                 f"""
@@ -278,9 +283,6 @@ def get_episode_hub(
             )
             rosters: dict[str, list[dict]] = {}
             sole_survivors: dict[str, str] = {}
-            # Another player's designation is strategy until its window
-            # closes (#164); your own is always yours to see.
-            revealed = ss_revealed(cur, ls)
             for row in cur.fetchall():
                 uid = row.pop("user_id")
                 if row.pop("is_sole_survivor") and (revealed or uid == str(user_id)):
