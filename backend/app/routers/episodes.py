@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database, scoring
 from app.auth import get_current_admin, get_current_user
 from app.locking import episode_locked
+from app.routers.roster import ss_revealed
 from app.routers.standings import league_field
 from app.schemas import (
     Episode,
@@ -277,9 +278,11 @@ def get_episode_hub(
             )
             rosters: dict[str, list[dict]] = {}
             sole_survivors: dict[str, str] = {}
+            # A designation is strategy until its window closes (#164).
+            revealed = ss_revealed(cur, ls)
             for row in cur.fetchall():
                 uid = row.pop("user_id")
-                if row.pop("is_sole_survivor"):
+                if row.pop("is_sole_survivor") and revealed:
                     sole_survivors[uid] = row["contestant_id"]
                 rosters.setdefault(uid, []).append(row)
 

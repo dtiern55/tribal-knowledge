@@ -65,6 +65,16 @@ def ss_designation_open(cur, ls) -> bool:
     return lock - 1 <= nxt["episode_number"] < lock
 
 
+def ss_revealed(cur, ls) -> bool:
+    """Whether other players' Sole Survivor picks are public: once the
+    designation window has closed, i.e. the last swappable episode
+    (swap lock - 1) has locked. Distinct from swaps_locked, which is also true
+    while any earlier episode is airing: a locked week 2 must not show a pick
+    that could not even be named yet."""
+    locked_through = latest_locked_episode(cur, ls["season_id"]) or 0
+    return locked_through >= effective_swap_lock(ls) - 1
+
+
 @router.get(
     "/league-seasons/{league_season_id}/roster/{user_id}",
     response_model=list[RosterPick],
@@ -119,7 +129,7 @@ def get_roster(
                 rows = visible
                 # Another player's designation is strategy until it locks (#164):
                 # the roster may already be visible, the flag is not.
-                if not swaps_locked(cur, ls):
+                if not ss_revealed(cur, ls):
                     for r in rows:
                         r["is_sole_survivor"] = False
             return rows
