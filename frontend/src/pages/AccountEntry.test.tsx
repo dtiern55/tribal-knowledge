@@ -73,6 +73,7 @@ describe('account entry flows', () => {
     expect(screen.getByText('You’ll need your league’s join code after signing up.')).toBeVisible()
     await user.type(screen.getByRole('textbox', { name: 'Email' }), 'new@example.com')
     await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.type(screen.getByLabelText('Confirm password'), 'password123')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     // A dedicated "check your email" moment (#508), not an inline pill.
@@ -80,6 +81,20 @@ describe('account entry flows', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/sent a confirmation link to new@example.com/)
     await user.click(screen.getByRole('button', { name: 'Back to sign in' }))
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  })
+
+  it('blocks account creation when the passwords don’t match', async () => {
+    const user = userEvent.setup()
+    renderWithApp(<LoginPage />, { auth: { session: null, profile: null } })
+
+    await user.click(screen.getByRole('button', { name: 'New here? Create an account' }))
+    await user.type(screen.getByRole('textbox', { name: 'Email' }), 'new@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.type(screen.getByLabelText('Confirm password'), 'password456')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Passwords don’t match.')
+    expect(supabase.auth.signUp).not.toHaveBeenCalled()
   })
 
   it('emails a password reset link from the sign-in form', async () => {
