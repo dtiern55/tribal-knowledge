@@ -5,7 +5,12 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, latest_locked_episode, next_open_episode
+from app.locking import (
+    EPISODE_LOCKED_SQL,
+    episode_locked_sql,
+    latest_locked_episode,
+    next_open_episode,
+)
 from app.schemas import (
     RosterPick,
     RosterSubmitRequest,
@@ -301,7 +306,10 @@ def swap_roster_pick(
                 )
 
             cur.execute(
-                "select id from eliminations where contestant_id = %s and is_final",
+                "select e.id from eliminations e"
+                " join episodes ep on ep.id = e.episode_id"
+                " where e.contestant_id = %s and e.is_final"
+                f" and {episode_locked_sql('ep')}",
                 [str(body.new_contestant_id)],
             )
             if cur.fetchone():
@@ -548,7 +556,10 @@ def designate_sole_survivor(
             # An eliminated castaway can linger on the roster if never swapped
             # out — they're not a valid designee (#180)
             cur.execute(
-                "select id from eliminations where contestant_id = %s and is_final",
+                "select e.id from eliminations e"
+                " join episodes ep on ep.id = e.episode_id"
+                " where e.contestant_id = %s and e.is_final"
+                f" and {episode_locked_sql('ep')}",
                 [str(body.contestant_id)],
             )
             if cur.fetchone():

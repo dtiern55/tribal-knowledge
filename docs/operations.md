@@ -235,6 +235,15 @@ PYTHONPATH=. uv run python scripts/dry_run.py reset --yes  # wipe and recopy fre
 `--boots K` sets how many. The merge happens automatically the first episode
 that opens with 13 or fewer alive.
 
+Or play it all through once and move around it: `seed` runs every week to the
+end, then `jump 7` (or **Admin → Dry run**, which calls the same
+`POST /seasons/{id}/jump`) scores everything before episode 7 and reopens 7
+onwards with far-future locks, so the page reads exactly as that week would.
+`jump 7 --locked` lands just after the lock; `jump complete` ends the season.
+The endpoint refuses any season a real player is in, so it can never move the
+league. Your own picks are kept; landing past the roster lock with no roster
+drafts you a random one.
+
 After any rebuild, re-run the data seeds the stages depend on:
 `scripts/seed_x2_targets.py --apply` (bots' ×2 plays get a named pick) and
 `scripts/seed_locked_stage.py --apply` (the locked-not-scored stage's empty

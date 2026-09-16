@@ -5,7 +5,11 @@ from psycopg2.extras import Json
 
 from app import database
 from app.auth import get_current_admin, get_current_user
-from app.locking import advantages_locked, episode_locked_sql
+from app.locking import (
+    advantages_locked,
+    episode_locked_sql,
+    hide_future_placements,
+)
 from app.schemas import (
     CastMember,
     Contestant,
@@ -87,7 +91,7 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
                 """,
                 [str(season_id)],
             )
-            rows = cur.fetchall()
+            rows = hide_future_placements(cur, season_id, cur.fetchall())
 
             # A finalist has a placement but no elimination — survivoR maps
             # sole survivor and runner-up to no elimination row at all
@@ -175,6 +179,8 @@ def get_contestant_performance(
             )
             elim = cur.fetchone()
             elim_ep = elim["episode_number"] if elim else None
+            c["eliminated_in_episode"] = elim_ep
+            hide_future_placements(cur, c["season_id"], [c])
 
             # Group events by episode
             by_ep: dict[int, dict] = {}

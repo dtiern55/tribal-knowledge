@@ -8,6 +8,7 @@ from app import database
 from app.routers import (
     advantage_plays,
     contestants,
+    dry_run,
     eliminations,
     episode_insights,
     episode_results,
@@ -65,6 +66,7 @@ app.include_router(survivor_import.router)
 app.include_router(tvmaze.router)
 app.include_router(tribes.router)
 app.include_router(watch_notes.router)
+app.include_router(dry_run.router)
 
 
 @app.get("/health")

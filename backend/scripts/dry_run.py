@@ -20,6 +20,10 @@ Usage (from backend/, staging only — reads .env):
 A week is: `bots N` while N is open → Danny plays on the preview → `air N`
 locks N, draws the outcome, writes it, scores it. Pause between commands to
 look at whatever the moment is.
+
+Or play it all through once (`seed`) and move around it afterwards: `jump N`
+(or the Admin page's Dry run control) scores everything before N and reopens
+N onwards, so any week is a click away (app/routers/dry_run.py).
 """
 
 import argparse
@@ -381,6 +385,33 @@ def air(cur, n: int, boot_names: list[str], boots_k: int | None):
         print("  next: the finale is open — bracket ballot")
 
 
+# ── seed / jump ────────────────────────────────────────────────────────────
+
+
+def seed(cur, conn):
+    """Play the whole season through, committing after every step."""
+    ls = season_and_league(cur)
+    for ep in episodes(cur, str(ls["season_id"])):
+        n = ep["episode_number"]
+        if ep["status"] == "scored":
+            continue
+        if n >= (ls["roster_lock_episode"] or 1):
+            bots(cur, n)
+            conn.commit()
+        air(cur, n, [], None)
+        conn.commit()
+
+
+def jump(cur, target: str, locked: bool):
+    ls = season_and_league(cur)
+    body = (
+        {"complete": True}
+        if target == "complete"
+        else {"episode": int(target), "locked": locked}
+    )
+    call(api(), "POST", f"/seasons/{ls['season_id']}/jump", json=body)
+
+
 # ── status / reset ─────────────────────────────────────────────────────────
 
 
@@ -458,15 +489,18 @@ def main():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("cmd", choices=["setup", "status", "bots", "air", "reset"])
-    p.add_argument("episode", type=int, nargs="?")
+    p.add_argument(
+        "cmd", choices=["setup", "status", "bots", "air", "seed", "jump", "reset"]
+    )
+    p.add_argument("episode", nargs="?", help="episode number, or `complete` for jump")
     p.add_argument("--boot", action="append", default=[], help="name someone to go")
     p.add_argument(
         "--boots", type=int, help="how many go (default: what the math needs)"
     )
+    p.add_argument("--locked", action="store_true", help="jump: land after the lock")
     p.add_argument("--yes", action="store_true", help="required by reset")
     a = p.parse_args()
-    if a.cmd in ("bots", "air") and a.episode is None:
+    if a.cmd in ("bots", "air", "jump") and a.episode is None:
         p.error(f"{a.cmd} needs an episode number")
     if a.cmd == "reset" and not a.yes:
         p.error("reset wipes the practice season; add --yes")
@@ -478,9 +512,14 @@ def main():
             elif a.cmd == "status":
                 status(cur)
             elif a.cmd == "bots":
-                bots(cur, a.episode)
+                bots(cur, int(a.episode))
             elif a.cmd == "air":
-                air(cur, a.episode, a.boot, a.boots)
+                air(cur, int(a.episode), a.boot, a.boots)
+            elif a.cmd == "seed":
+                seed(cur, conn)
+            elif a.cmd == "jump":
+                jump(cur, a.episode, a.locked)
+                status(cur)
             elif a.cmd == "reset":
                 reset(cur)
         conn.commit()
