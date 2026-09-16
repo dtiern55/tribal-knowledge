@@ -139,6 +139,23 @@
    ],
    "note": "Weak, flat read (Danny, 2026-09-14). Slight lean to Aras, Hayden, Ciera, Monica, Laura B.; Tyson and Vytas get ~no votes; Katie, Tina, Gervase capped low. Power ballots follow the same lean. Roster doubles prefer Vytas and Tyson, then Tina/Katie/Monica/Gervase/Caleb/Hayden, never Ciera. spread 0 so the exclusions hold while the split stays flat.",
    "spread": 0
+  },
+  "8": {
+   "likely_boots": [
+    ["Aras Baskauskas", 3],
+    ["Caleb Bankston", 2],
+    ["Ciera Eastin", 2],
+    ["Gervase Peterson", 2],
+    ["Hayden Moss", 2],
+    ["Katie Collins", 2],
+    ["Monica Culpepper", 2],
+    ["Tina Wesson", 2],
+    ["Tyson Apostol", 2],
+    ["Vytas Baskauskas", 2]
+   ],
+   "double_targets": [],
+   "note": "Crapshoot at the merge (Danny, 2026-09-15). No read: the ten in-game castaways sit roughly even, with a light lean to Aras. Redemption residents (John, Laura B., Laura M.) are off the ballot. Roster doubles unsteered. spread 0 so the near-flat caps give a spread field with Aras a touch ahead.",
+   "spread": 0
   }
  }
 }
