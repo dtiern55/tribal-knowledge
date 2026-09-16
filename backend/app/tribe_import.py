@@ -59,14 +59,34 @@ def build_tribe_data(
         color = MERGE_COLOR if is_merge else (r.get("tribe_colour") or "#888888")
         all_colors[name] = {"name": name, "color": color, "is_merge": is_merge}
 
-    # Redemption Island (#655): survivoR records residents with no tribe and a
-    # "Redemption Island" status starting the episode *after* the vote. The
-    # league wants them on the island from the episode they were voted off,
-    # so island rows shift back one episode and win any tie with that
-    # episode's real-tribe row.
+    # Redemption Island (#655): the league wants a resident on the island from
+    # the episode they were voted off. survivoR's island rows begin either that
+    # episode or the one after — it varies boot to boot within a season — so
+    # don't assume "the one after" and shift back blindly; anchor on the
+    # castaway instead: an island stay can't start before their last episode
+    # on a real tribe. The blind shift put a castaway on the island an episode
+    # before the vote, past the up_to_episode bound (S27 ep 8). Island rows
+    # still win any tie with that episode's real-tribe row.
+    real_episodes: dict[str, list[int]] = {}
+    for r in tribe_mapping:
+        cid = r.get("castaway_id")
+        if (
+            r.get("version_season") == season_key
+            and cid
+            and not _on_redemption(r)
+            and r.get("episode") is not None
+        ):
+            real_episodes.setdefault(cid, []).append(r["episode"])
+
     def effective_episode(r: dict) -> int:
         ep = r.get("episode") or 0
-        return max(1, ep - 1) if _on_redemption(r) else ep
+        if not _on_redemption(r):
+            return ep
+        last_real = max(
+            (e for e in real_episodes.get(r.get("castaway_id"), []) if e <= ep),
+            default=0,
+        )
+        return max(1, ep - 1, last_real)
 
     rows = sorted(
         (r for r in tribe_mapping if r.get("version_season") == season_key),
@@ -198,6 +218,57 @@ def _demo() -> None:
         "US28", tribe_colours=colours, tribe_mapping=mapping + ri, up_to_episode=1
     )
     assert all(m["tribe_name"] != REDEMPTION_TRIBE for m in early["memberships"])
+
+    # survivoR sometimes starts the island row in the vote episode itself
+    # (S27 ep 9). Anchored on the castaway's last real-tribe episode it lands
+    # on the vote episode, not the one before, and a live season bounded to
+    # the prior episode never sees it.
+    same_ep = [
+        {"version_season": "US28", "castaway_id": "C", "tribe": "Luzon", "episode": 1},
+        {
+            "version_season": "US28",
+            "castaway_id": "C",
+            "tribe": "Solarrion",
+            "episode": 6,
+        },
+        {
+            "version_season": "US28",
+            "castaway_id": "C",
+            "tribe": "Solarrion",
+            "episode": 7,
+        },
+        {
+            "version_season": "US28",
+            "castaway_id": "C",
+            "tribe": None,
+            "tribe_status": "Redemption Island",
+            "episode": 7,
+        },
+        {
+            "version_season": "US28",
+            "castaway_id": "C",
+            "tribe": None,
+            "tribe_status": "Redemption Island",
+            "episode": 8,
+        },
+    ]
+    out = build_tribe_data(
+        "US28", tribe_colours=colours, tribe_mapping=mapping + same_ep
+    )
+    c = [
+        (m["tribe_name"], m["from_episode"])
+        for m in out["memberships"]
+        if m["castaway_id"] == "C"
+    ]
+    assert c == [("Luzon", 1), ("Solarrion", 6), (REDEMPTION_TRIBE, 7)], c
+    bounded = build_tribe_data(
+        "US28", tribe_colours=colours, tribe_mapping=mapping + same_ep, up_to_episode=6
+    )
+    assert all(
+        m["tribe_name"] != REDEMPTION_TRIBE
+        for m in bounded["memberships"]
+        if m["castaway_id"] == "C"
+    ), bounded["memberships"]
 
     # Edge of Extinction is the same holding-pen mechanic under a different name.
     assert holding_pen_tribe("Edge of Extinction") == EDGE_TRIBE
