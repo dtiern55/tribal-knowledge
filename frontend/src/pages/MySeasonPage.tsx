@@ -1647,21 +1647,8 @@ function LeagueHub({
                       {entry.display_name}
                       {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
                     </span>
-                    {/* On the recap, mark where they aimed their advantage — the
-                        idol plus its target — so the field reads at a glance.
-                        The detail marks it again on the exact castaway/slip.
-                        Hidden pre-scoring (#490). */}
-                    {scored && entry.advantage_type && (
-                      <span className={`inline-flex min-w-0 items-center gap-1 ${sub}`}>
-                        <DoubleBadge
-                          size={14}
-                          title={entry.advantage_type === 'double_roster_points' ? 'Double Castaway Points' : 'Power Vote'}
-                        />
-                        <span className="truncate text-[11px] font-medium">
-                          {entry.advantage_target ? entry.advantage_target.name : 'Power Vote'}
-                        </span>
-                      </span>
-                    )}
+                    {/* The advantage marker (idol + target) is left to the
+                        expanded detail, on the exact castaway/slip. */}
                   </div>
                   {/* What their tribe and ballot earned this episode, so the
                       score reads at a glance without opening the row. */}

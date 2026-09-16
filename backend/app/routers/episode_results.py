@@ -98,6 +98,10 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
         )
         events_by_contestant: dict[str, list[dict]] = {}
         for row in cur.fetchall():
+            # Skip 0-point events (e.g. votes received at tribal): a non-scoring
+            # line, hidden here like the season breakdown already hides it.
+            if row["points"] == 0:
+                continue
             events_by_contestant.setdefault(row["contestant_id"], []).append(
                 {
                     "event_type": row["event_type"],

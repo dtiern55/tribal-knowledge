@@ -144,6 +144,10 @@ def test_roster_breakdown_lists_base_events_only(client, db_conn, current_user):
     insert_scoring_event(
         db_conn, episode["id"], rostered["id"], "win_individual_immunity"
     )
+    # A 0-point event (votes received at tribal) must not clutter the breakdown.
+    insert_scoring_event(
+        db_conn, episode["id"], rostered["id"], "votes_received", quantity=2
+    )
     play = insert_advantage_play(
         db_conn,
         current_user["id"],
