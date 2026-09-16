@@ -1122,6 +1122,18 @@ html.locked-night .contestant-avatar {
 @media (prefers-reduced-motion: reduce) {
   .tk-loader-fade { animation: none; }
 }
+/* Open ↔ locked while the loader is up: the outgoing wood is stacked over the
+   incoming one and dissolved away, so the puzzle changes theme in place
+   instead of the tray cutting to the other wood. Both layers are the same
+   board in the same position, so every tile lines up through the fade. */
+@keyframes tk-puzzle-crossfade { from { opacity: 1; } to { opacity: 0; } }
+.tk-puzzle-crossfade {
+  pointer-events: none;
+  animation: tk-puzzle-crossfade 620ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-puzzle-crossfade { animation: none; opacity: 0; }
+}
 
 /* ── My Season: This Week hero + colour-coded lanes ──────────────────────
    Advantage = gold, Roster = jade, Ballot = terracotta. The same three
