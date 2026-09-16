@@ -102,15 +102,6 @@ export function EpisodeResultReveal({
     }
   }, [])
 
-  useEffect(() => {
-    if (mode !== 'replay' || !onClose) return
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose?.()
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [mode, onClose])
-
   async function continueReveal() {
     if (!onContinue) return
     setSubmitting(true)
@@ -123,6 +114,18 @@ export function EpisodeResultReveal({
       setSubmitting(false)
     }
   }
+
+  // Escape leaves either way: a replay closes, a first-time reveal continues
+  // (which records that you've seen it).
+  useEffect(() => {
+    function leaveOnEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      if (mode === 'replay') onClose?.()
+      else void continueReveal()
+    }
+    window.addEventListener('keydown', leaveOnEscape)
+    return () => window.removeEventListener('keydown', leaveOnEscape)
+  })
 
   // The week's play is not a lane of its own: its bonus rides the row it
   // doubled, so Roster + Ballot is the whole episode and every number on the
@@ -155,6 +158,19 @@ export function EpisodeResultReveal({
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-200">
                 Ep {result.episode_number} {mode === 'replay' ? 'replay' : 'results'}
               </p>
+              {mode === 'automatic' && (
+                /* The exit at the top, so nobody has to scroll past the Field
+                   to leave; the full-width Continue waits at the bottom. */
+                <button
+                  type="button"
+                  onClick={() => void continueReveal()}
+                  disabled={submitting}
+                  aria-label="Continue to My Season"
+                  className="shrink-0 rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+                >
+                  Continue
+                </button>
+              )}
               {mode === 'replay' && (
                 <div className="flex shrink-0 items-center gap-2">
                   {/* Step through scored episodes without leaving the recap. */}
@@ -432,6 +448,10 @@ export function EpisodeResultReveal({
             </section>
           )}
 
+          {/* The league's teams for this episode — the same tribe/ballot/
+              advantage you see once an episode locks (#490). */}
+          {field && <div className="mt-8">{field}</div>}
+
           {error && <p role="alert" className="mt-4 text-sm text-terracotta-200">{error}</p>}
           {mode === 'automatic' ? (
             <button
@@ -451,10 +471,6 @@ export function EpisodeResultReveal({
               Back to My Season
             </button>
           )}
-
-          {/* The league's teams for this episode — the same tribe/ballot/
-              advantage you see once an episode locks (#490). */}
-          {field && <div className="mt-8">{field}</div>}
         </div>
       </article>
     </div>
