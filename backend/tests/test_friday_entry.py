@@ -1,10 +1,15 @@
 """Integration tests for the Friday entry job: eliminations + scoring events."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from tests.helpers import insert_contestant, insert_episode, insert_season
+
+# Placements and the eliminated flag stay hidden until the episode locks
+# (#559), so the placement tests read them off aired episodes.
+AIRED = datetime.now(timezone.utc) - timedelta(hours=1)
 
 
 @pytest.mark.integration
@@ -309,8 +314,8 @@ def _placements(client, season_id):
 def test_eliminations_assign_placement(client, db_conn):
     """#487: placement is boot order from the bottom, set on elimination."""
     season = insert_season(db_conn)
-    ep1 = insert_episode(db_conn, season["id"], episode_number=1)
-    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, picks_lock_at=AIRED)
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, picks_lock_at=AIRED)
     cast = [insert_contestant(db_conn, season["id"], f"P{i}") for i in range(6)]
 
     client.post(
@@ -356,7 +361,7 @@ def test_eliminations_never_assign_finale_placements(client, db_conn):
 def test_delete_elimination_clears_placement(client, db_conn):
     """#487: undoing the elimination frees the placement slot it took."""
     season = insert_season(db_conn)
-    ep = insert_episode(db_conn, season["id"])
+    ep = insert_episode(db_conn, season["id"], picks_lock_at=AIRED)
     cast = [insert_contestant(db_conn, season["id"], f"P{i}") for i in range(5)]
     created = client.post(
         f"/episodes/{ep['id']}/eliminations",

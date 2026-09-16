@@ -18,8 +18,11 @@ from tests.helpers import (
 PAST = datetime.now(timezone.utc) - timedelta(days=1)
 
 
-def _seeded_season(conn, episodes=4):
-    """A finished season: every episode scored, one boot per episode."""
+def _seeded_season(conn, admin, episodes=4):
+    """A finished season: every episode scored, one boot per episode. The
+    caller is a real admin in the DB: the guard counts non-admin members."""
+    with conn.cursor() as cur:
+        cur.execute("update profiles set is_admin = true where id = %s", [admin["id"]])
     season = insert_season(conn, roster_lock_episode=2, status="completed")
     cast = [insert_contestant(conn, season["id"], name=f"C{i}") for i in range(6)]
     for n in range(1, episodes + 1):
@@ -37,8 +40,10 @@ def _seeded_season(conn, episodes=4):
 
 
 @pytest.mark.integration
-def test_jump_reopens_from_the_target_and_hides_later_boots(client, db_conn):
-    season, cast = _seeded_season(db_conn)
+def test_jump_reopens_from_the_target_and_hides_later_boots(
+    client, db_conn, current_user
+):
+    season, cast = _seeded_season(db_conn, current_user)
     r = client.post(f"/seasons/{season['id']}/jump", json={"episode": 3})
     assert r.status_code == 200, r.text
     by_n = {e["episode_number"]: e for e in r.json()}
@@ -66,8 +71,7 @@ def test_jump_reopens_from_the_target_and_hides_later_boots(client, db_conn):
 
 @pytest.mark.integration
 def test_jump_drafts_the_jumper_a_roster_past_the_lock(client, db_conn, current_user):
-    season, _ = _seeded_season(db_conn)
-    enroll(db_conn, default_league(db_conn)["id"], current_user["id"])
+    season, _ = _seeded_season(db_conn, current_user)
     client.post(f"/seasons/{season['id']}/jump", json={"episode": 3})
     with db_conn.cursor() as cur:
         cur.execute(
@@ -80,8 +84,8 @@ def test_jump_drafts_the_jumper_a_roster_past_the_lock(client, db_conn, current_
 
 
 @pytest.mark.integration
-def test_jump_refuses_a_season_with_real_players(client, db_conn):
-    season, _ = _seeded_season(db_conn)
+def test_jump_refuses_a_season_with_real_players(client, db_conn, current_user):
+    season, _ = _seeded_season(db_conn, current_user)
     player = insert_user(db_conn, display_name="Real Player")
     enroll(db_conn, default_league(db_conn)["id"], player["id"])
     r = client.post(f"/seasons/{season['id']}/jump", json={"episode": 2})
