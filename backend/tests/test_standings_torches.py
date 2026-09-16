@@ -144,11 +144,12 @@ def test_sole_survivor_hidden_until_the_designation_locks(
 
     Same rule as the locked-page gold name (#685): a still-changeable Sole
     Survivor is strategy a rival can undo, so standings must not flag it early.
-    Rosters here are already visible (ep1 locked); only the designation lock
-    (swap_lock_episode 2) gates the reveal.
+    Rosters here are already visible (ep1 locked); only the designation lock,
+    which rides the swap lock (episode 3, so ep2 is the last swappable), gates
+    the reveal.
     """
     season = insert_season(
-        db_conn, roster_lock_episode=1, swap_lock_episode=2, merge_episode=1
+        db_conn, roster_lock_episode=1, swap_lock_episode=3, merge_episode=1
     )
     insert_episode(db_conn, season["id"], episode_number=1, status="scored")
     ep2 = insert_episode(db_conn, season["id"], episode_number=2)

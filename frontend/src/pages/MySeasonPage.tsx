@@ -888,22 +888,20 @@ export function MySeasonPage() {
             />
           </ThisWeekHero>
 
-          {/* Post-merge only: the designation doubles a FINALE contribution, so
-              it's meaningless before the merge is set (#529). */}
-          {d.season.merge_episode != null && (
-            <SoleSurvivorLine
-              season={d.season}
-              contestants={d.contestants}
-              episodes={d.episodes}
-              userId={d.userId}
-              rosterVersion={d.rosterVersion}
-              onRosterChange={d.bumpRoster}
-              onStartSoleSurvivor={() => {
-                setBeat('roster')
-                setPicking('sole-survivor')
-              }}
-            />
-          )}
+          {/* Rides the swap lock (one dial, no merge): SoleSurvivorLine
+              self-gates on the designation window. */}
+          <SoleSurvivorLine
+            season={d.season}
+            contestants={d.contestants}
+            episodes={d.episodes}
+            userId={d.userId}
+            rosterVersion={d.rosterVersion}
+            onRosterChange={d.bumpRoster}
+            onStartSoleSurvivor={() => {
+              setBeat('roster')
+              setPicking('sole-survivor')
+            }}
+          />
 
           {/* Tabs and the lane they reveal share one border: a lane is one
               object again, the way the record's beats were (#396). */}

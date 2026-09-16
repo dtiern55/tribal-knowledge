@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Episode, Season } from '../types'
-import { advantagesOpenYet, airingEpisode, openEpisode, ssDesignationOpen, ssWindowOpenYet, swapLockEpisodeNumber } from './episodes'
+import { advantagesOpenYet, airingEpisode, openEpisode, ssDesignationOpen, swapLockEpisodeNumber } from './episodes'
 
 const season = { roster_lock_episode: 2 } as Season
 
@@ -63,56 +63,51 @@ describe('swapLockEpisodeNumber', () => {
 })
 
 describe('sole survivor designation window', () => {
+  // One dial, no merge: with the lock at ep9 the pick opens going into ep8
+  // (the last swappable episode) and locks when ep8 locks — same as the swaps.
   const ssSeason = {
     roster_lock_episode: 2,
-    merge_episode: 7,
     swap_lock_episode: 9,
     status: 'active',
   } as Season
 
-  it('stays closed until the merge episode is the open one', () => {
+  it('stays closed before the last swappable episode is the open one', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-09-01T00:00:00Z'))
+    vi.setSystemTime(new Date('2026-10-01T00:00:00Z'))
     const episodes = [
-      episode(1, '2026-08-20T00:00:00Z', 'scored'),
-      episode(2, '2026-09-05T00:00:00Z'),
+      episode(2, '2026-09-05T00:00:00Z', 'scored'),
       episode(7, '2026-10-10T00:00:00Z'),
+      episode(8, '2026-10-17T00:00:00Z'),
       episode(9, '2026-10-24T00:00:00Z'),
     ]
-    expect(openEpisode(episodes, ssSeason)?.episode_number).toBe(2)
-    expect(ssWindowOpenYet(ssSeason, episodes)).toBe(false)
+    expect(openEpisode(episodes, ssSeason)?.episode_number).toBe(7)
     expect(ssDesignationOpen(ssSeason, episodes)).toBe(false)
     vi.useRealTimers()
   })
 
-  it('opens once the merge episode is open, until the lock episode locks', () => {
+  it('opens going into the last swappable episode (lock - 1)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-11T00:00:00Z'))
     const episodes = [
-      episode(2, '2026-09-05T00:00:00Z', 'scored'),
-      episode(7, '2026-10-14T00:00:00Z'),
-      episode(9, '2026-10-28T00:00:00Z'),
+      episode(7, '2026-10-10T00:00:00Z', 'scored'),
+      episode(8, '2026-10-17T00:00:00Z'),
+      episode(9, '2026-10-24T00:00:00Z'),
     ]
-    expect(openEpisode(episodes, ssSeason)?.episode_number).toBe(7)
-    expect(ssWindowOpenYet(ssSeason, episodes)).toBe(true)
+    expect(openEpisode(episodes, ssSeason)?.episode_number).toBe(8)
     expect(ssDesignationOpen(ssSeason, episodes)).toBe(true)
     vi.useRealTimers()
   })
 
-  it('ignores the merge gate when no merge is set', () => {
-    const noMerge = {
-      roster_lock_episode: 2,
-      swap_lock_episode: 9,
-      status: 'active',
-    } as Season
+  it('locks with the swaps once the lock episode is the open one', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-09-01T00:00:00Z'))
+    vi.setSystemTime(new Date('2026-10-18T00:00:00Z'))
     const episodes = [
-      episode(2, '2026-09-05T00:00:00Z'),
+      episode(7, '2026-10-10T00:00:00Z', 'scored'),
+      episode(8, '2026-10-17T00:00:00Z', 'scored'),
       episode(9, '2026-10-24T00:00:00Z'),
     ]
-    expect(ssWindowOpenYet(noMerge, episodes)).toBe(false)
-    expect(ssDesignationOpen(noMerge, episodes)).toBe(false)
+    expect(openEpisode(episodes, ssSeason)?.episode_number).toBe(9)
+    expect(ssDesignationOpen(ssSeason, episodes)).toBe(false)
     vi.useRealTimers()
   })
 })

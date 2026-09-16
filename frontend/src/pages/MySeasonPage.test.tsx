@@ -1071,10 +1071,10 @@ describe('MySeasonPage state shell', () => {
 
   // Naming happens by tapping your Tribe in the pick mode the Sole Survivor
   // button starts (#164) — the only path to designate, so it gets its own test.
-  it('names a Sole Survivor by tapping the tribe once the merge is reached', async () => {
+  it('names a Sole Survivor by tapping the tribe once the pick window opens', async () => {
     // The naming popup has its own test; suppress it here.
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
@@ -1103,7 +1103,7 @@ describe('MySeasonPage state shell', () => {
 
   it('pops the info card when the window opens with nobody named, then leaves the button pulsing (#164)', async () => {
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
@@ -1133,7 +1133,7 @@ describe('MySeasonPage state shell', () => {
   it('prompts the hero for the Sole Survivor instead of "all set" while the window is open and none is named (#164)', async () => {
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1') // suppress the popup
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 1 }
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, merge_episode: 2, swap_lock_episode: 9 })
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open, episode(9, 'upcoming', '2099-09-27T00:00:00Z')]

@@ -627,18 +627,11 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     # Import the rule, don't mirror it (#727): swaps lock from effective_swap_lock.
     swap_lock = effective_swap_lock(season)
     swaps_open = not ep["is_finale"] and episode_n < swap_lock
-    # Designation opens at the merge (app/routers/roster.py:
-    # _ss_window_open_yet, #587) and locks with the swaps (_effective_ss_lock).
-    # Bots only ever run on the episode that still accepts picks, so that
-    # episode is by definition unlocked — which makes "the lock has not locked
-    # yet" simply swap_lock >= episode_n. Without the merge half every bot
-    # crowned a winner at week 2, before any real player could.
-    merge = season["merge_episode"]
-    ss_open = (
-        merge is not None
-        and episode_n >= merge
-        and (swap_lock is None or swap_lock >= episode_n)
-    )
+    # Sole Survivor rides the same lock (one dial, no merge): it is set going
+    # into the last swappable episode (swap_lock - 1), the one the roster
+    # finalizes on. Bots run on the upcoming episode, so that is simply
+    # episode_n == swap_lock - 1.
+    ss_open = swap_lock - 1 <= episode_n < swap_lock
 
     cur.execute(
         """select contestant_id::text cid, count(*) n from roster_picks
