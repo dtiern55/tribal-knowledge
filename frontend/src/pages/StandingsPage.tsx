@@ -30,10 +30,12 @@ import type {
 function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
     <span
-      className={`flex size-[22px] flex-none justify-center font-bold leading-none text-cream-50 ${
-        // Two digits have to clear the slanted sides, so they set a size down.
-        delta > 9 ? 'text-[9px]' : 'text-[10px]'
-      } ${up ? 'items-end bg-jade-600' : 'items-start bg-terracotta-600'}`}
+      // Rajdhani, the display face the rank beside it already wears: its
+      // numerals are semi-condensed, so two digits clear the slanted sides at
+      // a size BIGGER than the body font managed at one digit.
+      className={`flex size-[22px] flex-none justify-center font-display text-[11px] font-bold leading-none text-cream-50 ${
+        up ? 'items-end bg-jade-600' : 'items-start bg-terracotta-600'
+      }`}
       style={{
         clipPath: up ? 'polygon(50% 0, 100% 100%, 0 100%)' : 'polygon(0 0, 100% 0, 50% 100%)',
       }}
@@ -56,9 +58,7 @@ function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: Stand
         {(up || down) && <Movement up={up} delta={entry.trend_delta} />}
       </span>
       <span
-        // A size down on a phone: the triangle took room from the row, and a
-        // two-digit rank at text-xl crowded the name beside it.
-        className={`font-display text-lg font-bold leading-none tabular-nums md:text-xl ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
+        className={`font-display text-xl font-bold leading-none tabular-nums ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
         aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
       >
         {rank}
