@@ -1209,7 +1209,9 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByText('Kenzie')).toBeVisible()
-    expect(screen.getByText('Charlie')).toBeVisible()
+    // The roster arrives on its own request, so wait for it rather than
+    // assume it landed with the ballot (flaky under CI load).
+    expect(await screen.findByText('Charlie')).toBeVisible()
     // The locked ballot is the same handwritten slips as the open one, no
     // portraits: the roster above is where the people are (#685).
     expect(screen.getByText('Kenzie').closest('.ballot-slip')).not.toBeNull()
@@ -1297,7 +1299,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument()
     // Kenzie is the designated Sole Survivor: a gold name with a screen-reader
     // label, nothing louder (#685).
-    expect(screen.getByText('Kenzie')).toHaveClass('text-gold-700')
+    await waitFor(() => expect(screen.getByText('Kenzie')).toHaveClass('text-gold-700'))
     expect(screen.getByText('· Sole Survivor')).toBeInTheDocument()
   })
 

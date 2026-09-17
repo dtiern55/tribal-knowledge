@@ -601,6 +601,9 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     targets = set(
         resolve(cur, sid, ep_read.get("double_targets", []), "double_targets")
     )
+    backups = set(
+        resolve(cur, sid, ep_read.get("double_backups", []), "double_backups")
+    )
     # Castaways the room simply won't vote for this week. Without this they
     # fall into `others` and the looser bots hand them votes
     # anyway, which contradicts a read that says nobody would.
@@ -783,7 +786,16 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
             choice = a["play"] if rng(uid, episode_n, "lean") < a["bias"] else other
             target = None
             if choice == "double_roster_points":
-                pool = star or [c for c in held if c in alive]
+                if "double_backups" in ep_read:
+                    # Tiered read: backups only when the bot holds no primary
+                    # target and doesn't lean to the ballot; otherwise it
+                    # doubles the ballot instead of an off-read castaway.
+                    leans_ballot = a["play"] == "double_vote_points" and a["bias"] > 0.5
+                    pool = star or (
+                        [] if leans_ballot else [c for c in held if c in backups]
+                    )
+                else:
+                    pool = star or [c for c in held if c in alive]
                 if not pool:
                     choice = "double_vote_points"
                 else:

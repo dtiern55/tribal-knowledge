@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database, scoring
 from app.auth import get_current_admin, get_current_user
 from app.locking import episode_locked
+from app.routers.roster import ss_revealed
 from app.routers.standings import league_field
 from app.schemas import (
     Episode,
@@ -260,6 +261,11 @@ def get_episode_hub(
                 )
             lsid = str(league_season_id)
 
+            # Another player's designation is strategy until its window
+            # closes (#164); your own is always yours to see. Asked before the
+            # roster query: it shares the cursor.
+            revealed = ss_revealed(cur, ls)
+
             # Active rosters for the whole league (still-in-inventory picks).
             cur.execute(
                 f"""
@@ -279,7 +285,7 @@ def get_episode_hub(
             sole_survivors: dict[str, str] = {}
             for row in cur.fetchall():
                 uid = row.pop("user_id")
-                if row.pop("is_sole_survivor"):
+                if row.pop("is_sole_survivor") and (revealed or uid == str(user_id)):
                     sole_survivors[uid] = row["contestant_id"]
                 rosters.setdefault(uid, []).append(row)
 

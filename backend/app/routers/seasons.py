@@ -5,6 +5,7 @@ from psycopg2.extras import Json
 
 from app import database
 from app.auth import get_current_admin, get_current_user
+from app.locking import episode_locked_sql, hide_future_placements
 from app.schemas import Contestant, Season, SeasonCreateRequest, SeasonUpdateRequest
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
@@ -25,7 +26,7 @@ def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
         with conn.cursor() as cur:
             database.require_season(cur, season_id)
             cur.execute(
-                """
+                f"""
                 select c.*, ep.episode_number as eliminated_in_episode,
                        -- When their island stint began, null if they aren't on
                        -- it. The ballot has to ask "on the island going into
@@ -49,13 +50,15 @@ def list_contestants(season_id: UUID, _: UUID = Depends(get_current_user)):
                         order by ct.from_episode desc limit 1) as tribe_color
                 from contestants c
                 left join eliminations e on e.contestant_id = c.id and e.is_final
+                -- Hidden until the episode locks (#559), like everything else.
                 left join episodes ep on ep.id = e.episode_id
+                  and {episode_locked_sql("ep")}
                 where c.season_id = %s
                 order by c.name
                 """,
                 [str(season_id)],
             )
-            return cur.fetchall()
+            return hide_future_placements(cur, season_id, cur.fetchall())
 
 
 @router.post("", response_model=Season, status_code=201)

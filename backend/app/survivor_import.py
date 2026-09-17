@@ -195,8 +195,30 @@ def build_proposal(
                     " endgame return if this is the later one"
                 )
 
-    for r in _season(castaways, season_key):
-        if r.get("episode") == episode and r.get("place"):
+    # survivoR keeps one castaways row per person, dated to their last vote-out.
+    # A boot into the holding pen is still playing, so their jury seat and
+    # placement land on the episode they actually leave: a lost duel (#793).
+    # ponytail: the Edge has no duels, so its non-returnees get neither here;
+    # the commissioner adds them when flipping is_final.
+    held = {
+        e["castaway_id"]
+        for e in eliminations
+        if e["elimination_type"] == "voted_out" and not e["is_final"]
+    }
+    left = {
+        e["castaway_id"]
+        for e in eliminations
+        if e["elimination_type"] == "redemption_loss"
+    }
+    final_here = [
+        r
+        for r in _season(castaways, season_key)
+        if (r.get("episode") == episode and r["castaway_id"] not in held)
+        or r["castaway_id"] in left
+    ]
+
+    for r in final_here:
+        if r.get("place"):
             placements.append(
                 {
                     "castaway_id": r["castaway_id"],
@@ -360,8 +382,8 @@ def build_proposal(
         # Expired/Absorbed/Banked etc. don't score; ignore silently.
 
     # --- jury ---
-    for r in _season(castaways, season_key):
-        if r.get("jury") and r.get("episode") == episode:
+    for r in final_here:
+        if r.get("jury"):
             add_event(r["castaway_id"], r["castaway"], "join_jury")
 
     warnings.append(

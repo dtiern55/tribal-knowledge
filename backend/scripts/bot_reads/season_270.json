@@ -174,6 +174,28 @@
    ],
    "note": "Crapshoot (Danny, 2026-09-16). Everyone but Tyson and Gervase roughly even, Ciera and Hayden a touch lighter; Tyson and Gervase cold and the roster-double targets.",
    "spread": 70
+  },
+  "10": {
+   "likely_boots": [
+    ["Laura Morett", 8],
+    ["Monica Culpepper", 8],
+    ["Ciera Eastin", 4],
+    ["Katie Collins", 3],
+    ["Caleb Bankston", 2],
+    ["Hayden Moss", 1]
+   ],
+   "double_targets": [
+    "Gervase Peterson",
+    "Tyson Apostol",
+    "Hayden Moss"
+   ],
+   "double_backups": [
+    "Caleb Bankston",
+    "Ciera Eastin",
+    "Katie Collins"
+   ],
+   "note": "Real read, not a crapshoot (Danny, 2026-09-16). Laura M. and Monica most voted, then Ciera, Katie, Caleb, Hayden increasingly behind; Power Votes follow onto Laura M. and Monica. Roster doubles on Gervase, Tyson, Hayden; Caleb, Ciera or Katie only for a bot holding none of those that doesn't lean to the ballot.",
+   "spread": 0
   }
  }
 }
