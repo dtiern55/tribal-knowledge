@@ -196,6 +196,32 @@
    ],
    "note": "Real read, not a crapshoot (Danny, 2026-09-16). Laura M. and Monica most voted, then Ciera, Katie, Caleb, Hayden increasingly behind; Power Votes follow onto Laura M. and Monica. Roster doubles on Gervase, Tyson, Hayden; Caleb, Ciera or Katie only for a bot holding none of those that doesn't lean to the ballot.",
    "spread": 0
+  },
+  "11": {
+   "likely_boots": [
+    ["Monica Culpepper", 4],
+    ["Tyson Apostol", 4],
+    ["Hayden Moss", 3],
+    ["Caleb Bankston", 3],
+    ["Katie Collins", 3],
+    ["Ciera Eastin", 3]
+   ],
+   "double_targets": [
+    "Tyson Apostol",
+    "Monica Culpepper",
+    "Gervase Peterson",
+    "Hayden Moss",
+    "Ciera Eastin",
+    "Laura Morett",
+    "Tina Wesson",
+    "Vytas Baskauskas"
+   ],
+   "double_backups": [
+    "Katie Collins",
+    "Caleb Bankston"
+   ],
+   "note": "Weak read (Danny, 2026-09-16). Votes spread, slightly more on Monica and Tyson; Gervase decently safe (unlisted, so only the loose bots vote him). Roster doubles on anyone but Katie and Caleb, who only get a bot holding no one else that doesn't lean to the ballot.",
+   "spread": 70
   }
  }
 }
