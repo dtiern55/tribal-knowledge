@@ -476,3 +476,57 @@ def test_return_after_the_merge_is_the_endgame_return():
         "c"
     ]
     assert any("merge episode" in w for w in unknown["warnings"])
+
+
+def test_redemption_boot_takes_jury_and_placement_at_the_duel_loss():
+    """survivoR dates the castaways row to the vote-out; an island boot is still
+    playing, so jury and placement wait for the duel they lose (#793)."""
+    cast = [
+        {
+            "version_season": S,
+            "episode": 5,
+            "castaway_id": "a",
+            "castaway": "Ann",
+            "jury": True,
+            "place": 10,
+        }
+    ]
+    boot = _build(
+        castaways=cast,
+        boot_order=[
+            {
+                "version_season": S,
+                "episode": 5,
+                "castaway_id": "a",
+                "castaway": "Ann",
+                "result": "5th voted out",
+            },
+        ],
+        tribe_mapping=[_tribe("a", "Ann", 5, "Luzon"), _island("a", "Ann", 6)],
+    )
+    assert boot["placements"] == []
+    assert _events(boot, "join_jury") == []
+
+    duel = build_proposal(
+        S,
+        7,
+        vote_history=[],
+        boot_order=[],
+        challenge_results=[
+            {
+                "version_season": S,
+                "episode": 7,
+                "castaway_id": "a",
+                "castaway": "Ann",
+                "challenge_type": "Duel",
+                "result": "Lost",
+            }
+        ],
+        journeys=[],
+        advantage_movement=[],
+        advantage_details=[],
+        castaways=cast,
+        tribe_mapping=[_island("a", "Ann", 6)],
+    )
+    assert duel["placements"] == [{"castaway_id": "a", "name": "Ann", "placement": 10}]
+    assert [e["castaway_id"] for e in _events(duel, "join_jury")] == ["a"]
