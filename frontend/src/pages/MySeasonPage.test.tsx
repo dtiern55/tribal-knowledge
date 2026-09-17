@@ -1040,6 +1040,46 @@ describe('MySeasonPage state shell', () => {
     expect(localStorage.getItem('mytribe.first-loss.season-1')).toBe('1')
   })
 
+  it('holds the Sole Survivor card until the first-loss card is dismissed (#798)', async () => {
+    localStorage.removeItem('mytribe.first-loss.season-1')
+    localStorage.removeItem('mytribe.name-sole-survivor.season-1')
+    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 4 })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: 2 },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await openBeat('Tribe')
+    const first = await screen.findByRole('dialog', { name: /tribe has spoken/i })
+    expect(screen.queryByRole('dialog', { name: /choose your sole survivor/i })).not.toBeInTheDocument()
+    await userEvent.click(within(first).getByRole('button', { name: 'Got it' }))
+    expect(await screen.findByRole('dialog', { name: /choose your sole survivor/i })).toBeVisible()
+    expect(screen.queryByRole('dialog', { name: /tribe has spoken/i })).not.toBeInTheDocument()
+  })
+
   it('keeps an unsaved ballot when you look at another beat', async () => {
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
     vi.mocked(getActiveSeason).mockResolvedValue(season)
