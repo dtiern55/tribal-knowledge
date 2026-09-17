@@ -144,12 +144,6 @@ export interface StandingEntry {
   sole_survivor_contestant_id: string | null
 }
 
-// One scored episode's point delta per player, keyed by user_id (#806).
-export interface EpisodePointsRow {
-  episode_number: number
-  points: Record<string, number>
-}
-
 export interface RosterPick {
   id: string
   user_id: string

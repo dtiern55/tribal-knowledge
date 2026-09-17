@@ -174,7 +174,7 @@ describe('StandingsPage', () => {
     expect(flames[0].querySelector('g[transform*="scale(-1 1)"]')).not.toBeNull()
     expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor, eliminated ep 11')
   })
-  it("expands a row into that player's week: tribe, votes and advantage (#806)", async () => {
+  it("expands a row into that player's latest week: tribe, votes and advantage (#806)", async () => {
     const season = {
       id: 'season-1', season_id: 'show-1', name: 'Survivor 51',
       status: 'active', roster_lock_episode: 1,
@@ -187,7 +187,7 @@ describe('StandingsPage', () => {
         return [{
           user_id: 'user-1', display_name: 'Danny',
           roster_points: 40, elimination_points: 20, finale_points: 0, total_points: 60,
-          trend: null, trend_delta: 0, last_episode_points: 0,
+          trend: null, trend_delta: 0, last_episode_points: 40,
           active_survivors: [], recently_eliminated_survivors: [],
         }]
       }
@@ -199,19 +199,13 @@ describe('StandingsPage', () => {
       }
       if (path === '/seasons/show-1/contestants') {
         return [
-          { id: 'cast-1', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null },
-          { id: 'cast-2', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null },
-          { id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null },
+          { id: 'cast-1', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: 2 },
+          { id: 'cast-2', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: null },
         ]
       }
       if (path === '/seasons/show-1/eliminations') {
         return [{ id: 'el-1', episode_id: 'ep-2', contestant_id: 'cast-1', is_final: true }]
-      }
-      if (path.endsWith('/points-history')) {
-        return [
-          { episode_number: 1, points: { 'user-1': 20 } },
-          { episode_number: 2, points: { 'user-1': 40 } },
-        ]
       }
       if (path.endsWith('/roster/user-1')) {
         return [
@@ -235,23 +229,20 @@ describe('StandingsPage', () => {
     expect(row).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(row)
 
-    // Newest week first, and the tribe as it stood that week: Ben swapped in
-    // for episode 2, Kenzie only on the team for episode 1.
-    const weeks = await screen.findAllByRole('definition')
+    // Only the latest locked episode, with what it paid them.
     expect(await screen.findByText('Ep 2')).toBeVisible()
-    expect(weeks[0]).toHaveTextContent('Charlie')
-    expect(weeks[0]).toHaveTextContent('Ben')
-    expect(weeks[0]).not.toHaveTextContent('Kenzie')
+    expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
+
+    const [team, voted, played] = screen.getAllByRole('definition')
+    // The tribe as it stood that week: Ben swapped in, Kenzie already gone.
+    expect(team).toHaveTextContent('Charlie')
+    expect(team).toHaveTextContent('Ben')
+    expect(team).not.toHaveTextContent('Kenzie')
     expect(screen.getByTitle('Swapped in this episode')).toBeVisible()
-    // Their vote hit — Charlie went home in episode 2.
-    expect(weeks[1]).toHaveTextContent('Correct — Charlie')
-    // And what they spent it on.
-    expect(weeks[2]).toHaveTextContent('Power Vote')
-    expect(weeks[2]).toHaveTextContent('on Charlie')
-    // Episode 1: Kenzie still on the tribe, no votes filed, nothing played.
-    expect(weeks[3]).toHaveTextContent('Kenzie')
-    expect(weeks[4]).toHaveTextContent('No votes')
-    expect(screen.getAllByText('Power Vote')).toHaveLength(1)
+    // Their vote hit — Charlie went home — and this is what they spent on it.
+    expect(voted).toHaveTextContent('Correct — Charlie')
+    expect(played).toHaveTextContent('Power Vote')
+    expect(played).toHaveTextContent('on Charlie')
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
       'href',

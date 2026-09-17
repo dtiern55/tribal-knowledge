@@ -174,17 +174,6 @@ class StandingSurvivor(BaseModel):
     eliminated_episode: Optional[int] = None
 
 
-class EpisodePointsRow(BaseModel):
-    """What one scored episode did to every player's total (#806).
-
-    `points` is keyed by user_id; a player who scored nothing that week is
-    absent rather than zero.
-    """
-
-    episode_number: int
-    points: dict[str, int]
-
-
 class StandingEntry(BaseModel):
     user_id: UUID
     display_name: str

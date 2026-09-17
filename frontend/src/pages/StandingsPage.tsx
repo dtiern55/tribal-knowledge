@@ -20,7 +20,6 @@ import type {
   Elimination,
   EliminationPick,
   Episode,
-  EpisodePointsRow,
   RosterPick,
   Season,
   StandingEntry,
@@ -166,171 +165,130 @@ interface PlayerHistory {
   hidden: boolean
 }
 
-// One week of someone's season: the tribe they carried into it, who they voted
-// for, and the advantage they spent. The three questions the panel answers, in
-// that order, each line labelled so the block needs no legend.
-function Week({
+// The expanded row: that player's latest week — the tribe they carried into
+// it, who they voted for, and the advantage they spent, each line labelled so
+// the block needs no legend. Earlier weeks are the Team page's job, one tap
+// away at the bottom. What the week paid them is the number the collapsed row
+// already shows a few pixels above, so it isn't repeated here.
+function HistoryPanel({
+  id,
   episode,
-  team,
-  votes,
-  play,
-  points,
+  history,
   byId,
   bootIds,
-  baseEpisode,
+  teamHref,
+  name,
 }: {
-  episode: Episode
-  team: RosterPick[]
-  votes: EliminationPick[]
-  play: AdvantagePlay | undefined
-  points: number | undefined
+  id: string
+  /** The most recent locked, non-finale episode. */
+  episode: Episode | undefined
+  history: PlayerHistory | null
   byId: Map<string, Contestant>
-  /** Who actually went home this episode — marks a vote right and a tribe
-   *  member as the week's loss. */
+  /** Who actually went home that episode — marks a vote right. */
   bootIds: Set<string>
-  /** The episode the roster started at, so the original picks don't all read
-   *  as swapped in at the roster lock (matches the Team page). */
-  baseEpisode: number
+  teamHref: string
+  name: string
 }) {
   const nameOf = (id: string) => {
     const c = byId.get(id)
     return c ? displayName(c) : '—'
   }
   const label = 'pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded'
-  return (
-    <div className="border-t border-paper-line py-2 first:border-t-0">
-      <div className="flex items-baseline gap-2">
-        <span className="font-display text-sm font-semibold text-forest-800">Ep {episode.episode_number}</span>
-        {points != null && points !== 0 && (
-          <span className={`text-xs font-medium tabular-nums ${points > 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
-            {points > 0 ? '+' : ''}{points}
-          </span>
-        )}
-      </div>
-      <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
-        <dt className={label}>Team</dt>
-        <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
-          {team.length === 0 ? (
-            <span className="text-sm text-paper-ink-faded">—</span>
-          ) : (
-            team.map((pick) => {
-              const c = byId.get(pick.contestant_id)
-              // Out of the game by this week — struck the week they went home
-              // and every week after, because a boot nobody swapped out stays
-              // on the roster rows. `eliminated_in_episode` is the server's own
-              // "out for good", so a Redemption Island duel loss isn't one.
-              const lost = c?.eliminated_in_episode != null && c.eliminated_in_episode <= episode.episode_number
-              return (
-                <span
-                  key={pick.id}
-                  className={`inline-flex items-center gap-1 text-sm ${lost ? ELIMINATED_STRIKE : ''} ${
-                    pick.is_sole_survivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
-                  }`}
-                  title={pick.is_sole_survivor ? 'Their Sole Survivor' : undefined}
-                >
-                  <span className={lost ? ELIMINATED_DIM : undefined}>
-                    <ContestantAvatar name={nameOf(pick.contestant_id)} imageUrl={c?.image_url ?? null} size="sm" tribeColor={c?.tribe_color ?? null} tribeName={c?.tribe_name ?? null} />
-                  </span>
-                  {nameOf(pick.contestant_id)}
-                  {/* Swapped in for this week — the one thing a roster line
-                      can't say by itself when you read a single row. */}
-                  {pick.active_from_episode === episode.episode_number && pick.active_from_episode > baseEpisode && (
-                    <span className="text-[10px] font-semibold uppercase text-jade-700" title="Swapped in this episode">new</span>
-                  )}
-                </span>
-              )
-            })
-          )}
-        </dd>
-
-        <dt className={label}>Voted</dt>
-        <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
-          {votes.length === 0 ? (
-            <span className="text-sm text-paper-ink-faded">No votes</span>
-          ) : (
-            votes.map((vote) =>
-              bootIds.has(vote.contestant_id) ? (
-                <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} />
-              ) : (
-                <span key={vote.id} className="inline-flex items-center rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
-                  {nameOf(vote.contestant_id)}
-                </span>
-              ),
-            )
-          )}
-        </dd>
-
-        {/* No line at all on a quiet week: an empty "Played —" row on every
-            episode would bury the weeks something was spent. */}
-        {play && (
-          <>
-            <dt className={label}>Played</dt>
-            <dd className="flex flex-wrap items-center gap-1.5 py-0.5 text-sm text-paper-ink">
-              <span className="font-medium">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</span>
-              {play.target_contestant_id && (
-                <span className="text-paper-ink-faded">on {nameOf(play.target_contestant_id)}</span>
-              )}
-            </dd>
-          </>
-        )}
-      </dl>
-    </div>
+  const note = 'py-1.5 text-sm text-paper-ink-faded'
+  const n = episode?.episode_number ?? 0
+  const team = (history?.roster ?? []).filter(
+    (pick) =>
+      pick.active_from_episode <= n &&
+      (pick.active_until_episode == null || pick.active_until_episode >= n),
   )
-}
-
-// The expanded row: that player's season week by week, newest first. The Team
-// page stays a tap away at the bottom for the scoring detail behind a week.
-function HistoryPanel({
-  id,
-  episodes,
-  history,
-  deltas,
-  byId,
-  bootsByEpisode,
-  teamHref,
-  name,
-}: {
-  id: string
-  /** Locked, non-finale episodes, newest first. */
-  episodes: Episode[]
-  history: PlayerHistory | null
-  /** Points this player gained per episode number. */
-  deltas: Map<number, number>
-  byId: Map<string, Contestant>
-  bootsByEpisode: Map<string, Set<string>>
-  teamHref: string
-  name: string
-}) {
+  const votes = (episode && history?.ballots[episode.id]) ?? []
+  const play = history?.plays.find((p) => p.episode_id === episode?.id)
+  // The episode the roster started at, so the original picks don't all read as
+  // swapped in at the roster lock (matches the Team page).
   const baseEpisode =
     history && history.roster.length > 0
       ? Math.min(...history.roster.map((pick) => pick.active_from_episode))
       : 0
+
   return (
     <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-2">
       {history == null ? (
-        <p className="py-1.5 text-sm text-paper-ink-faded">Loading…</p>
+        <p className={note}>Loading…</p>
       ) : history.hidden ? (
-        <p className="py-1.5 text-sm text-paper-ink-faded">Their tribe and weekly play unlock when tribes lock.</p>
-      ) : episodes.length === 0 ? (
-        <p className="py-1.5 text-sm text-paper-ink-faded">No episodes have locked yet.</p>
+        <p className={note}>Their tribe and weekly play unlock when tribes lock.</p>
+      ) : episode == null ? (
+        <p className={note}>No episodes have locked yet.</p>
       ) : (
-        episodes.map((episode) => (
-          <Week
-            key={episode.id}
-            episode={episode}
-            team={history.roster.filter(
-              (pick) =>
-                pick.active_from_episode <= episode.episode_number &&
-                (pick.active_until_episode == null || pick.active_until_episode >= episode.episode_number),
+        <>
+          <span className="font-display text-sm font-semibold text-forest-800">Ep {n}</span>
+          <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
+            <dt className={label}>Team</dt>
+            <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
+              {team.length === 0 ? (
+                <span className="text-sm text-paper-ink-faded">—</span>
+              ) : (
+                team.map((pick) => {
+                  const c = byId.get(pick.contestant_id)
+                  // Out of the game by this week: a boot nobody swapped out
+                  // stays on the roster rows. `eliminated_in_episode` is the
+                  // server's own "out for good", so a Redemption Island duel
+                  // loss isn't one.
+                  const lost = c?.eliminated_in_episode != null && c.eliminated_in_episode <= n
+                  return (
+                    <span
+                      key={pick.id}
+                      className={`inline-flex items-center gap-1 text-sm ${lost ? ELIMINATED_STRIKE : ''} ${
+                        pick.is_sole_survivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
+                      }`}
+                      title={pick.is_sole_survivor ? 'Their Sole Survivor' : undefined}
+                    >
+                      <span className={lost ? ELIMINATED_DIM : undefined}>
+                        <ContestantAvatar name={nameOf(pick.contestant_id)} imageUrl={c?.image_url ?? null} size="sm" tribeColor={c?.tribe_color ?? null} tribeName={c?.tribe_name ?? null} />
+                      </span>
+                      {nameOf(pick.contestant_id)}
+                      {/* Swapped in for this week — the one thing a roster line
+                          can't say by itself. */}
+                      {pick.active_from_episode === n && n > baseEpisode && (
+                        <span className="text-[10px] font-semibold uppercase text-jade-700" title="Swapped in this episode">new</span>
+                      )}
+                    </span>
+                  )
+                })
+              )}
+            </dd>
+
+            <dt className={label}>Voted</dt>
+            <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
+              {votes.length === 0 ? (
+                <span className="text-sm text-paper-ink-faded">No votes</span>
+              ) : (
+                votes.map((vote) =>
+                  bootIds.has(vote.contestant_id) ? (
+                    <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} />
+                  ) : (
+                    <span key={vote.id} className="inline-flex items-center rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                      {nameOf(vote.contestant_id)}
+                    </span>
+                  ),
+                )
+              )}
+            </dd>
+
+            {/* No line at all on a quiet week: an empty "Played —" row would
+                bury the weeks something was actually spent. */}
+            {play && (
+              <>
+                <dt className={label}>Played</dt>
+                <dd className="flex flex-wrap items-center gap-1.5 py-0.5 text-sm text-paper-ink">
+                  <span className="font-medium">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</span>
+                  {play.target_contestant_id && (
+                    <span className="text-paper-ink-faded">on {nameOf(play.target_contestant_id)}</span>
+                  )}
+                </dd>
+              </>
             )}
-            votes={history.ballots[episode.id] ?? []}
-            play={history.plays.find((p) => p.episode_id === episode.id)}
-            points={deltas.get(episode.episode_number)}
-            byId={byId}
-            bootIds={bootsByEpisode.get(episode.id) ?? EMPTY_IDS}
-            baseEpisode={baseEpisode}
-          />
-        ))
+          </dl>
+        </>
       )}
       <Link
         to={teamHref}
@@ -345,7 +303,6 @@ function HistoryPanel({
 
 const EMPTY_IDS: Set<string> = new Set()
 const EMPTY_CAST: Map<string, Contestant> = new Map()
-const EMPTY_BOOTS: Map<string, Set<string>> = new Map()
 
 export function StandingsPage() {
   const { session } = useAuth()
@@ -360,12 +317,11 @@ export function StandingsPage() {
   // it — and both caches are kept for the rest of the visit (#806).
   const [openId, setOpenId] = useState<string | null>(null)
   // The season's own facts, shared by every row: the cast, which episodes have
-  // locked, who went home in each, and what each episode paid each player.
+  // locked, and who went home in each.
   const [ctx, setCtx] = useState<{
     episodes: Episode[]
     byId: Map<string, Contestant>
     bootsByEpisode: Map<string, Set<string>>
-    deltas: EpisodePointsRow[]
   } | null>(null)
   const [histories, setHistories] = useState<Map<string, PlayerHistory>>(new Map())
 
@@ -401,14 +357,13 @@ export function StandingsPage() {
   const showSeasonId = season?.season_id
 
   useEffect(() => {
-    if (!openId || ctx || !selectedId || !showSeasonId) return
+    if (!openId || ctx || !showSeasonId) return
     let live = true
     async function load() {
-      const [episodes, cast, eliminations, deltas] = await Promise.all([
+      const [episodes, cast, eliminations] = await Promise.all([
         api.get<Episode[]>(`/seasons/${showSeasonId}/episodes`),
         api.get<Contestant[]>(`/seasons/${showSeasonId}/contestants`),
         api.get<Elimination[]>(`/seasons/${showSeasonId}/eliminations`).catch(() => []),
-        api.get<EpisodePointsRow[]>(`/league-seasons/${selectedId}/points-history`).catch(() => []),
       ])
       const bootsByEpisode = new Map<string, Set<string>>()
       for (const row of eliminations) {
@@ -417,19 +372,14 @@ export function StandingsPage() {
         bootsByEpisode.set(row.episode_id, ids)
       }
       if (live) {
-        setCtx({
-          episodes,
-          byId: new Map(cast.map((c) => [c.id, c])),
-          bootsByEpisode,
-          deltas,
-        })
+        setCtx({ episodes, byId: new Map(cast.map((c) => [c.id, c])), bootsByEpisode })
       }
     }
     void load()
     return () => {
       live = false
     }
-  }, [openId, ctx, selectedId, showSeasonId])
+  }, [openId, ctx, showSeasonId])
 
   useEffect(() => {
     if (!openId || !selectedId || histories.has(openId)) return
@@ -472,16 +422,14 @@ export function StandingsPage() {
   const mine = ranked.find(({ entry }) => entry.user_id === userId)
   const hasScoring = entries.some((e) => e.total_points !== 0)
 
-  // The weeks a panel lists: locked, newest first, from the roster lock on. The
-  // finale is left out — its ballot is a bracket, not votes, and it reads as
-  // the pyramid on the Team page (#82/#86, matching that page's ledger).
-  const weeks = (ctx?.episodes ?? [])
+  // The week a panel shows: the latest locked episode from the roster lock on.
+  // The finale is left out — its ballot is a bracket, not votes, and it reads
+  // as the pyramid on the Team page (#82/#86, matching that page's ledger).
+  const week = (ctx?.episodes ?? [])
     .filter(
       (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (season.roster_lock_episode ?? 1),
     )
-    .sort((a, b) => b.episode_number - a.episode_number)
-  const deltasByEpisode = (userIdForRow: string) =>
-    new Map((ctx?.deltas ?? []).map((row) => [row.episode_number, row.points[userIdForRow] ?? 0]))
+    .sort((a, b) => b.episode_number - a.episode_number)[0]
 
   return (
     <div>
@@ -573,11 +521,10 @@ export function StandingsPage() {
                   {isOpen && (
                     <HistoryPanel
                       id={`history-${entry.user_id}`}
-                      episodes={weeks}
+                      episode={week}
                       history={ctx ? (histories.get(entry.user_id) ?? null) : null}
-                      deltas={deltasByEpisode(entry.user_id)}
                       byId={ctx?.byId ?? EMPTY_CAST}
-                      bootsByEpisode={ctx?.bootsByEpisode ?? EMPTY_BOOTS}
+                      bootIds={(week && ctx?.bootsByEpisode.get(week.id)) ?? EMPTY_IDS}
                       name={entry.display_name}
                       teamHref={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     />

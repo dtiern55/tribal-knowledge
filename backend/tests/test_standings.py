@@ -317,28 +317,3 @@ def test_sole_survivor_hidden_while_an_early_episode_airs(
     assert rival_ss() is None
     insert_episode(db_conn, season["id"], episode_number=7, picks_lock_at=aired)
     assert rival_ss() == str(pick["id"])
-
-
-@pytest.mark.integration
-def test_points_history_per_episode_sums_to_the_total(client, db_conn, current_user):
-    """The ledger a standings row expands into (#806): one row per scored
-    episode, and the deltas add up to the standings total."""
-    season = insert_season(db_conn, merge_episode=7)
-    c = insert_contestant(db_conn, season["id"], "CA")
-    ep1 = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
-    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
-    insert_episode(db_conn, season["id"], episode_number=3, status="upcoming")
-    insert_roster_pick(db_conn, current_user["id"], season["id"], c["id"])
-    insert_scoring_event(db_conn, ep1["id"], c["id"], "acquire_active_idol")  # +10
-    insert_scoring_event(db_conn, ep2["id"], c["id"], "win_individual_immunity")  # +15
-
-    ls = season["league_season_id"]
-    r = client.get(f"/league-seasons/{ls}/points-history")
-    assert r.status_code == 200
-    rows = r.json()
-    uid = str(current_user["id"])
-    # Oldest first, and the unscored episode 3 is absent.
-    assert [row["episode_number"] for row in rows] == [1, 2]
-    assert [row["points"][uid] for row in rows] == [10, 15]
-    total = client.get(f"/league-seasons/{ls}/standings").json()[0]["total_points"]
-    assert sum(row["points"][uid] for row in rows) == total
