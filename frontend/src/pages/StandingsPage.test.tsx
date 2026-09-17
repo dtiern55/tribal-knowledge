@@ -259,7 +259,6 @@ describe('StandingsPage', () => {
     expect(team).toHaveTextContent('Ben')
     expect(team).not.toHaveTextContent('Kenzie')
     expect(team).not.toHaveTextContent('Q')
-    expect(screen.getByTitle('Swapped in this episode')).toBeVisible()
     // Their vote hit — Charlie went home — and the idol rides that vote
     // rather than sitting on a "Played" line of its own.
     expect(voted).toHaveTextContent('Correct — Charlie')

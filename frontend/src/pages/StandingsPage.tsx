@@ -219,12 +219,6 @@ function HistoryPanel({
   // A #303-era Power Vote named no target and doubled the whole ballot, so its
   // idol sits by the episode instead of on one vote (matches the Team page).
   const wholeBallotDoubled = powerVote != null && powerVote.target_contestant_id == null
-  // The episode the roster started at, so the original picks don't all read as
-  // swapped in at the roster lock (matches the Team page).
-  const baseEpisode =
-    history && history.roster.length > 0
-      ? Math.min(...history.roster.map((pick) => pick.active_from_episode))
-      : 0
 
   return (
     <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-2">
@@ -242,7 +236,7 @@ function HistoryPanel({
           </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
             <dt className={label}>Team</dt>
-            <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
+            <dd className="flex flex-col items-start gap-1 py-0.5">
               {team.length === 0 ? (
                 <span className="text-sm text-paper-ink-faded">—</span>
               ) : (
@@ -266,11 +260,6 @@ function HistoryPanel({
                       {nameOf(pick.contestant_id)}
                       {/* Double Castaway Points spent on them this week. */}
                       {pick.contestant_id === doubled && <DoubleBadge size={16} />}
-                      {/* Swapped in for this week — the one thing a roster line
-                          can't say by itself. */}
-                      {pick.active_from_episode === n && n > baseEpisode && (
-                        <span className="text-[10px] font-semibold uppercase text-jade-700" title="Swapped in this episode">new</span>
-                      )}
                     </span>
                   )
                 })
