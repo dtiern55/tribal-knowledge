@@ -24,45 +24,45 @@ import type {
   StandingEntry,
 } from '../types'
 
-// A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
+// How far they moved, drawn inside the triangle that says which way: a jade
+// pennant pointing up for a climb, terracotta pointing down for a slip. The
+// count sits in the triangle's wide end, where there's room for two digits.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-[11px] font-bold leading-none ${up ? 'text-jade-700' : 'text-terracotta-600'}`}
+      className={`flex size-[22px] flex-none justify-center font-bold leading-none text-cream-50 ${
+        // Two digits have to clear the slanted sides, so they set a size down.
+        delta > 9 ? 'text-[9px]' : 'text-[10px]'
+      } ${up ? 'items-end bg-jade-600' : 'items-start bg-terracotta-600'}`}
+      style={{
+        clipPath: up ? 'polygon(50% 0, 100% 100%, 0 100%)' : 'polygon(0 0, 100% 0, 50% 100%)',
+      }}
       aria-label={`${up ? 'Up' : 'Down'} ${delta} since last episode`}
     >
-      <span aria-hidden>{up ? '▲' : '▼'}</span>
-      <span className="tabular-nums">{delta}</span>
+      <span className={`tabular-nums ${up ? 'pb-[2px]' : 'pt-[2px]'}`}>{delta}</span>
     </span>
   )
 }
 
-// Rank with position movement placed *spatially*: the triangle sits above the
-// number for a climb and below for a slip, so direction reads at a glance. The
-// number is the only thing in normal flow and the triangles float absolutely
-// above/below it, so the rank number never shifts and the column stays a clean
-// aligned line row to row regardless of who moved.
+// Rank with position movement placed *spatially*: the triangle points the way
+// they moved, left of the number it moved (#808). Its slot is held even on a
+// row that didn't move, so the rank numbers stay one aligned column.
 function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: StandingEntry }) {
   const up = entry.trend === 'up'
   const down = entry.trend === 'down'
   return (
-    <span className="relative inline-flex flex-col items-center leading-none">
-      {up && (
-        <span className="absolute bottom-full mb-1">
-          <Movement up delta={entry.trend_delta} />
-        </span>
-      )}
+    <span className="flex items-center gap-1 leading-none">
+      <span className="flex size-[22px] flex-none items-center justify-center">
+        {(up || down) && <Movement up={up} delta={entry.trend_delta} />}
+      </span>
       <span
-        className={`font-display text-xl font-bold leading-none tabular-nums ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
+        // A size down on a phone: the triangle took room from the row, and a
+        // two-digit rank at text-xl crowded the name beside it.
+        className={`font-display text-lg font-bold leading-none tabular-nums md:text-xl ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
         aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
       >
         {rank}
       </span>
-      {down && (
-        <span className="absolute top-full mt-1">
-          <Movement up={false} delta={entry.trend_delta} />
-        </span>
-      )}
     </span>
   )
 }
@@ -546,7 +546,7 @@ export function StandingsPage() {
                     aria-expanded={isOpen}
                     aria-controls={`history-${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid w-full grid-cols-[2.25rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-3 px-4 py-2.5 text-left transition-colors md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
+                    className={`group relative grid w-full grid-cols-[3rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-2 px-4 py-2.5 text-left transition-colors md:grid-cols-[3.5rem_minmax(0,1fr)_6rem_3.75rem] md:gap-3 ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
