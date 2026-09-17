@@ -35,9 +35,14 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      # Same fly.toml as prod; only the app name differs.
+      # Same fly.toml as prod, bar the app name and this: prod keeps a machine
+      # warm to dodge the cold start (#803), staging sleeps and costs nothing
+      # between reviews. Edits the checkout, not the committed file.
       - name: Deploy backend
-        run: flyctl deploy --remote-only --app tribal-knowledge-staging
+        run: |
+          sed -i 's/^  min_machines_running = 1$/  min_machines_running = 0/' fly.toml
+          grep -q 'min_machines_running = 0' fly.toml
+          flyctl deploy --remote-only --app tribal-knowledge-staging
         working-directory: backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
