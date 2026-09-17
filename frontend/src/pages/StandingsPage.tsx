@@ -30,9 +30,12 @@ import type {
 function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
     <span
-      // The league's handwriting (Kalam), so the count reads as a tally
-      // scratched on the torch rather than a data label.
-      className={`flex size-[22px] flex-none justify-center font-hand text-[12px] font-bold leading-none text-cream-50 ${
+      // Skranji, the wordmark face. 10px with the count 1px off the base: the
+      // widest pair ("10") measures 11px against ~13.8px of triangle at the
+      // digits' top edge. The margin is deliberate — a glyph's ink can spill
+      // past the width a browser reports, which is how Kalam at 12px measured
+      // as fitting and still cut into both sides in the app.
+      className={`flex size-[22px] flex-none justify-center font-brand text-[10px] font-bold leading-none text-cream-50 ${
         up ? 'items-end bg-jade-600' : 'items-start bg-terracotta-600'
       }`}
       style={{
@@ -40,7 +43,7 @@ function Movement({ up, delta }: { up: boolean; delta: number }) {
       }}
       aria-label={`${up ? 'Up' : 'Down'} ${delta} since last episode`}
     >
-      <span className={`tabular-nums ${up ? 'pb-[2px]' : 'pt-[2px]'}`}>{delta}</span>
+      <span className={`tabular-nums ${up ? 'pb-[1px]' : 'pt-[1px]'}`}>{delta}</span>
     </span>
   )
 }
