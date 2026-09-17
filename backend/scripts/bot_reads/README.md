@@ -59,6 +59,11 @@ Notes from building it:
   covers it; past that it costs points.
 - **`double_targets` decides who a roster double lands on** — bots only double
   a castaway they actually roster, so naming a whole tribe is fine.
+- **`double_backups` makes that a two-tier read.** When the key is present, a
+  bot holding no `double_targets` name falls back to a backup it holds, but
+  only if it doesn't lean to the ballot (Ballot bots). Anyone else doubles the
+  ballot instead of an off-read castaway. Without the key, a bot with no
+  target doubles anyone it holds.
 - Names are matched case- and punctuation-insensitively. An unrecognised name
   stops the run rather than being silently dropped. Matching strips digits
   too, so placeholder casts numbered `Castaway 01`/`Castaway 02` collide —
