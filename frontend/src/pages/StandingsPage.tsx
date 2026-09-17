@@ -24,41 +24,29 @@ import type {
   StandingEntry,
 } from '../types'
 
-// How far they moved, drawn inside the triangle that says which way: a jade
-// pennant pointing up for a climb, terracotta pointing down for a slip. The
-// count sits in the triangle's wide end, where there's room for two digits.
+// How far they moved: a small solid triangle, then the count, both in the
+// movement colour — jade for a climb, terracotta for a slip. The count sits
+// beside the shape rather than inside it (#808), which is what scoreboards
+// do and why: a triangle's usable width changes with its height, so a number
+// in there has to be sized for "10" and parked where "10" fits. Out here it
+// can just be legible.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
     <span
-      // Skranji, the wordmark face. 10px with the count 1px off the base: the
-      // widest pair ("10") measures 11px against ~13.8px of triangle at the
-      // digits' top edge. The margin is deliberate — a glyph's ink can spill
-      // past the width a browser reports, which is how Kalam at 12px measured
-      // as fitting and still cut into both sides in the app.
-      className={`flex size-[22px] flex-none justify-center font-brand text-[10px] font-bold leading-none text-cream-50 ${
-        up ? 'items-end bg-jade-600' : 'items-start bg-terracotta-600'
+      className={`inline-flex items-center gap-[2px] font-display text-[12px] font-bold leading-none tabular-nums ${
+        up ? 'text-jade-700' : 'text-terracotta-700'
       }`}
-      style={{
-        clipPath: up ? 'polygon(50% 0, 100% 100%, 0 100%)' : 'polygon(0 0, 100% 0, 50% 100%)',
-      }}
       aria-label={`${up ? 'Up' : 'Down'} ${delta} since last episode`}
     >
-      {/* Optically centred, not box-centred: a triangle's visual centre is its
-          centroid, a third of the way up from the base. A single digit is
-          narrow enough to sit there; two digits have to drop to the wide end to
-          clear the slanted sides, so they sit a couple of pixels lower. */}
-      <span
-        className={`tabular-nums ${
-          delta > 9 ? (up ? 'pb-[1px]' : 'pt-[1px]') : up ? 'pb-[3px]' : 'pt-[3px]'
-        }`}
-      >
-        {delta}
+      <span className="text-[9px] leading-none" aria-hidden>
+        {up ? '▲' : '▼'}
       </span>
+      {delta}
     </span>
   )
 }
 
-// Rank with position movement placed *spatially*: the triangle points the way
+// Rank with position movement placed *spatially*: the arrow points the way
 // they moved, left of the number it moved (#808). Its slot is held even on a
 // row that didn't move, so the rank numbers stay one aligned column.
 function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: StandingEntry }) {
@@ -66,7 +54,9 @@ function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: Stand
   const down = entry.trend === 'down'
   return (
     <span className="flex items-center gap-1 leading-none">
-      <span className="flex size-[22px] flex-none items-center justify-center">
+      {/* Wide enough for the widest pair ("▼12"), held empty on a row that
+          didn't move so every rank number starts at the same x. */}
+      <span className="flex w-[26px] flex-none items-center">
         {(up || down) && <Movement up={up} delta={entry.trend_delta} />}
       </span>
       <span
@@ -558,7 +548,7 @@ export function StandingsPage() {
                     aria-expanded={isOpen}
                     aria-controls={`history-${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid w-full grid-cols-[3rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-2 px-4 py-2.5 text-left transition-colors md:grid-cols-[3.5rem_minmax(0,1fr)_6rem_3.75rem] md:gap-3 ${
+                    className={`group relative grid w-full grid-cols-[3.25rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-2 px-4 py-2.5 text-left transition-colors md:grid-cols-[3.75rem_minmax(0,1fr)_6rem_3.75rem] md:gap-3 ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
