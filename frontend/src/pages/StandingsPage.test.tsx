@@ -265,7 +265,7 @@ describe('StandingsPage', () => {
     expect(team).toHaveTextContent('Ben')
     expect(team).not.toHaveTextContent('Kenzie')
     expect(team).not.toHaveTextContent('Q')
-    // What each castaway scored that episode, base points.
+    // What each castaway scored that episode — nothing doubled this week.
     expect(team).toHaveTextContent('+12')
     expect(team).toHaveTextContent('+24')
     // Their vote hit — Charlie went home — and the idol rides that vote
@@ -288,11 +288,15 @@ describe('StandingsPage', () => {
     await expandDanny()
 
     const [team, voted] = screen.getAllByRole('definition')
-    // A ×2 on the castaway whose points were doubled, beside their base score.
+    // A ×2 on the castaway whose points were doubled, beside the doubled score.
     const mark = screen.getByLabelText('Double Castaway Points on them this episode')
     expect(team).toContainElement(mark)
     expect(mark.parentElement).toHaveTextContent('Ben')
-    expect(mark.parentElement).toHaveTextContent('+24')
+    // Ben's 24 paid double, so the line reads 48 — the ×2 says why.
+    expect(mark.parentElement).toHaveTextContent('+48')
+    expect(team).not.toHaveTextContent('+24')
+    // Charlie wasn't doubled, so his stays as scored.
+    expect(team).toHaveTextContent('+12')
     expect(voted).not.toContainElement(mark)
     // The season idol is gone from the panel.
     expect(screen.queryByRole('img', { name: /Double Castaway Points this episode/ })).not.toBeInTheDocument()

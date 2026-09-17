@@ -200,7 +200,7 @@ function HistoryPanel({
   byId: Map<string, Contestant>
   /** Who actually went home that episode — marks a vote right. */
   bootIds: Set<string>
-  /** What each castaway scored that episode, base points by contestant id. */
+  /** What each castaway scored that episode, before this player's doubling. */
   scores: Map<string, number>
   teamHref: string
   name: string
@@ -261,7 +261,13 @@ function HistoryPanel({
                   // same life as the snuffed torch in the row above (#457).
                   // Anyone snuffed earlier is already filtered out of `team`.
                   const lost = c?.eliminated_in_episode === n
-                  const scored = scores.get(pick.contestant_id) ?? 0
+                  // The score is what this castaway actually paid their
+                  // player, doubling included: live scoring doubles the
+                  // episode's event points for the castaway a Double Castaway
+                  // Points named, so the panel does the same (the ×2 beside it
+                  // says why the number is big).
+                  const isDoubled = pick.contestant_id === doubled
+                  const scored = (scores.get(pick.contestant_id) ?? 0) * (isDoubled ? 2 : 1)
                   return (
                     <span key={pick.id} className="flex w-full items-center gap-1.5 text-sm">
                       <span className={lost ? ELIMINATED_DIM : undefined}>
@@ -275,9 +281,7 @@ function HistoryPanel({
                       >
                         {nameOf(pick.contestant_id)}
                       </span>
-                      {/* Double Castaway Points spent on them: the score below
-                          is the base one, so the ×2 is what says it paid twice. */}
-                      {pick.contestant_id === doubled && <Times2 title="Double Castaway Points on them this episode" />}
+                      {isDoubled && <Times2 title="Double Castaway Points on them this episode" />}
                       <span
                         className={`ml-auto shrink-0 font-medium tabular-nums ${
                           scored > 0 ? 'text-jade-700' : scored < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
