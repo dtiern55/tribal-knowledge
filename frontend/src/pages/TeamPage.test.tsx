@@ -108,9 +108,10 @@ describe('TeamPage', () => {
       if (path.includes('/advantage-plays/')) return [{ id: 'play-1', episode_id: 'ep-1', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1', points_earned: 5 }]
       // A real network gap: instantly resolving mocks let React batch the whole
       // load into one render, which hides the latch.
+      // Every episode's ballot in one keyed response (#803).
       if (path.includes('/picks/')) {
         await new Promise((resolve) => setTimeout(resolve, 5))
-        return [{ id: 'pick-1', episode_id: 'ep-1', contestant_id: 'cast-1' }]
+        return { 'ep-1': [{ id: 'pick-1', episode_id: 'ep-1', contestant_id: 'cast-1' }] }
       }
       if (path.endsWith('/eliminations')) return [{ id: 'elim-1', episode_id: 'ep-1', contestant_id: 'cast-1', elimination_type: 'voted_out' }]
       if (path.includes('/finale-predictions/')) throw new Error('404')

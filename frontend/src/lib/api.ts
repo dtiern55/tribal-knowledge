@@ -38,8 +38,23 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json() as Promise<T>
 }
 
+// The shell, the drawer and the page all ask for the same things as they
+// mount — /league-seasons went out four times a load, the roster three (#803).
+// A GET already in the air is shared rather than sent again; it clears the
+// moment it settles, so nothing is ever served from a stale read. Sharers get
+// the same parsed body, so callers must treat a response as read-only.
+const inFlight = new Map<string, Promise<unknown>>()
+
+function sharedGet<T>(path: string): Promise<T> {
+  const existing = inFlight.get(path)
+  if (existing) return existing as Promise<T>
+  const request = apiFetch<T>(path).finally(() => inFlight.delete(path))
+  inFlight.set(path, request)
+  return request
+}
+
 export const api = {
-  get: <T>(path: string) => apiFetch<T>(path),
+  get: <T>(path: string) => sharedGet<T>(path),
   post: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>

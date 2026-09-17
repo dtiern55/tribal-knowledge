@@ -370,3 +370,32 @@ def test_delete_elimination_clears_placement(client, db_conn):
     assert _placements(client, season["id"])["P0"] == 5
     client.delete(f"/eliminations/{created[0]['id']}")
     assert _placements(client, season["id"])["P0"] is None
+
+
+@pytest.mark.integration
+def test_season_eliminations_are_locked_episodes_only(client, db_conn):
+    """The whole season in one request, minus episodes that haven't locked —
+    a result entered early is a spoiler (#559/#803)."""
+    from tests.helpers import insert_elimination
+
+    season = insert_season(db_conn)
+    aired = insert_episode(db_conn, season["id"], episode_number=1, picks_lock_at=AIRED)
+    upcoming = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
+    out = insert_contestant(db_conn, season["id"], name="Out")
+    early = insert_contestant(db_conn, season["id"], name="Early")
+    insert_elimination(db_conn, aired["id"], out["id"])
+    insert_elimination(db_conn, upcoming["id"], early["id"])
+
+    r = client.get(f"/seasons/{season['id']}/eliminations")
+    assert r.status_code == 200
+    assert [row["contestant_id"] for row in r.json()] == [str(out["id"])]
+
+
+@pytest.mark.integration
+def test_season_eliminations_season_not_found(client):
+    assert client.get(f"/seasons/{uuid.uuid4()}/eliminations").status_code == 404

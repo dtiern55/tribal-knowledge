@@ -99,12 +99,17 @@ export function TeamPage() {
         setContestants(cs)
         setEpisodes(episodeRows)
         try {
-          setRoster(await api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`))
-          const breakdown = await api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`)
+          // One trip, not three in a row: nothing here reads the one before it.
+          const [savedRoster, breakdown, ownPlays] = await Promise.all([
+            api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`),
+            api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`),
+            api.get<AdvantagePlay[]>(`/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`).catch(() => []),
+          ])
+          setRoster(savedRoster)
           setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
           setPickPoints(new Map(breakdown.picks.map((row) => [`${row.episode_id}:${row.contestant_id}`, row.points])))
           setSsBonus(breakdown.sole_survivor_bonus)
-          setPlays(await api.get<AdvantagePlay[]>(`/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`).catch(() => []))
+          setPlays(ownPlays)
         } catch {
           setHidden(true)
         }
@@ -120,12 +125,24 @@ export function TeamPage() {
               e.episode_number >= (season.roster_lock_episode ?? 1),
           )
           .sort((a, b) => b.episode_number - a.episode_number)
-        setVotes(await Promise.all(visible.map(async (episode) => {
-          const [picks, eliminations] = await Promise.all([
-            api.get<EliminationPick[]>(`/league-seasons/${leagueSeasonId}/episodes/${episode.id}/picks/${userId}`).catch(() => []),
-            api.get<Elimination[]>(`/episodes/${episode.id}/eliminations`),
-          ])
-          return { episode, picks, eliminatedIds: new Set(eliminations.map((row) => row.contestant_id)) }
+        // Two requests for the whole ledger, not two per episode (#803). Both
+        // answer for locked episodes only, which is all this ledger shows.
+        const [ballots, eliminations] = await Promise.all([
+          api
+            .get<Record<string, EliminationPick[]>>(`/league-seasons/${leagueSeasonId}/picks/${userId}`)
+            .catch(() => ({}) as Record<string, EliminationPick[]>),
+          api.get<Elimination[]>(`/seasons/${season.season_id}/eliminations`).catch(() => []),
+        ])
+        const outByEpisode = new Map<string, Set<string>>()
+        for (const row of eliminations) {
+          const ids = outByEpisode.get(row.episode_id) ?? new Set<string>()
+          ids.add(row.contestant_id)
+          outByEpisode.set(row.episode_id, ids)
+        }
+        setVotes(visible.map((episode) => ({
+          episode,
+          picks: ballots[episode.id] ?? [],
+          eliminatedIds: outByEpisode.get(episode.id) ?? new Set<string>(),
         })))
 
         // The finale ballot is a separate bracket (Final 4/3/winner), not

@@ -179,7 +179,16 @@ function arrangePlayWorld(initial: {
     }
     if (path.includes('/advantage-plays/')) return state.plays
     if (path.includes('/roster/')) return state.roster
-    if (path.includes('/picks/')) return state.picks
+    // The page reads every episode's ballot in one keyed request (#803); the
+    // per-episode route still answers a single save.
+    if (path.includes('/episodes/') && path.includes('/picks/')) return state.picks
+    if (path.includes('/picks/')) {
+      return state.picks.reduce<Record<string, typeof state.picks>>((byEpisode, pick) => {
+        const list = byEpisode[pick.episode_id] ?? []
+        byEpisode[pick.episode_id] = [...list, pick]
+        return byEpisode
+      }, {})
+    }
     if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
     if (path.endsWith('/reveal')) return undefined
     return []
@@ -1390,6 +1399,27 @@ describe('MySeasonPage state shell', () => {
       '/league-seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
     )
+  })
+
+  it('previews the last episode on the History card from the standings row (#803)', async () => {
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      // The card used to build a whole episode result for these two numbers.
+      if (path.includes('/episode-results/')) throw new Error(`No such route: ${path}`)
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z')]
+      }
+      if (path.includes('/standings')) {
+        return [{ user_id: 'user-1', display_name: 'Danny', total_points: 100, last_episode_points: 64, trend: 'up', trend_delta: 3, active_survivors: [], recently_eliminated_survivors: [] }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByRole('button', { name: /1 episode · last: \+64, up 3 spots/ })).toBeVisible()
   })
 
   it('replays a scored Episode History result without acknowledging it', async () => {

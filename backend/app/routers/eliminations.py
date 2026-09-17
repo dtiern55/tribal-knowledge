@@ -4,9 +4,33 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
+from app.locking import episode_locked_sql
 from app.schemas import Elimination, EliminationEntry
 
 router = APIRouter(tags=["eliminations"])
+
+
+@router.get("/seasons/{season_id}/eliminations", response_model=list[Elimination])
+def list_season_eliminations(season_id: UUID, _: UUID = Depends(get_current_user)):
+    """Every elimination in the season, for pages that read the whole run.
+
+    Locked episodes only: a result entered before an episode locks is a
+    spoiler, the way a placement is (#559). Saves a request per episode on the
+    team page (#803).
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            database.require_season(cur, season_id)
+            cur.execute(
+                f"""
+                select e.* from eliminations e
+                join episodes ep on ep.id = e.episode_id
+                where ep.season_id = %s and {episode_locked_sql("ep")}
+                order by e.created_at
+                """,
+                [str(season_id)],
+            )
+            return cur.fetchall()
 
 
 @router.get("/episodes/{episode_id}/eliminations", response_model=list[Elimination])
