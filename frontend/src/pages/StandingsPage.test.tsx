@@ -174,15 +174,20 @@ describe('StandingsPage', () => {
     expect(flames[0].querySelector('g[transform*="scale(-1 1)"]')).not.toBeNull()
     expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor, eliminated ep 11')
   })
-  it("expands a row into that player's latest week: tribe, votes and advantage (#806)", async () => {
-    const season = {
-      id: 'season-1', season_id: 'show-1', name: 'Survivor 51',
-      status: 'active', roster_lock_episode: 1,
-    } as Season
+  // The season behind the expansion tests: episodes 1 and 2 locked and scored,
+  // Danny holding Charlie (his Sole Survivor, voted out in ep 2), Ben (swapped
+  // in for ep 2) and Q (snuffed back in ep 1 and never swapped out). Kenzie was
+  // swapped out after ep 1. `plays` is what the week's advantage was.
+  const EXPANSION_SEASON = {
+    id: 'season-1', season_id: 'show-1', name: 'Survivor 51',
+    status: 'active', roster_lock_episode: 1,
+  } as Season
+
+  function mockExpansionApi(plays: unknown[]) {
     const locked = new Date(Date.now() - 86_400_000).toISOString()
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(getActiveSeason).mockResolvedValue(EXPANSION_SEASON)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/league-seasons') return [season]
+      if (path === '/league-seasons') return [EXPANSION_SEASON]
       if (path.endsWith('/standings')) {
         return [{
           user_id: 'user-1', display_name: 'Danny',
@@ -202,51 +207,83 @@ describe('StandingsPage', () => {
           { id: 'cast-1', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: 2 },
           { id: 'cast-2', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: null },
           { id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: null },
+          { id: 'cast-4', name: 'Q', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: 1 },
         ]
       }
       if (path === '/seasons/show-1/eliminations') {
-        return [{ id: 'el-1', episode_id: 'ep-2', contestant_id: 'cast-1', is_final: true }]
+        return [
+          { id: 'el-1', episode_id: 'ep-1', contestant_id: 'cast-4', is_final: true },
+          { id: 'el-2', episode_id: 'ep-2', contestant_id: 'cast-1', is_final: true },
+        ]
       }
       if (path.endsWith('/roster/user-1')) {
         return [
           { id: 'rp-1', contestant_id: 'cast-1', active_from_episode: 1, active_until_episode: null, is_sole_survivor: true },
           { id: 'rp-2', contestant_id: 'cast-2', active_from_episode: 1, active_until_episode: 1, is_sole_survivor: false },
           { id: 'rp-3', contestant_id: 'cast-3', active_from_episode: 2, active_until_episode: null, is_sole_survivor: false },
+          { id: 'rp-4', contestant_id: 'cast-4', active_from_episode: 1, active_until_episode: null, is_sole_survivor: false },
         ]
       }
       if (path.endsWith('/picks/user-1')) {
         return { 'ep-2': [{ id: 'pk-1', contestant_id: 'cast-1', episode_id: 'ep-2', rank: 1 }] }
       }
-      if (path.endsWith('/advantage-plays/user-1')) {
-        return [{ id: 'ap-1', episode_id: 'ep-2', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1' }]
-      }
+      if (path.endsWith('/advantage-plays/user-1')) return plays
       throw new Error(`Unexpected path: ${path}`)
     })
+  }
 
+  async function expandDanny() {
     renderWithApp(<StandingsPage />)
-
     const row = await screen.findByRole('button', { name: /Danny/ })
     expect(row).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(row)
+    return row
+  }
 
-    // Only the latest locked episode, with what it paid them.
+  it("expands a row into that player's latest week: tribe and votes (#806)", async () => {
+    mockExpansionApi([
+      { id: 'ap-1', episode_id: 'ep-2', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1' },
+    ])
+
+    await expandDanny()
+
+    // Only the latest locked episode.
     expect(await screen.findByText('Ep 2')).toBeVisible()
     expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
 
-    const [team, voted, played] = screen.getAllByRole('definition')
-    // The tribe as it stood that week: Ben swapped in, Kenzie already gone.
+    const [team, voted] = screen.getAllByRole('definition')
+    // The tribe as it stood that week: Ben swapped in, Kenzie swapped out after
+    // ep 1, and Q — snuffed back in ep 1 and never swapped out — gone, the same
+    // life as the snuffed torch in the row above.
     expect(team).toHaveTextContent('Charlie')
     expect(team).toHaveTextContent('Ben')
     expect(team).not.toHaveTextContent('Kenzie')
+    expect(team).not.toHaveTextContent('Q')
     expect(screen.getByTitle('Swapped in this episode')).toBeVisible()
-    // Their vote hit — Charlie went home — and this is what they spent on it.
+    // Their vote hit — Charlie went home — and the idol rides that vote
+    // rather than sitting on a "Played" line of its own.
     expect(voted).toHaveTextContent('Correct — Charlie')
-    expect(played).toHaveTextContent('Power Vote')
-    expect(played).toHaveTextContent('on Charlie')
+    expect(voted).toContainElement(screen.getByRole('img', { name: 'Power Vote' }))
+    expect(screen.queryByText('Played')).not.toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
       'href',
       '/league-seasons/season-1/team/user-1',
     )
+  })
+
+  it('rides the idol on the castaway whose points were doubled (#806)', async () => {
+    mockExpansionApi([
+      { id: 'ap-2', episode_id: 'ep-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-3' },
+    ])
+
+    await expandDanny()
+
+    const [team, voted] = screen.getAllByRole('definition')
+    const idol = screen.getByRole('img', { name: /Double Castaway Points/ })
+    expect(team).toContainElement(idol)
+    // Ben's chip, not Charlie's — and nothing on the ballot this week.
+    expect(idol.parentElement).toHaveTextContent('Ben')
+    expect(voted).not.toContainElement(idol)
   })
 })

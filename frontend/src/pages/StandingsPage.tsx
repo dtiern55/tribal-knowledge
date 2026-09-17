@@ -4,12 +4,12 @@ import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { CorrectVote } from '../components/CorrectVote'
+import { DoubleBadge } from '../components/DoubleBadge'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
-import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
@@ -166,10 +166,11 @@ interface PlayerHistory {
 }
 
 // The expanded row: that player's latest week — the tribe they carried into
-// it, who they voted for, and the advantage they spent, each line labelled so
-// the block needs no legend. Earlier weeks are the Team page's job, one tap
-// away at the bottom. What the week paid them is the number the collapsed row
-// already shows a few pixels above, so it isn't repeated here.
+// it and who they voted for, each line labelled so the block needs no legend.
+// An advantage gets no line of its own: the idol rides the chip it doubled,
+// the way it does on My Season and the Team page. Earlier weeks are the Team
+// page's job, one tap away at the bottom. What the week paid them is the
+// number the collapsed row already shows a few pixels above.
 function HistoryPanel({
   id,
   episode,
@@ -196,13 +197,28 @@ function HistoryPanel({
   const label = 'pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded'
   const note = 'py-1.5 text-sm text-paper-ink-faded'
   const n = episode?.episode_number ?? 0
-  const team = (history?.roster ?? []).filter(
-    (pick) =>
+  // The tribe as it stood that week, and — like the torches in the row above —
+  // a castaway snuffed in an EARLIER episode is simply gone, even if their
+  // player never swapped them out. Only this week's loss still shows, struck.
+  // `eliminated_in_episode` is the server's own "out for good", so a Redemption
+  // Island duel loss isn't one.
+  const team = (history?.roster ?? []).filter((pick) => {
+    const out = byId.get(pick.contestant_id)?.eliminated_in_episode
+    return (
       pick.active_from_episode <= n &&
-      (pick.active_until_episode == null || pick.active_until_episode >= n),
-  )
+      (pick.active_until_episode == null || pick.active_until_episode >= n) &&
+      (out == null || out >= n)
+    )
+  })
+  // Ballot order is the ballot ladder: the Power Vote's name first (no rung),
+  // then most to least confident, exactly as the API returns it (#694).
   const votes = (episode && history?.ballots[episode.id]) ?? []
-  const play = history?.plays.find((p) => p.episode_id === episode?.id)
+  const plays = (history?.plays ?? []).filter((play) => play.episode_id === episode?.id)
+  const doubled = plays.find((play) => play.advantage_type === 'double_roster_points')?.target_contestant_id
+  const powerVote = plays.find((play) => play.advantage_type === 'double_vote_points')
+  // A #303-era Power Vote named no target and doubled the whole ballot, so its
+  // idol sits by the episode instead of on one vote (matches the Team page).
+  const wholeBallotDoubled = powerVote != null && powerVote.target_contestant_id == null
   // The episode the roster started at, so the original picks don't all read as
   // swapped in at the roster lock (matches the Team page).
   const baseEpisode =
@@ -220,7 +236,10 @@ function HistoryPanel({
         <p className={note}>No episodes have locked yet.</p>
       ) : (
         <>
-          <span className="font-display text-sm font-semibold text-forest-800">Ep {n}</span>
+          <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-forest-800">
+            Ep {n}
+            {wholeBallotDoubled && <DoubleBadge size={16} title="Power Vote this episode" />}
+          </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
             <dt className={label}>Team</dt>
             <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
@@ -229,11 +248,10 @@ function HistoryPanel({
               ) : (
                 team.map((pick) => {
                   const c = byId.get(pick.contestant_id)
-                  // Out of the game by this week: a boot nobody swapped out
-                  // stays on the roster rows. `eliminated_in_episode` is the
-                  // server's own "out for good", so a Redemption Island duel
-                  // loss isn't one.
-                  const lost = c?.eliminated_in_episode != null && c.eliminated_in_episode <= n
+                  // Snuffed THIS episode — struck for this one week only, the
+                  // same life as the snuffed torch in the row above (#457).
+                  // Anyone snuffed earlier is already filtered out of `team`.
+                  const lost = c?.eliminated_in_episode === n
                   return (
                     <span
                       key={pick.id}
@@ -246,6 +264,8 @@ function HistoryPanel({
                         <ContestantAvatar name={nameOf(pick.contestant_id)} imageUrl={c?.image_url ?? null} size="sm" tribeColor={c?.tribe_color ?? null} tribeName={c?.tribe_name ?? null} />
                       </span>
                       {nameOf(pick.contestant_id)}
+                      {/* Double Castaway Points spent on them this week. */}
+                      {pick.contestant_id === doubled && <DoubleBadge size={16} />}
                       {/* Swapped in for this week — the one thing a roster line
                           can't say by itself. */}
                       {pick.active_from_episode === n && n > baseEpisode && (
@@ -262,31 +282,23 @@ function HistoryPanel({
               {votes.length === 0 ? (
                 <span className="text-sm text-paper-ink-faded">No votes</span>
               ) : (
-                votes.map((vote) =>
-                  bootIds.has(vote.contestant_id) ? (
-                    <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} />
+                votes.map((vote) => {
+                  const idol =
+                    vote.contestant_id === powerVote?.target_contestant_id ? (
+                      <DoubleBadge size={16} title="Power Vote" />
+                    ) : null
+                  return bootIds.has(vote.contestant_id) ? (
+                    <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} icon={idol} />
                   ) : (
-                    <span key={vote.id} className="inline-flex items-center rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                    <span key={vote.id} className="inline-flex items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                      {idol}
                       {nameOf(vote.contestant_id)}
                     </span>
-                  ),
-                )
+                  )
+                })
               )}
             </dd>
 
-            {/* No line at all on a quiet week: an empty "Played —" row would
-                bury the weeks something was actually spent. */}
-            {play && (
-              <>
-                <dt className={label}>Played</dt>
-                <dd className="flex flex-wrap items-center gap-1.5 py-0.5 text-sm text-paper-ink">
-                  <span className="font-medium">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</span>
-                  {play.target_contestant_id && (
-                    <span className="text-paper-ink-faded">on {nameOf(play.target_contestant_id)}</span>
-                  )}
-                </dd>
-              </>
-            )}
           </dl>
         </>
       )}
