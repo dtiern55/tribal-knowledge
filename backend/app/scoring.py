@@ -50,6 +50,17 @@ ROSTER_ACTIVE_SQL = """
          or rp.active_until_episode >= ep.episode_number)
 """
 
+# A roster pick's castaway still in the game going into `ep` (#802): not out in
+# an earlier episode. The episode's own boot still counts. Needs `rp` and `ep`.
+ROSTER_STILL_IN_SQL = """
+    not exists (
+      select 1 from eliminations out_e
+      join episodes out_ep on out_ep.id = out_e.episode_id
+      where out_e.contestant_id = rp.contestant_id and out_e.is_final
+        and out_ep.episode_number < ep.episode_number
+    )
+"""
+
 # A played Double Castaway Points that doubles this roster scoring event.
 # Needs `rp` (roster_picks) and `se` (scoring_events); binds no params, aliases
 # the play as `dbl` — pair with `(case when dbl.id is not null then 2 else 1 end)`.

@@ -280,12 +280,7 @@ def get_episode_hub(
                 join contestants c on c.id = rp.contestant_id
                 {_TRIBE_LATERAL}
                 where rp.league_season_id = %(ls)s and {scoring.ROSTER_ACTIVE_SQL}
-                  and not exists (
-                    select 1 from eliminations e
-                    join episodes out_ep on out_ep.id = e.episode_id
-                    where e.contestant_id = c.id and e.is_final
-                      and out_ep.episode_number < ep.episode_number
-                  )
+                  and {scoring.ROSTER_STILL_IN_SQL}
                 order by c.name
                 """,
                 {"ep": str(episode_id), "ls": lsid},
