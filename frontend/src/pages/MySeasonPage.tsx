@@ -506,6 +506,9 @@ export function MySeasonPage() {
   // Held a render behind the recap param so paging to a neighbour swaps the
   // card in place instead of unmounting and replaying the enter animation.
   const [displayResult, setDisplayResult] = useState<EpisodeResult | null>(null)
+  // The Sole Survivor moment waits its turn behind the first-loss one (#798);
+  // RosterSection says when that's settled.
+  const [swapMomentPending, setSwapMomentPending] = useState(true)
 
   const setRecapParam = useCallback(
     (id: string | null) => {
@@ -892,7 +895,7 @@ export function MySeasonPage() {
           {/* Rides the swap lock (one dial, no merge): SoleSurvivorLine
               self-gates on the designation window. */}
           <SoleSurvivorLine
-            revealOpen={displayResult != null}
+            wait={displayResult != null || swapMomentPending}
             season={d.season}
             contestants={d.contestants}
             episodes={d.episodes}
@@ -922,6 +925,7 @@ export function MySeasonPage() {
             <div id="roster">
               <RosterSection
                 revealOpen={displayResult != null}
+                onMomentPending={setSwapMomentPending}
                 season={d.season}
                 contestants={d.contestants}
                 episodes={d.episodes}
@@ -2439,6 +2443,7 @@ function RosterSection({
   onStartDouble,
   swapSlot,
   revealOpen = false,
+  onMomentPending,
 }: {
   season: Season
   contestants: Contestant[]
@@ -2447,6 +2452,8 @@ function RosterSection({
   rosterPoints: Map<string, number>
   /** The episode results card is up: the moment waits for My Season. */
   revealOpen?: boolean
+  /** True until the first-loss moment has shown or isn't coming (#798). */
+  onMomentPending?: (pending: boolean) => void
   /** The +50% Sole Survivor finale bonus, named on the designated card. */
   soleSurvivorBonus?: number
   plays: AdvantagePlay[]
@@ -2620,12 +2627,10 @@ function RosterSection({
   const lostOne = activeRoster.some(
     (p) => contestantMap.get(p.contestant_id)?.eliminated_in_episode != null,
   )
+  const firstLossOwed =
+    rosterLoaded && lostOne && swappedRoster.length === 0 && swapAvailable && nextSwapCost === 0
   const firstLossDue =
-    rosterLoaded &&
-    lostOne &&
-    swappedRoster.length === 0 &&
-    swapAvailable &&
-    nextSwapCost === 0 &&
+    firstLossOwed &&
     picking == null &&
     swapSlot != null &&
     !revealOpen
@@ -2645,6 +2650,20 @@ function RosterSection({
     // The moment fires once per browser; `moment` is only read to not re-fire mid-way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstLossDue, firstLossKey])
+
+  // Pending while the card is up or still owed; "owed" ignores the slot and the
+  // results card, so the Sole Survivor moment can't slip in ahead of it.
+  let firstLossSeen = true
+  try {
+    firstLossSeen = localStorage.getItem(firstLossKey) === '1'
+  } catch {
+    // No storage: the moment never fires, so nothing to wait for.
+  }
+  const momentPending =
+    !rosterLoaded || moment === 'popup' || (firstLossOwed && moment == null && !firstLossSeen)
+  useEffect(() => {
+    onMomentPending?.(momentPending)
+  }, [momentPending, onMomentPending])
 
   async function undoSwap(contestantId: string) {
     setSwapping(true)
@@ -2807,10 +2826,10 @@ function RosterSection({
         data-pulse={moment != null || undefined}
         // While picking the chip greys out and can't be tapped, but keeps its
         // row so History doesn't jump up when the offer steps aside (#164).
-        // Lifted over the card's scrim (z-50) so it pulses in the light while
-        // the tribe speaks; the nav sits at z-45.
+        // Lifted over the card's scrim (z-50) only while the card is up; left
+        // lifted, the nudge pulse drew over the nav (z-45) and drawer (#799).
         className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40 disabled:shadow-none ${
-          picking == null && moment != null ? 'relative z-[60]' : ''
+          picking == null && moment === 'popup' ? 'relative z-[60]' : ''
         }`}
       >
         <span>Swap</span>
@@ -4727,7 +4746,7 @@ function SoleSurvivorLine({
   rosterVersion,
   onRosterChange,
   onStartSoleSurvivor,
-  revealOpen = false,
+  wait = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -4737,8 +4756,8 @@ function SoleSurvivorLine({
   onRosterChange: () => void
   /** Start the pick: the roster rows answer it, the way Swap works (#164). */
   onStartSoleSurvivor?: () => void
-  /** The episode results card is up: the moment waits for My Season. */
-  revealOpen?: boolean
+  /** Another card is up or owed (results, first loss): the moment waits. */
+  wait?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [saving, setSaving] = useState(false)
@@ -4770,7 +4789,7 @@ function SoleSurvivorLine({
 
   const namingKey = `mytribe.name-sole-survivor.${season.id}`
   useEffect(() => {
-    if (!loaded || !windowOpen || designee || naming != null || revealOpen) return
+    if (!loaded || !windowOpen || designee || naming != null || wait) return
     try {
       if (localStorage.getItem(namingKey) === '1') return
       localStorage.setItem(namingKey, '1')
@@ -4782,7 +4801,7 @@ function SoleSurvivorLine({
     document.querySelector('.ss-line')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     // Fires once per browser; `naming` is only read to not re-fire mid-way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, windowOpen, designee, namingKey, revealOpen])
+  }, [loaded, windowOpen, designee, namingKey, wait])
 
   async function clearDesignation() {
     setSaving(true)
