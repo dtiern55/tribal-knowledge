@@ -227,6 +227,12 @@ describe('StandingsPage', () => {
       if (path.endsWith('/picks/user-1')) {
         return { 'ep-2': [{ id: 'pk-1', contestant_id: 'cast-1', episode_id: 'ep-2', rank: 1 }] }
       }
+      if (path === '/seasons/show-1/episodes/ep-2/contestant-points') {
+        return [
+          { contestant_id: 'cast-1', points: 12 },
+          { contestant_id: 'cast-3', points: 24 },
+        ]
+      }
       if (path.endsWith('/advantage-plays/user-1')) return plays
       throw new Error(`Unexpected path: ${path}`)
     })
@@ -259,10 +265,13 @@ describe('StandingsPage', () => {
     expect(team).toHaveTextContent('Ben')
     expect(team).not.toHaveTextContent('Kenzie')
     expect(team).not.toHaveTextContent('Q')
+    // What each castaway scored that episode, base points.
+    expect(team).toHaveTextContent('+12')
+    expect(team).toHaveTextContent('+24')
     // Their vote hit — Charlie went home — and the idol rides that vote
     // rather than sitting on a "Played" line of its own.
     expect(voted).toHaveTextContent('Correct — Charlie')
-    expect(voted).toContainElement(screen.getByRole('img', { name: 'Power Vote' }))
+    expect(voted).toContainElement(screen.getByLabelText('Power Vote on this vote'))
     expect(screen.queryByText('Played')).not.toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
@@ -271,7 +280,7 @@ describe('StandingsPage', () => {
     )
   })
 
-  it('rides the idol on the castaway whose points were doubled (#806)', async () => {
+  it('marks the castaway whose points were doubled with a ×2 (#806)', async () => {
     mockExpansionApi([
       { id: 'ap-2', episode_id: 'ep-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-3' },
     ])
@@ -279,10 +288,13 @@ describe('StandingsPage', () => {
     await expandDanny()
 
     const [team, voted] = screen.getAllByRole('definition')
-    const idol = screen.getByRole('img', { name: /Double Castaway Points/ })
-    expect(team).toContainElement(idol)
-    // Ben's chip, not Charlie's — and nothing on the ballot this week.
-    expect(idol.parentElement).toHaveTextContent('Ben')
-    expect(voted).not.toContainElement(idol)
+    // A ×2 on the castaway whose points were doubled, beside their base score.
+    const mark = screen.getByLabelText('Double Castaway Points on them this episode')
+    expect(team).toContainElement(mark)
+    expect(mark.parentElement).toHaveTextContent('Ben')
+    expect(mark.parentElement).toHaveTextContent('+24')
+    expect(voted).not.toContainElement(mark)
+    // The season idol is gone from the panel.
+    expect(screen.queryByRole('img', { name: /Double Castaway Points this episode/ })).not.toBeInTheDocument()
   })
 })

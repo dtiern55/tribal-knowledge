@@ -4,7 +4,6 @@ import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { CorrectVote } from '../components/CorrectVote'
-import { DoubleBadge } from '../components/DoubleBadge'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -153,6 +152,20 @@ function Torches({ entry }: { entry: StandingEntry }) {
   )
 }
 
+// The doubled mark: a played advantage paid this line twice. Text, not the
+// season idol — the idol competes with the avatars and the score beside it.
+function Times2({ title }: { title: string }) {
+  return (
+    <span
+      className="shrink-0 rounded bg-gold-100 px-1 text-[10px] font-bold tabular-nums text-gold-700"
+      title={title}
+      aria-label={title}
+    >
+      ×2
+    </span>
+  )
+}
+
 /** One player's season, as the standings row expands it: roster, ballot and
  *  advantage plays, each keyed by episode. Every piece is already served
  *  per-player and gated for other players — nothing new lands here (#806). */
@@ -166,17 +179,17 @@ interface PlayerHistory {
 }
 
 // The expanded row: that player's latest week — the tribe they carried into
-// it and who they voted for, each line labelled so the block needs no legend.
-// An advantage gets no line of its own: the idol rides the chip it doubled,
-// the way it does on My Season and the Team page. Earlier weeks are the Team
-// page's job, one tap away at the bottom. What the week paid them is the
-// number the collapsed row already shows a few pixels above.
+// it, what each castaway scored, and who they voted for. An advantage gets no
+// line of its own; it marks the thing it doubled with a ×2. Earlier weeks are
+// the Team page's job, one tap away at the bottom. What the week paid the
+// player is the number the collapsed row already shows a few pixels above.
 function HistoryPanel({
   id,
   episode,
   history,
   byId,
   bootIds,
+  scores,
   teamHref,
   name,
 }: {
@@ -187,6 +200,8 @@ function HistoryPanel({
   byId: Map<string, Contestant>
   /** Who actually went home that episode — marks a vote right. */
   bootIds: Set<string>
+  /** What each castaway scored that episode, base points by contestant id. */
+  scores: Map<string, number>
   teamHref: string
   name: string
 }) {
@@ -232,11 +247,11 @@ function HistoryPanel({
         <>
           <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-forest-800">
             Ep {n}
-            {wholeBallotDoubled && <DoubleBadge size={16} title="Power Vote this episode" />}
+            {wholeBallotDoubled && <Times2 title="Power Vote this episode" />}
           </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
             <dt className={label}>Team</dt>
-            <dd className="flex flex-col items-start gap-1 py-0.5">
+            <dd className="flex flex-col gap-1 py-0.5">
               {team.length === 0 ? (
                 <span className="text-sm text-paper-ink-faded">—</span>
               ) : (
@@ -246,20 +261,30 @@ function HistoryPanel({
                   // same life as the snuffed torch in the row above (#457).
                   // Anyone snuffed earlier is already filtered out of `team`.
                   const lost = c?.eliminated_in_episode === n
+                  const scored = scores.get(pick.contestant_id) ?? 0
                   return (
-                    <span
-                      key={pick.id}
-                      className={`inline-flex items-center gap-1 text-sm ${lost ? ELIMINATED_STRIKE : ''} ${
-                        pick.is_sole_survivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
-                      }`}
-                      title={pick.is_sole_survivor ? 'Their Sole Survivor' : undefined}
-                    >
+                    <span key={pick.id} className="flex w-full items-center gap-1.5 text-sm">
                       <span className={lost ? ELIMINATED_DIM : undefined}>
                         <ContestantAvatar name={nameOf(pick.contestant_id)} imageUrl={c?.image_url ?? null} size="sm" tribeColor={c?.tribe_color ?? null} tribeName={c?.tribe_name ?? null} />
                       </span>
-                      {nameOf(pick.contestant_id)}
-                      {/* Double Castaway Points spent on them this week. */}
-                      {pick.contestant_id === doubled && <DoubleBadge size={16} />}
+                      <span
+                        className={`truncate ${lost ? ELIMINATED_STRIKE : ''} ${
+                          pick.is_sole_survivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
+                        }`}
+                        title={pick.is_sole_survivor ? 'Their Sole Survivor' : undefined}
+                      >
+                        {nameOf(pick.contestant_id)}
+                      </span>
+                      {/* Double Castaway Points spent on them: the score below
+                          is the base one, so the ×2 is what says it paid twice. */}
+                      {pick.contestant_id === doubled && <Times2 title="Double Castaway Points on them this episode" />}
+                      <span
+                        className={`ml-auto shrink-0 font-medium tabular-nums ${
+                          scored > 0 ? 'text-jade-700' : scored < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
+                        }`}
+                      >
+                        {scored > 0 ? '+' : ''}{scored}
+                      </span>
                     </span>
                   )
                 })
@@ -274,7 +299,7 @@ function HistoryPanel({
                 votes.map((vote) => {
                   const idol =
                     vote.contestant_id === powerVote?.target_contestant_id ? (
-                      <DoubleBadge size={16} title="Power Vote" />
+                      <Times2 title="Power Vote on this vote" />
                     ) : null
                   return bootIds.has(vote.contestant_id) ? (
                     <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} icon={idol} />
@@ -304,6 +329,7 @@ function HistoryPanel({
 
 const EMPTY_IDS: Set<string> = new Set()
 const EMPTY_CAST: Map<string, Contestant> = new Map()
+const EMPTY_SCORES: Map<string, number> = new Map()
 
 export function StandingsPage() {
   const { session } = useAuth()
@@ -317,12 +343,13 @@ export function StandingsPage() {
   // opened — nobody expands one on most visits, so the standings don't pay for
   // it — and both caches are kept for the rest of the visit (#806).
   const [openId, setOpenId] = useState<string | null>(null)
-  // The season's own facts, shared by every row: the cast, which episodes have
-  // locked, and who went home in each.
+  // The week every row expands into, fetched once and shared: which episode it
+  // is, the cast, who went home in it, and what each castaway scored.
   const [ctx, setCtx] = useState<{
-    episodes: Episode[]
+    week: Episode | undefined
     byId: Map<string, Contestant>
-    bootsByEpisode: Map<string, Set<string>>
+    bootIds: Set<string>
+    scores: Map<string, number>
   } | null>(null)
   const [histories, setHistories] = useState<Map<string, PlayerHistory>>(new Map())
 
@@ -356,6 +383,7 @@ export function StandingsPage() {
 
   const season = seasons.find((s) => s.id === selectedId)
   const showSeasonId = season?.season_id
+  const rosterLockEpisode = season?.roster_lock_episode
 
   useEffect(() => {
     if (!openId || ctx || !showSeasonId) return
@@ -366,21 +394,37 @@ export function StandingsPage() {
         api.get<Contestant[]>(`/seasons/${showSeasonId}/contestants`),
         api.get<Elimination[]>(`/seasons/${showSeasonId}/eliminations`).catch(() => []),
       ])
-      const bootsByEpisode = new Map<string, Set<string>>()
-      for (const row of eliminations) {
-        const ids = bootsByEpisode.get(row.episode_id) ?? new Set<string>()
-        ids.add(row.contestant_id)
-        bootsByEpisode.set(row.episode_id, ids)
-      }
+      // The week a panel shows: the latest locked episode from the roster lock
+      // on. The finale is left out — its ballot is a bracket, not votes, and it
+      // reads as the pyramid on the Team page (#82/#86, as on that page).
+      const week = episodes
+        .filter(
+          (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (rosterLockEpisode ?? 1),
+        )
+        .sort((a, b) => b.episode_number - a.episode_number)[0]
+      const scores = week
+        ? await api
+            .get<{ contestant_id: string; points: number }[]>(
+              `/seasons/${showSeasonId}/episodes/${week.id}/contestant-points`,
+            )
+            .catch(() => [])
+        : []
       if (live) {
-        setCtx({ episodes, byId: new Map(cast.map((c) => [c.id, c])), bootsByEpisode })
+        setCtx({
+          week,
+          byId: new Map(cast.map((c) => [c.id, c])),
+          bootIds: new Set(
+            eliminations.filter((row) => row.episode_id === week?.id).map((row) => row.contestant_id),
+          ),
+          scores: new Map(scores.map((row) => [row.contestant_id, row.points])),
+        })
       }
     }
     void load()
     return () => {
       live = false
     }
-  }, [openId, ctx, showSeasonId])
+  }, [openId, ctx, showSeasonId, rosterLockEpisode])
 
   useEffect(() => {
     if (!openId || !selectedId || histories.has(openId)) return
@@ -423,14 +467,6 @@ export function StandingsPage() {
   const mine = ranked.find(({ entry }) => entry.user_id === userId)
   const hasScoring = entries.some((e) => e.total_points !== 0)
 
-  // The week a panel shows: the latest locked episode from the roster lock on.
-  // The finale is left out — its ballot is a bracket, not votes, and it reads
-  // as the pyramid on the Team page (#82/#86, matching that page's ledger).
-  const week = (ctx?.episodes ?? [])
-    .filter(
-      (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (season.roster_lock_episode ?? 1),
-    )
-    .sort((a, b) => b.episode_number - a.episode_number)[0]
 
   return (
     <div>
@@ -522,10 +558,11 @@ export function StandingsPage() {
                   {isOpen && (
                     <HistoryPanel
                       id={`history-${entry.user_id}`}
-                      episode={week}
+                      episode={ctx?.week}
                       history={ctx ? (histories.get(entry.user_id) ?? null) : null}
                       byId={ctx?.byId ?? EMPTY_CAST}
-                      bootIds={(week && ctx?.bootsByEpisode.get(week.id)) ?? EMPTY_IDS}
+                      bootIds={ctx?.bootIds ?? EMPTY_IDS}
+                      scores={ctx?.scores ?? EMPTY_SCORES}
                       name={entry.display_name}
                       teamHref={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     />
