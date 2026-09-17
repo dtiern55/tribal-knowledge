@@ -234,7 +234,7 @@ function HistoryPanel({
                   // the doubling is applied once, here, the way live scoring
                   // doubles that castaway's events for the week.
                   const isDoubled = member.contestant_id === doubled
-                  const scored = (member.points ?? 0) * (isDoubled ? 2 : 1)
+                  const scored = member.points * (isDoubled ? 2 : 1)
                   return (
                     <span key={member.contestant_id} className="flex w-full items-center gap-1.5 text-sm">
                       <span className={lost ? ELIMINATED_DIM : undefined}>
@@ -279,7 +279,7 @@ function HistoryPanel({
                   // it hit is the Hub's answer, so a Redemption Island duel
                   // loss doesn't read as a correct call (#655).
                   const power = vote.contestant_id === powerVote
-                  const hit = vote.correct === true
+                  const hit = vote.correct
                   return (
                     <span
                       key={vote.contestant_id}

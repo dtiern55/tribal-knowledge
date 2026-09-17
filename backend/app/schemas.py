@@ -161,12 +161,9 @@ class EliminationPick(BaseModel):
 
 
 class StandingSurvivor(BaseModel):
-    """One roster pick or ballot name, wherever a castaway is named in a list.
+    """One roster pick, for the standings glance (#83).
 
-    Several fields only mean something in one caller, like `eliminated_episode`
-    on `recently_eliminated_survivors`. `points` and `correct` are the Hub's
-    (#812): what a rostered castaway scored in that episode, and whether a
-    voted name actually went home.
+    `eliminated_episode` is only set for `recently_eliminated_survivors` entries.
     """
 
     contestant_id: UUID
@@ -175,10 +172,6 @@ class StandingSurvivor(BaseModel):
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
     eliminated_episode: Optional[int] = None
-    # Base points, before the player's own doubling: the Hub says who played
-    # Double Castaway Points and on whom, so a reader can apply it once.
-    points: Optional[int] = None
-    correct: Optional[bool] = None
 
 
 class StandingEntry(BaseModel):
@@ -217,6 +210,24 @@ class HubFinale(BaseModel):
     winner: Optional[StandingSurvivor] = None
 
 
+class HubRosterMember(StandingSurvivor):
+    """A castaway on someone's tribe for one episode (#812).
+
+    `points` is what they scored that episode, base — the play that doubled
+    them is named on the entry that carries this list, so a reader applies the
+    doubling once. `eliminated_episode` is set only when they were snuffed in
+    this very episode, the one week a tribe line still shows them.
+    """
+
+    points: int = 0
+
+
+class HubBallotPick(StandingSurvivor):
+    """One name on someone's ballot, and whether it went home (#812)."""
+
+    correct: bool = False
+
+
 class HubEntry(BaseModel):
     """One player's locked choices for the airing episode (#490).
 
@@ -226,8 +237,8 @@ class HubEntry(BaseModel):
 
     user_id: UUID
     display_name: str
-    roster: list[StandingSurvivor] = []
-    ballot: list[StandingSurvivor] = []
+    roster: list[HubRosterMember] = []
+    ballot: list[HubBallotPick] = []
     # The advantage played this episode, if any.
     advantage_type: Optional[str] = None
     advantage_target: Optional[StandingSurvivor] = None
