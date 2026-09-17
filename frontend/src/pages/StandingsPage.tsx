@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
-import { CorrectVote } from '../components/CorrectVote'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -254,7 +253,7 @@ function HistoryPanel({
             {wholeBallotDoubled && <PlayMark text={POWER_VOTE} title={`${POWER_VOTE} on this whole ballot`} />}
           </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
-            <dt className={label}>Team</dt>
+            <dt className={label}>Tribe</dt>
             <dd className="flex flex-col gap-1 py-0.5">
               {team.length === 0 ? (
                 <span className="text-sm text-paper-ink-faded">—</span>
@@ -286,9 +285,17 @@ function HistoryPanel({
                         {nameOf(pick.contestant_id)}
                       </span>
                       {isDoubled && <PlayMark text="×2" title="Double Castaway Points on them this episode" />}
+                      {/* A doubled score is gold, not jade: the ×2 and the
+                          number it produced read as one thing. */}
                       <span
                         className={`ml-auto shrink-0 font-medium tabular-nums ${
-                          scored > 0 ? 'text-jade-700' : scored < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
+                          isDoubled && scored > 0
+                            ? 'text-gold-700'
+                            : scored > 0
+                              ? 'text-jade-700'
+                              : scored < 0
+                                ? 'text-terracotta-600'
+                                : 'text-paper-ink-faded'
                         }`}
                       >
                         {scored > 0 ? '+' : ''}{scored}
@@ -305,24 +312,29 @@ function HistoryPanel({
                 <span className="text-sm text-paper-ink-faded">No votes</span>
               ) : (
                 votes.map((vote) => {
-                  // The Power Vote gets a thick gold edge rather than a chip
-                  // spelling out its name — a ballot row has no room for the
-                  // words. The name still reaches a screen reader.
+                  // Two facts per vote, one channel each: gold is the Power
+                  // Vote, a filled card is a hit, a dotted one missed. Not the
+                  // shared CorrectVote pill — that says "correct" and nothing
+                  // else, and this row has to say which vote it was as well.
                   const power = vote.contestant_id === powerVote?.target_contestant_id
+                  const hit = bootIds.has(vote.contestant_id)
                   return (
                     <span
                       key={vote.id}
-                      className={`inline-flex rounded-md ${power ? 'ring-[2.5px] ring-gold-500' : ''}`}
                       title={power ? `${POWER_VOTE} on this vote` : undefined}
+                      className={`inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${
+                        power
+                          ? hit
+                            ? 'border-gold-600 bg-gold-200 font-semibold text-gold-800'
+                            : 'border-dotted border-gold-500 text-gold-700'
+                          : hit
+                            ? 'border-jade-600 bg-jade-600/[.14] text-jade-800'
+                            : 'border-dotted border-stone-400 text-paper-ink-faded'
+                      }`}
                     >
                       {power && <span className="sr-only">{POWER_VOTE} — </span>}
-                      {bootIds.has(vote.contestant_id) ? (
-                        <CorrectVote name={nameOf(vote.contestant_id)} />
-                      ) : (
-                        <span className="inline-flex items-center rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
-                          {nameOf(vote.contestant_id)}
-                        </span>
-                      )}
+                      {hit && <span className="sr-only">Correct — </span>}
+                      {nameOf(vote.contestant_id)}
                     </span>
                   )
                 })

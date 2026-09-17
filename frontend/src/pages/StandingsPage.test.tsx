@@ -225,7 +225,14 @@ describe('StandingsPage', () => {
         ]
       }
       if (path.endsWith('/picks/user-1')) {
-        return { 'ep-2': [{ id: 'pk-1', contestant_id: 'cast-1', episode_id: 'ep-2', rank: 1 }] }
+        return {
+          'ep-2': [
+            // Their Power Vote named Charlie, who went home; the second vote
+            // named Kenzie, who didn't.
+            { id: 'pk-1', contestant_id: 'cast-1', episode_id: 'ep-2', rank: null },
+            { id: 'pk-2', contestant_id: 'cast-2', episode_id: 'ep-2', rank: 1 },
+          ],
+        }
       }
       if (path === '/seasons/show-1/episodes/ep-2/contestant-points') {
         return [
@@ -257,28 +264,29 @@ describe('StandingsPage', () => {
     expect(await screen.findByText('Ep 2')).toBeVisible()
     expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
 
-    const [team, voted] = screen.getAllByRole('definition')
+    const [tribe, voted] = screen.getAllByRole('definition')
     // The tribe as it stood that week: Ben swapped in, Kenzie swapped out after
     // ep 1, and Q — snuffed back in ep 1 and never swapped out — gone, the same
     // life as the snuffed torch in the row above.
-    expect(team).toHaveTextContent('Charlie')
-    expect(team).toHaveTextContent('Ben')
-    expect(team).not.toHaveTextContent('Kenzie')
-    expect(team).not.toHaveTextContent('Q')
+    expect(tribe).toHaveTextContent('Charlie')
+    expect(tribe).toHaveTextContent('Ben')
+    expect(tribe).not.toHaveTextContent('Kenzie')
+    expect(tribe).not.toHaveTextContent('Q')
     // What each castaway scored that episode — nothing doubled this week.
-    expect(team).toHaveTextContent('+12')
-    expect(team).toHaveTextContent('+24')
+    expect(tribe).toHaveTextContent('+12')
+    expect(tribe).toHaveTextContent('+24')
     // Their vote hit — Charlie went home — and the idol rides that vote
     // rather than sitting on a "Played" line of its own.
     expect(voted).toHaveTextContent('Correct — Charlie')
-    // The Power Vote is a gold edge on the vote it named, no words on the row,
-    // but still named for a screen reader — and never an ×2, since it is its
-    // own rung on the ballot ladder rather than a multiplier.
+    // Gold is the Power Vote and a filled card is a hit: Charlie's vote is the
+    // gold one and it landed, the two misses are dotted and neutral. Never an
+    // ×2 — the Power Vote is its own rung, not a multiplier.
     const marked = screen.getByTitle('Power Vote on this vote')
     expect(marked).toHaveTextContent('Charlie')
-    expect(marked.className).toContain('ring-gold-500')
+    expect(marked.className).toContain('bg-gold-200')
     expect(voted).toContainElement(marked)
     expect(voted).not.toHaveTextContent('×2')
+    expect(screen.getByText('Kenzie').className).toContain('border-dotted')
     expect(screen.queryByText('Played')).not.toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
@@ -294,16 +302,19 @@ describe('StandingsPage', () => {
 
     await expandDanny()
 
-    const [team, voted] = screen.getAllByRole('definition')
+    const [tribe, voted] = screen.getAllByRole('definition')
     // A ×2 on the castaway whose points were doubled, beside the doubled score.
     const mark = screen.getByLabelText('Double Castaway Points on them this episode')
-    expect(team).toContainElement(mark)
+    expect(tribe).toContainElement(mark)
     expect(mark.parentElement).toHaveTextContent('Ben')
-    // Ben's 24 paid double, so the line reads 48 — the ×2 says why.
+    // Ben's 24 paid double, so the line reads 48 — the ×2 says why — and the
+    // number is gold like the mark beside it, not jade.
     expect(mark.parentElement).toHaveTextContent('+48')
-    expect(team).not.toHaveTextContent('+24')
-    // Charlie wasn't doubled, so his stays as scored.
-    expect(team).toHaveTextContent('+12')
+    expect(tribe).not.toHaveTextContent('+24')
+    expect(screen.getByText('+48').className).toContain('text-gold-700')
+    // Charlie wasn't doubled, so his stays as scored, in jade.
+    expect(tribe).toHaveTextContent('+12')
+    expect(screen.getByText('+12').className).toContain('text-jade-700')
     expect(voted).not.toContainElement(mark)
     // The season idol is gone from the panel.
     expect(screen.queryByRole('img', { name: /Double Castaway Points this episode/ })).not.toBeInTheDocument()
