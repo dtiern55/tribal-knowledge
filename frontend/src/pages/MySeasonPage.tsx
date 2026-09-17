@@ -3490,15 +3490,12 @@ function PicksSection({
 
   useEffect(() => {
     async function load() {
-      const results = await Promise.all(
-        episodes.map((ep) =>
-          api
-            .get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${ep.id}/picks/${userId}`)
-            .then((picks): [string, EliminationPick[]] => [ep.id, picks])
-            .catch((): [string, EliminationPick[]] => [ep.id, []]),
-        ),
-      )
-      const picksMap = new Map(results)
+      // One request for every episode's picks (#558/#803), not one per
+      // episode: the fan-out grew a round trip every week of the season.
+      const byEpisode = await api
+        .get<Record<string, EliminationPick[]>>(`/league-seasons/${season.id}/picks/${userId}`)
+        .catch(() => ({}) as Record<string, EliminationPick[]>)
+      const picksMap = new Map(Object.entries(byEpisode))
       setPicksByEpisode(picksMap)
       // Drop picks whose castaway was eliminated in an EARLIER episode (#96):
       // they can't come true, and leaving them wastes a vote slot and shows up

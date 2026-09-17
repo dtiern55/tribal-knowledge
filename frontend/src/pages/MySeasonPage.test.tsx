@@ -179,7 +179,16 @@ function arrangePlayWorld(initial: {
     }
     if (path.includes('/advantage-plays/')) return state.plays
     if (path.includes('/roster/')) return state.roster
-    if (path.includes('/picks/')) return state.picks
+    // The page reads every episode's ballot in one keyed request (#803); the
+    // per-episode route still answers a single save.
+    if (path.includes('/episodes/') && path.includes('/picks/')) return state.picks
+    if (path.includes('/picks/')) {
+      return state.picks.reduce<Record<string, typeof state.picks>>((byEpisode, pick) => {
+        const list = byEpisode[pick.episode_id] ?? []
+        byEpisode[pick.episode_id] = [...list, pick]
+        return byEpisode
+      }, {})
+    }
     if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
     if (path.endsWith('/reveal')) return undefined
     return []
