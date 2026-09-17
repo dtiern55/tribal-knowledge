@@ -216,6 +216,7 @@ def air(cur, n: int, boot_names: list[str], boots_k: int | None):
         sys.exit(f"episode {n} is already scored")
     run_bots.require_history_scored(cur, sid, n)
     rng = random.Random(f"{sid}:air:{n}")
+    rng_season = random.Random(f"{sid}:season")  # season-wide draws, same every week
     who = names(cur, sid)
     alive = sorted(run_bots.alive_ids(cur, sid))
     client = api()
@@ -307,9 +308,15 @@ def air(cur, n: int, boot_names: list[str], boots_k: int | None):
         if strays and len(voters) > 1:
             ev(rng.choice([v for v in voters if v != boot]), "votes_received", strays)
 
+    # Every episode has an immunity and a reward (team before the merge,
+    # individual after), someone says the title quote, treemail gets read most
+    # weeks, idols turn up and get played, and Jeff hands out two "That's how
+    # you do it"s a season (Danny, 2026-09-16: the first draw under-pointed).
+    jeff_weeks = set(rng_season.sample(range(2, EPISODES), 2))
     if n > 1 and ep["is_finale"]:
         f5 = alive
         ev(rng.choice([c for c in f5 if c != boots[0]]), "win_individual_immunity")
+        ev(rng.choice(f5), "win_individual_reward")
         tribal([c for c in f5 if c != boots[0]], boots[0])
         ev(rng.choice(survivors), "win_fire_making_challenge")
         for c in boots:
@@ -318,28 +325,41 @@ def air(cur, n: int, boot_names: list[str], boots_k: int | None):
             call(client, "PATCH", f"/contestants/{c}", json={"placement": place})
     elif n > 1 and post_merge:
         ev(rng.choice(survivors), "win_individual_immunity")
-        if rng.random() < 0.6:
-            ev(rng.choice(survivors), "win_individual_reward")
+        ev(rng.choice(alive), "win_individual_reward")
         for b in boots:
             tribal([c for c in alive if c != b], b)
             if len(survivors) <= JURY_FROM:
                 ev(b, "join_jury")
     elif n > 1:
+        by_tribe: dict[str, list[str]] = {}
+        for c in alive:
+            by_tribe.setdefault(tribes.get(c, "?"), []).append(c)
         losing = {tribes.get(b) for b in boots}
-        for t in sorted({tribes.get(c) for c in alive} - losing):
-            for c in [c for c in alive if tribes.get(c) == t]:
+        safe = sorted(set(by_tribe) - losing)
+        for t in safe:
+            for c in by_tribe[t]:
                 ev(c, "win_team_immunity")
-                if rng.random() < 0.5:
-                    ev(c, "win_team_reward")
+        # Reward is its own challenge: any tribe can take it.
+        for c in by_tribe[rng.choice(sorted(by_tribe))]:
+            ev(c, "win_team_reward")
         for b in boots:
-            tribal([c for c in alive if tribes.get(c) == tribes.get(b) and c != b], b)
-    if n > 1 and not ep["is_finale"]:
-        if rng.random() < 0.3:
-            ev(rng.choice(survivors), "acquire_active_idol")
-        if rng.random() < 0.2:
-            ev(rng.choice(survivors), "go_on_journey")
-        if rng.random() < 0.1:
-            ev(rng.choice(survivors), "play_idol")
+            tribal([c for c in by_tribe[tribes.get(b, "?")] if c != b], b)
+    if n > 1:
+        ev(rng.choice(alive), "episode_title_quote")
+        if rng.random() < 0.7:
+            ev(rng.choice(alive), "read_treemail_or_instructions")
+        if n in jeff_weeks:
+            ev(rng.choice(alive), "jeff_thats_how_you_do_it")
+        if not ep["is_finale"]:
+            if rng.random() < 0.4:
+                ev(rng.choice(survivors), "acquire_active_idol")
+            if rng.random() < 0.2:
+                ev(rng.choice(survivors), "go_on_journey")
+            if rng.random() < (0.25 if post_merge else 0.1):
+                player = rng.choice(survivors)
+                ev(player, "play_idol")
+                if rng.random() < 0.5:
+                    ev(player, "idol_played_successfully")
     if events:
         call(client, "POST", f"/episodes/{ep['id']}/scoring-events", json=events)
 
