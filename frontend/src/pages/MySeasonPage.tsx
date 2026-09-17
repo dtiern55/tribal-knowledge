@@ -987,6 +987,7 @@ export function MySeasonPage() {
             onReplay={openReplay}
             replayLoading={replayLoading}
             replayError={replayError}
+            standing={d.standing}
           />
         </div>
         )
@@ -1021,6 +1022,7 @@ export function MySeasonPage() {
           onReplay={openReplay}
           replayLoading={replayLoading}
           replayError={replayError}
+          standing={d.standing}
         />
       )}
 
@@ -1847,6 +1849,7 @@ function HistorySection({
   onReplay,
   replayLoading,
   replayError,
+  standing,
 }: {
   season: Season
   userId: string
@@ -1857,12 +1860,12 @@ function HistorySection({
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
+  /** The card previews the last episode from the standings row the page
+   *  already loaded (#803) — it used to build a whole episode result for two
+   *  numbers, on every load, with the sheet shut. */
+  standing: StandingEntry | null
 }) {
   const [open, setOpen] = useState(false)
-  // The card previews the last episode's result (#478 follow-on), so the tap
-  // has something to promise. One extra fetch, only once there is a scored
-  // episode to preview.
-  const [lastResult, setLastResult] = useState<EpisodeResult | null>(null)
   // Past ballots, fetched the first time the sheet is opened rather than on
   // every page load — they are reference, and nobody reads them most weeks.
   const [pastBallots, setPastBallots] = useState<Map<string, EliminationPick[]> | null>(null)
@@ -1878,25 +1881,6 @@ function HistorySection({
   const closedBallots = weeklyEpisodes
     .filter((ep) => episodeClosed(ep) && ep.id !== currentBallotEp?.id)
     .reverse()
-
-  const newestScoredId = episodes
-    .filter((e) => e.status === 'scored')
-    .sort((a, b) => b.episode_number - a.episode_number)[0]?.id
-
-  useEffect(() => {
-    if (!newestScoredId) {
-      setLastResult(null)
-      return
-    }
-    let live = true
-    api
-      .get<EpisodeResult>(`/league-seasons/${season.id}/episode-results/${newestScoredId}`)
-      .then((r) => live && setLastResult(r))
-      .catch(() => live && setLastResult(null))
-    return () => {
-      live = false
-    }
-  }, [season.id, newestScoredId])
 
   const closedBallotIds = closedBallots.map((ep) => ep.id).join(',')
   useEffect(() => {
@@ -1928,15 +1912,13 @@ function HistorySection({
   // what's behind it rather than just naming itself.
   const preview = (() => {
     const parts = [`${scoredEpisodes.length} episode${scoredEpisodes.length === 1 ? '' : 's'}`]
-    if (lastResult) {
-      const delta = lastResult.rank_delta
+    if (standing && scoredEpisodes.length > 0) {
+      const spots = standing.trend_delta
       const move =
-        delta == null || delta === 0
-          ? null
-          : delta > 0
-            ? `up ${delta} spot${delta === 1 ? '' : 's'}`
-            : `down ${-delta} spot${delta === -1 ? '' : 's'}`
-      const pts = `${lastResult.total_points > 0 ? '+' : ''}${lastResult.total_points}`
+        standing.trend === 'up' || standing.trend === 'down'
+          ? `${standing.trend} ${spots} spot${spots === 1 ? '' : 's'}`
+          : null
+      const pts = `${standing.last_episode_points > 0 ? '+' : ''}${standing.last_episode_points}`
       parts.push(`last: ${pts}${move ? `, ${move}` : ''}`)
     }
     return parts.join(' · ')

@@ -15,7 +15,9 @@ primary_region = 'sjc'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  # One machine stays up: with none running, the first request after an idle
+  # spell paid a 4.5s cold start and every later one took 250ms (#803).
+  min_machines_running = 1
   processes = ['app']
 
 [[vm]]
