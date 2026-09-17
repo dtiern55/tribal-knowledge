@@ -267,14 +267,13 @@ def air(cur, n: int, boot_names: list[str], boots_k: int | None):
         if post_merge:
             boots = rng.sample(alive, k)
         else:
-            # One tribal per boot: the losing tribe(s) each send someone home.
+            # One tribe loses immunity and sends everyone home that week: with
+            # two tribes, a boot from each would leave nobody to win it.
             by_tribe = {}
             for c in alive:
                 by_tribe.setdefault(tribes.get(c, "?"), []).append(c)
-            losers = rng.sample(sorted(by_tribe), min(k, len(by_tribe)))
-            boots = [rng.choice(by_tribe[t]) for t in losers]
-            while len(boots) < k:
-                boots.append(rng.choice([c for c in alive if c not in boots]))
+            loser = by_tribe[rng.choice(sorted(by_tribe))]
+            boots = rng.sample(loser, min(k, len(loser) - 1))
     survivors = [c for c in alive if c not in boots]
 
     elims = [
