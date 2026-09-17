@@ -1,15 +1,30 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
+import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
+import { CorrectVote } from '../components/CorrectVote'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
+import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
+import { displayName } from '../lib/cast'
+import { episodeClosed } from '../lib/episodes'
 import { rankStandings } from '../lib/standings'
-import type { EpisodePointsRow, Season, StandingEntry } from '../types'
+import type {
+  AdvantagePlay,
+  Contestant,
+  Elimination,
+  EliminationPick,
+  Episode,
+  EpisodePointsRow,
+  RosterPick,
+  Season,
+  StandingEntry,
+} from '../types'
 
 // A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
@@ -139,64 +154,187 @@ function Torches({ entry }: { entry: StandingEntry }) {
   )
 }
 
-// What the season did to one player, week by week: the episode, what it paid
-// them, and the total it left them on. Newest week on top, like every other
-// ledger in the app. The Team page is the next tap for the detail behind a week.
+/** One player's season, as the standings row expands it: roster, ballot and
+ *  advantage plays, each keyed by episode. Every piece is already served
+ *  per-player and gated for other players — nothing new lands here (#806). */
+interface PlayerHistory {
+  roster: RosterPick[]
+  /** Locked episodes' ballots, keyed by episode id. */
+  ballots: Record<string, EliminationPick[]>
+  plays: AdvantagePlay[]
+  /** Their roster is still private (before tribes lock). */
+  hidden: boolean
+}
+
+// One week of someone's season: the tribe they carried into it, who they voted
+// for, and the advantage they spent. The three questions the panel answers, in
+// that order, each line labelled so the block needs no legend.
+function Week({
+  episode,
+  team,
+  votes,
+  play,
+  points,
+  byId,
+  bootIds,
+  baseEpisode,
+}: {
+  episode: Episode
+  team: RosterPick[]
+  votes: EliminationPick[]
+  play: AdvantagePlay | undefined
+  points: number | undefined
+  byId: Map<string, Contestant>
+  /** Who actually went home this episode — marks a vote right and a tribe
+   *  member as the week's loss. */
+  bootIds: Set<string>
+  /** The episode the roster started at, so the original picks don't all read
+   *  as swapped in at the roster lock (matches the Team page). */
+  baseEpisode: number
+}) {
+  const nameOf = (id: string) => {
+    const c = byId.get(id)
+    return c ? displayName(c) : '—'
+  }
+  const label = 'pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded'
+  return (
+    <div className="border-t border-paper-line py-2 first:border-t-0">
+      <div className="flex items-baseline gap-2">
+        <span className="font-display text-sm font-semibold text-forest-800">Ep {episode.episode_number}</span>
+        {points != null && points !== 0 && (
+          <span className={`text-xs font-medium tabular-nums ${points > 0 ? 'text-jade-700' : 'text-terracotta-600'}`}>
+            {points > 0 ? '+' : ''}{points}
+          </span>
+        )}
+      </div>
+      <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
+        <dt className={label}>Team</dt>
+        <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
+          {team.length === 0 ? (
+            <span className="text-sm text-paper-ink-faded">—</span>
+          ) : (
+            team.map((pick) => {
+              const c = byId.get(pick.contestant_id)
+              // Out of the game by this week — struck the week they went home
+              // and every week after, because a boot nobody swapped out stays
+              // on the roster rows. `eliminated_in_episode` is the server's own
+              // "out for good", so a Redemption Island duel loss isn't one.
+              const lost = c?.eliminated_in_episode != null && c.eliminated_in_episode <= episode.episode_number
+              return (
+                <span
+                  key={pick.id}
+                  className={`inline-flex items-center gap-1 text-sm ${lost ? ELIMINATED_STRIKE : ''} ${
+                    pick.is_sole_survivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
+                  }`}
+                  title={pick.is_sole_survivor ? 'Their Sole Survivor' : undefined}
+                >
+                  <span className={lost ? ELIMINATED_DIM : undefined}>
+                    <ContestantAvatar name={nameOf(pick.contestant_id)} imageUrl={c?.image_url ?? null} size="sm" tribeColor={c?.tribe_color ?? null} tribeName={c?.tribe_name ?? null} />
+                  </span>
+                  {nameOf(pick.contestant_id)}
+                  {/* Swapped in for this week — the one thing a roster line
+                      can't say by itself when you read a single row. */}
+                  {pick.active_from_episode === episode.episode_number && pick.active_from_episode > baseEpisode && (
+                    <span className="text-[10px] font-semibold uppercase text-jade-700" title="Swapped in this episode">new</span>
+                  )}
+                </span>
+              )
+            })
+          )}
+        </dd>
+
+        <dt className={label}>Voted</dt>
+        <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
+          {votes.length === 0 ? (
+            <span className="text-sm text-paper-ink-faded">No votes</span>
+          ) : (
+            votes.map((vote) =>
+              bootIds.has(vote.contestant_id) ? (
+                <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} />
+              ) : (
+                <span key={vote.id} className="inline-flex items-center rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                  {nameOf(vote.contestant_id)}
+                </span>
+              ),
+            )
+          )}
+        </dd>
+
+        {/* No line at all on a quiet week: an empty "Played —" row on every
+            episode would bury the weeks something was spent. */}
+        {play && (
+          <>
+            <dt className={label}>Played</dt>
+            <dd className="flex flex-wrap items-center gap-1.5 py-0.5 text-sm text-paper-ink">
+              <span className="font-medium">{ADV_LABELS[play.advantage_type] ?? play.advantage_type}</span>
+              {play.target_contestant_id && (
+                <span className="text-paper-ink-faded">on {nameOf(play.target_contestant_id)}</span>
+              )}
+            </dd>
+          </>
+        )}
+      </dl>
+    </div>
+  )
+}
+
+// The expanded row: that player's season week by week, newest first. The Team
+// page stays a tap away at the bottom for the scoring detail behind a week.
 function HistoryPanel({
   id,
-  rows,
-  userId,
+  episodes,
+  history,
+  deltas,
+  byId,
+  bootsByEpisode,
   teamHref,
   name,
 }: {
   id: string
-  rows: EpisodePointsRow[] | null
-  userId: string
+  /** Locked, non-finale episodes, newest first. */
+  episodes: Episode[]
+  history: PlayerHistory | null
+  /** Points this player gained per episode number. */
+  deltas: Map<number, number>
+  byId: Map<string, Contestant>
+  bootsByEpisode: Map<string, Set<string>>
   teamHref: string
   name: string
 }) {
-  // Running total is summed oldest-first, then the list is flipped: every point
-  // in the standings traces to exactly one episode, so the last row's total is
-  // the season total.
-  let running = 0
-  const weeks = (rows ?? [])
-    .map((row) => {
-      running += row.points[userId] ?? 0
-      return { episode: row.episode_number, points: row.points[userId] ?? 0, total: running }
-    })
-    .reverse()
-
+  const baseEpisode =
+    history && history.roster.length > 0
+      ? Math.min(...history.roster.map((pick) => pick.active_from_episode))
+      : 0
   return (
-    <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-3">
-      {rows == null ? (
-        <p className="text-sm text-paper-ink-faded">Loading…</p>
-      ) : weeks.length === 0 ? (
-        <p className="text-sm text-paper-ink-faded">No episodes have been scored yet.</p>
+    <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-2">
+      {history == null ? (
+        <p className="py-1.5 text-sm text-paper-ink-faded">Loading…</p>
+      ) : history.hidden ? (
+        <p className="py-1.5 text-sm text-paper-ink-faded">Their tribe and weekly play unlock when tribes lock.</p>
+      ) : episodes.length === 0 ? (
+        <p className="py-1.5 text-sm text-paper-ink-faded">No episodes have locked yet.</p>
       ) : (
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">Episode</span>
-          <span className="text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">Points</span>
-          <span className="text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">Total</span>
-          {weeks.map((week) => (
-            <Fragment key={week.episode}>
-              <span className="border-t border-paper-line py-1.5 text-sm text-paper-ink">Ep {week.episode}</span>
-              <span
-                className={`border-t border-paper-line py-1.5 text-right text-sm font-medium tabular-nums ${
-                  week.points > 0 ? 'text-jade-700' : week.points < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
-                }`}
-              >
-                {week.points > 0 ? '+' : ''}{week.points}
-              </span>
-              <span className="border-t border-paper-line py-1.5 text-right text-sm font-semibold tabular-nums text-forest-800">
-                {week.total}
-              </span>
-            </Fragment>
-          ))}
-        </div>
+        episodes.map((episode) => (
+          <Week
+            key={episode.id}
+            episode={episode}
+            team={history.roster.filter(
+              (pick) =>
+                pick.active_from_episode <= episode.episode_number &&
+                (pick.active_until_episode == null || pick.active_until_episode >= episode.episode_number),
+            )}
+            votes={history.ballots[episode.id] ?? []}
+            play={history.plays.find((p) => p.episode_id === episode.id)}
+            points={deltas.get(episode.episode_number)}
+            byId={byId}
+            bootIds={bootsByEpisode.get(episode.id) ?? EMPTY_IDS}
+            baseEpisode={baseEpisode}
+          />
+        ))
       )}
       <Link
         to={teamHref}
-        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+        className="my-2 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
       >
         {name}'s full team page
         <ChevronRightIcon className="size-[14px]" />
@@ -204,6 +342,10 @@ function HistoryPanel({
     </div>
   )
 }
+
+const EMPTY_IDS: Set<string> = new Set()
+const EMPTY_CAST: Map<string, Contestant> = new Map()
+const EMPTY_BOOTS: Map<string, Set<string>> = new Map()
 
 export function StandingsPage() {
   const { session } = useAuth()
@@ -213,11 +355,19 @@ export function StandingsPage() {
   const [entries, setEntries] = useState<StandingEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  // One row open at a time, and the week-by-week deltas for the whole league
-  // fetched the first time any row is opened (#806) — nobody expands a row on
-  // most visits, so the standings don't pay for it.
+  // One row open at a time. Nothing below is fetched until a row is first
+  // opened — nobody expands one on most visits, so the standings don't pay for
+  // it — and both caches are kept for the rest of the visit (#806).
   const [openId, setOpenId] = useState<string | null>(null)
-  const [history, setHistory] = useState<EpisodePointsRow[] | null>(null)
+  // The season's own facts, shared by every row: the cast, which episodes have
+  // locked, who went home in each, and what each episode paid each player.
+  const [ctx, setCtx] = useState<{
+    episodes: Episode[]
+    byId: Map<string, Contestant>
+    bootsByEpisode: Map<string, Set<string>>
+    deltas: EpisodePointsRow[]
+  } | null>(null)
+  const [histories, setHistories] = useState<Map<string, PlayerHistory>>(new Map())
 
   useEffect(() => {
     let live = true
@@ -247,26 +397,91 @@ export function StandingsPage() {
     }
   }, [])
 
+  const season = seasons.find((s) => s.id === selectedId)
+  const showSeasonId = season?.season_id
+
   useEffect(() => {
-    if (!openId || history || !selectedId) return
+    if (!openId || ctx || !selectedId || !showSeasonId) return
     let live = true
-    api
-      .get<EpisodePointsRow[]>(`/league-seasons/${selectedId}/points-history`)
-      .then((rows) => live && setHistory(rows))
-      .catch(() => live && setHistory([]))
+    async function load() {
+      const [episodes, cast, eliminations, deltas] = await Promise.all([
+        api.get<Episode[]>(`/seasons/${showSeasonId}/episodes`),
+        api.get<Contestant[]>(`/seasons/${showSeasonId}/contestants`),
+        api.get<Elimination[]>(`/seasons/${showSeasonId}/eliminations`).catch(() => []),
+        api.get<EpisodePointsRow[]>(`/league-seasons/${selectedId}/points-history`).catch(() => []),
+      ])
+      const bootsByEpisode = new Map<string, Set<string>>()
+      for (const row of eliminations) {
+        const ids = bootsByEpisode.get(row.episode_id) ?? new Set<string>()
+        ids.add(row.contestant_id)
+        bootsByEpisode.set(row.episode_id, ids)
+      }
+      if (live) {
+        setCtx({
+          episodes,
+          byId: new Map(cast.map((c) => [c.id, c])),
+          bootsByEpisode,
+          deltas,
+        })
+      }
+    }
+    void load()
     return () => {
       live = false
     }
-  }, [openId, history, selectedId])
+  }, [openId, ctx, selectedId, showSeasonId])
+
+  useEffect(() => {
+    if (!openId || !selectedId || histories.has(openId)) return
+    let live = true
+    async function load() {
+      // Another player's roster is 403 until tribes lock, and their plays and
+      // ballots only cover locked episodes — the same three calls their Team
+      // page makes, so this panel shows exactly what that page would.
+      const [roster, ballots, plays] = await Promise.all([
+        api.get<RosterPick[]>(`/league-seasons/${selectedId}/roster/${openId}`).then(
+          (rows) => ({ rows, hidden: false }),
+          () => ({ rows: [] as RosterPick[], hidden: true }),
+        ),
+        api
+          .get<Record<string, EliminationPick[]>>(`/league-seasons/${selectedId}/picks/${openId}`)
+          .catch(() => ({}) as Record<string, EliminationPick[]>),
+        api.get<AdvantagePlay[]>(`/league-seasons/${selectedId}/advantage-plays/${openId}`).catch(() => []),
+      ])
+      if (!live) return
+      setHistories((prev) =>
+        new Map(prev).set(openId!, {
+          roster: roster.rows,
+          ballots,
+          plays,
+          hidden: roster.hidden,
+        }),
+      )
+    }
+    void load()
+    return () => {
+      live = false
+    }
+  }, [openId, selectedId, histories])
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>
-  const season = seasons.find((s) => s.id === selectedId)
   if (!season) return <ColdStart />
 
   const ranked = rankStandings(entries)
   const mine = ranked.find(({ entry }) => entry.user_id === userId)
   const hasScoring = entries.some((e) => e.total_points !== 0)
+
+  // The weeks a panel lists: locked, newest first, from the roster lock on. The
+  // finale is left out — its ballot is a bracket, not votes, and it reads as
+  // the pyramid on the Team page (#82/#86, matching that page's ledger).
+  const weeks = (ctx?.episodes ?? [])
+    .filter(
+      (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (season.roster_lock_episode ?? 1),
+    )
+    .sort((a, b) => b.episode_number - a.episode_number)
+  const deltasByEpisode = (userIdForRow: string) =>
+    new Map((ctx?.deltas ?? []).map((row) => [row.episode_number, row.points[userIdForRow] ?? 0]))
 
   return (
     <div>
@@ -358,8 +573,11 @@ export function StandingsPage() {
                   {isOpen && (
                     <HistoryPanel
                       id={`history-${entry.user_id}`}
-                      rows={history}
-                      userId={entry.user_id}
+                      episodes={weeks}
+                      history={ctx ? (histories.get(entry.user_id) ?? null) : null}
+                      deltas={deltasByEpisode(entry.user_id)}
+                      byId={ctx?.byId ?? EMPTY_CAST}
+                      bootsByEpisode={ctx?.bootsByEpisode ?? EMPTY_BOOTS}
                       name={entry.display_name}
                       teamHref={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     />

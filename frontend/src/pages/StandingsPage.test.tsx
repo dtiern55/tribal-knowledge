@@ -174,8 +174,12 @@ describe('StandingsPage', () => {
     expect(flames[0].querySelector('g[transform*="scale(-1 1)"]')).not.toBeNull()
     expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor, eliminated ep 11')
   })
-  it('expands a row into that player\'s week-by-week history, team page still a tap away (#806)', async () => {
-    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+  it("expands a row into that player's week: tribe, votes and advantage (#806)", async () => {
+    const season = {
+      id: 'season-1', season_id: 'show-1', name: 'Survivor 51',
+      status: 'active', roster_lock_episode: 1,
+    } as Season
+    const locked = new Date(Date.now() - 86_400_000).toISOString()
     vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [season]
@@ -187,12 +191,40 @@ describe('StandingsPage', () => {
           active_survivors: [], recently_eliminated_survivors: [],
         }]
       }
+      if (path === '/seasons/show-1/episodes') {
+        return [
+          { id: 'ep-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: locked },
+          { id: 'ep-2', episode_number: 2, is_finale: false, status: 'scored', picks_lock_at: locked },
+        ]
+      }
+      if (path === '/seasons/show-1/contestants') {
+        return [
+          { id: 'cast-1', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null },
+          { id: 'cast-2', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null },
+          { id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null },
+        ]
+      }
+      if (path === '/seasons/show-1/eliminations') {
+        return [{ id: 'el-1', episode_id: 'ep-2', contestant_id: 'cast-1', is_final: true }]
+      }
       if (path.endsWith('/points-history')) {
         return [
-          { episode_number: 1, points: { 'user-1': 25 } },
-          { episode_number: 2, points: { 'user-1': -5 } },
-          { episode_number: 3, points: { 'user-1': 40 } },
+          { episode_number: 1, points: { 'user-1': 20 } },
+          { episode_number: 2, points: { 'user-1': 40 } },
         ]
+      }
+      if (path.endsWith('/roster/user-1')) {
+        return [
+          { id: 'rp-1', contestant_id: 'cast-1', active_from_episode: 1, active_until_episode: null, is_sole_survivor: true },
+          { id: 'rp-2', contestant_id: 'cast-2', active_from_episode: 1, active_until_episode: 1, is_sole_survivor: false },
+          { id: 'rp-3', contestant_id: 'cast-3', active_from_episode: 2, active_until_episode: null, is_sole_survivor: false },
+        ]
+      }
+      if (path.endsWith('/picks/user-1')) {
+        return { 'ep-2': [{ id: 'pk-1', contestant_id: 'cast-1', episode_id: 'ep-2', rank: 1 }] }
+      }
+      if (path.endsWith('/advantage-plays/user-1')) {
+        return [{ id: 'ap-1', episode_id: 'ep-2', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1' }]
       }
       throw new Error(`Unexpected path: ${path}`)
     })
@@ -203,13 +235,24 @@ describe('StandingsPage', () => {
     expect(row).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(row)
 
-    // Newest week on top, each row carrying the total it left them on.
-    const totals = await screen.findByText('Ep 3')
-    expect(totals).toBeVisible()
-    expect(screen.getByText('+40')).toBeVisible()
-    expect(screen.getByText('-5')).toBeVisible()
-    // Twice: the row's season total, and the ledger's running total after ep 3.
-    expect(screen.getAllByText('60')).toHaveLength(2)
+    // Newest week first, and the tribe as it stood that week: Ben swapped in
+    // for episode 2, Kenzie only on the team for episode 1.
+    const weeks = await screen.findAllByRole('definition')
+    expect(await screen.findByText('Ep 2')).toBeVisible()
+    expect(weeks[0]).toHaveTextContent('Charlie')
+    expect(weeks[0]).toHaveTextContent('Ben')
+    expect(weeks[0]).not.toHaveTextContent('Kenzie')
+    expect(screen.getByTitle('Swapped in this episode')).toBeVisible()
+    // Their vote hit — Charlie went home in episode 2.
+    expect(weeks[1]).toHaveTextContent('Correct — Charlie')
+    // And what they spent it on.
+    expect(weeks[2]).toHaveTextContent('Power Vote')
+    expect(weeks[2]).toHaveTextContent('on Charlie')
+    // Episode 1: Kenzie still on the tribe, no votes filed, nothing played.
+    expect(weeks[3]).toHaveTextContent('Kenzie')
+    expect(weeks[4]).toHaveTextContent('No votes')
+    expect(screen.getAllByText('Power Vote')).toHaveLength(1)
+
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
       'href',
       '/league-seasons/season-1/team/user-1',
