@@ -1,34 +1,118 @@
 import os
+import threading
+import time
 from contextlib import contextmanager
 
 import psycopg2
 from dotenv import load_dotenv
 from fastapi import HTTPException
+from psycopg2 import pool as psycopg2_pool
 from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
+# Opening a connection to the Supabase pooler costs ~145ms; the query that
+# follows it usually costs ~25ms. A connection per request meant every endpoint
+# paid that handshake before doing any work — about 85% of a warm request
+# (#810). Connections are kept per process and reused instead.
+#
+# This is still the transaction pooler's job on the server side: it manages how
+# many *server* connections exist. What changed is that we stop re-opening the
+# client side of that link on every call.
+_POOL_MAX = int(os.environ.get("DB_POOL_MAX", "10"))
+# How long a pooled connection may sit before it is checked with a round trip
+# rather than trusted. A busy stretch never pays for the check; the first
+# request after a quiet one pays ~25ms instead of a ~145ms fresh handshake.
+_IDLE_CHECK_SECONDS = 60
 
-@contextmanager
-def get_db():
-    # One connection per request, by design: Supabase's transaction pooler
-    # (port 6543) is the connection manager, so we don't pool at the app layer.
-    conn = psycopg2.connect(
+_pool: psycopg2_pool.ThreadedConnectionPool | None = None
+_pool_lock = threading.Lock()
+# Connection id -> when it went back in the pool. Plain dict: set and pop are
+# atomic, and a miss only means "check it", which is the safe answer.
+_idle_since: dict[int, float] = {}
+
+
+def _connect_kwargs() -> dict:
+    return dict(
         host=os.environ["DB_HOST"],
         port=os.environ.get("DB_PORT", "5432"),
         dbname=os.environ.get("DB_NAME", "postgres"),
         user=os.environ.get("DB_USER", "postgres"),
         password=os.environ["DB_PASSWORD"],
         cursor_factory=RealDictCursor,
+        # Keep the socket warm through idle stretches, so the far end has less
+        # reason to drop it between requests.
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=3,
     )
+
+
+def _get_pool() -> psycopg2_pool.ThreadedConnectionPool:
+    """The process's connection pool, opened on first use."""
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = psycopg2_pool.ThreadedConnectionPool(
+                    1, _POOL_MAX, **_connect_kwargs()
+                )
+    return _pool
+
+
+def _usable(conn) -> bool:
+    """Is this connection still good? Only asked of one that has been idle."""
+    if conn.closed:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("select 1")
+        return True
+    except psycopg2.Error:
+        return False
+
+
+def _checkout():
+    """A connection that is ready to use, and the pool to return it to."""
+    pool = _get_pool()
+    # Each dead connection is dropped and another tried; a freshly opened one
+    # has no idle record, so this settles immediately rather than spinning.
+    for _ in range(3):
+        conn = pool.getconn()
+        idle_since = _idle_since.pop(id(conn), None)
+        rested = idle_since is not None and (
+            time.monotonic() - idle_since >= _IDLE_CHECK_SECONDS
+        )
+        if not rested or _usable(conn):
+            return pool, conn
+        pool.putconn(conn, close=True)
+    raise HTTPException(status_code=503, detail="Database unavailable")
+
+
+@contextmanager
+def get_db():
+    pool, conn = _checkout()
+    broken = False
     try:
         yield conn
         conn.commit()
     except Exception:
-        conn.rollback()
+        broken = True
+        try:
+            conn.rollback()
+            broken = False
+        except psycopg2.Error:
+            # A connection that cannot even roll back is finished; closing it
+            # keeps the next request from inheriting the mess.
+            pass
         raise
     finally:
-        conn.close()
+        if broken:
+            pool.putconn(conn, close=True)
+        else:
+            _idle_since[id(conn)] = time.monotonic()
+            pool.putconn(conn)
 
 
 def lock_user_season(cur, user_id, league_season_id) -> None:
