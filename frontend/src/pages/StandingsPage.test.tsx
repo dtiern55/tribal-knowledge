@@ -37,6 +37,32 @@ describe('StandingsPage', () => {
     expect(screen.getByText('No players yet')).toBeVisible()
   })
 
+  it('draws the places moved inside the movement triangle, left of the rank (#808)', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    const player = (display_name: string, total_points: number, trend: string | null, trend_delta: number) => ({
+      user_id: display_name, display_name, roster_points: total_points, elimination_points: 0,
+      finale_points: 0, total_points, trend, trend_delta, last_episode_points: 0,
+      active_survivors: [], recently_eliminated_survivors: [],
+    })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [player('Climber', 30, 'up', 12), player('Slipper', 20, 'down', 1), player('Steady', 10, 'same', 0)]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+
+    const climb = await screen.findByLabelText('Up 12 since last episode')
+    expect(climb).toHaveTextContent('12')
+    expect(screen.getByLabelText('Down 1 since last episode')).toHaveTextContent('1')
+    // A row that didn't move shows no triangle at all — its rank still lines
+    // up, because the slot beside the number is held either way.
+    expect(screen.getAllByLabelText(/since last episode/)).toHaveLength(2)
+  })
+
   it('shows one lit torch per active pick, without portraits or the points breakdown', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
     vi.mocked(getActiveSeason).mockResolvedValue(season)

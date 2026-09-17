@@ -82,6 +82,9 @@
   --font-display: "Rajdhani", system-ui, sans-serif;
   --font-brand: "Skranji", "Rajdhani", system-ui, sans-serif;
   --font-body: "Source Sans 3", system-ui, sans-serif;
+  /* The league's handwriting: the ballot slip's ink, and the count scratched
+     inside a standings movement triangle (#808). */
+  --font-hand: "Kalam", cursive;
   --font-sans: var(--font-body);
 
   /* The page ground, deliberately outside the cream scale: cream-100 is also
@@ -934,7 +937,7 @@ html.locked-night .app-shell .ballot-tray {
   padding: 7px 15px;
   background: transparent;
   color: var(--color-forest-800);
-  font-family: "Kalam", cursive;
+  font-family: var(--font-hand);
   font-size: 16px;
   line-height: 1.25;
   transform: rotate(var(--ballot-rotation, 0deg));

@@ -24,45 +24,47 @@ import type {
   StandingEntry,
 } from '../types'
 
-// A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
+// How far they moved: a small solid triangle, then the count, both in the
+// movement colour — jade for a climb, terracotta for a slip. The count sits
+// beside the shape rather than inside it (#808), which is what scoreboards
+// do and why: a triangle's usable width changes with its height, so a number
+// in there has to be sized for "10" and parked where "10" fits. Out here it
+// can just be legible.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-[11px] font-bold leading-none ${up ? 'text-jade-700' : 'text-terracotta-600'}`}
+      className={`inline-flex items-center gap-[2px] font-display text-[12px] font-bold leading-none tabular-nums ${
+        up ? 'text-jade-700' : 'text-terracotta-700'
+      }`}
       aria-label={`${up ? 'Up' : 'Down'} ${delta} since last episode`}
     >
-      <span aria-hidden>{up ? '▲' : '▼'}</span>
-      <span className="tabular-nums">{delta}</span>
+      <span className="text-[9px] leading-none" aria-hidden>
+        {up ? '▲' : '▼'}
+      </span>
+      {delta}
     </span>
   )
 }
 
-// Rank with position movement placed *spatially*: the triangle sits above the
-// number for a climb and below for a slip, so direction reads at a glance. The
-// number is the only thing in normal flow and the triangles float absolutely
-// above/below it, so the rank number never shifts and the column stays a clean
-// aligned line row to row regardless of who moved.
+// Rank with position movement placed *spatially*: the arrow points the way
+// they moved, left of the number it moved (#808). Its slot is held even on a
+// row that didn't move, so the rank numbers stay one aligned column.
 function Rank({ rank, tied, entry }: { rank: number; tied: boolean; entry: StandingEntry }) {
   const up = entry.trend === 'up'
   const down = entry.trend === 'down'
   return (
-    <span className="relative inline-flex flex-col items-center leading-none">
-      {up && (
-        <span className="absolute bottom-full mb-1">
-          <Movement up delta={entry.trend_delta} />
-        </span>
-      )}
+    <span className="flex items-center gap-1 leading-none">
+      {/* Wide enough for the widest pair ("▼12"), held empty on a row that
+          didn't move so every rank number starts at the same x. */}
+      <span className="flex w-[26px] flex-none items-center">
+        {(up || down) && <Movement up={up} delta={entry.trend_delta} />}
+      </span>
       <span
         className={`font-display text-xl font-bold leading-none tabular-nums ${rank === 1 ? 'text-gold-600' : 'text-stone-500'}`}
         aria-label={`${tied ? 'Tied at ' : ''}rank ${rank}`}
       >
         {rank}
       </span>
-      {down && (
-        <span className="absolute top-full mt-1">
-          <Movement up={false} delta={entry.trend_delta} />
-        </span>
-      )}
     </span>
   )
 }
@@ -546,7 +548,7 @@ export function StandingsPage() {
                     aria-expanded={isOpen}
                     aria-controls={`history-${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid w-full grid-cols-[2.25rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-3 px-4 py-2.5 text-left transition-colors md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
+                    className={`group relative grid w-full grid-cols-[3.25rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-2 px-4 py-2.5 text-left transition-colors md:grid-cols-[3.75rem_minmax(0,1fr)_6rem_3.75rem] md:gap-3 ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
