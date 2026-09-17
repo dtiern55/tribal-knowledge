@@ -9,6 +9,7 @@ import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
+import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
@@ -152,16 +153,19 @@ function Torches({ entry }: { entry: StandingEntry }) {
   )
 }
 
-// The doubled mark: a played advantage paid this line twice. Text, not the
-// season idol — the idol competes with the avatars and the score beside it.
-function Times2({ title }: { title: string }) {
+// Where a played advantage landed: a gold chip on the line it changed. Text,
+// not the season idol — the idol competes with the avatars and the score
+// beside them. Double Castaway Points really is a doubling, so it reads ×2;
+// the Power Vote is its own rung on the ballot ladder (#746), not a multiplier,
+// so it reads by name.
+function PlayMark({ text, title }: { text: string; title: string }) {
   return (
     <span
       className="shrink-0 rounded bg-gold-100 px-1 text-[10px] font-bold tabular-nums text-gold-700"
       title={title}
       aria-label={title}
     >
-      ×2
+      {text}
     </span>
   )
 }
@@ -231,8 +235,8 @@ function HistoryPanel({
   const plays = (history?.plays ?? []).filter((play) => play.episode_id === episode?.id)
   const doubled = plays.find((play) => play.advantage_type === 'double_roster_points')?.target_contestant_id
   const powerVote = plays.find((play) => play.advantage_type === 'double_vote_points')
-  // A #303-era Power Vote named no target and doubled the whole ballot, so its
-  // idol sits by the episode instead of on one vote (matches the Team page).
+  // A #303-era Power Vote named no target and paid on the whole ballot, so its
+  // mark sits by the episode instead of on one vote (matches the Team page).
   const wholeBallotDoubled = powerVote != null && powerVote.target_contestant_id == null
 
   return (
@@ -247,7 +251,7 @@ function HistoryPanel({
         <>
           <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-forest-800">
             Ep {n}
-            {wholeBallotDoubled && <Times2 title="Power Vote this episode" />}
+            {wholeBallotDoubled && <PlayMark text={POWER_VOTE} title={`${POWER_VOTE} on this whole ballot`} />}
           </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
             <dt className={label}>Team</dt>
@@ -281,7 +285,7 @@ function HistoryPanel({
                       >
                         {nameOf(pick.contestant_id)}
                       </span>
-                      {isDoubled && <Times2 title="Double Castaway Points on them this episode" />}
+                      {isDoubled && <PlayMark text="×2" title="Double Castaway Points on them this episode" />}
                       <span
                         className={`ml-auto shrink-0 font-medium tabular-nums ${
                           scored > 0 ? 'text-jade-700' : scored < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
@@ -303,7 +307,7 @@ function HistoryPanel({
                 votes.map((vote) => {
                   const idol =
                     vote.contestant_id === powerVote?.target_contestant_id ? (
-                      <Times2 title="Power Vote on this vote" />
+                      <PlayMark text={POWER_VOTE} title={`${POWER_VOTE} on this vote`} />
                     ) : null
                   return bootIds.has(vote.contestant_id) ? (
                     <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} icon={idol} />
@@ -330,6 +334,9 @@ function HistoryPanel({
     </div>
   )
 }
+
+// The play's own name, from the shared label map, so a rename reaches here too.
+const POWER_VOTE = ADV_LABELS.double_vote_points
 
 const EMPTY_IDS: Set<string> = new Set()
 const EMPTY_CAST: Map<string, Contestant> = new Map()

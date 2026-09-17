@@ -272,6 +272,9 @@ describe('StandingsPage', () => {
     // rather than sitting on a "Played" line of its own.
     expect(voted).toHaveTextContent('Correct — Charlie')
     expect(voted).toContainElement(screen.getByLabelText('Power Vote on this vote'))
+    // Named, not marked ×2: the Power Vote is its own rung, not a multiplier.
+    expect(voted).toHaveTextContent('Power Vote')
+    expect(voted).not.toHaveTextContent('×2')
     expect(screen.queryByText('Played')).not.toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
