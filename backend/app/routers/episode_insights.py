@@ -181,7 +181,9 @@ def _auto_league_call(conn, ls: dict, episode: dict) -> Optional[dict]:
     pct = round(counts["caught"] * 100 / counts["total"])
     if len(boots) == 1:
         label = f"League call: {boots[0]}"
-        detail = f"{counts['caught']} of {counts['total']} ballots picked {boots[0]}."
+        # "Laura M." already ends the sentence; don't print "Laura M..".
+        name = boots[0].removesuffix(".")
+        detail = f"{counts['caught']} of {counts['total']} ballots picked {name}."
     else:
         label = "League call"
         detail = f"{counts['caught']} of {counts['total']} ballots caught a boot."
