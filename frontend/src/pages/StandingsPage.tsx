@@ -305,16 +305,24 @@ function HistoryPanel({
                 <span className="text-sm text-paper-ink-faded">No votes</span>
               ) : (
                 votes.map((vote) => {
-                  const idol =
-                    vote.contestant_id === powerVote?.target_contestant_id ? (
-                      <PlayMark text={POWER_VOTE} title={`${POWER_VOTE} on this vote`} />
-                    ) : null
-                  return bootIds.has(vote.contestant_id) ? (
-                    <CorrectVote key={vote.id} name={nameOf(vote.contestant_id)} icon={idol} />
-                  ) : (
-                    <span key={vote.id} className="inline-flex items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
-                      {idol}
-                      {nameOf(vote.contestant_id)}
+                  // The Power Vote gets a thick gold edge rather than a chip
+                  // spelling out its name — a ballot row has no room for the
+                  // words. The name still reaches a screen reader.
+                  const power = vote.contestant_id === powerVote?.target_contestant_id
+                  return (
+                    <span
+                      key={vote.id}
+                      className={`inline-flex rounded-md ${power ? 'ring-[2.5px] ring-gold-500' : ''}`}
+                      title={power ? `${POWER_VOTE} on this vote` : undefined}
+                    >
+                      {power && <span className="sr-only">{POWER_VOTE} — </span>}
+                      {bootIds.has(vote.contestant_id) ? (
+                        <CorrectVote name={nameOf(vote.contestant_id)} />
+                      ) : (
+                        <span className="inline-flex items-center rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                          {nameOf(vote.contestant_id)}
+                        </span>
+                      )}
                     </span>
                   )
                 })

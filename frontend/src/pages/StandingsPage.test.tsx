@@ -271,9 +271,13 @@ describe('StandingsPage', () => {
     // Their vote hit — Charlie went home — and the idol rides that vote
     // rather than sitting on a "Played" line of its own.
     expect(voted).toHaveTextContent('Correct — Charlie')
-    expect(voted).toContainElement(screen.getByLabelText('Power Vote on this vote'))
-    // Named, not marked ×2: the Power Vote is its own rung, not a multiplier.
-    expect(voted).toHaveTextContent('Power Vote')
+    // The Power Vote is a gold edge on the vote it named, no words on the row,
+    // but still named for a screen reader — and never an ×2, since it is its
+    // own rung on the ballot ladder rather than a multiplier.
+    const marked = screen.getByTitle('Power Vote on this vote')
+    expect(marked).toHaveTextContent('Charlie')
+    expect(marked.className).toContain('ring-gold-500')
+    expect(voted).toContainElement(marked)
     expect(voted).not.toHaveTextContent('×2')
     expect(screen.queryByText('Played')).not.toBeInTheDocument()
 
