@@ -202,6 +202,14 @@ class StandingEntry(BaseModel):
     sole_survivor_contestant_id: Optional[UUID] = None
 
 
+class HubFinale(BaseModel):
+    """One player's finale bracket, as the Hub shows it (#801)."""
+
+    final_four: list[StandingSurvivor] = []
+    final_three: list[StandingSurvivor] = []
+    winner: Optional[StandingSurvivor] = None
+
+
 class HubEntry(BaseModel):
     """One player's locked choices for the airing episode (#490).
 
@@ -218,6 +226,8 @@ class HubEntry(BaseModel):
     advantage_target: Optional[StandingSurvivor] = None
     # Their Sole Survivor pick, when it is on the active roster.
     sole_survivor_contestant_id: Optional[UUID] = None
+    # The finale bracket, on the finale only.
+    finale: Optional[HubFinale] = None
     # This episode's tribe/ballot lane points, once it's scored — the two
     # numbers the recap card shows for you (#490 recap Field). None until then.
     tribe_points: Optional[int] = None

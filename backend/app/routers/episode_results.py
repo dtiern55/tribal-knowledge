@@ -58,6 +58,7 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
                 on et.season_id = s.id and et.event_type = se.event_type
               where rp.league_season_id = %s and rp.user_id = %s
                 and {scoring.ROSTER_ACTIVE_SQL}
+                and {scoring.ROSTER_STILL_IN_SQL}
               group by c.id, c.name, c.image_url, rp.is_sole_survivor
             ) x
             order by x.name
