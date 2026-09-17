@@ -284,3 +284,36 @@ def test_standings_sorted_by_total_desc(client, db_conn):
     zero_names = {d["display_name"] for d in data[1:]}
     assert "Low" in zero_names
     assert all(d["total_points"] == 0 for d in data[1:])
+
+
+@pytest.mark.integration
+def test_sole_survivor_hidden_while_an_early_episode_airs(
+    client, db_conn, current_user
+):
+    """Another player's designation is public only once its window has closed
+    (the last swappable episode has locked). A locked, unscored week before
+    that must not reveal it: nothing is open then, but play isn't over."""
+    from datetime import datetime, timedelta, timezone
+
+    season = insert_season(db_conn, roster_lock_episode=1, swap_lock_episode=8)
+    rival = insert_user(db_conn, display_name="Rival")
+    pick = insert_contestant(db_conn, season["id"], "Champion")
+    insert_roster_pick(
+        db_conn, rival["id"], season["id"], pick["id"], is_sole_survivor=True
+    )
+    aired = datetime.now(timezone.utc) - timedelta(hours=1)
+    insert_episode(db_conn, season["id"], episode_number=2, picks_lock_at=aired)
+
+    def rival_ss():
+        rows = client.get(
+            f"/league-seasons/{season['league_season_id']}/standings"
+        ).json()
+        return next(
+            r["sole_survivor_contestant_id"]
+            for r in rows
+            if r["display_name"] == "Rival"
+        )
+
+    assert rival_ss() is None
+    insert_episode(db_conn, season["id"], episode_number=7, picks_lock_at=aired)
+    assert rival_ss() == str(pick["id"])
