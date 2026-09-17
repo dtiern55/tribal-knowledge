@@ -43,7 +43,17 @@ function Movement({ up, delta }: { up: boolean; delta: number }) {
       }}
       aria-label={`${up ? 'Up' : 'Down'} ${delta} since last episode`}
     >
-      <span className={`tabular-nums ${up ? 'pb-[1px]' : 'pt-[1px]'}`}>{delta}</span>
+      {/* Optically centred, not box-centred: a triangle's visual centre is its
+          centroid, a third of the way up from the base. A single digit is
+          narrow enough to sit there; two digits have to drop to the wide end to
+          clear the slanted sides, so they sit a couple of pixels lower. */}
+      <span
+        className={`tabular-nums ${
+          delta > 9 ? (up ? 'pb-[1px]' : 'pt-[1px]') : up ? 'pb-[3px]' : 'pt-[3px]'
+        }`}
+      >
+        {delta}
+      </span>
     </span>
   )
 }
