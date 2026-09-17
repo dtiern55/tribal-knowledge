@@ -227,3 +227,57 @@ def test_hub_shows_the_finale_bracket(client, db_conn, current_user):
     assert [s["name"] for s in finale["final_four"]] == ["A", "B", "C", "D"]
     assert [s["name"] for s in finale["final_three"]] == ["A", "B", "C"]
     assert finale["winner"]["name"] == "A"
+
+
+@pytest.mark.integration
+def test_hub_carries_per_castaway_points_and_vote_results(
+    client, db_conn, current_user
+):
+    """What the standings row expands into (#812): each rostered castaway's own
+    points for the episode, and whether each vote actually hit. Points are base
+    values — the Hub names who played Double Castaway Points, so a reader
+    applies the doubling once rather than it being baked in per player."""
+    season = insert_season(db_conn)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        status="scored",
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    boot = insert_contestant(db_conn, season["id"], name="Boot")
+    star = insert_contestant(db_conn, season["id"], name="Star")
+    quiet = insert_contestant(db_conn, season["id"], name="Quiet")
+
+    player = insert_user(db_conn, display_name="Bianca")
+    insert_roster_pick(db_conn, player["id"], season["id"], star["id"])
+    insert_roster_pick(db_conn, player["id"], season["id"], quiet["id"])
+    insert_roster_pick(db_conn, player["id"], season["id"], boot["id"])
+    insert_elimination_pick(db_conn, player["id"], ep["id"], boot["id"])
+    insert_elimination_pick(db_conn, player["id"], ep["id"], star["id"])
+    insert_scoring_event(db_conn, ep["id"], star["id"], "win_individual_immunity")
+    insert_advantage_play(
+        db_conn, player["id"], ep["id"], "double_roster_points", star["id"]
+    )
+    insert_elimination(db_conn, ep["id"], boot["id"])
+    score_episode(db_conn, ep["id"])
+
+    row = {
+        r["display_name"]: r
+        for r in client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+        ).json()
+    }["Bianca"]
+
+    tribe = {member["name"]: member for member in row["roster"]}
+    # Base, not doubled: the play is named beside it, on advantage_target.
+    assert tribe["Star"]["points"] == 15
+    assert row["advantage_target"]["contestant_id"] == str(star["id"])
+    assert tribe["Quiet"]["points"] == 0
+    # The castaway voted out this episode stays on the week's tribe, marked.
+    assert tribe["Boot"]["eliminated_episode"] == 1
+    assert tribe["Star"]["eliminated_episode"] is None
+
+    votes = {vote["name"]: vote for vote in row["ballot"]}
+    assert votes["Boot"]["correct"] is True
+    assert votes["Star"]["correct"] is False

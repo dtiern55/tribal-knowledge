@@ -201,16 +201,21 @@ describe('StandingsPage', () => {
     expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor, eliminated ep 11')
   })
   // The season behind the expansion tests: episodes 1 and 2 locked and scored,
-  // Danny holding Charlie (his Sole Survivor, voted out in ep 2), Ben (swapped
-  // in for ep 2) and Q (snuffed back in ep 1 and never swapped out). Kenzie was
-  // swapped out after ep 1. `plays` is what the week's advantage was.
+  // and the league Hub for episode 2 — Danny holding Charlie (his Sole
+  // Survivor, voted out that episode), Ben and Tiff. Kenzie and Q are not on
+  // the week's tribe: swapped out after ep 1, and snuffed back in ep 1.
+  // `play` is what the week's advantage was.
   const EXPANSION_SEASON = {
     id: 'season-1', season_id: 'show-1', name: 'Survivor 51',
     status: 'active', roster_lock_episode: 1,
   } as Season
 
-  function mockExpansionApi(plays: unknown[]) {
+  function mockExpansionApi(play: Record<string, unknown>) {
     const locked = new Date(Date.now() - 86_400_000).toISOString()
+    const cast = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+      contestant_id: id, name, image_url: null, tribe_name: null, tribe_color: null,
+      eliminated_episode: null, points: null, correct: null, ...extra,
+    })
     vi.mocked(getActiveSeason).mockResolvedValue(EXPANSION_SEASON)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [EXPANSION_SEASON]
@@ -228,45 +233,23 @@ describe('StandingsPage', () => {
           { id: 'ep-2', episode_number: 2, is_finale: false, status: 'scored', picks_lock_at: locked },
         ]
       }
-      if (path === '/seasons/show-1/contestants') {
-        return [
-          { id: 'cast-1', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: 2 },
-          { id: 'cast-2', name: 'Kenzie', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: null },
-          { id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: null },
-          { id: 'cast-4', name: 'Q', image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode: 1 },
-        ]
-      }
-      if (path === '/seasons/show-1/eliminations') {
-        return [
-          { id: 'el-1', episode_id: 'ep-1', contestant_id: 'cast-4', is_final: true },
-          { id: 'el-2', episode_id: 'ep-2', contestant_id: 'cast-1', is_final: true },
-        ]
-      }
-      if (path.endsWith('/roster/user-1')) {
-        return [
-          { id: 'rp-1', contestant_id: 'cast-1', active_from_episode: 1, active_until_episode: null, is_sole_survivor: true },
-          { id: 'rp-2', contestant_id: 'cast-2', active_from_episode: 1, active_until_episode: 1, is_sole_survivor: false },
-          { id: 'rp-3', contestant_id: 'cast-3', active_from_episode: 2, active_until_episode: null, is_sole_survivor: false },
-          { id: 'rp-4', contestant_id: 'cast-4', active_from_episode: 1, active_until_episode: null, is_sole_survivor: false },
-        ]
-      }
-      if (path.endsWith('/picks/user-1')) {
-        return {
-          'ep-2': [
-            // Their Power Vote named Charlie, who went home; the second vote
-            // named Kenzie, who didn't.
-            { id: 'pk-1', contestant_id: 'cast-1', episode_id: 'ep-2', rank: null },
-            { id: 'pk-2', contestant_id: 'cast-2', episode_id: 'ep-2', rank: 1 },
+      if (path === '/league-seasons/season-1/episodes/ep-2/hub') {
+        return [{
+          user_id: 'user-1', display_name: 'Danny',
+          roster: [
+            cast('cast-1', 'Charlie', { points: 12, eliminated_episode: 2 }),
+            cast('cast-3', 'Ben', { points: 24 }),
+            cast('cast-5', 'Tiff', { points: 0 }),
           ],
-        }
+          ballot: [
+            // Their Power Vote named Charlie, who went home; Kenzie didn't.
+            cast('cast-1', 'Charlie', { correct: true }),
+            cast('cast-2', 'Kenzie', { correct: false }),
+          ],
+          sole_survivor_contestant_id: 'cast-1',
+          finale: null, tribe_points: 36, ballot_points: 20, ...play,
+        }]
       }
-      if (path === '/seasons/show-1/episodes/ep-2/contestant-points') {
-        return [
-          { contestant_id: 'cast-1', points: 12 },
-          { contestant_id: 'cast-3', points: 24 },
-        ]
-      }
-      if (path.endsWith('/advantage-plays/user-1')) return plays
       throw new Error(`Unexpected path: ${path}`)
     })
   }
@@ -280,9 +263,7 @@ describe('StandingsPage', () => {
   }
 
   it("expands a row into that player's latest week: tribe and votes (#806)", async () => {
-    mockExpansionApi([
-      { id: 'ap-1', episode_id: 'ep-2', advantage_type: 'double_vote_points', target_contestant_id: 'cast-1' },
-    ])
+    mockExpansionApi({ advantage_type: 'double_vote_points', advantage_target: { contestant_id: 'cast-1', name: 'Charlie', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null } })
 
     await expandDanny()
 
@@ -291,29 +272,21 @@ describe('StandingsPage', () => {
     expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
 
     const [tribe, voted] = screen.getAllByRole('definition')
-    // The tribe as it stood that week: Ben swapped in, Kenzie swapped out after
-    // ep 1, and Q — snuffed back in ep 1 and never swapped out — gone, the same
-    // life as the snuffed torch in the row above.
+    // The tribe as it stood that week, with what each castaway scored.
     expect(tribe).toHaveTextContent('Charlie')
     expect(tribe).toHaveTextContent('Ben')
     expect(tribe).not.toHaveTextContent('Kenzie')
-    expect(tribe).not.toHaveTextContent('Q')
-    // What each castaway scored that episode — nothing doubled this week.
     expect(tribe).toHaveTextContent('+12')
     expect(tribe).toHaveTextContent('+24')
-    // Their vote hit — Charlie went home — and the idol rides that vote
-    // rather than sitting on a "Played" line of its own.
-    expect(voted).toHaveTextContent('Correct — Charlie')
     // Gold is the Power Vote and a filled card is a hit: Charlie's vote is the
-    // gold one and it landed, the two misses are dotted and neutral. Never an
-    // ×2 — the Power Vote is its own rung, not a multiplier.
+    // gold one and it landed, the miss is dotted and neutral. Never an ×2 —
+    // the Power Vote is its own rung, not a multiplier.
     const marked = screen.getByTitle('Power Vote on this vote')
     expect(marked).toHaveTextContent('Charlie')
     expect(marked.className).toContain('bg-gold-200')
     expect(voted).toContainElement(marked)
     expect(voted).not.toHaveTextContent('×2')
     expect(screen.getByText('Kenzie').className).toContain('border-dotted')
-    expect(screen.queryByText('Played')).not.toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
       'href',
@@ -322,15 +295,12 @@ describe('StandingsPage', () => {
   })
 
   it('marks the castaway whose points were doubled with a ×2 (#806)', async () => {
-    mockExpansionApi([
-      { id: 'ap-2', episode_id: 'ep-2', advantage_type: 'double_roster_points', target_contestant_id: 'cast-3' },
-    ])
+    mockExpansionApi({ advantage_type: 'double_roster_points', advantage_target: { contestant_id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null } })
 
     await expandDanny()
 
     const [tribe, voted] = screen.getAllByRole('definition')
-    // A ×2 on the castaway whose points were doubled, beside the doubled score.
-    const mark = screen.getByLabelText('Double Castaway Points on them this episode')
+    const mark = await screen.findByLabelText('Double Castaway Points on them this episode')
     expect(tribe).toContainElement(mark)
     expect(mark.parentElement).toHaveTextContent('Ben')
     // Ben's 24 paid double, so the line reads 48 — the ×2 says why — and the
@@ -339,10 +309,7 @@ describe('StandingsPage', () => {
     expect(tribe).not.toHaveTextContent('+24')
     expect(screen.getByText('+48').className).toContain('text-gold-700')
     // Charlie wasn't doubled, so his stays as scored, in jade.
-    expect(tribe).toHaveTextContent('+12')
     expect(screen.getByText('+12').className).toContain('text-jade-700')
     expect(voted).not.toContainElement(mark)
-    // The season idol is gone from the panel.
-    expect(screen.queryByRole('img', { name: /Double Castaway Points this episode/ })).not.toBeInTheDocument()
   })
 })

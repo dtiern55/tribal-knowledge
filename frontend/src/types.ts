@@ -106,13 +106,25 @@ export interface StandingSurvivor {
   eliminated_episode: number | null
 }
 
+/** A castaway on someone's tribe for one episode (#812). `points` is base —
+ *  the play that doubled them is named on the HubEntry — and
+ *  `eliminated_episode` is set only when they were snuffed that very week. */
+export interface HubRosterMember extends StandingSurvivor {
+  points: number
+}
+
+/** One name on someone's ballot, and whether it went home (#812). */
+export interface HubBallotPick extends StandingSurvivor {
+  correct: boolean
+}
+
 // One player's locked choices for the airing episode — the locked-state Hub
 // (#490). Served only once the episode locks (see GET /episodes/{id}/hub).
 export interface HubEntry {
   user_id: string
   display_name: string
-  roster: StandingSurvivor[]
-  ballot: StandingSurvivor[]
+  roster: HubRosterMember[]
+  ballot: HubBallotPick[]
   advantage_type: string | null
   advantage_target: StandingSurvivor | null
   // Their Sole Survivor pick, when it is on the active roster.

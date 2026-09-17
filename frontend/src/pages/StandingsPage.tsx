@@ -10,19 +10,9 @@ import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
 import { ADV_LABELS } from '../lib/advantages'
 import { api, getActiveSeason } from '../lib/api'
-import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
 import { rankStandings } from '../lib/standings'
-import type {
-  AdvantagePlay,
-  Contestant,
-  Elimination,
-  EliminationPick,
-  Episode,
-  RosterPick,
-  Season,
-  StandingEntry,
-} from '../types'
+import type { Episode, HubEntry, Season, StandingEntry } from '../types'
 
 // How far they moved: a small solid triangle, then the count, both in the
 // movement colour — jade for a climb, terracotta for a slip. The count sits
@@ -171,124 +161,94 @@ function PlayMark({ text, title }: { text: string; title: string }) {
   )
 }
 
-/** One player's season, as the standings row expands it: roster, ballot and
- *  advantage plays, each keyed by episode. Every piece is already served
- *  per-player and gated for other players — nothing new lands here (#806). */
-interface PlayerHistory {
-  roster: RosterPick[]
-  /** Locked episodes' ballots, keyed by episode id. */
-  ballots: Record<string, EliminationPick[]>
-  plays: AdvantagePlay[]
-  /** Their roster is still private (before tribes lock). */
-  hidden: boolean
-}
+// The play's own name, from the shared label map, so a rename reaches here too.
+const POWER_VOTE = ADV_LABELS.double_vote_points
 
 // The expanded row: that player's latest week — the tribe they carried into
 // it, what each castaway scored, and who they voted for. An advantage gets no
 // line of its own; it marks the thing it doubled with a ×2. Earlier weeks are
 // the Team page's job, one tap away at the bottom. What the week paid the
 // player is the number the collapsed row already shows a few pixels above.
+//
+// Everything comes from the league Hub for that episode (#812), which the page
+// fetches once in the background for every player — so opening a row is a
+// render, not a request.
 function HistoryPanel({
   id,
   episode,
-  history,
-  byId,
-  bootIds,
-  scores,
+  entry,
+  waiting,
   teamHref,
   name,
 }: {
   id: string
   /** The most recent locked, non-finale episode. */
   episode: Episode | undefined
-  history: PlayerHistory | null
-  byId: Map<string, Contestant>
-  /** Who actually went home that episode — marks a vote right. */
-  bootIds: Set<string>
-  /** What each castaway scored that episode, before this player's doubling. */
-  scores: Map<string, number>
+  /** That player's week. Undefined once the Hub is in and they simply had no
+   *  roster, ballot or play that episode. */
+  entry: HubEntry | undefined
+  /** The Hub hasn't landed yet — the panel is a moment early. */
+  waiting: boolean
   teamHref: string
   name: string
 }) {
-  const nameOf = (id: string) => {
-    const c = byId.get(id)
-    return c ? displayName(c) : '—'
-  }
   const label = 'pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded'
   const note = 'py-1.5 text-sm text-paper-ink-faded'
-  const n = episode?.episode_number ?? 0
-  // The tribe as it stood that week, and — like the torches in the row above —
-  // a castaway snuffed in an EARLIER episode is simply gone, even if their
-  // player never swapped them out. Only this week's loss still shows, struck.
-  // `eliminated_in_episode` is the server's own "out for good", so a Redemption
-  // Island duel loss isn't one.
-  const team = (history?.roster ?? []).filter((pick) => {
-    const out = byId.get(pick.contestant_id)?.eliminated_in_episode
-    return (
-      pick.active_from_episode <= n &&
-      (pick.active_until_episode == null || pick.active_until_episode >= n) &&
-      (out == null || out >= n)
-    )
-  })
-  // Ballot order is the ballot ladder: the Power Vote's name first (no rung),
-  // then most to least confident, exactly as the API returns it (#694).
-  const votes = (episode && history?.ballots[episode.id]) ?? []
-  const plays = (history?.plays ?? []).filter((play) => play.episode_id === episode?.id)
-  const doubled = plays.find((play) => play.advantage_type === 'double_roster_points')?.target_contestant_id
-  const powerVote = plays.find((play) => play.advantage_type === 'double_vote_points')
-  // A #303-era Power Vote named no target and paid on the whole ballot, so its
-  // mark sits by the episode instead of on one vote (matches the Team page).
-  const wholeBallotDoubled = powerVote != null && powerVote.target_contestant_id == null
+  const tribe = entry?.roster ?? []
+  const votes = entry?.ballot ?? []
+  // Which line an advantage changed. A #303-era Power Vote named no target and
+  // paid on the whole ballot, so its mark sits by the episode instead.
+  const doubled =
+    entry?.advantage_type === 'double_roster_points' ? entry.advantage_target?.contestant_id : undefined
+  const powerVote =
+    entry?.advantage_type === 'double_vote_points' ? (entry.advantage_target?.contestant_id ?? null) : undefined
+  const wholeBallotDoubled = powerVote === null
 
   return (
     <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-2">
-      {history == null ? (
+      {waiting ? (
         <p className={note}>Loading…</p>
-      ) : history.hidden ? (
-        <p className={note}>Their tribe and weekly play unlock when tribes lock.</p>
       ) : episode == null ? (
         <p className={note}>No episodes have locked yet.</p>
+      ) : entry == null ? (
+        <p className={note}>No tribe or ballot for this episode.</p>
       ) : (
         <>
           <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-forest-800">
-            Ep {n}
+            Ep {episode.episode_number}
             {wholeBallotDoubled && <PlayMark text={POWER_VOTE} title={`${POWER_VOTE} on this whole ballot`} />}
           </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
             <dt className={label}>Tribe</dt>
             <dd className="flex flex-col gap-1 py-0.5">
-              {team.length === 0 ? (
+              {tribe.length === 0 ? (
                 <span className="text-sm text-paper-ink-faded">—</span>
               ) : (
-                team.map((pick) => {
-                  const c = byId.get(pick.contestant_id)
+                tribe.map((member) => {
                   // Snuffed THIS episode — struck for this one week only, the
                   // same life as the snuffed torch in the row above (#457).
-                  // Anyone snuffed earlier is already filtered out of `team`.
-                  const lost = c?.eliminated_in_episode === n
-                  // The score is what this castaway actually paid their
-                  // player, doubling included: live scoring doubles the
-                  // episode's event points for the castaway a Double Castaway
-                  // Points named, so the panel does the same (the ×2 beside it
-                  // says why the number is big).
-                  const isDoubled = pick.contestant_id === doubled
-                  const scored = (scores.get(pick.contestant_id) ?? 0) * (isDoubled ? 2 : 1)
+                  // Anyone snuffed earlier is already out of the Hub's roster.
+                  const lost = member.eliminated_episode != null
+                  const isSoleSurvivor = member.contestant_id === entry.sole_survivor_contestant_id
+                  // The Hub reports base points and names who was doubled, so
+                  // the doubling is applied once, here, the way live scoring
+                  // doubles that castaway's events for the week.
+                  const isDoubled = member.contestant_id === doubled
+                  const scored = member.points * (isDoubled ? 2 : 1)
                   return (
-                    <span key={pick.id} className="flex w-full items-center gap-1.5 text-sm">
+                    <span key={member.contestant_id} className="flex w-full items-center gap-1.5 text-sm">
                       <span className={lost ? ELIMINATED_DIM : undefined}>
-                        <ContestantAvatar name={nameOf(pick.contestant_id)} imageUrl={c?.image_url ?? null} size="sm" tribeColor={c?.tribe_color ?? null} tribeName={c?.tribe_name ?? null} />
+                        <ContestantAvatar name={member.name} imageUrl={member.image_url} size="sm" tribeColor={member.tribe_color} tribeName={member.tribe_name} />
                       </span>
                       <span
                         className={`truncate ${lost ? ELIMINATED_STRIKE : ''} ${
-                          pick.is_sole_survivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
+                          isSoleSurvivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
                         }`}
-                        title={pick.is_sole_survivor ? 'Their Sole Survivor' : undefined}
+                        title={isSoleSurvivor ? 'Their Sole Survivor' : undefined}
                       >
-                        {nameOf(pick.contestant_id)}
+                        {member.name}
                       </span>
                       {isDoubled && <PlayMark text="×2" title="Double Castaway Points on them this episode" />}
-                      {/* A doubled score is gold, not jade: the ×2 and the
-                          number it produced read as one thing. */}
                       <span
                         className={`ml-auto shrink-0 font-medium tabular-nums ${
                           isDoubled && scored > 0
@@ -315,14 +275,14 @@ function HistoryPanel({
               ) : (
                 votes.map((vote) => {
                   // Two facts per vote, one channel each: gold is the Power
-                  // Vote, a filled card is a hit, a dotted one missed. Not the
-                  // shared CorrectVote pill — that says "correct" and nothing
-                  // else, and this row has to say which vote it was as well.
-                  const power = vote.contestant_id === powerVote?.target_contestant_id
-                  const hit = bootIds.has(vote.contestant_id)
+                  // Vote, a filled card is a hit, a dotted one missed. Whether
+                  // it hit is the Hub's answer, so a Redemption Island duel
+                  // loss doesn't read as a correct call (#655).
+                  const power = vote.contestant_id === powerVote
+                  const hit = vote.correct
                   return (
                     <span
-                      key={vote.id}
+                      key={vote.contestant_id}
                       title={power ? `${POWER_VOTE} on this vote` : undefined}
                       className={`inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${
                         power
@@ -336,13 +296,12 @@ function HistoryPanel({
                     >
                       {power && <span className="sr-only">{POWER_VOTE} — </span>}
                       {hit && <span className="sr-only">Correct — </span>}
-                      {nameOf(vote.contestant_id)}
+                      {vote.name}
                     </span>
                   )
                 })
               )}
             </dd>
-
           </dl>
         </>
       )}
@@ -357,13 +316,6 @@ function HistoryPanel({
   )
 }
 
-// The play's own name, from the shared label map, so a rename reaches here too.
-const POWER_VOTE = ADV_LABELS.double_vote_points
-
-const EMPTY_IDS: Set<string> = new Set()
-const EMPTY_CAST: Map<string, Contestant> = new Map()
-const EMPTY_SCORES: Map<string, number> = new Map()
-
 export function StandingsPage() {
   const { session } = useAuth()
   const userId = session?.user?.id
@@ -372,19 +324,15 @@ export function StandingsPage() {
   const [entries, setEntries] = useState<StandingEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  // One row open at a time. Nothing below is fetched until a row is first
-  // opened — nobody expands one on most visits, so the standings don't pay for
-  // it — and both caches are kept for the rest of the visit (#806).
+  // One row open at a time (#806).
   const [openId, setOpenId] = useState<string | null>(null)
-  // The week every row expands into, fetched once and shared: which episode it
-  // is, the cast, who went home in it, and what each castaway scored.
-  const [ctx, setCtx] = useState<{
-    week: Episode | undefined
-    byId: Map<string, Contestant>
-    bootIds: Set<string>
-    scores: Map<string, number>
-  } | null>(null)
-  const [histories, setHistories] = useState<Map<string, PlayerHistory>>(new Map())
+  // The week every row expands into: which episode it is, and the league Hub
+  // for it — one request covering every player's tribe, ballot and play.
+  // Fetched in the background as soon as the standings land rather than on the
+  // first tap, so opening a row is a render and not a wait (#812).
+  const [week, setWeek] = useState<{ episode: Episode | undefined; hub: Map<string, HubEntry> } | null>(
+    null,
+  )
 
   useEffect(() => {
     let live = true
@@ -419,78 +367,32 @@ export function StandingsPage() {
   const rosterLockEpisode = season?.roster_lock_episode
 
   useEffect(() => {
-    if (!openId || ctx || !showSeasonId) return
+    if (!showSeasonId || !selectedId || loading) return
     let live = true
     async function load() {
-      const [episodes, cast, eliminations] = await Promise.all([
-        api.get<Episode[]>(`/seasons/${showSeasonId}/episodes`),
-        api.get<Contestant[]>(`/seasons/${showSeasonId}/contestants`),
-        api.get<Elimination[]>(`/seasons/${showSeasonId}/eliminations`).catch(() => []),
-      ])
+      const episodes = await api.get<Episode[]>(`/seasons/${showSeasonId}/episodes`)
       // The week a panel shows: the latest locked episode from the roster lock
       // on. The finale is left out — its ballot is a bracket, not votes, and it
       // reads as the pyramid on the Team page (#82/#86, as on that page).
-      const week = episodes
+      const episode = episodes
         .filter(
           (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (rosterLockEpisode ?? 1),
         )
         .sort((a, b) => b.episode_number - a.episode_number)[0]
-      const scores = week
+      // The Hub opens when the episode locks, which is the only kind of episode
+      // chosen above; an empty map still renders the panel's own empty state.
+      const entries = episode
         ? await api
-            .get<{ contestant_id: string; points: number }[]>(
-              `/seasons/${showSeasonId}/episodes/${week.id}/contestant-points`,
-            )
+            .get<HubEntry[]>(`/league-seasons/${selectedId}/episodes/${episode.id}/hub`)
             .catch(() => [])
         : []
-      if (live) {
-        setCtx({
-          week,
-          byId: new Map(cast.map((c) => [c.id, c])),
-          bootIds: new Set(
-            eliminations.filter((row) => row.episode_id === week?.id).map((row) => row.contestant_id),
-          ),
-          scores: new Map(scores.map((row) => [row.contestant_id, row.points])),
-        })
-      }
+      if (live) setWeek({ episode, hub: new Map(entries.map((e) => [e.user_id, e])) })
     }
     void load()
     return () => {
       live = false
     }
-  }, [openId, ctx, showSeasonId, rosterLockEpisode])
-
-  useEffect(() => {
-    if (!openId || !selectedId || histories.has(openId)) return
-    let live = true
-    async function load() {
-      // Another player's roster is 403 until tribes lock, and their plays and
-      // ballots only cover locked episodes — the same three calls their Team
-      // page makes, so this panel shows exactly what that page would.
-      const [roster, ballots, plays] = await Promise.all([
-        api.get<RosterPick[]>(`/league-seasons/${selectedId}/roster/${openId}`).then(
-          (rows) => ({ rows, hidden: false }),
-          () => ({ rows: [] as RosterPick[], hidden: true }),
-        ),
-        api
-          .get<Record<string, EliminationPick[]>>(`/league-seasons/${selectedId}/picks/${openId}`)
-          .catch(() => ({}) as Record<string, EliminationPick[]>),
-        api.get<AdvantagePlay[]>(`/league-seasons/${selectedId}/advantage-plays/${openId}`).catch(() => []),
-      ])
-      if (!live) return
-      setHistories((prev) =>
-        new Map(prev).set(openId!, {
-          roster: roster.rows,
-          ballots,
-          plays,
-          hidden: roster.hidden,
-        }),
-      )
-    }
-    void load()
-    return () => {
-      live = false
-    }
-  }, [openId, selectedId, histories])
+  }, [showSeasonId, selectedId, rosterLockEpisode, loading])
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>
@@ -591,11 +493,9 @@ export function StandingsPage() {
                   {isOpen && (
                     <HistoryPanel
                       id={`history-${entry.user_id}`}
-                      episode={ctx?.week}
-                      history={ctx ? (histories.get(entry.user_id) ?? null) : null}
-                      byId={ctx?.byId ?? EMPTY_CAST}
-                      bootIds={ctx?.bootIds ?? EMPTY_IDS}
-                      scores={ctx?.scores ?? EMPTY_SCORES}
+                      episode={week?.episode}
+                      entry={week?.hub.get(entry.user_id)}
+                      waiting={week == null}
                       name={entry.display_name}
                       teamHref={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     />
