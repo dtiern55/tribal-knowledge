@@ -156,6 +156,24 @@
    "double_targets": [],
    "note": "Crapshoot at the merge (Danny, 2026-09-15). No read: the ten in-game castaways sit roughly even, with a light lean to Aras. Redemption residents (John, Laura B., Laura M.) are off the ballot. Roster doubles unsteered. spread 0 so the near-flat caps give a spread field with Aras a touch ahead.",
    "spread": 0
+  },
+  "9": {
+   "likely_boots": [
+    ["Caleb Bankston", 3],
+    ["Katie Collins", 3],
+    ["Laura Morett", 3],
+    ["Monica Culpepper", 3],
+    ["Tina Wesson", 3],
+    ["Vytas Baskauskas", 3],
+    ["Ciera Eastin", 1],
+    ["Hayden Moss", 1]
+   ],
+   "double_targets": [
+    "Tyson Apostol",
+    "Gervase Peterson"
+   ],
+   "note": "Crapshoot (Danny, 2026-09-16). Everyone but Tyson and Gervase roughly even, Ciera and Hayden a touch lighter; Tyson and Gervase cold and the roster-double targets.",
+   "spread": 70
   }
  }
 }
