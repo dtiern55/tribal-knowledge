@@ -10,7 +10,7 @@ from app.locking import (
     latest_locked_episode,
 )
 from app.routers.roster import ss_revealed
-from app.schemas import ScoringBreakdown, StandingEntry
+from app.schemas import EpisodePointsRow, ScoringBreakdown, StandingEntry
 
 router = APIRouter(tags=["standings"])
 
@@ -271,6 +271,43 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
             s.trend_delta = abs(was - now_rank)
             s.last_episode_points = last_delta.get(str(s.user_id), 0)
     return entries
+
+
+@router.get(
+    "/league-seasons/{league_season_id}/points-history",
+    response_model=list[EpisodePointsRow],
+)
+def get_points_history(
+    league_season_id: UUID, user_id: UUID = Depends(get_current_user)
+):
+    """Every player's per-episode point deltas, oldest episode first (#806).
+
+    What the standings rows expand into: how each scored episode moved a
+    player's total. Only the deltas that already add up to the public totals —
+    no picks, so nothing here is private. Loaded when a row is first expanded
+    rather than alongside the standings.
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            season = database.require_league_season(cur, league_season_id)
+            database.require_member(cur, season["league_id"], user_id)
+            cur.execute(
+                "select episode_number from episodes"
+                " where season_id = %s and status = 'scored'"
+                " order by episode_number",
+                [str(season["season_id"])],
+            )
+            numbers = [row["episode_number"] for row in cur.fetchall()]
+        # ponytail: the shared scorer once per episode, not a grouped copy of
+        # its SQL — a season is ~14 episodes. Group by episode_number inside
+        # scoring if a season ever gets long enough to feel it.
+        return [
+            {
+                "episode_number": n,
+                "points": scoring.episode_points(conn, league_season_id, n),
+            }
+            for n in numbers
+        ]
 
 
 @router.get(

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
@@ -6,9 +6,10 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { Torch, TorchDefs } from '../components/Torch'
+import { ChevronRightIcon } from '../components/icons'
 import { api, getActiveSeason } from '../lib/api'
 import { rankStandings } from '../lib/standings'
-import type { Season, StandingEntry } from '../types'
+import type { EpisodePointsRow, Season, StandingEntry } from '../types'
 
 // A movement triangle + count: ▲ jade for a climb, ▼ terracotta for a slip.
 function Movement({ up, delta }: { up: boolean; delta: number }) {
@@ -138,6 +139,72 @@ function Torches({ entry }: { entry: StandingEntry }) {
   )
 }
 
+// What the season did to one player, week by week: the episode, what it paid
+// them, and the total it left them on. Newest week on top, like every other
+// ledger in the app. The Team page is the next tap for the detail behind a week.
+function HistoryPanel({
+  id,
+  rows,
+  userId,
+  teamHref,
+  name,
+}: {
+  id: string
+  rows: EpisodePointsRow[] | null
+  userId: string
+  teamHref: string
+  name: string
+}) {
+  // Running total is summed oldest-first, then the list is flipped: every point
+  // in the standings traces to exactly one episode, so the last row's total is
+  // the season total.
+  let running = 0
+  const weeks = (rows ?? [])
+    .map((row) => {
+      running += row.points[userId] ?? 0
+      return { episode: row.episode_number, points: row.points[userId] ?? 0, total: running }
+    })
+    .reverse()
+
+  return (
+    <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-3">
+      {rows == null ? (
+        <p className="text-sm text-paper-ink-faded">Loading…</p>
+      ) : weeks.length === 0 ? (
+        <p className="text-sm text-paper-ink-faded">No episodes have been scored yet.</p>
+      ) : (
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">Episode</span>
+          <span className="text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">Points</span>
+          <span className="text-right text-[10px] font-semibold uppercase tracking-[0.1em] text-paper-ink-faded">Total</span>
+          {weeks.map((week) => (
+            <Fragment key={week.episode}>
+              <span className="border-t border-paper-line py-1.5 text-sm text-paper-ink">Ep {week.episode}</span>
+              <span
+                className={`border-t border-paper-line py-1.5 text-right text-sm font-medium tabular-nums ${
+                  week.points > 0 ? 'text-jade-700' : week.points < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
+                }`}
+              >
+                {week.points > 0 ? '+' : ''}{week.points}
+              </span>
+              <span className="border-t border-paper-line py-1.5 text-right text-sm font-semibold tabular-nums text-forest-800">
+                {week.total}
+              </span>
+            </Fragment>
+          ))}
+        </div>
+      )}
+      <Link
+        to={teamHref}
+        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
+      >
+        {name}'s full team page
+        <ChevronRightIcon className="size-[14px]" />
+      </Link>
+    </div>
+  )
+}
+
 export function StandingsPage() {
   const { session } = useAuth()
   const userId = session?.user?.id
@@ -146,6 +213,11 @@ export function StandingsPage() {
   const [entries, setEntries] = useState<StandingEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // One row open at a time, and the week-by-week deltas for the whole league
+  // fetched the first time any row is opened (#806) — nobody expands a row on
+  // most visits, so the standings don't pay for it.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [history, setHistory] = useState<EpisodePointsRow[] | null>(null)
 
   useEffect(() => {
     let live = true
@@ -174,6 +246,18 @@ export function StandingsPage() {
       live = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!openId || history || !selectedId) return
+    let live = true
+    api
+      .get<EpisodePointsRow[]>(`/league-seasons/${selectedId}/points-history`)
+      .then((rows) => live && setHistory(rows))
+      .catch(() => live && setHistory([]))
+    return () => {
+      live = false
+    }
+  }, [openId, history, selectedId])
 
   if (loading) return <PageLoader />
   if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>
@@ -219,12 +303,19 @@ export function StandingsPage() {
           <ol>
             {ranked.map(({ entry, rank, tied }) => {
               const isMe = entry.user_id === userId
+              const isOpen = openId === entry.user_id
               return (
-                <li key={entry.user_id}>
-                  <Link
-                    to={`/league-seasons/${season.id}/team/${entry.user_id}`}
+                <li key={entry.user_id} className="border-b border-paper-line last:border-b-0">
+                  {/* The row opens its own history in place; the Team page is a
+                      link inside the panel, so the row stays one tap target
+                      instead of a link nested in a button (#806). */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(isOpen ? null : entry.user_id)}
+                    aria-expanded={isOpen}
+                    aria-controls={`history-${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}
-                    className={`group relative grid grid-cols-[2.25rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-3 border-b border-paper-line px-4 py-2.5 transition-colors last:border-b-0 md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
+                    className={`group relative grid w-full grid-cols-[2.25rem_minmax(0,1fr)_6rem_3.25rem] items-center gap-3 px-4 py-2.5 text-left transition-colors md:grid-cols-[3rem_minmax(0,1fr)_6rem_3.75rem] ${
                       isMe ? 'bg-forest-600/[.06]' : 'hover:bg-forest-600/[.04]'
                     }`}
                   >
@@ -237,6 +328,12 @@ export function StandingsPage() {
                       {isMe && (
                         <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>
                       )}
+                      {/* Disclosure caret beside the name rather than a column
+                          of its own: the row's four columns are already tight
+                          on a phone. */}
+                      <ChevronRightIcon
+                        className={`size-[14px] flex-none text-paper-ink-faded transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                      />
                     </div>
                     {/* Torches sit in a fixed-width column just left of the
                         score and left-align inside it, so their left edges line
@@ -257,7 +354,16 @@ export function StandingsPage() {
                         <p className="text-[11px] text-paper-ink-faded">{hasScoring ? 'even' : '—'}</p>
                       )}
                     </div>
-                  </Link>
+                  </button>
+                  {isOpen && (
+                    <HistoryPanel
+                      id={`history-${entry.user_id}`}
+                      rows={history}
+                      userId={entry.user_id}
+                      name={entry.display_name}
+                      teamHref={`/league-seasons/${season.id}/team/${entry.user_id}`}
+                    />
+                  )}
                 </li>
               )
             })}

@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getActiveSeason } from '../lib/api'
 import { renderWithApp } from '../test/render'
@@ -172,5 +173,46 @@ describe('StandingsPage', () => {
     // The champion's smoke is mirrored — snuffed from the other side.
     expect(flames[0].querySelector('g[transform*="scale(-1 1)"]')).not.toBeNull()
     expect(flames[0].querySelector('title')?.textContent).toBe('Charlie, your Sole Survivor, eliminated ep 11')
+  })
+  it('expands a row into that player\'s week-by-week history, team page still a tap away (#806)', async () => {
+    const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
+    vi.mocked(getActiveSeason).mockResolvedValue(season)
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [{
+          user_id: 'user-1', display_name: 'Danny',
+          roster_points: 40, elimination_points: 20, finale_points: 0, total_points: 60,
+          trend: null, trend_delta: 0, last_episode_points: 0,
+          active_survivors: [], recently_eliminated_survivors: [],
+        }]
+      }
+      if (path.endsWith('/points-history')) {
+        return [
+          { episode_number: 1, points: { 'user-1': 25 } },
+          { episode_number: 2, points: { 'user-1': -5 } },
+          { episode_number: 3, points: { 'user-1': 40 } },
+        ]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+
+    const row = await screen.findByRole('button', { name: /Danny/ })
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(row)
+
+    // Newest week on top, each row carrying the total it left them on.
+    const totals = await screen.findByText('Ep 3')
+    expect(totals).toBeVisible()
+    expect(screen.getByText('+40')).toBeVisible()
+    expect(screen.getByText('-5')).toBeVisible()
+    // Twice: the row's season total, and the ledger's running total after ep 3.
+    expect(screen.getAllByText('60')).toHaveLength(2)
+    expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
+      'href',
+      '/league-seasons/season-1/team/user-1',
+    )
   })
 })
