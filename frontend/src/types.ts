@@ -102,8 +102,14 @@ export interface StandingSurvivor {
   image_url: string | null
   tribe_name: string | null
   tribe_color: string | null
-  // Only set on recently_eliminated_survivors entries.
+  // Only set on recently_eliminated_survivors entries, and on a Hub roster
+  // member snuffed in that very episode.
   eliminated_episode: number | null
+  // The Hub's extras (#812): what a rostered castaway scored that episode
+  // (base, before the player's own doubling), and whether a voted name went
+  // home. Null everywhere else.
+  points?: number | null
+  correct?: boolean | null
 }
 
 // One player's locked choices for the airing episode — the locked-state Hub

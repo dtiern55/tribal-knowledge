@@ -274,11 +274,31 @@ def get_episode_hub(
                 select rp.user_id::text as user_id, c.id::text as contestant_id,
                        coalesce(c.nickname, c.name) as name, c.image_url,
                        tribe.name as tribe_name, tribe.color as tribe_color,
-                       rp.is_sole_survivor
+                       rp.is_sole_survivor, coalesce(scored.points, 0) as points,
+                       -- Set only for the castaway snuffed in THIS episode, so
+                       -- a reader can strike them for the week they went home
+                       -- without asking the cast list who is out (#812).
+                       case when gone.id is not null then ep.episode_number end
+                         as eliminated_episode
                 from roster_picks rp
                 join episodes ep on ep.id = %(ep)s
+                join seasons s on s.id = ep.season_id
                 join contestants c on c.id = rp.contestant_id
                 {_TRIBE_LATERAL}
+                -- What this castaway scored in this episode, base points: the
+                -- play that doubled them is on the entry beside this one, so a
+                -- reader applies the doubling once rather than us baking it in
+                -- per player (#812).
+                left join lateral (
+                  select sum({scoring.EVENT_POINTS_SQL})::int as points
+                  from scoring_events se
+                  join season_scoring_event_types et
+                    on et.event_type = se.event_type and et.season_id = s.id
+                  where se.episode_id = ep.id and se.contestant_id = c.id
+                ) scored on true
+                left join eliminations gone
+                  on gone.episode_id = ep.id and gone.contestant_id = c.id
+                 and gone.is_final
                 where rp.league_season_id = %(ls)s and {scoring.ROSTER_ACTIVE_SQL}
                   and {scoring.ROSTER_STILL_IN_SQL}
                 order by c.name
@@ -298,10 +318,18 @@ def get_episode_hub(
                 f"""
                 select ep.user_id::text as user_id, c.id::text as contestant_id,
                        coalesce(c.nickname, c.name) as name, c.image_url,
-                       tribe.name as tribe_name, tribe.color as tribe_color
+                       tribe.name as tribe_name, tribe.color as tribe_color,
+                       (el.id is not null) as correct
                 from elimination_picks ep
                 join contestants c on c.id = ep.contestant_id
                 {_TRIBE_LATERAL}
+                -- Did the name they wrote actually go home? The scorer's own
+                -- rule, so a Redemption Island duel loss doesn't read as a hit
+                -- (#655): it is the second exit of a boot already scored.
+                left join eliminations el
+                  on el.episode_id = ep.episode_id
+                 and el.contestant_id = ep.contestant_id
+                 and {scoring.BALLOT_HIT_SQL}
                 where ep.league_season_id = %s and ep.episode_id = %s
                 order by ep.rank nulls first, ep.created_at
                 """,

@@ -164,22 +164,3 @@ def test_contestant_performance_includes_bio(client, db_conn):
     assert data["occupation"] == "Industrial Engineer"
     assert data["hometown"] == "Irvine, California"
     assert data["bio"] == "Two sentences."
-
-
-@pytest.mark.integration
-def test_episode_contestant_points_is_base_and_locked_only(client, db_conn):
-    """What each castaway scored in one episode (#806): base points, only once
-    the episode locks, and nothing for a castaway with no events."""
-    season = insert_season(db_conn, merge_episode=7)
-    ep = insert_episode(db_conn, season["id"], episode_number=2)  # unlocked
-    star = insert_contestant(db_conn, season["id"], "Star")
-    quiet = insert_contestant(db_conn, season["id"], "Quiet")
-    insert_scoring_event(db_conn, ep["id"], star["id"], "win_individual_immunity")
-
-    url = f"/seasons/{season['id']}/episodes/{ep['id']}/contestant-points"
-    assert client.get(url).json() == []
-
-    _lock(db_conn, ep["id"])
-    rows = client.get(url).json()
-    assert rows == [{"contestant_id": str(star["id"]), "points": 15}]
-    assert str(quiet["id"]) not in [r["contestant_id"] for r in rows]

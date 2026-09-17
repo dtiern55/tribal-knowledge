@@ -161,9 +161,12 @@ class EliminationPick(BaseModel):
 
 
 class StandingSurvivor(BaseModel):
-    """One roster pick, for the standings glance (#83).
+    """One roster pick or ballot name, wherever a castaway is named in a list.
 
-    `eliminated_episode` is only set for `recently_eliminated_survivors` entries.
+    Several fields only mean something in one caller, like `eliminated_episode`
+    on `recently_eliminated_survivors`. `points` and `correct` are the Hub's
+    (#812): what a rostered castaway scored in that episode, and whether a
+    voted name actually went home.
     """
 
     contestant_id: UUID
@@ -172,6 +175,10 @@ class StandingSurvivor(BaseModel):
     tribe_name: Optional[str] = None
     tribe_color: Optional[str] = None
     eliminated_episode: Optional[int] = None
+    # Base points, before the player's own doubling: the Hub says who played
+    # Double Castaway Points and on whom, so a reader can apply it once.
+    points: Optional[int] = None
+    correct: Optional[bool] = None
 
 
 class StandingEntry(BaseModel):

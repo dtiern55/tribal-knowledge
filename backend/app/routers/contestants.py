@@ -14,7 +14,6 @@ from app.schemas import (
     CastMember,
     Contestant,
     ContestantPerformance,
-    ContestantPoints,
     ContestantsCreateRequest,
     ContestantUpdateRequest,
 )
@@ -115,42 +114,6 @@ def get_cast(season_id: UUID, _: UUID = Depends(get_current_user)):
 
             rows.sort(key=_cast_sort_key)
             return rows
-
-
-@router.get(
-    "/seasons/{season_id}/episodes/{episode_id}/contestant-points",
-    response_model=list[ContestantPoints],
-)
-def get_episode_contestant_points(
-    season_id: UUID, episode_id: UUID, _: UUID = Depends(get_current_user)
-):
-    """What each castaway scored in one episode (#806).
-
-    Base gameplay points, like `/seasons/{id}/cast`: no per-user advantage
-    doubling and no Sole Survivor bonus, so one answer serves every player's
-    row — a doubled castaway is marked as doubled where it's shown. A castaway
-    with nothing that episode is absent rather than zero. Empty until the
-    episode locks, the same rule the cast list follows (#559): points applied
-    before picks_lock_at must not leak to players who can still change picks.
-    """
-    with database.get_db() as conn:
-        with conn.cursor() as cur:
-            database.require_season(cur, season_id)
-            cur.execute(
-                f"""
-                select se.contestant_id, sum({EVENT_POINTS_SQL})::int as points
-                from scoring_events se
-                join episodes ep on ep.id = se.episode_id
-                  and {episode_locked_sql("ep")}
-                join seasons s on s.id = ep.season_id
-                join season_scoring_event_types et
-                  on et.event_type = se.event_type and et.season_id = s.id
-                where ep.id = %s and ep.season_id = %s
-                group by se.contestant_id
-                """,
-                [str(episode_id), str(season_id)],
-            )
-            return cur.fetchall()
 
 
 @router.get(
