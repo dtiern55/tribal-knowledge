@@ -5,7 +5,12 @@ from psycopg2 import errors as pg_errors
 
 from app import database
 from app.auth import get_current_user
-from app.locking import EPISODE_LOCKED_SQL, latest_locked_episode, next_open_episode
+from app.locking import (
+    EPISODE_LOCKED_SQL,
+    episode_locked_sql,
+    latest_locked_episode,
+    next_open_episode,
+)
 from app.schemas import (
     RosterPick,
     RosterSubmitRequest,
@@ -58,6 +63,16 @@ def ss_designation_open(cur, ls) -> bool:
         return False
     lock = effective_swap_lock(ls)
     return lock - 1 <= nxt["episode_number"] < lock
+
+
+def ss_revealed(cur, ls) -> bool:
+    """Whether other players' Sole Survivor picks are public: once the
+    designation window has closed, i.e. the last swappable episode
+    (swap lock - 1) has locked. Distinct from swaps_locked, which is also true
+    while any earlier episode is airing: a locked week 2 must not show a pick
+    that could not even be named yet."""
+    locked_through = latest_locked_episode(cur, ls["season_id"]) or 0
+    return locked_through >= effective_swap_lock(ls) - 1
 
 
 @router.get(
@@ -114,7 +129,7 @@ def get_roster(
                 rows = visible
                 # Another player's designation is strategy until it locks (#164):
                 # the roster may already be visible, the flag is not.
-                if not swaps_locked(cur, ls):
+                if not ss_revealed(cur, ls):
                     for r in rows:
                         r["is_sole_survivor"] = False
             return rows
@@ -301,7 +316,10 @@ def swap_roster_pick(
                 )
 
             cur.execute(
-                "select id from eliminations where contestant_id = %s and is_final",
+                "select e.id from eliminations e"
+                " join episodes ep on ep.id = e.episode_id"
+                " where e.contestant_id = %s and e.is_final"
+                f" and {episode_locked_sql('ep')}",
                 [str(body.new_contestant_id)],
             )
             if cur.fetchone():
@@ -548,7 +566,10 @@ def designate_sole_survivor(
             # An eliminated castaway can linger on the roster if never swapped
             # out — they're not a valid designee (#180)
             cur.execute(
-                "select id from eliminations where contestant_id = %s and is_final",
+                "select e.id from eliminations e"
+                " join episodes ep on ep.id = e.episode_id"
+                " where e.contestant_id = %s and e.is_final"
+                f" and {episode_locked_sql('ep')}",
                 [str(body.contestant_id)],
             )
             if cur.fetchone():

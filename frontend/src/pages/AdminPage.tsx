@@ -2317,9 +2317,70 @@ export function AdminPage() {
         />
       </Section>
 
+      <Section id="dry-run" title="Dry run" description="Move a seeded practice season to any week. Everything before the pick is scored, the pick and everything after reopen. Refused for a season with real players.">
+        <DryRunSection
+          season={season}
+          episodes={episodes}
+          onJumped={async () => {
+            const all = await api.get<Season[]>('/league-seasons')
+            setAllSeasons(all)
+            await loadSeason(all.find((s) => s.id === season.id) ?? season)
+          }}
+        />
+      </Section>
+
       <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
         <LoaderPreviewSection />
       </Section>
+    </div>
+  )
+}
+
+// Time travel for a seeded practice season (app/routers/dry_run.py): pick a
+// week, land on it open or just after its lock, or on the finished season.
+function DryRunSection({
+  season,
+  episodes,
+  onJumped,
+}: {
+  season: Season
+  episodes: Episode[]
+  onJumped: () => Promise<void>
+}) {
+  const [target, setTarget] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function go() {
+    const [ep, locked] = target.split(':')
+    const body = ep === 'complete' ? { complete: true } : { episode: Number(ep), locked: locked === 'locked' }
+    void run(setBusy, setError, async () => {
+      await api.post<Episode[]>(`/seasons/${season.season_id}/jump`, body)
+      await onJumped()
+    })
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <select
+        aria-label="Jump to"
+        value={target}
+        onChange={(e) => setTarget(e.target.value)}
+        className="rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm"
+      >
+        <option value="">Jump to…</option>
+        {episodes.map((ep) => (
+          <optgroup key={ep.id} label={`Episode ${ep.episode_number}`}>
+            <option value={`${ep.episode_number}:open`}>Episode {ep.episode_number} · open</option>
+            <option value={`${ep.episode_number}:locked`}>Episode {ep.episode_number} · locked, not scored</option>
+          </optgroup>
+        ))}
+        <option value="complete">Season complete</option>
+      </select>
+      <ActionBtn onClick={go} disabled={!target || busy}>
+        {busy ? 'Jumping…' : 'Go'}
+      </ActionBtn>
+      <ErrorMsg msg={error} />
     </div>
   )
 }

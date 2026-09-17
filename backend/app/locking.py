@@ -129,3 +129,27 @@ def used_weekly_play(cur, user_id, league_season_id, episode_id) -> bool:
         [str(user_id), str(league_season_id), str(episode_id)],
     )
     return cur.fetchone() is not None
+
+
+def hide_future_placements(cur, season_id, rows: list[dict]) -> list[dict]:
+    """Blank `placement` on a cast row whose exit hasn't locked yet.
+
+    A placement is a finale fact for the final three and a boot fact for
+    everyone else. Both are hidden until their episode locks (#559), the same
+    rule as the eliminated flag: `eliminated_in_episode` is already gated, so a
+    row with a placement and no locked exit is either a finalist before the
+    finale or a boot in an episode still open, and neither may show.
+    """
+    cur.execute(
+        f"""
+        select 1 from episodes where season_id = %s and is_finale
+          and {EPISODE_LOCKED_SQL}
+        """,
+        [str(season_id)],
+    )
+    if cur.fetchone():
+        return rows
+    for row in rows:
+        if row.get("eliminated_in_episode") is None:
+            row["placement"] = None
+    return rows

@@ -214,6 +214,36 @@ PYTHONPATH=. uv run python scripts/run_bots.py setup --league "Practice: Survivo
 Both were run on 2026-09-08: Blood vs. Water sits after episode 2 with the
 secondary league's play, Survivor 51 is pre-draft with Danny and the bots.
 
+### Season dry run on staging
+
+`dry_run.py` plays a whole season through on the `Practice: Survivor 51`
+league with the bots at random and Danny playing for real, one week per pair
+of commands, pausing wherever there is something to look at (the roster lock,
+the first reveal, the first loss, the Sole Survivor window, the finale).
+Episode facts are random and go through the admin API with the producer login,
+so it rehearses the scoring path too. Staging only.
+
+```bash
+PYTHONPATH=. uv run python scripts/dry_run.py setup        # 13 episodes, 2 tribes
+PYTHONPATH=. uv run python scripts/dry_run.py bots 2       # bots draft + pick for the open episode
+PYTHONPATH=. uv run python scripts/dry_run.py air 2        # lock, random boots/events, tiles, score
+PYTHONPATH=. uv run python scripts/dry_run.py status
+PYTHONPATH=. uv run python scripts/dry_run.py reset --yes  # wipe and recopy fresh from prod
+```
+
+`air N --boot NAME` names who goes (to force a first-loss moment);
+`--boots K` sets how many. The merge happens automatically the first episode
+that opens with 13 or fewer alive.
+
+Or play it all through once and move around it: `seed` runs every week to the
+end, then `jump 7` (or **Admin → Dry run**, which calls the same
+`POST /seasons/{id}/jump`) scores everything before episode 7 and reopens 7
+onwards with far-future locks, so the page reads exactly as that week would.
+`jump 7 --locked` lands just after the lock; `jump complete` ends the season.
+The endpoint refuses any season a real player is in, so it can never move the
+league. Your own picks are kept; landing past the roster lock with no roster
+drafts you a random one.
+
 After any rebuild, re-run the data seeds the stages depend on:
 `scripts/seed_x2_targets.py --apply` (bots' ×2 plays get a named pick) and
 `scripts/seed_locked_stage.py --apply` (the locked-not-scored stage's empty

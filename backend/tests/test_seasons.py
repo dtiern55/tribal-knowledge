@@ -76,10 +76,18 @@ def test_list_contestants_only_returns_own_season(client, db_conn):
 
 @pytest.mark.integration
 def test_list_contestants_includes_eliminated_in_episode(client, db_conn):
+    from datetime import datetime, timedelta, timezone
+
     from tests.helpers import insert_elimination, insert_episode
 
     season = _insert_season(db_conn)
-    ep = insert_episode(db_conn, season["id"], episode_number=3)
+    # Hidden until the episode locks (#559).
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=3,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
     out = _insert_contestant(db_conn, season["id"], "Booted")
     _insert_contestant(db_conn, season["id"], "Safe")
     insert_elimination(db_conn, ep["id"], out["id"])
