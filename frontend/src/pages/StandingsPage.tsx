@@ -30,10 +30,9 @@ import type {
 function Movement({ up, delta }: { up: boolean; delta: number }) {
   return (
     <span
-      // Rajdhani, the display face the rank beside it already wears: its
-      // numerals are semi-condensed, so two digits clear the slanted sides at
-      // a size BIGGER than the body font managed at one digit.
-      className={`flex size-[22px] flex-none justify-center font-display text-[11px] font-bold leading-none text-cream-50 ${
+      // The league's handwriting (Kalam), so the count reads as a tally
+      // scratched on the torch rather than a data label.
+      className={`flex size-[22px] flex-none justify-center font-hand text-[12px] font-bold leading-none text-cream-50 ${
         up ? 'items-end bg-jade-600' : 'items-start bg-terracotta-600'
       }`}
       style={{
