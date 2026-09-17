@@ -117,6 +117,8 @@ export interface HubEntry {
   advantage_target: StandingSurvivor | null
   // Their Sole Survivor pick, when it is on the active roster.
   sole_survivor_contestant_id: string | null
+  // The finale bracket, on the finale only.
+  finale: { final_four: StandingSurvivor[]; final_three: StandingSurvivor[]; winner: StandingSurvivor | null } | null
   // This episode's tribe/ballot lane points, once it's scored; null before.
   tribe_points: number | null
   ballot_points: number | null

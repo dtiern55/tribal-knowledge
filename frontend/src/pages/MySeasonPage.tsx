@@ -1685,8 +1685,29 @@ function LeagueHub({
                     soleSurvivorId={entry.sole_survivor_contestant_id}
                     broadcast={broadcast}
                   />
-                  {/* Ballots are slips here too, same as your own card above:
-                      the ballot is where you write a name down. */}
+                  {/* The finale's ballot is the bracket, drawn the way your own
+                      card draws it (#801). */}
+                  {entry.finale ? (
+                    <div>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Finale ballot</p>
+                      <div className="mt-1.5">
+                        <FinaleBracket
+                          finalFour={entry.finale.final_four.map((s) => s.contestant_id)}
+                          finalThree={entry.finale.final_three.map((s) => s.contestant_id)}
+                          winner={entry.finale.winner?.contestant_id ?? ''}
+                          byId={
+                            new Map(
+                              [...entry.finale.final_four, ...entry.finale.final_three, entry.finale.winner]
+                                .filter((s) => s != null)
+                                .map((s) => [s.contestant_id, s]),
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                  /* Ballots are slips here too, same as your own card above:
+                      the ballot is where you write a name down. */
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
@@ -1717,6 +1738,7 @@ function LeagueHub({
                       <p className={`mt-1 text-xs ${sub}`}>No ballot submitted.</p>
                     )}
                   </div>
+                  )}
                 </div>
               </details>
             </li>

@@ -10,6 +10,7 @@ from tests.helpers import (
     insert_elimination,
     insert_elimination_pick,
     insert_episode,
+    insert_finale_prediction,
     insert_roster_pick,
     insert_scoring_event,
     insert_season,
@@ -157,3 +158,72 @@ def test_hub_orders_by_standings_not_alphabetical(client, db_conn, current_user)
         ).json()
     ]
     assert names.index("Zed") < names.index("Aaron")
+
+
+@pytest.mark.integration
+def test_hub_tribes_as_of_the_episode(client, db_conn, current_user):
+    """A row's tribe is who went into this episode: earlier boots and swapped-in
+    picks from later drop out; this episode's own boot stays (#802)."""
+    season = insert_season(db_conn)
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=2,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    gone = insert_contestant(db_conn, season["id"], name="Gone")
+    tonight = insert_contestant(db_conn, season["id"], name="Tonight")
+    later = insert_contestant(db_conn, season["id"], name="Later")
+    insert_elimination(db_conn, ep1["id"], gone["id"])
+    insert_elimination(db_conn, ep2["id"], tonight["id"])
+
+    bianca = insert_user(db_conn, display_name="Bianca")
+    for c in (gone, tonight):
+        insert_roster_pick(db_conn, bianca["id"], season["id"], c["id"])
+    insert_roster_pick(
+        db_conn, bianca["id"], season["id"], later["id"], active_from_episode=3
+    )
+
+    row = {
+        r["display_name"]: r
+        for r in client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep2['id']}/hub"
+        ).json()
+    }["Bianca"]
+    assert [s["name"] for s in row["roster"]] == ["Tonight"]
+
+
+@pytest.mark.integration
+def test_hub_shows_the_finale_bracket(client, db_conn, current_user):
+    """At the finale the ballot is the bracket, so a row carries it (#801)."""
+    season = insert_season(db_conn)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        is_finale=True,
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    a, b, c, d = (
+        insert_contestant(db_conn, season["id"], name=n) for n in ("A", "B", "C", "D")
+    )
+    bianca = insert_user(db_conn, display_name="Bianca")
+    insert_finale_prediction(
+        db_conn,
+        bianca["id"],
+        season["id"],
+        final_four=[a["id"], b["id"], c["id"], d["id"]],
+        final_three=[a["id"], b["id"], c["id"]],
+        winner=a["id"],
+    )
+
+    row = {
+        r["display_name"]: r
+        for r in client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+        ).json()
+    }["Bianca"]
+    finale = row["finale"]
+    assert [s["name"] for s in finale["final_four"]] == ["A", "B", "C", "D"]
+    assert [s["name"] for s in finale["final_three"]] == ["A", "B", "C"]
+    assert finale["winner"]["name"] == "A"

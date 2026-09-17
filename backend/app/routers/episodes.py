@@ -235,7 +235,8 @@ def get_episode_hub(
     league_season_id: UUID, episode_id: UUID, user_id: UUID = Depends(get_current_user)
 ):
     """The locked-state league Hub (#490): every player's frozen choices for
-    the airing episode — roster, this-episode ballot, and any played advantage.
+    the airing episode — roster, this-episode ballot (the bracket at the
+    finale), and any played advantage.
 
     Only served once the episode locks. Before then each player's picks are
     403 to everyone else; after lock they're all public, so the Hub is just an
@@ -247,7 +248,7 @@ def get_episode_hub(
             ls = database.require_league_season(cur, league_season_id)
             database.require_member(cur, ls["league_id"], user_id)
             cur.execute(
-                "select season_id, episode_number, picks_lock_at, status"
+                "select season_id, episode_number, picks_lock_at, status, is_finale"
                 " from episodes where id = %s and season_id = %s",
                 [str(episode_id), str(ls["season_id"])],
             )
@@ -266,7 +267,8 @@ def get_episode_hub(
             # roster query: it shares the cursor.
             revealed = ss_revealed(cur, ls)
 
-            # Active rosters for the whole league (still-in-inventory picks).
+            # Each tribe as it went into this episode: rostered for it, and not
+            # already out of the game (#802). This episode's own boot stays.
             cur.execute(
                 f"""
                 select rp.user_id::text as user_id, c.id::text as contestant_id,
@@ -274,12 +276,19 @@ def get_episode_hub(
                        tribe.name as tribe_name, tribe.color as tribe_color,
                        rp.is_sole_survivor
                 from roster_picks rp
+                join episodes ep on ep.id = %(ep)s
                 join contestants c on c.id = rp.contestant_id
                 {_TRIBE_LATERAL}
-                where rp.league_season_id = %s and rp.active_until_episode is null
+                where rp.league_season_id = %(ls)s and {scoring.ROSTER_ACTIVE_SQL}
+                  and not exists (
+                    select 1 from eliminations e
+                    join episodes out_ep on out_ep.id = e.episode_id
+                    where e.contestant_id = c.id and e.is_final
+                      and out_ep.episode_number < ep.episode_number
+                  )
                 order by c.name
                 """,
-                [lsid],
+                {"ep": str(episode_id), "ls": lsid},
             )
             rosters: dict[str, list[dict]] = {}
             sole_survivors: dict[str, str] = {}
@@ -331,6 +340,38 @@ def get_episode_hub(
                     "advantage_target": row if row["contestant_id"] else None,
                 }
 
+            # The finale's ballot is the bracket, not elimination picks (#801).
+            finales: dict[str, dict] = {}
+            if episode["is_finale"]:
+                cur.execute(
+                    f"""
+                    select c.id::text as contestant_id,
+                           coalesce(c.nickname, c.name) as name, c.image_url,
+                           tribe.name as tribe_name, tribe.color as tribe_color
+                    from contestants c
+                    {_TRIBE_LATERAL}
+                    where c.season_id = %s
+                    """,
+                    [str(ls["season_id"])],
+                )
+                cast = {row["contestant_id"]: row for row in cur.fetchall()}
+                cur.execute(
+                    """
+                    select user_id::text as user_id,
+                           final_four_contestant_ids::text[] as final_four,
+                           final_three_contestant_ids::text[] as final_three,
+                           winner_contestant_id::text as winner
+                    from finale_predictions where league_season_id = %s
+                    """,
+                    [lsid],
+                )
+                for row in cur.fetchall():
+                    finales[row["user_id"]] = {
+                        "final_four": [cast[i] for i in row["final_four"]],
+                        "final_three": [cast[i] for i in row["final_three"]],
+                        "winner": cast.get(row["winner"]),
+                    }
+
             # One row per participating player — anyone with a roster, a ballot,
             # or a play this episode. Drops service accounts and no-shows.
             entries = []
@@ -339,7 +380,8 @@ def get_episode_hub(
                 roster = rosters.get(uid, [])
                 ballot = ballots.get(uid, [])
                 adv = advantages.get(uid)
-                if not roster and not ballot and adv is None:
+                finale = finales.get(uid)
+                if not roster and not ballot and adv is None and finale is None:
                     continue
                 entries.append(
                     {
@@ -350,6 +392,7 @@ def get_episode_hub(
                         "advantage_type": adv["advantage_type"] if adv else None,
                         "advantage_target": adv["advantage_target"] if adv else None,
                         "sole_survivor_contestant_id": sole_survivors.get(uid),
+                        "finale": finale,
                     }
                 )
 

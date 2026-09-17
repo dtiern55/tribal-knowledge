@@ -31,7 +31,7 @@ export function FinaleBracket({
   finalFour: string[]
   finalThree: string[]
   winner: string
-  byId: Map<string, Contestant>
+  byId: Map<string, Pick<Contestant, 'name' | 'image_url' | 'tribe_color' | 'tribe_name'> & { nickname?: string | null }>
   actuals?: FinaleActuals
 }) {
   const winnerId = winner || null
