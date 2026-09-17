@@ -832,6 +832,7 @@ export function MySeasonPage() {
             <RecordPanel beat="roster" active>
               <div id="roster">
                 <RosterSection
+                  revealOpen={displayResult != null}
                   season={d.season}
                   contestants={d.contestants}
                   episodes={d.episodes}
@@ -891,6 +892,7 @@ export function MySeasonPage() {
           {/* Rides the swap lock (one dial, no merge): SoleSurvivorLine
               self-gates on the designation window. */}
           <SoleSurvivorLine
+            revealOpen={displayResult != null}
             season={d.season}
             contestants={d.contestants}
             episodes={d.episodes}
@@ -919,6 +921,7 @@ export function MySeasonPage() {
           >
             <div id="roster">
               <RosterSection
+                revealOpen={displayResult != null}
                 season={d.season}
                 contestants={d.contestants}
                 episodes={d.episodes}
@@ -2435,12 +2438,15 @@ function RosterSection({
   onStartSwap,
   onStartDouble,
   swapSlot,
+  revealOpen = false,
 }: {
   season: Season
   contestants: Contestant[]
   episodes: Episode[]
   userId: string
   rosterPoints: Map<string, number>
+  /** The episode results card is up: the moment waits for My Season. */
+  revealOpen?: boolean
   /** The +50% Sole Survivor finale bonus, named on the designated card. */
   soleSurvivorBonus?: number
   plays: AdvantagePlay[]
@@ -2621,7 +2627,8 @@ function RosterSection({
     swapAvailable &&
     nextSwapCost === 0 &&
     picking == null &&
-    swapSlot != null
+    swapSlot != null &&
+    !revealOpen
   const firstLossKey = `mytribe.first-loss.${season.id}`
   useEffect(() => {
     if (!firstLossDue || moment != null) return
@@ -4720,6 +4727,7 @@ function SoleSurvivorLine({
   rosterVersion,
   onRosterChange,
   onStartSoleSurvivor,
+  revealOpen = false,
 }: {
   season: Season
   contestants: Contestant[]
@@ -4729,6 +4737,8 @@ function SoleSurvivorLine({
   onRosterChange: () => void
   /** Start the pick: the roster rows answer it, the way Swap works (#164). */
   onStartSoleSurvivor?: () => void
+  /** The episode results card is up: the moment waits for My Season. */
+  revealOpen?: boolean
 }) {
   const [roster, setRoster] = useState<RosterPick[]>([])
   const [saving, setSaving] = useState(false)
@@ -4760,7 +4770,7 @@ function SoleSurvivorLine({
 
   const namingKey = `mytribe.name-sole-survivor.${season.id}`
   useEffect(() => {
-    if (!loaded || !windowOpen || designee || naming != null) return
+    if (!loaded || !windowOpen || designee || naming != null || revealOpen) return
     try {
       if (localStorage.getItem(namingKey) === '1') return
       localStorage.setItem(namingKey, '1')
@@ -4772,7 +4782,7 @@ function SoleSurvivorLine({
     document.querySelector('.ss-line')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     // Fires once per browser; `naming` is only read to not re-fire mid-way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, windowOpen, designee, namingKey])
+  }, [loaded, windowOpen, designee, namingKey, revealOpen])
 
   async function clearDesignation() {
     setSaving(true)
