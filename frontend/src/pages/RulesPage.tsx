@@ -210,7 +210,7 @@ export function RulesPage() {
           </li>
           <li><b>Ballot:</b> each episode, pick who is going home. Every correct pick scores.</li>
           <li><b>Weekly advantage:</b> each episode, double one castaway's points or add a Power Vote to your ballot.</li>
-          <li><b>Sole Survivor:</b> after the merge, name one castaway on your tribe. They earn you a bonus at the finale.</li>
+          <li><b>Sole Survivor:</b> in Episode {swapLockEpisodeNumber(season) - 1}, name one castaway on your tribe. They earn you a bonus at the finale.</li>
           <li><b>Finale:</b> predict the Final 4, the Final 3, and the winner.</li>
         </ul>
         <p className="mt-4 text-sm leading-6 text-gray-700">
@@ -264,7 +264,7 @@ export function RulesPage() {
 
         <RuleSection id="sole-survivor" title="Sole Survivor">
           <RuleList>
-            <li>Once the merge hits, name one castaway on your tribe as your Sole Survivor. They lock when swaps do.</li>
+            <li>In Episode {swapLockEpisodeNumber(season) - 1}, your last swap episode, name one castaway on your tribe as your Sole Survivor.</li>
             <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
           </RuleList>
         </RuleSection>
