@@ -33,6 +33,7 @@ import { SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
+import { SoleSurvivorTorch } from '../components/SoleSurvivorTorch'
 import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
@@ -1670,7 +1671,6 @@ function LeagueHub({
                         : null
                     }
                     soleSurvivorId={entry.sole_survivor_contestant_id}
-                    broadcast={broadcast}
                   />
                   {/* The finale's ballot is the bracket, drawn the way your own
                       card draws it (#801). */}
@@ -1761,7 +1761,6 @@ function HubCastawayRow({
   empty,
   doubledContestantId = null,
   soleSurvivorId = null,
-  broadcast = false,
 }: {
   label: string
   survivors: StandingSurvivor[]
@@ -1769,9 +1768,8 @@ function HubCastawayRow({
   empty: string
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
-  /** Their Sole Survivor pick: a gold name, nothing louder (#685). */
+  /** Their Sole Survivor pick: a small hand torch beside an otherwise plain name. */
   soleSurvivorId?: string | null
-  broadcast?: boolean
 }) {
   return (
     <div>
@@ -1798,8 +1796,9 @@ function HubCastawayRow({
                     </span>
                   )}
                 </span>
-                <span className={`w-full truncate leading-tight ${isSS ? (broadcast ? 'text-gold-300' : 'text-gold-700') : ''}`}>
-                  {s.name}
+                <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">
+                  {isSS && <SoleSurvivorTorch />}
+                  <span className="truncate">{s.name}</span>
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
               </li>
