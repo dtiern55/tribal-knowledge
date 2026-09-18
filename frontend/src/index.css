@@ -261,7 +261,8 @@ html.locked-night .app-shell .text-forest-800 {
 
 html.locked-night .app-shell .text-gray-700,
 html.locked-night .app-shell .text-gray-600,
-html.locked-night .app-shell .text-forest-700 {
+html.locked-night .app-shell .text-forest-700,
+html.locked-night .app-shell .text-forest-600 {
   color: rgb(242 233 219 / 45%);
 }
 
