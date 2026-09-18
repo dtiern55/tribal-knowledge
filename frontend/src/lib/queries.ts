@@ -1,4 +1,4 @@
-import { QueryClient, useQuery } from '@tanstack/react-query'
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { activeSeason, api, ApiError, onApiMutation } from './api'
 import type { Season } from '../types'
 
@@ -61,8 +61,54 @@ export function useActiveSeason(enabled = true) {
   return { ...query, season: query.data ? activeSeason(query.data) : undefined }
 }
 
-// Writes invalidate everything, the same blunt rule the hand-rolled cache used
-// (#814): ~36 write sites against ~20 read paths, and one of them forgetting is
-// a wrong roster on screen. Registered from here so `lib/api.ts` stays free of
-// any import of this file.
-onApiMutation(() => void queryClient.invalidateQueries())
+// A write that names the reads it changes raises this while it runs, so the
+// backstop below doesn't fire the refetch-everything it exists to avoid.
+let selfInvalidating = 0
+
+// Every other write invalidates everything, the same blunt rule the hand-rolled
+// cache used (#814): one write site forgetting is a wrong roster on screen.
+// Registered from here so `lib/api.ts` stays free of any import of this file.
+onApiMutation(() => {
+  if (selfInvalidating === 0) void queryClient.invalidateQueries()
+})
+
+/**
+ * A write that names the API paths it changes (#816).
+ *
+ * The backstop above is right for a season-wide change and wrong for a busy
+ * one: the commissioner toggles eliminations and scoring events a dozen times
+ * an evening, and each toggle would otherwise refetch every league, every cast
+ * and every episode list on the console. What isn't named is still marked
+ * stale — it just keeps what it has until something asks again.
+ */
+export function useApiMutation<TVars, TData>({
+  write,
+  invalidates,
+  onSuccess,
+}: {
+  write: (vars: TVars) => Promise<TData>
+  invalidates: string[]
+  onSuccess?: (data: TData, vars: TVars) => void
+}) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (vars: TVars) => {
+      selfInvalidating += 1
+      try {
+        return await write(vars)
+      } finally {
+        selfInvalidating -= 1
+      }
+    },
+    onSuccess: async (data, vars) => {
+      void client.invalidateQueries({ refetchType: 'none' })
+      // The named paths refetch now, cancelling anything already in the air so
+      // a pre-write body can't land as fresh. Awaited, so the mutation stays
+      // pending until the answer is on screen and a control can't flick back.
+      await Promise.all(
+        invalidates.map((path) => client.invalidateQueries({ queryKey: ['api', path] })),
+      )
+      onSuccess?.(data, vars)
+    },
+  })
+}
