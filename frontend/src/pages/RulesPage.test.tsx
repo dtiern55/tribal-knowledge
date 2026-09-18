@@ -36,9 +36,9 @@ function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
     scoring_events: [
       { event_type: 'win_individual_immunity', label: 'Win individual immunity', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly at tribal', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
-      { event_type: 'win_redemption_duel', label: 'Win a Redemption Island duel', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
-      { event_type: 'return_from_redemption', label: 'Return from Redemption Island at the merge', point_value: 12, postmerge_point_value: null, token_value: 0, is_per_unit: false },
-      { event_type: 'return_from_redemption_endgame', label: 'Return from Redemption Island in the endgame', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'win_redemption_duel', label: 'Win a duel to stay in the game', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'return_from_redemption', label: 'Return to the game at the merge', point_value: 12, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'return_from_redemption_endgame', label: 'Return to the game in the endgame', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'mystery_event', label: 'Mystery event', point_value: 1, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'cry', label: 'Cry', point_value: 0, postmerge_point_value: null, token_value: 5, is_per_unit: false },
     ],
@@ -50,7 +50,6 @@ function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
       { advantage_type: 'double_vote_points', label: 'Double Vote Points', token_cost: 15, enabled: true },
       { advantage_type: 'extra_vote', label: 'Extra Vote', token_cost: 5, enabled: false },
     ],
-    has_redemption: false,
     ...overrides,
   }
 }
@@ -70,14 +69,16 @@ describe('RulesPage', () => {
     serve(response())
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByRole('heading', { name: 'How it works' })).toBeVisible()
-    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings']) {
+    expect(await screen.findByRole('heading', { name: 'The basics' })).toBeVisible()
+    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings', 'Twists']) {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
-    expect(screen.getByText(/There is no limit on the number of swaps/)).toBeVisible()
-    expect(screen.getByText(/3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11/)).toBeVisible()
-    expect(screen.getByText(/worth 16\. After the merge, 20\./)).toBeVisible()
+    expect(screen.getByText(/Swap as often as you like/)).toBeVisible()
+    for (const tier of ['Episodes 2 to 5: 3 picks', 'Episodes 6 to 10: 2 picks', 'Episode 11 on: 1 pick']) {
+      expect(screen.getByText(tier)).toBeVisible()
+    }
+    expect(screen.getByText('+16 before merge, +20 after')).toBeVisible()
     expect(screen.queryByText(/roster/i)).not.toBeInTheDocument()
   })
 
@@ -87,28 +88,23 @@ describe('RulesPage', () => {
 
     // Swaps still show a number: the lock defaults to episode 8, so the last
     // swappable episode is 7 even when the season sets nothing explicit.
-    expect(await screen.findByText(/The last episode you can swap for is episode 7/)).toBeVisible()
+    expect(await screen.findByText(/Swap as often as you like until the Episode 7 lock/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
   })
 
-  it('groups tribe scoring and hides Redemption Island unless the season has it', async () => {
+  it('groups tribe scoring and always shows the twists', async () => {
     serve(response())
-    const { unmount } = renderWithApp(<RulesPage />)
+    renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'Challenges' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Tribal Council' })).toBeVisible()
     expect(screen.getByText('+3 before merge, +5 after')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Other' })).toBeVisible()
     expect(screen.getByText('Mystery event')).toBeVisible()
-    expect(screen.queryByText(/Redemption Island/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cry')).not.toBeInTheDocument()
-    unmount()
-
-    serve(response({ has_redemption: true }))
-    renderWithApp(<RulesPage />)
-    expect(await screen.findByText('Win a Redemption Island duel')).toBeVisible()
-    expect(screen.getByText('Return from Redemption Island at the merge')).toBeVisible()
-    expect(screen.getByText('Return from Redemption Island in the endgame')).toBeVisible()
+    expect(screen.getByText('Win a duel to stay in the game')).toBeVisible()
+    expect(screen.getByText('Return to the game at the merge')).toBeVisible()
+    expect(screen.getByText('Return to the game in the endgame')).toBeVisible()
     expect(screen.getByText(/counts as the boot on your ballot but is still in the game/)).toBeVisible()
   })
 

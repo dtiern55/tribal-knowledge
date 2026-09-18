@@ -21,7 +21,6 @@ const rules = {
     { event_type: 'read_treemail_or_instructions', label: 'Treemail', point_value: 3, postmerge_point_value: null, token_value: 0, is_per_unit: true },
     { event_type: 'go_on_journey', label: 'Journey', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
   ],
-  has_redemption: false,
 } as unknown as RulesResponse
 
 const admin = { auth: { profile: { id: 'u1', display_name: 'Danny', is_admin: true, leagues: [] } } }

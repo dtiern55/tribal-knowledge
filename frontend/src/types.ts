@@ -344,7 +344,6 @@ export interface RulesResponse {
   scoring_events: RuleScoringEvent[]
   prediction_scores: RulePredictionScore[]
   advantages: AdvantageType[]
-  has_redemption: boolean
 }
 
 export interface ContestantPoints {

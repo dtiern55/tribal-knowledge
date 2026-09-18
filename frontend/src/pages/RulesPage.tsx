@@ -5,6 +5,7 @@ import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { SoleSurvivorExample } from '../components/SoleSurvivorExample'
 import { pathQuery, useActiveSeason } from '../lib/queries'
 import { swapLockEpisodeNumber } from '../lib/episodes'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } from '../types'
@@ -43,13 +44,13 @@ const EVENT_GROUPS: [string, string[]][] = [
     'fake_idol_played',
   ]],
   ['Making it far', [
-    'win_redemption_duel',
-    'return_from_redemption',
-    'return_from_redemption_endgame',
     'join_jury',
     'made_final_tribal',
     'runner_up',
     'won_season',
+    'win_redemption_duel',
+    'return_from_redemption',
+    'return_from_redemption_endgame',
   ]],
   ['Moments', [
     'go_on_journey',
@@ -58,9 +59,6 @@ const EVENT_GROUPS: [string, string[]][] = [
     'jeff_thats_how_you_do_it',
   ]],
 ]
-
-// Only shown on a season that has the island (#655).
-const REDEMPTION_EVENTS = new Set(['win_redemption_duel', 'return_from_redemption', 'return_from_redemption_endgame'])
 
 const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
@@ -147,14 +145,20 @@ function swapCostLadder(season: Season) {
   }
 }
 
-/** "3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11" (#269). */
+function picksLabel(n: number) {
+  return `${n} pick${n === 1 ? '' : 's'}`
+}
+
+/** One line per pick tier, e.g. "Episodes 2 to 5: 3 picks" (#269). */
 function pickTiers(season: Season) {
   const tiers = [...season.elimination_pick_schedule].sort((a, b) => a.from_episode - b.from_episode)
-  if (tiers.length === 0) return 'You get 3 picks an episode.'
-  const parts = tiers.map((t, i) =>
-    i === 0 ? `${t.picks} pick${t.picks === 1 ? '' : 's'} from Episode ${t.from_episode}` : `${t.picks} from Episode ${t.from_episode}`,
-  )
-  return `You get ${parts.join(', ')}.`
+  return tiers.map((t, i) => {
+    const picks = picksLabel(t.picks)
+    const next = tiers[i + 1]
+    if (!next) return `Episode ${t.from_episode} on: ${picks}`
+    const last = next.from_episode - 1
+    return last === t.from_episode ? `Episode ${last}: ${picks}` : `Episodes ${t.from_episode} to ${last}: ${picks}`
+  })
 }
 
 export function RulesPage() {
@@ -181,10 +185,8 @@ export function RulesPage() {
   if (error) return <Notice tone="error" title="Could not load the rules">{error.message}</Notice>
   if (!rules) return <ColdStart />
 
-  const { season, scoring_events, prediction_scores, has_redemption } = rules
-  const tribeEvents = scoring_events.filter(
-    (event) => event.point_value !== 0 && (has_redemption || !REDEMPTION_EVENTS.has(event.event_type)),
-  )
+  const { season, scoring_events, prediction_scores } = rules
+  const tribeEvents = scoring_events.filter((event) => event.point_value !== 0)
   const grouped = EVENT_GROUPS.map(([title, keys]) => [
     title,
     keys.map((key) => tribeEvents.find((e) => e.event_type === key)).filter((e): e is RuleScoringEvent => e != null),
@@ -199,6 +201,7 @@ export function RulesPage() {
     .filter((score): score is RulePredictionScore => score != null)
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
   const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
+  const tiers = pickTiers(season)
   const finaleScores = prediction_scores.filter((score) => FINALE_KEYS.includes(score.key))
 
   return (
@@ -206,27 +209,29 @@ export function RulesPage() {
       <PageHeader eyebrow={season.name} title="Rules" />
 
       <section id="basics" aria-labelledby="basics-title" className="scroll-mt-24 border-y border-forest-200 py-5">
-        <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">How it works</h2>
-        <div className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
-          <p>
-            Two things earn you points. First, the tribe of {season.roster_size} castaways you draft. All season they
-            score for what they do on the show: winning challenges, voting correctly, finding idols, making the merge.
-            Second, your weekly ballot: each episode you call who goes home, and every correct pick scores.
-          </p>
-          <p>
-            Before each episode airs, submit your ballot and choose your advantage. Most points after the finale wins.
-          </p>
-        </div>
+        <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">The basics</h2>
+        <ul className="mt-4 space-y-2 text-sm leading-6 text-gray-700">
+          <li><b>Tribe:</b> draft {season.roster_size} castaways. They score for what they do on the show.</li>
+          <li>
+            <b>Swaps:</b> available until the Episode {swapLockEpisodeNumber(season) - 1} lock.
+            {season.free_swaps > 0 ? ` The first ${season.free_swaps === 1 ? 'is' : `${season.free_swaps} are`} free, then each costs points.` : ' Each costs points.'}
+          </li>
+          <li><b>Ballot:</b> each episode, pick who is going home. Every correct pick scores.</li>
+          <li><b>Weekly advantage:</b> each episode, double one castaway's points or add a Power Vote to your ballot.</li>
+          <li><b>Sole Survivor:</b> in Episode {swapLockEpisodeNumber(season) - 1}, name one castaway on your tribe. They earn you a bonus at the finale.</li>
+          <li><b>Finale:</b> predict the Final 4, the Final 3, and the winner.</li>
+        </ul>
+        <p className="mt-4 text-sm leading-6 text-gray-700">
+          Your ballot, advantage, and swaps can change until the episode locks. Most points after the finale wins.
+        </p>
       </section>
 
       <div className="mt-8 space-y-8">
         <RuleSection id="tribe" title="Tribe">
           <RuleList>
-            <li>
-              Pick {season.roster_size} castaways. Your tribe locks before Episode {season.roster_lock_episode ?? 2}. Until then you can change it freely.
-            </li>
-            <li>A castaway scores for you only while they are on your tribe. A voted-out castaway stays on your tribe until you swap them out.</li>
-            <li>Finalists earn a lot at the finale, for making final tribal, finishing runner-up, and winning.</li>
+            <li>Your tribe of {season.roster_size} castaways. Select before the Episode {season.roster_lock_episode ?? 2} lock.</li>
+            <li>Swaps available up until the Episode {swapLockEpisodeNumber(season) - 1} lock.</li>
+            <li>Note: at the Episode {swapLockEpisodeNumber(season) - 1} lock, your Sole Survivor designation must be a castaway on your tribe.</li>
           </RuleList>
         </RuleSection>
 
@@ -236,77 +241,65 @@ export function RulesPage() {
               The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
               After that, each swap costs points: {swapCostLadder(season)}.
             </li>
-            <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
-            <li>There is no limit on the number of swaps while they are open. The last episode you can swap for is episode {swapLockEpisodeNumber(season) - 1}. After that your tribe is locked for the rest of the season.</li>
+            <li>The cost is charged to the castaway you drop. That only decides where it shows in your points breakdown. Your total is the same either way.</li>
+            <li>You can undo a swap until the episode locks.</li>
+            <li>Swap as often as you like until the Episode {swapLockEpisodeNumber(season) - 1} lock.</li>
           </RuleList>
         </RuleSection>
 
         <RuleSection id="ballot" title="Ballot">
           <RuleList>
-            <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
-            {rungScores.length > 0 ? (
-              <li>
-                Rank your picks: put the name you are surest of on top. Each correct pick scores by its rank.
-                {` Before the merge the ranks are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
-                {rungScores.some((score) => score.postmerge_point_value != null && score.postmerge_point_value !== score.point_value)
-                  ? `; after the merge, ${rungScores.map((score) => score.postmerge_point_value ?? score.point_value).join(', ')}.`
-                  : '.'}
-              </li>
-            ) : (
-              <li>
-                Each correct pick scores on its own.
-                {ballotScore && ballotScore.postmerge_point_value != null && ballotScore.postmerge_point_value !== ballotScore.point_value
-                  ? ` Before the merge a correct pick is worth ${ballotScore.point_value}. After the merge, ${ballotScore.postmerge_point_value}.`
-                  : ballotScore ? ` A correct pick is worth ${ballotScore.point_value}.` : ''}
-              </li>
-            )}
-            <li>You can change your ballot until the episode locks. One episode is open at a time. The next opens once the last one is scored.</li>
-            <li>The finale has its own ballot. See <a href="#finale" className="font-medium text-forest-700 underline underline-offset-2">Finale</a>.</li>
+            <li>
+              Each episode, pick who you think is going home.
+              {tiers.length > 1 ? (
+                <ul className="mt-1 list-[circle] space-y-1 pl-5">
+                  {tiers.map((tier) => <li key={tier}>{tier}</li>)}
+                </ul>
+              ) : ` You get ${picksLabel(season.elimination_pick_schedule[0]?.picks ?? 3)} an episode.`}
+            </li>
+            <li>
+              {rungScores.length > 0
+                ? 'Rank your picks, surest on top. Each correct pick scores by its rank.'
+                : 'Each correct pick scores on its own.'}
+            </li>
           </RuleList>
         </RuleSection>
 
         <RuleSection id="weekly-play" title="Weekly advantage">
           <RuleList>
-            <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it.</li>
-            <li><b>On your tribe:</b> a double point boost. One castaway on your tribe earns double this episode.</li>
+            <li>Each episode except the finale, you get one advantage to play on your tribe or your ballot.</li>
+            <li><b>On your tribe:</b> a double point boost. One castaway earns double this episode.</li>
             <li>
-              <b>On your ballot:</b> a Power Vote. One extra name above your ranked picks
-              {powerVoteScore
-                ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
-                : ', and if they go home it pays double.'}
+              <b>On your ballot:</b> a Power Vote, one extra name above your ranked picks
+              {powerVoteScore ? '.' : ' that pays double if they go home.'}
             </li>
-            <li>
-              You can change or remove it until the episode locks.
-              {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`}
-            </li>
+            {season.advantage_lock_episode != null && <li>Advantages close at Episode {season.advantage_lock_episode}.</li>}
           </RuleList>
         </RuleSection>
 
         <RuleSection id="sole-survivor" title="Sole Survivor">
           <RuleList>
-            <li>Once the merge hits, name one castaway on your tribe as your Sole Survivor.</li>
-            <li>Your Sole Survivor locks when swaps do.</li>
+            <li>In Episode {swapLockEpisodeNumber(season) - 1}, your last swap episode, name one castaway on your tribe as your Sole Survivor.</li>
             <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
           </RuleList>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm font-medium text-forest-700 underline underline-offset-2">See an example</summary>
+            <SoleSurvivorExample className="mt-3" />
+          </details>
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
-          <RuleList>
-            <li>The finale ballot is a bracket, not a boot pick. Name your Final 4, your Final 3, and the winner.</li>
-            <li>Each correct Final 4 name and Final 3 name scores on its own. Naming the exact Final 3 earns a bonus. The winner scores on top.</li>
-            <li>No swaps and no advantage on the finale.</li>
-          </RuleList>
+          <p className="text-sm leading-6 text-gray-700">
+            The ballot is replaced by a prediction bracket. The weekly advantage is not played for the final episode.
+          </p>
           {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
         </RuleSection>
 
         <RuleSection id="scoring" title="Scoring">
-          <p className="text-sm leading-6 text-gray-700">
-            Your total is tribe points, plus ballot points, plus finale bracket points, plus your Sole Survivor bonus, minus any swap costs.
-          </p>
           {tribeEvents.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">No tribe scoring is set up for this season.</p>
+            <p className="text-sm text-gray-500">No tribe scoring is set up for this season.</p>
           ) : (
-            <div className="mt-5 space-y-6">
+            <div className="space-y-6">
               {grouped.map(([title, events]) => events.length > 0 && (
                 <div key={title}>
                   <h3 className="mb-2 font-semibold text-gray-900">{title}</h3>
@@ -337,14 +330,25 @@ export function RulesPage() {
             <li><b>Quit or removal:</b> a quit, medical removal, or disqualification counts as a boot.</li>
             <li><b>Successful idol play:</b> the person the idol protected got votes and would have gone home without it.</li>
             <li><b>Idol nullifier voids a real idol:</b> the nullifier hit a castaway who played a real idol. Aimed at nothing, it scores the play alone.</li>
-            {has_redemption && (
-              <li>
-                <b>Redemption Island:</b> a castaway sent to the island counts as the boot on your ballot but is still in the game.
-                They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
-                Every duel they win scores, and coming back scores more, most of all late in the season. Losing there is the real elimination.
-              </li>
-            )}
           </RuleList>
+        </RuleSection>
+
+        <RuleSection id="twists" title="Twists">
+          <p className="mb-3 text-sm leading-6 text-gray-700">Not every season has these. If one shows up, this is how it counts.</p>
+          <RuleList>
+            <li>
+              <b>Redemption Island:</b> a castaway sent to the island counts as the boot on your ballot but is still in the game.
+              They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
+            </li>
+            <li><b>Edge of Extinction:</b> works the same as Redemption Island.</li>
+            <li><b>Voted back in:</b> a castaway who returns to the game any other way scores as a return to the game.</li>
+            <li><b>Exile Island and similar trips:</b> count for nothing.</li>
+            <li><b>Multiple eliminations:</b> when more than one castaway goes home in an episode, each correct pick scores.</li>
+          </RuleList>
+          <p className="mt-4 text-sm leading-6 text-gray-700">
+            I've tried to account for 50 seasons of twists. If the “Open Era” throws something truly unique, I'll score it
+            with my best judgement within the bounds of this scoring system. Anything new will be communicated.
+          </p>
         </RuleSection>
       </div>
     </div>
