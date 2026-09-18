@@ -2539,11 +2539,12 @@ function RosterSection({
   // their boot, then sinks into the eliminated bin below with the swapped-out
   // picks (they're still held, active_until null; this is display only). Kept
   // one episode so "your castaway just went out" is visible before it's tucked
-  // away.
+  // away. Picking who to swap out brings them back up: the bin's rows can't be
+  // tapped, and a dead slot is the likeliest one to drop.
   const openEpNum = weekly.openEpisode?.episode_number
   const isStaleBoot = (pick: RosterPick) => {
     const elim = contestantMap.get(pick.contestant_id)?.eliminated_in_episode
-    return elim != null && openEpNum != null && elim < openEpNum - 1
+    return picking !== 'swap' && elim != null && openEpNum != null && elim < openEpNum - 1
   }
   const boardRoster = activeRoster.filter((p) => !isStaleBoot(p))
   const retiredRoster = [...swappedRoster, ...activeRoster.filter(isStaleBoot)]
