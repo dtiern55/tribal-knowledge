@@ -32,6 +32,24 @@ an auto-merge.
 - Every endpoint requires a Supabase JWT except `/health`. Other players'
   picks/rosters/ballots are 403 until their lock passes; token balances are
   owner-only.
+- Frontend reads go through TanStack Query (#816), not `useEffect` + `useState`.
+  `frontend/src/lib/queries.ts` owns the client and the helpers: `pathQuery(path)`
+  keys every read by the `api.get` path it fetches (`null` disables it, for an id
+  that isn't known yet), and writes invalidate through `onApiMutation` so
+  `lib/api.ts` never imports the query layer. `api.quiet.*` is for a write that
+  names its own `invalidateQueries` instead of taking the blanket one. Don't
+  start a second pattern.
+- A loading gate takes a side per read. One whose refusal the page **forgives**
+  (it renders without it) waits on `isFetched`; one whose refusal reaches the
+  **error gate** waits on `isPending`. Crossing it either way ships a bug: a
+  refetch of a query holding no data resets it to pending, so `isPending` on a
+  forgiven read re-closes the gate on every window focus, and `isFetched` on an
+  error-gated read draws a live page against empty data during each retry. Put
+  the error gate *before* the loading gate — a disabled query also reads as
+  pending. Worked examples, both sides, at `MySeasonPage.tsx`'s gates.
+- A value that keys a query must not be re-derived per render if anything is
+  written against it. Latch the id in state and look the row up from live query
+  data, or a list refetch silently re-points writes at a different row.
 - All league times are Central (America/Chicago) in the UI; API/DB are UTC.
   Conversion happens in `frontend/src/lib/time.ts`.
 - Database connects via Supabase transaction pooler (port 6543), not direct Postgres.
@@ -50,7 +68,16 @@ cd backend && uv run pytest -m "not integration"
 
 # Run integration tests (requires local Supabase running)
 cd backend && uv run pytest -m integration
+
+# Frontend, before opening a PR — all three, no new warnings
+# (one is pre-existing: NavDrawer.tsx:83)
+cd frontend && npx tsc --noEmit -p tsconfig.app.json && npx vitest run && npm run -s lint
 ```
+
+Prettier is deliberately not configured — running it rewrites the repo to double
+quotes and semicolons. Hand-edit. A gitignored `frontend/.env.local` can make the
+frontend suite pass locally while CI is red, so read `gh pr checks`, not just
+local output.
 
 ## Deployment
 Two environments (#150). Staging holds the frozen stage leagues (one per
