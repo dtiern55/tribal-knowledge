@@ -234,7 +234,8 @@ export function RulesPage() {
               The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
               After that, each swap costs points: {swapCostLadder(season)}.
             </li>
-            <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
+            <li>The cost comes off the castaway you drop.</li>
+            <li>You can undo a swap until the episode locks.</li>
             <li>Swap as often as you like through Episode {swapLockEpisodeNumber(season) - 1}. After that your tribe is locked.</li>
           </RuleList>
         </RuleSection>
