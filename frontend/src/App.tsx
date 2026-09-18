@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthContext'
 import { Layout } from './components/Layout'
@@ -15,9 +16,13 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { StandingsPage } from './pages/StandingsPage'
 import { TeamPage } from './pages/TeamPage'
 import { WatchPage } from './pages/WatchPage'
+import { queryClient } from './lib/queries'
 
 export default function App() {
   return (
+    // One query cache for the app (#816). Outside the router so it survives
+    // navigation, and outside auth so a sign-out can empty it.
+    <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -69,5 +74,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </QueryClientProvider>
   )
 }

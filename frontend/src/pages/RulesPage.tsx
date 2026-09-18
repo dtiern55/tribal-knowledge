@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
-import { api, getActiveSeason } from '../lib/api'
+import { pathQuery, useActiveSeason } from '../lib/queries'
 import { swapLockEpisodeNumber } from '../lib/episodes'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } from '../types'
 
@@ -157,24 +158,10 @@ function pickTiers(season: Season) {
 }
 
 export function RulesPage() {
-  const [rules, setRules] = useState<RulesResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { season: active, isLoading: seasonLoading, error: seasonError } = useActiveSeason()
+  const query = useQuery(pathQuery<RulesResponse>(active ? `/league-seasons/${active.id}/rules` : null))
+  const rules = query.data
   const { hash } = useLocation()
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const active = await getActiveSeason()
-        if (active) setRules(await api.get<RulesResponse>(`/league-seasons/${active.id}/rules`))
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load rules')
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
-  }, [])
 
   // A deep link lands mid-page: scroll to the section and flash it. Done
   // with a class, not :target, because the router pushes the URL and
@@ -189,8 +176,9 @@ export function RulesPage() {
     el.classList.add('rule-flash')
   }, [rules, hash])
 
-  if (loading) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load the rules">{error}</Notice>
+  if (seasonLoading || query.isLoading) return <PageLoader />
+  const error = seasonError ?? query.error
+  if (error) return <Notice tone="error" title="Could not load the rules">{error.message}</Notice>
   if (!rules) return <ColdStart />
 
   const { season, scoring_events, prediction_scores, has_redemption } = rules

@@ -26,6 +26,21 @@ if (!globalThis.ResizeObserver) {
   } as unknown as typeof ResizeObserver
 }
 
+// `lib/supabase` builds a client at import, from env this suite has no reason
+// to carry. Page tests began loading it the moment they started mocking
+// `lib/api` partially, which passed locally off a gitignored .env.local and
+// failed in CI. One stub here beats env vars in the workflow: a unit test has
+// no business opening a client at all.
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
+    },
+  },
+}))
+
 afterEach(() => {
   cleanup()
   localStorage.clear()

@@ -1,40 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
-import { api, getActiveSeason } from '../lib/api'
 import { rankCast } from '../lib/cast'
-import type { CastMember, Season } from '../types'
+import { pathQuery, useActiveSeason } from '../lib/queries'
+import type { CastMember } from '../types'
 
 export function CastPage() {
-  const [cast, setCast] = useState<CastMember[]>([])
-  const [season, setSeason] = useState<Season | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { season, isLoading: seasonLoading, error: seasonError } = useActiveSeason()
+  const cast = useQuery(pathQuery<CastMember[]>(season ? `/seasons/${season.season_id}/cast` : null))
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const active = await getActiveSeason()
-        setSeason(active)
-        if (active) setCast(await api.get<CastMember[]>(`/seasons/${active.season_id}/cast`))
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load cast')
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
-  }, [])
-
-  if (loading) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load the cast">{error}</Notice>
+  if (seasonLoading || cast.isLoading) return <PageLoader />
+  const error = seasonError ?? cast.error
+  if (error) return <Notice tone="error" title="Could not load the cast">{error.message}</Notice>
   if (!season) return <ColdStart />
 
-  const ranked = rankCast(cast)
+  const ranked = rankCast(cast.data ?? [])
 
   return (
     <div>
