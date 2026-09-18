@@ -252,7 +252,7 @@ export function RulesPage() {
 
         <RuleSection id="weekly-play" title="Weekly advantage">
           <RuleList>
-            <li>Each episode you get one advantage to play on your tribe or your ballot. Use it or lose it.</li>
+            <li>Each episode you get one advantage to play on your tribe or your ballot.</li>
             <li><b>On your tribe:</b> a double point boost. One castaway earns double this episode.</li>
             <li>
               <b>On your ballot:</b> a Power Vote, one extra name above your ranked picks
