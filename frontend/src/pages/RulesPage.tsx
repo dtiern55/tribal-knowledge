@@ -296,13 +296,10 @@ export function RulesPage() {
         </RuleSection>
 
         <RuleSection id="scoring" title="Scoring">
-          <p className="text-sm leading-6 text-gray-700">
-            Your total is tribe points, plus ballot points, plus finale bracket points, plus your Sole Survivor bonus, minus any swap costs.
-          </p>
           {tribeEvents.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">No tribe scoring is set up for this season.</p>
+            <p className="text-sm text-gray-500">No tribe scoring is set up for this season.</p>
           ) : (
-            <div className="mt-5 space-y-6">
+            <div className="space-y-6">
               {grouped.map(([title, events]) => events.length > 0 && (
                 <div key={title}>
                   <h3 className="mb-2 font-semibold text-gray-900">{title}</h3>
@@ -348,6 +345,10 @@ export function RulesPage() {
             <li><b>Exile Island and similar trips:</b> count for nothing.</li>
             <li><b>Multiple eliminations:</b> when more than one castaway goes home in an episode, each correct pick scores.</li>
           </RuleList>
+          <p className="mt-4 text-sm leading-6 text-gray-700">
+            I've tried to account for 50 seasons of twists. If this season throws something truly new, I'll score it with
+            my best judgement, within the bounds of these rules, and I'll tell everyone how I ruled.
+          </p>
         </RuleSection>
       </div>
     </div>
