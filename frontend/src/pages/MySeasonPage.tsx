@@ -2782,11 +2782,11 @@ function RosterSection({
         data-pulse={moment != null || undefined}
         // While picking the chip greys out and can't be tapped, but keeps its
         // row so History doesn't jump up when the offer steps aside (#164).
-        // Lifted over the card's scrim (z-50) only while the card is up; left
-        // lifted, the nudge pulse drew over the nav (z-45) and drawer (#799).
-        className={`swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40 disabled:shadow-none ${
-          picking == null && moment === 'popup' ? 'relative z-[60]' : ''
-        }`}
+        // Never lifted above the card's scrim: the pulsing halo painted over
+        // the card's corner, and the animation's compositing layer drew its
+        // own hairline box on top of it. The chip waits under the dim and the
+        // halo is there when the card closes.
+        className="swap-chip inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gold-500 bg-gold-50 px-2.5 py-1 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100 disabled:opacity-40 disabled:shadow-none"
       >
         <span>Swap</span>
         <span
