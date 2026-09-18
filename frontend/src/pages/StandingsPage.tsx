@@ -194,7 +194,7 @@ function HistoryPanel({
   return (
     // A recessed tray under its row, so a player's row and week read as one
     // unit and the next player's row is clearly someone else.
-    <div id={id} className="mx-2.5 mb-2.5 rounded-xl bg-paper-line px-3.5 py-2 shadow-[inset_0_1px_3px_rgb(60_40_20_/_0.18)]">
+    <div id={id} className="week-tray mx-2.5 mb-2.5 rounded-xl bg-paper-line px-3.5 py-2 shadow-[inset_0_1px_3px_rgb(60_40_20_/_0.18)]">
       {waiting ? (
         <p className={note}>Loading…</p>
       ) : episode == null ? (
