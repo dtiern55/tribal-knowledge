@@ -716,16 +716,12 @@ export function MySeasonPage() {
         label: 'Tribe',
         done: rosterDone,
         note: `${active.length} active${swappedThisEpisode ? ' · swapped' : ''}`,
-        played: d.plays.some(
-          (p) => p.episode_id === openEp.id && p.advantage_type === 'double_roster_points',
-        ),
       },
       {
         key: 'ballot',
         label: 'Ballot',
         done: ballotDone,
         note: saved > 0 ? `${saved} of ${maxPicks}` : 'None',
-        played: powerVote != null,
       },
     ]
 
@@ -2599,8 +2595,8 @@ function RosterSection({
 
   const rosterDouble =
     weekly.play?.advantage_type === 'double_roster_points' ? weekly.play : undefined
-  // The doubled row is held in the stage light and says "×2 this week"; the
-  // idol itself sits on the Tribe tab (#694).
+  // The doubled row is held in the stage light and wears the idol stamp; the
+  // tab doesn't repeat it.
   const doubledTarget = rosterDouble?.target_contestant_id ?? null
 
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)

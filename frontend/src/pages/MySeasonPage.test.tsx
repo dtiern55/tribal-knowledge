@@ -646,11 +646,11 @@ describe('MySeasonPage state shell', () => {
     })
     renderWithApp(<MySeasonPage />, { auth })
 
-    // The Tribe tab wears the idol, and so does the doubled portrait (#694, #849).
-    const rosterTab = await screen.findByRole('tab', { name: /^Tribe/ })
-    expect(await within(rosterTab).findByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
-    expect(within(screen.getByRole('tab', { name: /^Ballot/ })).queryByRole('img', { name: 'Advantage played here' })).not.toBeInTheDocument()
-    expect(screen.getByText('Tribe · Kenzie · double points')).toBeVisible()
+    // The idol is stamped on the doubled portrait only; the tabs don't repeat it (#849).
+    expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
+    for (const name of [/^Tribe/, /^Ballot/]) {
+      expect(within(screen.getByRole('tab', { name })).queryByRole('img')).not.toBeInTheDocument()
+    }
     // Played, the strip is gone: the idol is stamped on the doubled portrait,
     // with no "×2" words, and the hero holds Undo.
     const roster = await openBeat('Tribe')
@@ -692,7 +692,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(roster).getByRole('region', { name: 'Advantage' })).toBeVisible()
   })
 
-  it('plays the advantage on the Tribe tab by tap, and the tab wears the idol until Undo', async () => {
+  it('plays the advantage on the Tribe tab by tap, stamped on the portrait until Undo', async () => {
     arrangePlayWorld({})
     renderWithApp(<MySeasonPage />, { auth })
     const roster = await openBeat('Tribe')
@@ -709,8 +709,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
-    // The idol is on the tab and stamped on the doubled portrait (#849).
-    expect(within(screen.getByRole('tab', { name: /^Tribe/ })).getByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
+    // The idol is stamped on the doubled portrait (#849).
     expect(within(roster).getByRole('img', { name: /Double Castaway Points/ })).toBeInTheDocument()
 
     // Undo lives in the hero; the strip comes back with the offer.
@@ -723,7 +722,6 @@ describe('MySeasonPage state shell', () => {
         name: 'Play it here',
       }),
     ).toBeVisible()
-    expect(within(screen.getByRole('tab', { name: /^Tribe/ })).queryByRole('img', { name: 'Advantage played here' })).not.toBeInTheDocument()
   })
 
   it('plays the advantage on the Ballot tab as a Power Vote, by tap and by drag (#673)', async () => {
@@ -762,8 +760,7 @@ describe('MySeasonPage state shell', () => {
         doubled_contestant_id: 'cast-2',
       }),
     )
-    // The record: the Power Vote's gold row first, then the rungs, and the
-    // Ballot tab wears the idol.
+    // The record: the Power Vote's gold row first, then the rungs.
     expect(await within(ballot).findByText('Submitted')).toBeVisible()
     const record = within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })
     expect(within(record).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
@@ -773,7 +770,6 @@ describe('MySeasonPage state shell', () => {
       expect.stringContaining('Open'),
     ])
     expect(within(record).getAllByRole('listitem')[0]).toHaveTextContent('Power Vote')
-    expect(within(screen.getByRole('tab', { name: /^Ballot/ })).getByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
 
     // Moving the Power Vote while editing: drag Maria's slip up into the gold
     // rung. One picks request moves the play; Charlie takes Maria's old rung.
