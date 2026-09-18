@@ -141,6 +141,17 @@ export function ShareIcon({ className }: { className?: string } = {}) {
   )
 }
 
+/** iOS share sheet's "Add to Home Screen" glyph: a plus in a rounded square. */
+export function AddSquareIcon({ className }: { className?: string } = {}) {
+  return (
+    <Svg className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      <path d="M12 8v8" />
+      <path d="M8 12h8" />
+    </Svg>
+  )
+}
+
 export function LogOutIcon() {
   return (
     <Svg>

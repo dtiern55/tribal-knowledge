@@ -7,7 +7,7 @@ import {
   onInstallAvailable,
   promptInstall,
 } from '../lib/install'
-import { DownloadIcon, ShareIcon } from './icons'
+import { AddSquareIcon, DownloadIcon, ShareIcon } from './icons'
 
 /** Manual add-to-home-screen steps for browsers that never fire
  * beforeinstallprompt: every iOS browser, and Firefox on Android. */
@@ -19,7 +19,12 @@ export function InstallSteps() {
         <span className="inline-flex items-center gap-1 font-medium">
           Share <ShareIcon className="h-4 w-4" />
         </span>
-        , then <span className="font-medium">Add to Home Screen</span>.
+        , then{' '}
+        <span className="inline-flex items-center gap-1 font-medium">
+          Add to Home Screen <AddSquareIcon className="h-4 w-4" />
+        </span>
+        . On newer iPhones, Share sits under <span className="font-medium">•••</span>, and Add to
+        Home Screen may be under <span className="font-medium">View More</span>.
       </>
     )
   }
