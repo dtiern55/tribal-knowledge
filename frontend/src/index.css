@@ -565,6 +565,19 @@ html.ballot-room::after {
     0 0 100px rgb(46 107 82 / 0%);
 }
 
+/* A row that folds away instead of leaving in one frame (#826). Its only
+   child is the clip; the grid track does the animating, so the content keeps
+   its natural height and nothing has to be measured. */
+.collapse-rows {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.collapse-rows[data-open='false'] { grid-template-rows: 0fr; }
+.collapse-rows > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* One curve, both directions — leaving is arriving reversed, not a cut. */
   html::after { transition: opacity 1400ms cubic-bezier(0.4, 0, 0.2, 1); }
@@ -577,6 +590,7 @@ html.ballot-room::after {
       box-shadow 520ms cubic-bezier(0.4, 0, 0.2, 1),
       background-image 520ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .collapse-rows { transition: grid-template-rows 520ms cubic-bezier(0.4, 0, 0.2, 1); }
   .stage-row {
     transition:
       background-color 520ms cubic-bezier(0.4, 0, 0.2, 1),

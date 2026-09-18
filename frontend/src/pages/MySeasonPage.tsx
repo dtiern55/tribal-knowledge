@@ -377,6 +377,10 @@ export function MySeasonPage() {
   // open until the halo has finished fading, or the glow is guillotined at the
   // card edge the instant you pick.
   const [stageOpen, setStageOpen] = useState(false)
+  // Lags the room light on the way out only, by the scrim's 1400ms fade. Drop
+  // the lane under the scrim the instant the mode ends and its tabs and frame
+  // go dark in one frame, then swell back up: the click after a pick (#826).
+  const [laneLit, setLaneLit] = useState(false)
   // Tribal Council is the one thing on this page you do alone and in the dark,
   // so the Ballot beat borrows the swap picker's stage lighting: the room goes
   // down, the lane keeps the torch. Leaving the beat — or the page — brings it
@@ -402,6 +406,15 @@ export function MySeasonPage() {
   // of coming back up behind you.
   useEffect(() => {
     document.documentElement.classList.toggle('ballot-room', roomLit)
+  }, [roomLit])
+
+  useEffect(() => {
+    if (roomLit) {
+      setLaneLit(true)
+      return
+    }
+    const timer = window.setTimeout(() => setLaneLit(false), 1400)
+    return () => window.clearTimeout(timer)
   }, [roomLit])
 
   // Leaving the page is not the same as leaving the beat. Empty deps, so this
@@ -907,7 +920,7 @@ export function MySeasonPage() {
           <LaneStack
             lane={beat === 'roster' ? 'jade' : 'terracotta'}
             glowOut={stageOpen}
-            lit={roomLit}
+            lit={laneLit}
           >
           <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
 
@@ -2479,6 +2492,7 @@ function RosterSection({
   // a swap or a designation refreshes it without a version counter.
   const rosterPath = `/league-seasons/${season.id}/roster/${userId}`
   const playsPath = `/league-seasons/${season.id}/advantage-plays/${userId}`
+  const client = useQueryClient()
   const rosterQ = useQuery(pathQuery<RosterPick[]>(rosterPath))
   const roster = rosterQ.data ?? []
   // Distinct from "loaded but empty": until the read lands, an empty roster
@@ -2686,6 +2700,21 @@ function RosterSection({
       }),
     invalidates: [rosterPath, `/league-seasons/${season.id}/scoring-breakdown/${userId}`],
   })
+  // Lands on the tap, the way the double does (#487): the badge moves and the
+  // room comes back up at once, rather than a pause for the round-trip and then
+  // two snaps (#826). The write's refetch reconciles either way, so a refused
+  // designation puts the old one back without a rollback of its own.
+  function designateSoleSurvivor(contestantId: string) {
+    client.setQueryData<RosterPick[]>(['api', rosterPath], (prev) =>
+      prev?.map((p) =>
+        p.active_until_episode === null
+          ? { ...p, is_sole_survivor: p.contestant_id === contestantId }
+          : p,
+      ),
+    )
+    onPickingDone?.()
+    designate.mutate(contestantId)
+  }
   const submit = useApiMutation({
     write: (contestantIds: string[]) =>
       api.quiet.post<RosterPick[]>(`/league-seasons/${season.id}/roster`, {
@@ -2723,7 +2752,6 @@ function RosterSection({
   const advantageStrip =
     weekly.openEpisode == null ||
     weekly.openEpisode.is_finale ||
-    picking === 'swap' ||
     // The picker replaces the rows the idol would land on (#706).
     (windowOpen && editing) ||
     weekly.locked ||
@@ -2785,6 +2813,9 @@ function RosterSection({
         disabled={picking != null}
         onClick={() => {
           setMoment(null)
+          // Cleared on the way in, not out: the strip and the replacements
+          // keep their words while they fold away (#826).
+          setDropping(null)
           onStartSwap?.()
         }}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
@@ -2812,8 +2843,22 @@ function RosterSection({
 
   return (
     <>
-      {advantageStrip}
-      {picking === 'swap' && (
+      {/* A swap folds the offer out of the way rather than pulling it (#826). */}
+      <div
+        className="collapse-rows"
+        data-open={picking !== 'swap'}
+        inert={picking === 'swap'}
+        aria-hidden={picking === 'swap'}
+      >
+        <div>{advantageStrip}</div>
+      </div>
+      <div
+        className="collapse-rows"
+        data-open={picking === 'swap'}
+        inert={picking !== 'swap'}
+        aria-hidden={picking !== 'swap'}
+      >
+        <div>
         <p className="flex items-center gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           <span className="min-w-0 flex-1">
             {dropping
@@ -2826,17 +2871,23 @@ function RosterSection({
           </span>
           <button
             type="button"
-            onClick={() => {
-              setDropping(null)
-              onPickingDone?.()
-            }}
+            onClick={() => onPickingDone?.()}
             className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
           >
             Cancel
           </button>
         </p>
-      )}
-      {picking === 'sole-survivor' && (
+        </div>
+      </div>
+      {/* Always mounted so it can fold away with the room light instead of
+          vanishing in one frame (#826); inert while folded. */}
+      <div
+        className="collapse-rows"
+        data-open={picking === 'sole-survivor'}
+        inert={picking !== 'sole-survivor'}
+        aria-hidden={picking !== 'sole-survivor'}
+      >
+        <div>
         <p className="flex items-center gap-3 border-b border-gold-300 bg-gold-50 px-4 py-2 text-xs font-semibold text-gold-800">
           <span className="min-w-0 flex-1">
             <b>Tap the castaway</b> you're backing to win it all.
@@ -2850,7 +2901,8 @@ function RosterSection({
             Cancel
           </button>
         </p>
-      )}
+        </div>
+      </div>
       {(error || weekly.error) && (
         <p role="alert" className="px-4 py-2 text-sm text-terracotta-600">
           {error ?? weekly.error}
@@ -2915,7 +2967,7 @@ function RosterSection({
                           !designatingSS &&
                           pick.active_until_episode === null &&
                           contestantMap.get(pick.contestant_id)?.eliminated_in_episode == null
-                        ? () => designate.mutate(pick.contestant_id, { onSuccess: () => onPickingDone?.() })
+                        ? () => designateSoleSurvivor(pick.contestant_id)
                         : undefined
                 }
                 selected={
@@ -2939,7 +2991,13 @@ function RosterSection({
             ))}
           </ul>
 
-          {picking === 'swap' && dropping && (
+          <div
+            className="collapse-rows"
+            data-open={picking === 'swap' && dropping != null}
+            inert={!(picking === 'swap' && dropping != null)}
+            aria-hidden={!(picking === 'swap' && dropping != null)}
+          >
+            <div>
             <div className="space-y-2 border-t border-paper-line px-4 py-3">
               {/* The price is the mechanic now, so it reads at full strength
                   rather than as faded helper text. */}
@@ -2960,12 +3018,7 @@ function RosterSection({
                   <button
                     key={c.id}
                     onClick={() =>
-                      swap.mutate(c.id, {
-                        onSuccess: () => {
-                          setDropping(null)
-                          onPickingDone?.()
-                        },
-                      })
+                      swap.mutate(c.id, { onSuccess: () => onPickingDone?.() })
                     }
                     disabled={swapping}
                     className="flex items-center gap-2 p-3 rounded-lg border border-cream-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-forest-500 disabled:opacity-40"
@@ -2982,7 +3035,8 @@ function RosterSection({
                 ))}
               </div>
             </div>
-          )}
+            </div>
+          </div>
 
         </div>
       ) : windowOpen ? (
@@ -4276,11 +4330,21 @@ function PicksSection({
                 </>
               )}
             </div>
-            {!confirmed && (
-              // The picker sits in a recessed tray under the rail, so the
-              // ballot reads as the thing on top and the picker as where the
-              // names come from. The margins cancel this section's padding.
-              <div className="ballot-tray -mx-4 -mb-3.5 px-4 pt-4 pb-3.5 text-center">
+            {/* The margins cancel this section's padding. Save folds the
+                picker into the foot, and Edit folds it back out, rather than
+                swapping one for the other in a frame (#826). */}
+            <div className="-mx-4 -mb-3.5">
+            <div
+              className="collapse-rows"
+              data-open={!confirmed}
+              inert={confirmed}
+              aria-hidden={confirmed}
+            >
+              <div>
+              {/* The picker sits in a recessed tray under the rail, so the
+                  ballot reads as the thing on top and the picker as where the
+                  names come from. */}
+              <div className="ballot-tray px-4 pt-4 pb-3.5 text-center">
                 <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
                 {grid}
                 {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
@@ -4307,15 +4371,17 @@ function PicksSection({
                   )}
                 </div>
               </div>
-            )}
-            {confirmed && (
-              // The lane's own foot, where Tribe keeps Edit tribe. The margins
-              // cancel this section's padding; width auto undoes the foot's
-              // 100%, which is there for the button feet.
-              <div
-                className="lane-card__foot -mx-4 -mb-3.5 mt-2 justify-center gap-2.5 text-sm"
-                style={{ width: 'auto' }}
-              >
+              </div>
+            </div>
+            <div
+              className="collapse-rows"
+              data-open={confirmed}
+              inert={!confirmed}
+              aria-hidden={!confirmed}
+            >
+              <div>
+              {/* The lane's own foot, where Tribe keeps Edit tribe. */}
+              <div className="lane-card__foot mt-2 justify-center gap-2.5 text-sm">
                 <span className="inline-flex items-center gap-1.5 font-semibold text-jade-700">
                   <svg viewBox="0 0 24 24" className="size-3.5 flex-none" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 13l4 4L19 7" />
@@ -4331,7 +4397,9 @@ function PicksSection({
                   Edit ballot
                 </button>
               </div>
-            )}
+              </div>
+            </div>
+            </div>
             </>
           )
         })()}
@@ -4763,35 +4831,11 @@ function SoleSurvivorLine({
   // box restating a decision nobody can change any more is just noise (#487).
   if (!windowOpen) return null
 
-  // Named: a slim confirmation with the flame badge and an Undo.
-  if (designee) {
-    return (
-      <div className="flex items-center gap-3 rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
-        <img src="/sole-survivor-flame-halo.png" alt="" className="h-8 w-auto shrink-0" />
-        <p className="min-w-0 flex-1 text-sm text-paper-ink">
-          <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
-            Sole Survivor
-          </span>
-          {' — '}
-          <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
-        </p>
-        {error && <span className="sr-only" role="alert">{error}</span>}
-        <button
-          type="button"
-          onClick={() => clearDesignation.mutate(undefined)}
-          disabled={saving}
-          className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
-        >
-          Undo
-        </button>
-      </div>
-    )
-  }
-
-  // Unnamed: a compact button that starts the pick — the screen dims and you
-  // tap the castaway you're backing from your Tribe, the way a Swap works
-  // (#164). The lock date and rules sit beneath. The one-time popup explains
-  // the stakes and leaves the button pulsing.
+  // One box for both states, so naming someone folds the rules row away and
+  // shrinks the badge in place rather than swapping in a shorter box (#826).
+  // Unnamed: tap Choose and the screen dims onto your Tribe, the way a Swap
+  // works (#164); the one-time popup explains the stakes and leaves Choose
+  // pulsing. Named: the name and an Undo.
   return (
     <div className="rounded-xl border-2 border-gold-300 bg-gradient-to-br from-gold-50 to-gold-100/70 px-4 py-2.5 shadow-sm">
       {/* The badge anchors both rows: label + Choose on the first, the rules
@@ -4799,38 +4843,67 @@ function SoleSurvivorLine({
           right-aligned under Choose. One row isn't reachable at phone width with
           the full lock timestamp. */}
       <div className="flex items-center gap-3">
-        <img src="/sole-survivor-flame-halo.png" alt="" className="h-10 w-auto shrink-0" />
+        <img
+          src="/sole-survivor-flame-halo.png"
+          alt=""
+          className={`${designee ? 'h-8' : 'h-10'} w-auto shrink-0 motion-safe:transition-[height] motion-safe:duration-500`}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 font-display text-sm font-bold uppercase tracking-wide text-gold-800">
-              Sole Survivor
-            </p>
-            <button
-              type="button"
-              aria-label="Name your Sole Survivor"
-              onClick={() => {
-                setNaming(null)
-                onStartSoleSurvivor?.()
-              }}
-              data-pulse={naming != null || undefined}
-              className="ss-line shrink-0 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
-            >
-              Choose
-            </button>
-          </div>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <RuleLink anchor="sole-survivor">How it works</RuleLink>
-            {lockEpisode && (
-              <LockBadge
-                lockAt={lockEpisode.picks_lock_at}
-                scored={lockEpisode.status === 'scored'}
-                bare
-              />
+            {designee ? (
+              <p className="min-w-0 flex-1 text-sm text-paper-ink">
+                <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-800">
+                  Sole Survivor
+                </span>
+                {' — '}
+                <span className="font-medium text-gray-900">{nameOf(designee.contestant_id)}</span>
+              </p>
+            ) : (
+              <p className="min-w-0 flex-1 font-display text-sm font-bold uppercase tracking-wide text-gold-800">
+                Sole Survivor
+              </p>
             )}
+            {designee ? (
+              <button
+                type="button"
+                onClick={() => clearDesignation.mutate(undefined)}
+                disabled={saving}
+                className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
+              >
+                Undo
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label="Name your Sole Survivor"
+                onClick={() => {
+                  setNaming(null)
+                  onStartSoleSurvivor?.()
+                }}
+                data-pulse={naming != null || undefined}
+                className="ss-line shrink-0 rounded-full border border-gold-500 bg-gold-50 px-4 py-1.5 font-display text-sm font-semibold text-forest-700 shadow-sm transition-colors hover:bg-gold-100"
+              >
+                Choose
+              </button>
+            )}
+          </div>
+          <div className="collapse-rows" data-open={!designee} inert={!!designee} aria-hidden={!!designee}>
+            <div>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <RuleLink anchor="sole-survivor">How it works</RuleLink>
+                {lockEpisode && (
+                  <LockBadge
+                    lockAt={lockEpisode.picks_lock_at}
+                    scored={lockEpisode.status === 'scored'}
+                    bare
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      {error && <p className="mt-1 text-xs text-terracotta-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-terracotta-600" role="alert">{error}</p>}
       {naming === 'popup' &&
         createPortal(
           <Moment titleId="name-ss-title" title="Choose your Sole Survivor" onClose={() => setNaming('nudge')}>
