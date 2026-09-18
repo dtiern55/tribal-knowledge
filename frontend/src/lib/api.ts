@@ -40,28 +40,56 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 // The shell, the drawer and the page all ask for the same things as they
 // mount — /league-seasons went out four times a load, the roster three (#803).
-// A GET already in the air is shared rather than sent again; it clears the
-// moment it settles, so nothing is ever served from a stale read. Sharers get
-// the same parsed body, so callers must treat a response as read-only.
+// A GET already in the air is shared rather than sent again. Sharers get the
+// same parsed body, so callers must treat a response as read-only.
 const inFlight = new Map<string, Promise<unknown>>()
 
+// ...and for a short while after it lands, the answer is kept, so stepping
+// between pages doesn't re-ask for the cast, the episodes or a standings table
+// that costs the server ~350ms to compute (#814). Short, because the one thing
+// this client can't see is the commissioner scoring an episode: anything it
+// does itself empties the cache below.
+const CACHE_MS = 30_000
+const cached = new Map<string, { at: number; body: unknown }>()
+
 function sharedGet<T>(path: string): Promise<T> {
+  const hit = cached.get(path)
+  if (hit && Date.now() - hit.at < CACHE_MS) return Promise.resolve(hit.body as T)
   const existing = inFlight.get(path)
   if (existing) return existing as Promise<T>
-  const request = apiFetch<T>(path).finally(() => inFlight.delete(path))
+  const request = apiFetch<T>(path)
+    .then((body) => {
+      cached.set(path, { at: Date.now(), body })
+      return body
+    })
+    .finally(() => inFlight.delete(path))
   inFlight.set(path, request)
   return request
+}
+
+/** Forget everything cached. Called on every write and when the session
+ *  changes — one player's reads must never survive into another's. */
+export function clearApiCache(): void {
+  cached.clear()
+}
+
+// Any write empties the whole cache rather than reasoning about which paths a
+// swap or a ballot touches. There are ~36 write sites and one of them forgetting
+// to invalidate is a wrong roster on screen; a write is rare enough (a few per
+// player per week) that over-clearing costs nothing worth keeping.
+function mutate<T>(path: string, options: RequestInit): Promise<T> {
+  return apiFetch<T>(path, options).finally(clearApiCache)
 }
 
 export const api = {
   get: <T>(path: string) => sharedGet<T>(path),
   post: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+    mutate<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+    mutate<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+    mutate<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => mutate<T>(path, { method: 'DELETE' }),
 }
 
 // The Standings season pick sticks app-wide (issue: every page independently

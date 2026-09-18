@@ -35,6 +35,18 @@ interface EpisodeVotes {
   eliminatedIds: Set<string>
 }
 
+/** The five reads a team page makes for one player. Named once so the page
+ *  and the swipe prefetch below can't drift apart (#814). */
+function teamPaths(leagueSeasonId: string, userId: string) {
+  return {
+    roster: `/league-seasons/${leagueSeasonId}/roster/${userId}`,
+    breakdown: `/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`,
+    plays: `/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`,
+    picks: `/league-seasons/${leagueSeasonId}/picks/${userId}`,
+    finale: `/league-seasons/${leagueSeasonId}/finale-predictions/${userId}`,
+  }
+}
+
 function Points({ value }: { value: number | undefined }) {
   if (value == null) return null
   const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
@@ -98,12 +110,22 @@ export function TeamPage() {
         ])
         setContestants(cs)
         setEpisodes(episodeRows)
+        // Nothing below reads the request before it, so they all go out
+        // together and are awaited in the order the page wants to set state.
+        const paths = teamPaths(leagueSeasonId!, userId!)
+        const ballotsSent = api
+          .get<Record<string, EliminationPick[]>>(paths.picks)
+          .catch(() => ({}) as Record<string, EliminationPick[]>)
+        const eliminationsSent = api
+          .get<Elimination[]>(`/seasons/${season.season_id}/eliminations`)
+          .catch(() => [])
+        const bracketSent = api.get<FinalePrediction>(paths.finale).catch(() => null)
         try {
           // One trip, not three in a row: nothing here reads the one before it.
           const [savedRoster, breakdown, ownPlays] = await Promise.all([
-            api.get<RosterPick[]>(`/league-seasons/${leagueSeasonId}/roster/${userId}`),
-            api.get<ScoringBreakdown>(`/league-seasons/${leagueSeasonId}/scoring-breakdown/${userId}`),
-            api.get<AdvantagePlay[]>(`/league-seasons/${leagueSeasonId}/advantage-plays/${userId}`).catch(() => []),
+            api.get<RosterPick[]>(paths.roster),
+            api.get<ScoringBreakdown>(paths.breakdown),
+            api.get<AdvantagePlay[]>(paths.plays).catch(() => []),
           ])
           setRoster(savedRoster)
           setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
@@ -127,12 +149,7 @@ export function TeamPage() {
           .sort((a, b) => b.episode_number - a.episode_number)
         // Two requests for the whole ledger, not two per episode (#803). Both
         // answer for locked episodes only, which is all this ledger shows.
-        const [ballots, eliminations] = await Promise.all([
-          api
-            .get<Record<string, EliminationPick[]>>(`/league-seasons/${leagueSeasonId}/picks/${userId}`)
-            .catch(() => ({}) as Record<string, EliminationPick[]>),
-          api.get<Elimination[]>(`/seasons/${season.season_id}/eliminations`).catch(() => []),
-        ])
+        const [ballots, eliminations] = await Promise.all([ballotsSent, eliminationsSent])
         const outByEpisode = new Map<string, Set<string>>()
         for (const row of eliminations) {
           const ids = outByEpisode.get(row.episode_id) ?? new Set<string>()
@@ -148,7 +165,7 @@ export function TeamPage() {
         // The finale ballot is a separate bracket (Final 4/3/winner), not
         // elimination picks; 404 when the player never filed one (they may only
         // have the Sole Survivor designation), 403 until the finale locks.
-        setBracket(await api.get<FinalePrediction>(`/league-seasons/${leagueSeasonId}/finale-predictions/${userId}`).catch(() => null))
+        setBracket(await bracketSent)
         // The player lands last: the page renders the moment it has one, and
         // the Ballot shell latches its open state on that first render. Set
         // earlier, it latched on empty votes and
@@ -171,6 +188,22 @@ export function TeamPage() {
   const nextP = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
   const href = (standing?: StandingEntry) => standing && `/league-seasons/${leagueSeasonId}/team/${standing.user_id}`
   useSwipeNav(href(prevP), href(nextP))
+
+  // The teams either side are read in the background once this one is on
+  // screen, so swiping to them is a render rather than three waves of requests
+  // (#814). Their answers land in the api cache; the season-wide reads this
+  // page also makes are already there from this player's load.
+  const prevId = prevP?.user_id
+  const nextId = nextP?.user_id
+  useEffect(() => {
+    if (!leagueSeasonId || loading) return
+    for (const sibling of [prevId, nextId]) {
+      if (!sibling) continue
+      for (const path of Object.values(teamPaths(leagueSeasonId, sibling))) {
+        void api.get(path).catch(() => {})
+      }
+    }
+  }, [leagueSeasonId, prevId, nextId, loading])
 
   // Keep the current team on screen while swiping to a sibling (#451) — only the
   // first load gets the full torch loader, so stepping through doesn't strobe.
