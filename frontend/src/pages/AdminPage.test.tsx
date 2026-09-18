@@ -210,3 +210,27 @@ describe('AdminPage current rules', () => {
     expect(await screen.findByText('Reveal insights saved.')).toBeVisible()
   })
 })
+
+describe('AdminPage access', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('tells a non-admin the page is not theirs, not that it failed to load', async () => {
+    // `/leagues` is admin-only, so this is what the server actually answers a
+    // non-admin — the refusal the page used to report as an outage (#820).
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/leagues') throw new Error('Administrator access required')
+      if (path === '/league-seasons') return [season]
+      return []
+    })
+
+    renderWithApp(<AdminPage />, {
+      auth: { profile: { id: 'user-1', display_name: 'Player', is_admin: false, leagues: [] } },
+    })
+
+    expect(await screen.findByText('Commissioner access required')).toBeVisible()
+    // The 403 still lands; the refusal must survive it rather than be replaced
+    // by the load-failure notice one render later.
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/leagues'))
+    expect(screen.queryByText('Could not load commissioner tools')).not.toBeInTheDocument()
+  })
+})
