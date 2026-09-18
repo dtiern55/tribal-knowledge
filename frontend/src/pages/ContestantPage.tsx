@@ -1,5 +1,5 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ContestantPortrait } from '../components/ContestantPortrait'
 import { ELIMINATED_DIM } from '../components/ContestantAvatar'
@@ -37,6 +37,7 @@ const bioLabel = (q: string): string => BIO_LABELS[q] ?? q
 
 export function ContestantPage() {
   const { contestantId } = useParams()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   // null = follow the auto default (open while picking, closed after); once the
   // reader toggles it, their choice sticks for the session.
@@ -109,6 +110,19 @@ export function ContestantPage() {
   const nextC = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
   const href = (member?: CastMember) => member && `/contestants/${member.id}${detailSuffix}`
   useSwipeNav(href(prevC), href(nextC))
+
+  // The castaways either side are read in the background once this one is on
+  // screen, portrait included, so a swipe is a render rather than a request
+  // and then an image load (#828, as Team does for players in #814).
+  const ready = perfQuery.isSuccess && !perfQuery.isPlaceholderData
+  useEffect(() => {
+    if (!ready) return
+    for (const member of [prevC, nextC]) {
+      if (!member) continue
+      void queryClient.prefetchQuery(pathQuery(`/contestants/${member.id}/performance`))
+      if (member.image_url) new Image().src = member.image_url
+    }
+  }, [queryClient, ready, prevC, nextC])
 
   // Only the first load gets the full torch loader. Swiping to a sibling keeps
   // the current castaway on screen (softly dimmed) until the next arrives, so

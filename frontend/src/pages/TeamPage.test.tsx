@@ -39,13 +39,14 @@ describe('TeamPage', () => {
       tribe_color: '#7651a1',
       eliminated_in_episode: null,
     } as Contestant
-    const roster = [{
-      id: 'roster-1',
-      contestant_id: contestant.id,
+    const second = { ...contestant, id: 'cast-2', name: 'Rob' } as Contestant
+    const roster = [contestant, second].map((c) => ({
+      id: `roster-${c.id}`,
+      contestant_id: c.id,
       active_from_episode: 2,
       active_until_episode: null,
       is_sole_survivor: false,
-    }] as RosterPick[]
+    })) as RosterPick[]
     const performance = {
       name: contestant.name,
       image_url: null,
@@ -68,7 +69,7 @@ describe('TeamPage', () => {
 
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
-      if (path.endsWith('/contestants')) return [contestant]
+      if (path.endsWith('/contestants')) return [contestant, second]
       if (path.endsWith('/standings')) return [player]
       if (path.endsWith('/episodes')) return [] as Episode[]
       if (path.includes('/roster/')) return roster
@@ -76,7 +77,7 @@ describe('TeamPage', () => {
         return { roster: [{ contestant_id: contestant.id, points: 12 }], picks: [] }
       }
       if (path.includes('/advantage-plays/')) return []
-      if (path === `/contestants/${contestant.id}/performance`) return performance
+      if (path.endsWith('/performance')) return performance
       throw new Error(`Unexpected path: ${path}`)
     })
 
@@ -96,6 +97,11 @@ describe('TeamPage', () => {
     expect(await screen.findByRole('button', { name: /Ep 2/ })).toBeVisible()
     expect(screen.queryByText('Contestant page')).not.toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
+
+    // Expand all opens every castaway card, not only the one tapped (#827).
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(await screen.findAllByRole('button', { name: /Ep 2/ })).toHaveLength(2)
+    expect(api.get).toHaveBeenCalledWith('/contestants/cast-2/performance')
   })
 
   it('reads the teams either side in the background, so a swipe lands ready (#814)', async () => {

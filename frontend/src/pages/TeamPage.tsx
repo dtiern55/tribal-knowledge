@@ -70,7 +70,7 @@ export function TeamPage() {
   // title, which would share state with My Season's Tribe and Ballot (#646).
   // Tribe alone starts open; the rest are a tap or Expand all away.
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({ ...ALL_CLOSED, tribe: true })
-  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
+  const { expanded, perfs, toggleExpand, setExpanded } = useRosterBreakdown()
   // Whether a team has ever been drawn here; see the loader gate below.
   const drawn = useRef(false)
 
@@ -137,8 +137,13 @@ export function TeamPage() {
   const ssBonus = breakdownQ.data?.sole_survivor_bonus ?? 0
   const bracket = bracketQ.data ?? null
 
-  // Each player starts at Tribe open, as the old per-player load left it.
-  useEffect(() => setOpen({ ...ALL_CLOSED, tribe: true }), [userId])
+  // Each player starts at Tribe open, as the old per-player load left it, with
+  // every castaway card closed.
+  useEffect(() => {
+    setOpen({ ...ALL_CLOSED, tribe: true })
+    setExpanded([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset per player only
+  }, [userId])
 
   const idx = siblings.findIndex((standing) => standing.user_id === userId)
   const prevP = idx > 0 ? siblings[idx - 1] : undefined
@@ -262,7 +267,11 @@ export function TeamPage() {
           same record read for someone else, not a dashboard beside it. */}
       <div className="mt-8 flex justify-end">
         <button
-          onClick={() => setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, swapped: true })}
+          onClick={() => {
+            setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, swapped: true })
+            // Every castaway card opens with the sections, not just Tribe (#827).
+            setExpanded(allOpen ? [] : roster.map((pick) => pick.contestant_id))
+          }}
           className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
         >
           {allOpen ? 'Collapse all' : 'Expand all'}
@@ -292,7 +301,7 @@ export function TeamPage() {
                       swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
                       right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                       bioLink={false}
-                      expanded={expandedId === pick.contestant_id}
+                      expanded={expanded.has(pick.contestant_id)}
                       onToggle={() => toggleExpand(pick.contestant_id)}
                     >
                       <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} />
@@ -320,7 +329,7 @@ export function TeamPage() {
                           </span>
                         }
                         bioLink={false}
-                        expanded={expandedId === pick.contestant_id}
+                        expanded={expanded.has(pick.contestant_id)}
                         onToggle={() => toggleExpand(pick.contestant_id)}
                       >
                         <RosterBreakdown

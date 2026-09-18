@@ -2463,7 +2463,7 @@ function RosterSection({
 
   // Tap-to-expand per-episode breakdown (#257): lazy-fetch each contestant's
   // performance the first time its card is opened.
-  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
+  const { expanded, perfs, toggleExpand } = useRosterBreakdown()
 
   // The same roster the page and the Sole Survivor line read, so it is one
   // request and one answer for all three (#816). The writes below name it, so
@@ -2915,7 +2915,7 @@ function RosterSection({
                       ? pick.is_sole_survivor
                       : doubledTarget === pick.contestant_id
                 }
-                expanded={expandedId === pick.contestant_id}
+                expanded={expanded.has(pick.contestant_id)}
                 onToggle={() => toggleExpand(pick.contestant_id)}
               >
                 <RosterBreakdown
@@ -3136,7 +3136,7 @@ function RosterSection({
                     </span>
                   }
                   bioLink={false}
-                  expanded={expandedId === pick.contestant_id}
+                  expanded={expanded.has(pick.contestant_id)}
                   onToggle={() => toggleExpand(pick.contestant_id)}
                 >
                   <RosterBreakdown
