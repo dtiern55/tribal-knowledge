@@ -16,6 +16,7 @@ run against a season nobody has watched yet.
       "safe":           ["Nobody would vote for them this week"],
       "confidence":     "high | medium | low",
       "double_targets": ["Who the room would double"],
+      "swap_targets":   ["Who a swap would pick up"],
       "note":           "free text, echoed back when the week runs"
     }
   }
@@ -57,6 +58,10 @@ Notes from building it:
   swap while your five are all alive, so a name appearing in `likely_boots`
   never triggers one — only a slot that's actually dead does. A free swap
   covers it; past that it costs points.
+- **`swap_targets` is who those swaps pick up.** A lean, not a rule: the
+  named come first, spread across bots by fewest owners, and a loose bot can
+  still pick someone else. Without it, swaps pick up `double_targets`.
+  `bot_read.py --swap-to "A, B"` writes it.
 - **`double_targets` decides who a roster double lands on** — bots only double
   a castaway they actually roster, so naming a whole tribe is fine.
 - **`double_backups` makes that a two-tier read.** When the key is present, a

@@ -12,7 +12,8 @@ they resolve against the season's roster.
         --favor "Aras, Hayden, Ciera" \
         --light "Katie, Tina" \
         --cold "Tyson, Vytas" \
-        --double "Vytas, Tyson, Tina" --dry-run
+        --double "Vytas, Tyson, Tina" \
+        --swap-to "Ciera, Katie" --dry-run
     # looks right? drop --dry-run to write the entry, then run run_bots.
 
 conviction: pileon (one clear target) | strong (a few share it) |
@@ -37,19 +38,22 @@ WEIGHTS = {
 }
 
 
-def build_entry(conviction, favor, light, double, note):
+def build_entry(conviction, favor, light, double, note, swap_to=()):
     """Compact read -> season_N.json episode entry (names already resolved)."""
     w = WEIGHTS[conviction]
     likely = [
         [name, w["top"] if i == 0 else w["favor"]] for i, name in enumerate(favor)
     ]
     likely += [[name, w["light"]] for name in light]
-    return {
+    entry = {
         "likely_boots": likely,
         "double_targets": double,
         "note": note,
         "spread": w["spread"],
     }
+    if swap_to:
+        entry["swap_targets"] = list(swap_to)
+    return entry
 
 
 def _matches(short, full):
@@ -92,6 +96,7 @@ def main():
     ap.add_argument("--light", default="", help="capped-low names")
     ap.add_argument("--cold", default="", help="names that should get ~no votes")
     ap.add_argument("--double", default="", help="roster-double targets")
+    ap.add_argument("--swap-to", default="", help="who swaps should lean toward")
     ap.add_argument("--note", default="", help="override the auto note")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
@@ -104,6 +109,7 @@ def main():
     light = resolve_all(a.light, roster)
     cold = resolve_all(a.cold, roster)
     double = resolve_all(a.double, roster)
+    swap_to = resolve_all(a.swap_to, roster)
     overlap = (set(favor) | set(light)) & set(cold)
     if overlap:
         raise SystemExit(f"cold names are also favored/light: {sorted(overlap)}")
@@ -112,8 +118,9 @@ def main():
         f"{a.conviction} read (Danny, {date.today()}). "
         f"favor: {', '.join(favor) or 'none'}; light: {', '.join(light) or 'none'}; "
         f"cold: {', '.join(cold) or 'none'}. Power ballots follow the votes."
+        + (f" Swaps lean to: {', '.join(swap_to)}." if swap_to else "")
     )
-    entry = build_entry(a.conviction, favor, light, double, note)
+    entry = build_entry(a.conviction, favor, light, double, note, swap_to)
     print(json.dumps({str(a.episode): entry}, indent=1))
     if a.dry_run:
         print("\n--dry-run: not written.")
