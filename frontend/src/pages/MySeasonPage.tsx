@@ -1838,7 +1838,8 @@ function HubCastawayRow({
                 </span>
                 <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">
                   <span className="truncate">{s.name}</span>
-                  {isSS && <SoleSurvivorTorch />}
+                  {/* Snuffed on the recap when this was the week they went out. */}
+                  {isSS && <SoleSurvivorTorch snuffed={s.eliminated_episode != null} />}
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
               </li>
@@ -4984,8 +4985,8 @@ function SoleSurvivorLine({
               </p>
               <p className="mt-0.5 text-sm text-paper-ink">
                 <span className="inline-flex items-center gap-1 align-[-4px]">
-                  <SoleSurvivorTorch />
                   <b className="font-display font-bold text-gold-800">Aubry</b>
+                  <SoleSurvivorTorch />
                 </span>{' '}
                 is your Sole Survivor. In the finale she:
               </p>
