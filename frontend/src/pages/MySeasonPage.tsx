@@ -375,6 +375,10 @@ export function MySeasonPage() {
   // open until the halo has finished fading, or the glow is guillotined at the
   // card edge the instant you pick.
   const [stageOpen, setStageOpen] = useState(false)
+  // Lags the room light on the way out only, by the scrim's 1400ms fade. Drop
+  // the lane under the scrim the instant the mode ends and its tabs and frame
+  // go dark in one frame, then swell back up: the click after a pick (#826).
+  const [laneLit, setLaneLit] = useState(false)
   // Tribal Council is the one thing on this page you do alone and in the dark,
   // so the Ballot beat borrows the swap picker's stage lighting: the room goes
   // down, the lane keeps the torch. Leaving the beat — or the page — brings it
@@ -400,6 +404,15 @@ export function MySeasonPage() {
   // of coming back up behind you.
   useEffect(() => {
     document.documentElement.classList.toggle('ballot-room', roomLit)
+  }, [roomLit])
+
+  useEffect(() => {
+    if (roomLit) {
+      setLaneLit(true)
+      return
+    }
+    const timer = window.setTimeout(() => setLaneLit(false), 1400)
+    return () => window.clearTimeout(timer)
   }, [roomLit])
 
   // Leaving the page is not the same as leaving the beat. Empty deps, so this
@@ -905,7 +918,7 @@ export function MySeasonPage() {
           <LaneStack
             lane={beat === 'roster' ? 'jade' : 'terracotta'}
             glowOut={stageOpen}
-            lit={roomLit}
+            lit={laneLit}
           >
           <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
 
