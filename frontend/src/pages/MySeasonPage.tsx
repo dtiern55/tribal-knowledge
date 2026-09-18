@@ -2493,6 +2493,18 @@ function RosterSection({
   // Pre-lock, default to showing just your picks (so you can plan an advantage
   // on one); the full picker opens on Edit (#218).
   const [editing, setEditing] = useState(false)
+  // Edit, Save and Cancel each take their own button out from under focus
+  // (inert, disabled, unmounted), which dropped it on the body (#846). Hand it
+  // across to whichever side is unfolding; untouched until Edit is first used.
+  const pickerIntroRef = useRef<HTMLParagraphElement>(null)
+  const editTribeRef = useRef<HTMLButtonElement>(null)
+  const editUsed = useRef(false)
+  useEffect(() => {
+    if (!editUsed.current) return
+    const target = editing ? pickerIntroRef.current : editTribeRef.current
+    // The fold animates from where things are now; a scroll would fight it.
+    target?.focus({ preventScroll: true })
+  }, [editing])
 
   // Tap-to-expand per-episode breakdown (#257): lazy-fetch each contestant's
   // performance the first time its card is opened.
@@ -3081,7 +3093,7 @@ function RosterSection({
         >
         <div>
         <div className="p-4">
-          <p className="text-sm text-gray-600 mb-1">
+          <p ref={pickerIntroRef} tabIndex={-1} className="text-sm text-gray-600 mb-1 outline-none">
             {hasRoster
               ? `Rearrange your tribe freely before episode ${season.roster_lock_episode} — no penalty.`
               : `Choose ${season.roster_size} castaways for your tribe.`}
@@ -3175,8 +3187,10 @@ function RosterSection({
         <div className="collapse-rows" data-open={!editing} inert={editing} aria-hidden={editing}>
         <div>
         <button
+          ref={editTribeRef}
           type="button"
           onClick={() => {
+            editUsed.current = true
             setSelected(new Set(savedContestantIds))
             setEditing(true)
           }}
