@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router'
@@ -211,5 +212,69 @@ describe('TeamPage', () => {
     expect(idol.closest('span[class*="jade"]')).toHaveTextContent('Kenzie')
     expect(screen.queryByRole('button', { name: /^Advantages/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
+  })
+
+  it('stays drawn when a forgiven refusal is retried (#822)', async () => {
+    // Another player's team pre-lock: the per-player reads all refuse, which
+    // this page forgives. A refused query holds no data, so a refetch resets
+    // it to pending — on every window focus, and after every write anywhere in
+    // the app — and the page must not re-enter its loading state for it.
+    const refused = [
+      '/league-seasons/season-1/roster/friend-1',
+      '/league-seasons/season-1/scoring-breakdown/friend-1',
+      '/league-seasons/season-1/advantage-plays/friend-1',
+      '/league-seasons/season-1/picks/friend-1',
+      '/league-seasons/season-1/finale-predictions/friend-1',
+    ]
+    const player = {
+      user_id: 'friend-1', display_name: 'Friend', roster_points: 0, elimination_points: 0,
+      finale_points: 0, total_points: 0, trend: null, trend_delta: 0, last_episode_points: 0,
+      active_survivors: [], recently_eliminated_survivors: [], sole_survivor_contestant_id: null,
+    } as StandingEntry
+    const asked: string[] = []
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      asked.push(path)
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
+      if (path === '/seasons/season-1/contestants') return [] as Contestant[]
+      if (path === '/seasons/season-1/episodes') return [] as Episode[]
+      if (path === '/seasons/season-1/eliminations') return []
+      if (path === '/league-seasons/season-1/standings') return [player]
+      if (refused.includes(path)) {
+        // Refuses at once the first time; the retry stays in the air, so the
+        // page can be read while the refused query is back to pending.
+        if (asked.filter((p) => p === path).length > 1) return new Promise(() => {}) as Promise<never>
+        throw new ApiError('Not yet', 403)
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    // The test holds the cache so it can trigger the retry itself.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1', client },
+    )
+
+    const heading = await screen.findByRole('heading', { name: /Friend's Season/ })
+    expect(screen.getByText('Team details are still private')).toBeVisible()
+
+    // What a window focus or a write elsewhere does: everything refetches. The
+    // turn of the event loop is what gets the refetch's pending state on
+    // screen — react-query notifies through a microtask, so an act with
+    // nothing awaited in it returns before React has seen it.
+    await act(async () => {
+      void client.invalidateQueries()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    // The retry really went out and is still out, or this proves nothing: the
+    // refusal notice is gone because the read is pending again.
+    expect(asked.filter((p) => p === refused[0])).toHaveLength(2)
+    expect(screen.queryByText('Team details are still private')).not.toBeInTheDocument()
+    // The team is still on screen, not back behind the loading state.
+    expect(heading).toBeVisible()
+    expect(heading.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'false')
   })
 })

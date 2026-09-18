@@ -100,11 +100,20 @@ export function WatchPage() {
     (season != null && (castQ.isPending || episodesQ.isPending || rulesQ.isPending)) ||
     // The one render between the schedule landing and the latch above.
     (episodesQ.data != null && episodesQ.data.length > 0 && episodeId == null) ||
-    (episodeId != null && savedQ.isPending)
+    // The saved copy is the forgiven read here — it is not in the error gate
+    // below, because nothing saved yet (a 404) or offline falls back to this
+    // device's copy. So it waits on "has it answered", not on "is it pending":
+    // a refetch of a query holding no data resets it to pending, and an errored
+    // query is always stale, so on `isPending` every window focus would flash
+    // the loader over a night's tracking — mid-episode, which is exactly when
+    // the phone is being picked up and put down.
+    (episodeId != null && !savedQ.isFetched)
   const error = seasonQ.error ?? castQ.error ?? episodesQ.error ?? rulesQ.error
 
   // Seed the editable tracker once, when the saved copy has answered either way.
   // A refusal (offline, nothing saved yet) falls back to this device's copy.
+  // `isPending` is the honest test for a *first* answer, and `loaded` latches,
+  // so the reset a later refetch causes can't re-seed over the night's work.
   useEffect(() => {
     if (!episodeId || loaded || savedQ.isPending) return
     const server = savedQ.data?.data

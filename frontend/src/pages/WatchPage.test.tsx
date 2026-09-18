@@ -1,7 +1,8 @@
+import { QueryClient } from '@tanstack/react-query'
 import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { WatchPage } from './WatchPage'
@@ -110,5 +111,49 @@ describe('WatchPage', () => {
   it('gates non-commissioners out', async () => {
     renderWithApp(<WatchPage />, { auth: { profile: { id: 'u2', display_name: 'Player', is_admin: false, leagues: [] } } })
     expect(await screen.findByText('Commissioner access required')).toBeInTheDocument()
+  })
+
+  it('stays on screen when the refused tracker read is retried (#822)', async () => {
+    // Nothing saved for this episode yet, so the tracker read 404s and the page
+    // forgives it — this device's copy is the fallback. A refused query holds no
+    // data, so a refetch resets it to pending, on every window focus and after
+    // every write anywhere in the app. Mid-episode that is constant, and the
+    // page must not flash its loader over the night's tracking each time.
+    const watchPath = '/league-seasons/ls-1/episodes/ep-1/watch'
+    const asked: string[] = []
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      asked.push(path)
+      if (path === '/league-seasons') return Promise.resolve([season]) as never
+      if (path === '/seasons/season-1/cast') return Promise.resolve(cast) as never
+      if (path === '/seasons/season-1/episodes') return Promise.resolve([episode]) as never
+      if (path === '/league-seasons/ls-1/rules') return Promise.resolve(rules) as never
+      if (path === watchPath) {
+        // Refuses at once the first time; the retry stays in the air, so the
+        // page can be read while the refused query is back to pending.
+        if (asked.filter((p) => p === path).length > 1) return new Promise(() => {}) as never
+        return Promise.reject(new ApiError('No tracker saved', 404)) as never
+      }
+      return Promise.reject(new Error(`Unexpected path: ${path}`)) as never
+    })
+
+    // The test holds the cache so it can trigger the retry itself.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithApp(<WatchPage />, { ...admin, client })
+
+    expect(await screen.findByRole('heading', { name: 'Watch tracker' })).toBeVisible()
+
+    // What a window focus or a write elsewhere does: everything refetches. The
+    // turn of the event loop is what gets the refetch's pending state on
+    // screen — react-query notifies through a microtask, so an act with
+    // nothing awaited in it returns before React has seen it.
+    await act(async () => {
+      void client.invalidateQueries()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    // The retry really went out and is still out, or this proves nothing.
+    expect(asked.filter((p) => p === watchPath)).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: 'Watch tracker' })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Extras/ })).toBeVisible()
   })
 })
