@@ -116,9 +116,10 @@ export function RosterCard({
 
   const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`
 
-  // The Sole Survivor leads the name with the same hand torch the locked and
-  // recap Field use (#839), snuffed once they're voted out. The portrait corner
-  // stays free: on the recap it already says who is still in.
+  // The Sole Survivor follows the name with the same hand torch the locked and
+  // recap Field use (#839), snuffed once they're voted out. After the name, so
+  // every name in the column starts on the same line; off the portrait, whose
+  // corner on the recap already says who is still in.
   const inner = (
     <>
       <span
@@ -129,6 +130,13 @@ export function RosterCard({
       </span>
       <span className="min-w-0 text-left">
         <span className="flex items-center gap-1.5">
+          <span
+            className={`min-w-0 truncate font-display uppercase ${
+              prominent ? 'text-[1.05rem] font-semibold' : 'text-base tracking-wide'
+            } ${outEp != null ? `text-paper-ink-faded ${ELIMINATED_STRIKE}` : 'text-paper-ink'}`}
+          >
+            {name}
+          </span>
           {isSoleSurvivor && (
             <span
               className="inline-flex shrink-0"
@@ -137,16 +145,9 @@ export function RosterCard({
               }`}
             >
               <SoleSurvivorTorch snuffed={outEp != null} className="h-[18px] w-3" />
-              <span className="sr-only">Sole Survivor · </span>
+              <span className="sr-only"> · Sole Survivor</span>
             </span>
           )}
-          <span
-            className={`min-w-0 truncate font-display uppercase ${
-              prominent ? 'text-[1.05rem] font-semibold' : 'text-base tracking-wide'
-            } ${outEp != null ? `text-paper-ink-faded ${ELIMINATED_STRIKE}` : 'text-paper-ink'}`}
-          >
-            {name}
-          </span>
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {note && (

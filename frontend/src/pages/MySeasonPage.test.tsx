@@ -1705,9 +1705,11 @@ describe('MySeasonPage state shell', () => {
     // locked roster drops him.
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument()
-    // Kenzie is the designated Sole Survivor: a gold name with a screen-reader
-    // label, nothing louder (#685).
-    await waitFor(() => expect(screen.getByText('Kenzie')).toHaveClass('text-gold-700'))
+    // Kenzie is the designated Sole Survivor: the torch after the name and a
+    // screen-reader label, nothing louder (#685, #839).
+    await waitFor(() =>
+      expect(screen.getByText('Kenzie').parentElement!.querySelector('.sole-survivor-torch')).toBeInTheDocument(),
+    )
     expect(screen.getByText('· Sole Survivor')).toBeInTheDocument()
   })
 

@@ -8,6 +8,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { HubBallotMark, PlayMark } from '../components/HubPlayMarks'
+import { SoleSurvivorTorch } from '../components/SoleSurvivorTorch'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
 import { ADV_LABELS } from '../lib/advantages'
@@ -225,14 +226,13 @@ function HistoryPanel({
                       <span className={lost ? ELIMINATED_DIM : undefined}>
                         <ContestantAvatar name={member.name} imageUrl={member.image_url} size="sm" tribeColor={member.tribe_color} tribeName={member.tribe_name} />
                       </span>
-                      <span
-                        className={`truncate ${lost ? ELIMINATED_STRIKE : ''} ${
-                          isSoleSurvivor ? 'font-semibold text-gold-700' : 'text-paper-ink'
-                        }`}
-                        title={isSoleSurvivor ? 'Their Sole Survivor' : undefined}
-                      >
-                        {member.name}
-                      </span>
+                      <span className={`truncate text-paper-ink ${lost ? ELIMINATED_STRIKE : ''}`}>{member.name}</span>
+                      {isSoleSurvivor && (
+                        <span className="inline-flex shrink-0" title="Their Sole Survivor">
+                          <SoleSurvivorTorch snuffed={lost} />
+                          <span className="sr-only">Sole Survivor</span>
+                        </span>
+                      )}
                       {isDoubled && <PlayMark text="×2" title="Double Castaway Points on them this episode" />}
                       <span
                         className={`ml-auto shrink-0 font-medium tabular-nums ${

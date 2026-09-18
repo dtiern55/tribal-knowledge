@@ -1335,12 +1335,15 @@ function LockedState({
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    {/* The Sole Survivor pick is a gold name and no more: it
-                        does not matter to this episode (#685). */}
-                    <span className={`truncate font-medium ${pick.is_sole_survivor ? (broadcast ? 'text-gold-300' : 'text-gold-700') : ''}`}>
-                      {name}
-                      {pick.is_sole_survivor && <span className="sr-only"> · Sole Survivor</span>}
-                    </span>
+                    {/* The Sole Survivor pick is the torch after the name and
+                        no more: it does not matter to this episode (#685). */}
+                    <span className="truncate font-medium">{name}</span>
+                    {pick.is_sole_survivor && (
+                      <>
+                        <SoleSurvivorTorch className="-ml-1 h-4 w-3 shrink-0" />
+                        <span className="sr-only"> · Sole Survivor</span>
+                      </>
+                    )}
                   </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
@@ -1834,8 +1837,8 @@ function HubCastawayRow({
                   )}
                 </span>
                 <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">
-                  {isSS && <SoleSurvivorTorch />}
                   <span className="truncate">{s.name}</span>
+                  {isSS && <SoleSurvivorTorch />}
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
               </li>
