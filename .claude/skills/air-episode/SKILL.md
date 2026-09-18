@@ -353,13 +353,16 @@ turn it into the `season_<n>.json` entry:
 ```
 uv run python scripts/bot_read.py --season <n> --episode {N+1} \
   --conviction <pileon|strong|lean|crapshoot> \
-  --favor "..." --light "..." --cold "..." --double "..." --dry-run
+  --favor "..." --light "..." --cold "..." --double "..." \
+  [--swap-to "..."] --dry-run
 ```
 
 `conviction` sets `spread` + weight steepness (pileon = one target; strong = a
 few; lean = favored, small edge; crapshoot = wide/no read); `favor`/`light`/
 `cold` are the boot lean; **power ballots always follow the votes** (baked in,
-never stated). Drop `--dry-run` to write the entry, then run `run_bots` above.
+never stated). `--swap-to` is optional: who bots swapping off a voted-out
+castaway should pick up (a lean; without it they pick up `--double` names).
+Drop `--dry-run` to write the entry, then run `run_bots` above.
 The mechanics it encodes are documented below — read them to sanity-check or to
 hand-tune an edge case.
 

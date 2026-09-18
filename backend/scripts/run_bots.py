@@ -537,6 +537,24 @@ def swap_penalty(season, ordinal) -> int:
     return max(season["swap_penalty_step"] * ordinal, season["swap_penalty_floor"])
 
 
+def swap_in_order(pool: list, swap_to: set, targets: set, owned: dict) -> list:
+    """Who a bot would swap in, best first, for biased_order to draw from.
+
+    `swap_targets` is a lean (#776): the named come first and the rest follow,
+    so a strict bot takes a named castaway and a loose one can stray. Without
+    it, a bot stays on the double targets as before. Fewest owners first
+    within each group, or every bot picks the same name.
+    """
+
+    def by_owned(cs: list) -> list:
+        return sorted(cs, key=lambda c: owned.get(c, 0))
+
+    named = [c for c in pool if c in swap_to]
+    if named:
+        return by_owned(named) + by_owned([c for c in pool if c not in swap_to])
+    return by_owned([c for c in pool if c in targets] or pool)
+
+
 def do_swap(cur, uid, lsid, ep, old_pick, new_cid, penalty):
     """Mirrors POST /roster/swap: close the old row with its penalty, open the
     new one. The swap no longer touches the weekly play (#404)."""
@@ -604,6 +622,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     backups = set(
         resolve(cur, sid, ep_read.get("double_backups", []), "double_backups")
     )
+    swap_to = set(resolve(cur, sid, ep_read.get("swap_targets", []), "swap_targets"))
     # Castaways the room simply won't vote for this week. Without this they
     # fall into `others` and the looser bots hand them votes
     # anyway, which contradicts a read that says nobody would.
@@ -615,9 +634,8 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
     alive = alive_ids(cur, sid)
     # Redemption Island residents stay alive for rosters but are off the
     # ballot, the way the app hides them and the API refuses them (#655).
-    votable = [
-        c for c in alive if c not in set(redemption_island_ids(cur, episode_n, alive))
-    ]
+    island = set(redemption_island_ids(cur, episode_n, alive))
+    votable = [c for c in alive if c not in island]
     live_pairs = [
         (c, w) for c, w in zip(boots, boot_weights) if c in votable and c not in safe
     ]
@@ -695,8 +713,7 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
                 # Order by how few people already own them, or every bot picks
                 # whoever sorts first and the whole league swaps in one name.
                 pool = [c for c in add_pool if c not in shunned] or add_pool
-                want = [c for c in pool if c in targets] or pool
-                want = sorted(want, key=lambda c: owned.get(c, 0))
+                want = swap_in_order(pool, swap_to, targets, owned)
                 new = biased_order(want, spread, uid, episode_n, "swapin", out["cid"])[
                     0
                 ]
@@ -850,9 +867,13 @@ def week(cur, episode_n: int, league_name: str, season_number: int):
         # The read is forward-looking and has no opinion on who wins, so this
         # is a coin toss across the bot's live roster rather than a judgement.
         # alive_ids already excludes the eliminated, who aren't valid (#180).
+        # Bots also pass over anyone on Redemption Island (#784). Humans may
+        # still crown one; that's a bot-only rule.
         if ss_open and not has_sole_survivor(cur, uid, lsid):
             live = [
-                p["cid"] for p in active_roster(cur, uid, lsid) if p["cid"] in alive
+                p["cid"]
+                for p in active_roster(cur, uid, lsid)
+                if p["cid"] in alive and p["cid"] not in island
             ]
             if live:
                 cur.execute(

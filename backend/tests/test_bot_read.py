@@ -35,3 +35,9 @@ def test_resolve_short_names():
         resolve("Laura", ROSTER)  # ambiguous — two Lauras, no initial
     with pytest.raises(SystemExit):
         resolve("Rupert", ROSTER)  # not on this roster
+
+
+def test_swap_to_is_written_only_when_given():
+    assert "swap_targets" not in build_entry("lean", [], [], [], "n")
+    e = build_entry("lean", [], [], [], "n", ["Aras Baskauskas"])
+    assert e["swap_targets"] == ["Aras Baskauskas"]
