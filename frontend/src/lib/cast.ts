@@ -5,6 +5,24 @@ import type { CastMember } from '../types'
  * this server-side). */
 export const displayName = (c: { name: string; nickname?: string | null }) => c.nickname || c.name
 
+/** After the merge everyone still in the game shares one tribe, so naming it
+ *  on each castaway says nothing (#839). Redemption Island is a holding pen,
+ *  not a second tribe, so its castaways don't count against the merge. */
+export function isMerged(
+  cast: {
+    eliminated_in_episode: number | null
+    tribe_name: string | null
+    on_redemption_from_episode?: number | null
+  }[],
+): boolean {
+  const tribes = new Set(
+    cast
+      .filter((c) => c.eliminated_in_episode == null && c.on_redemption_from_episode == null && c.tribe_name)
+      .map((c) => c.tribe_name),
+  )
+  return tribes.size === 1
+}
+
 export function castStatus(member: Pick<CastMember, 'placement' | 'eliminated_in_episode'>) {
   if (member.placement != null) return `Placed #${member.placement}`
   if (member.eliminated_in_episode != null) return `Eliminated in episode ${member.eliminated_in_episode}`

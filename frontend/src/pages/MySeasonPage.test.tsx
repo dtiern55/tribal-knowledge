@@ -1705,9 +1705,11 @@ describe('MySeasonPage state shell', () => {
     // locked roster drops him.
     expect(await screen.findByText('Kenzie')).toBeVisible()
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument()
-    // Kenzie is the designated Sole Survivor: a gold name with a screen-reader
-    // label, nothing louder (#685).
-    await waitFor(() => expect(screen.getByText('Kenzie')).toHaveClass('text-gold-700'))
+    // Kenzie is the designated Sole Survivor: the torch after the name and a
+    // screen-reader label, nothing louder (#685, #839).
+    await waitFor(() =>
+      expect(screen.getByText('Kenzie').parentElement!.querySelector('.sole-survivor-torch')).toBeInTheDocument(),
+    )
     expect(screen.getByText('· Sole Survivor')).toBeInTheDocument()
   })
 
@@ -1757,6 +1759,26 @@ describe('MySeasonPage state shell', () => {
     expect(api.quiet.post).toHaveBeenCalledWith(
       '/league-seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
+    )
+  })
+
+  it('marks your Sole Survivor with the torch in the recap Tribe lane (#839)', async () => {
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z')]
+      }
+      if (path.endsWith('/reveal')) return result()
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-4', contestant_id: 'cast-4', active_from_episode: 1, active_until_episode: null, is_sole_survivor: true }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      return []
+    })
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() =>
+      expect(within(dialog).getByText('Tiffany').parentElement!.querySelector('.sole-survivor-torch')).toBeInTheDocument(),
     )
   })
 

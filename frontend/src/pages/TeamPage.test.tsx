@@ -104,6 +104,55 @@ describe('TeamPage', () => {
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-2/performance')
   })
 
+  it('tucks an old boot under Snuffed and retires the swap chip once it has aired, like My Season', async () => {
+    const player = {
+      user_id: 'friend-1', display_name: 'Friend', roster_points: 0, elimination_points: 0,
+      finale_points: 0, total_points: 0, trend: null, trend_delta: 0, last_episode_points: 0,
+      active_survivors: [], recently_eliminated_survivors: [], sole_survivor_contestant_id: null,
+    } as StandingEntry
+    const cast = (id: string, name: string, eliminated_in_episode: number | null = null) =>
+      ({ id, name, image_url: null, tribe_name: null, tribe_color: null, eliminated_in_episode }) as Contestant
+    // Episodes 1-5 have aired; 6 is open.
+    const episodes = [1, 2, 3, 4, 5, 6].map((n) => ({
+      id: `episode-${n}`, episode_number: n, is_finale: false, title: null,
+      status: n <= 5 ? 'scored' : 'upcoming',
+      picks_lock_at: n <= 5 ? '2026-08-01T00:00:00Z' : '2099-01-01T00:00:00Z',
+    })) as Episode[]
+    const pick = (contestant_id: string, active_from_episode: number) =>
+      ({ id: `roster-${contestant_id}`, contestant_id, active_from_episode, active_until_episode: null, is_sole_survivor: false }) as RosterPick
+    const contestants = [cast('old', 'Oldboot', 3), cast('new', 'Newboot', 5), cast('aired', 'Aired'), cast('fresh', 'Fresh')]
+
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1', roster_lock_episode: 2 }
+      if (path.endsWith('/contestants')) return contestants
+      if (path.endsWith('/standings')) return [player]
+      if (path.endsWith('/episodes')) return episodes
+      if (path.includes('/roster/')) return [{ ...pick('old', 2), is_sole_survivor: true }, pick('new', 2), pick('aired', 3), pick('fresh', 6)]
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.includes('/advantage-plays/')) return []
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1' },
+    )
+
+    // Newboot went out last episode, so it stays on the Tribe list a week;
+    // Oldboot has moved down to Snuffed (closed until opened).
+    expect(await screen.findByText('Newboot')).toBeVisible()
+    expect(screen.queryByText('Oldboot')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Snuffed/ }))
+    expect(await screen.findByText('Oldboot')).toBeVisible()
+    // Oldboot was their Sole Survivor: the snuffed torch goes with them.
+    expect(screen.getByText('Oldboot').parentElement!.querySelector('.sole-survivor-torch')).toBeInTheDocument()
+    // The chip marks a swap-in until their first episode on the team airs.
+    expect(screen.getByTitle('Swapped onto the tribe in episode 6')).toBeVisible()
+    expect(screen.queryByTitle('Swapped onto the tribe in episode 3')).not.toBeInTheDocument()
+  })
+
   it('reads the teams either side in the background, so a swipe lands ready (#814)', async () => {
     const standing = (user_id: string, display_name: string, total_points: number) =>
       ({

@@ -21,7 +21,6 @@ function renderCard(overrides: Partial<ComponentProps<typeof RosterCard>> = {}) 
         contestantId={contestant.id}
         contestant={contestant}
         isSoleSurvivor
-        showSoleSurvivorHalo
         bioLink={false}
         {...overrides}
       />
@@ -29,29 +28,23 @@ function renderCard(overrides: Partial<ComponentProps<typeof RosterCard>> = {}) 
   )
 }
 
-describe('RosterCard Sole Survivor halo', () => {
-  it('adds the prominent halo only when My Season opts into it', () => {
-    const { rerender } = renderCard({ prominent: true })
-    expect(screen.getByAltText('Maya').parentElement).toHaveClass(
-      'sole-survivor-halo',
-      'sole-survivor-halo--prominent',
-    )
+describe('RosterCard Sole Survivor torch', () => {
+  it('leads the name with a lit torch, and none for anyone else', () => {
+    const { container, rerender } = renderCard()
+    expect(container.querySelector('.sole-survivor-torch')).toBeInTheDocument()
+    expect(screen.getByText(/Sole Survivor/)).toHaveClass('sr-only')
 
     rerender(
       <ul>
-        <RosterCard
-          contestantId={contestant.id}
-          contestant={contestant}
-          isSoleSurvivor
-          bioLink={false}
-        />
+        <RosterCard contestantId={contestant.id} contestant={contestant} bioLink={false} />
       </ul>,
     )
-    expect(screen.getByAltText('Maya').parentElement).not.toHaveClass('sole-survivor-halo')
+    expect(container.querySelector('.sole-survivor-torch')).not.toBeInTheDocument()
   })
 
-  it('snuffs the halo when the designee has been eliminated', () => {
-    renderCard({ contestant: { ...contestant, eliminated_in_episode: 8 } })
-    expect(screen.getByAltText('Maya').parentElement).toHaveClass('sole-survivor-halo--snuffed')
+  it('snuffs the torch when the designee has been eliminated', () => {
+    const { container } = renderCard({ contestant: { ...contestant, eliminated_in_episode: 8 } })
+    const torch = container.querySelector('.sole-survivor-torch')!
+    expect(torch.querySelector('[fill="#e85d2a"]')).toBeNull()
   })
 })

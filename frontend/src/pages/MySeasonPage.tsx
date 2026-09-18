@@ -6,7 +6,7 @@ import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { activeSeason, api } from '../lib/api'
 import { pathQuery, useApiMutation } from '../lib/queries'
-import { displayName } from '../lib/cast'
+import { displayName, isMerged } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
@@ -1041,6 +1041,7 @@ export function MySeasonPage() {
         <EpisodeResultReveal
           result={displayResult}
           mode={recapMode}
+          soleSurvivorId={d.roster.find((pick) => pick.is_sole_survivor)?.contestant_id ?? null}
           onContinue={recapMode === 'automatic' ? acknowledgeResult : undefined}
           onClose={recapMode === 'replay' ? () => setRecapParam(null) : undefined}
           onPrev={recapMode === 'replay' && prevRecapId ? () => setRecapParam(prevRecapId) : undefined}
@@ -1335,12 +1336,15 @@ function LockedState({
                       tribeName={contestant?.tribe_name ?? null}
                       size="sm"
                     />
-                    {/* The Sole Survivor pick is a gold name and no more: it
-                        does not matter to this episode (#685). */}
-                    <span className={`truncate font-medium ${pick.is_sole_survivor ? (broadcast ? 'text-gold-300' : 'text-gold-700') : ''}`}>
-                      {name}
-                      {pick.is_sole_survivor && <span className="sr-only"> · Sole Survivor</span>}
-                    </span>
+                    {/* The Sole Survivor pick is the torch after the name and
+                        no more: it does not matter to this episode (#685). */}
+                    <span className="truncate font-medium">{name}</span>
+                    {pick.is_sole_survivor && (
+                      <>
+                        <SoleSurvivorTorch className="-ml-1 h-4 w-3 shrink-0" />
+                        <span className="sr-only"> · Sole Survivor</span>
+                      </>
+                    )}
                   </span>
                   {played?.advantage_type === 'double_roster_points' &&
                     played.target_contestant_id === pick.contestant_id && (
@@ -1834,8 +1838,9 @@ function HubCastawayRow({
                   )}
                 </span>
                 <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">
-                  {isSS && <SoleSurvivorTorch />}
                   <span className="truncate">{s.name}</span>
+                  {/* Snuffed on the recap when this was the week they went out. */}
+                  {isSS && <SoleSurvivorTorch snuffed={s.eliminated_episode != null} />}
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
               </li>
@@ -2579,6 +2584,7 @@ function RosterSection({
       (e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e),
     )
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const merged = isMerged(contestants)
 
   // Light gold SS outline while the designation window is open, solid once
   // locked (#190).
@@ -2974,8 +2980,8 @@ function RosterSection({
                 key={pick.id}
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
+                showTribe={!merged}
                 isSoleSurvivor={pick.is_sole_survivor}
-                showSoleSurvivorHalo
                 soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                 isDoubled={doubledTarget === pick.contestant_id}
                 seal={false}
@@ -3252,6 +3258,9 @@ function RosterSection({
                   key={pick.id}
                   contestantId={pick.contestant_id}
                   contestant={contestantMap.get(pick.contestant_id)}
+                  showTribe={!merged}
+                  // A snuffed Sole Survivor keeps its snuffed torch for the rest of the season.
+                  isSoleSurvivor={pick.is_sole_survivor}
                   right={
                     <span className="flex items-center gap-2 text-xs">
                       <Points value={rosterPoints.get(pick.contestant_id)} />
@@ -4911,10 +4920,8 @@ function SoleSurvivorLine({
           right-aligned under Choose. One row isn't reachable at phone width with
           the full lock timestamp. */}
       <div className="flex items-center gap-3">
-        <img
-          src="/sole-survivor-flame-halo.png"
-          alt=""
-          className={`${designee ? 'h-8' : 'h-10'} w-auto shrink-0 motion-safe:transition-[height] motion-safe:duration-500`}
+        <SoleSurvivorTorch
+          className={`${designee ? 'h-8' : 'h-10'} aspect-[2/3] shrink-0 motion-safe:transition-[height] motion-safe:duration-500`}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -4984,8 +4991,8 @@ function SoleSurvivorLine({
               </p>
               <p className="mt-0.5 text-sm text-paper-ink">
                 <span className="inline-flex items-center gap-1 align-[-4px]">
-                  <img src="/sole-survivor-flame-halo.png" alt="" className="h-4 w-auto" />
                   <b className="font-display font-bold text-gold-800">Aubry</b>
+                  <SoleSurvivorTorch />
                 </span>{' '}
                 is your Sole Survivor. In the finale she:
               </p>

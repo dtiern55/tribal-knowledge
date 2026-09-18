@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
-import { Torch, TorchDefs } from './Torch'
+import { SoleSurvivorTorch } from './SoleSurvivorTorch'
 import { displayName } from '../lib/cast'
 
 /**
@@ -23,7 +23,7 @@ export function RosterCard({
   contestantId,
   contestant,
   isSoleSurvivor = false,
-  showSoleSurvivorHalo = false,
+  showTribe = true,
   soleSurvivorBonus = 0,
   isDoubled = false,
   ssWindowOpen = false,
@@ -44,9 +44,10 @@ export function RosterCard({
   contestantId: string
   contestant: Contestant | undefined
   isSoleSurvivor?: boolean
-  showSoleSurvivorHalo?: boolean
-  // The +50% finale bonus this designation earned, named on the badge so the
-  // points land somewhere visible. 0 shows just the badge (no bonus yet).
+  // Off after the merge, when every castaway would name the same tribe.
+  showTribe?: boolean
+  // The +50% finale bonus this designation earned, named in the torch's
+  // tooltip. 0 leaves it out (no bonus yet).
   soleSurvivorBonus?: number
   isDoubled?: boolean
   ssWindowOpen?: boolean
@@ -90,7 +91,7 @@ export function RosterCard({
   // a boot shows when it happened instead. A swap-in is provenance, not a
   // replacement for the tribe — it rides as its own tag so the tribe stays
   // visible (#406 review).
-  const note = outEp != null ? `Out · episode ${outEp}` : (contestant?.tribe_name ?? null)
+  const note = outEp != null ? `Out · episode ${outEp}` : showTribe ? (contestant?.tribe_name ?? null) : null
   // On the team card the doubled row says so in its own tribe line — the idol
   // by the score is the mark, this is the words (My Season redesign).
   const doubledNote = prominent && isDoubled && outEp == null
@@ -116,18 +117,12 @@ export function RosterCard({
     </>
   )
 
-  const hasSoleSurvivorHalo = isSoleSurvivor && showSoleSurvivorHalo
-  const avatarClass = `relative inline-flex shrink-0 ${
-    hasSoleSurvivorHalo
-      ? `sole-survivor-halo ${prominent ? 'sole-survivor-halo--prominent' : ''} ${
-          outEp != null ? 'sole-survivor-halo--snuffed' : ''
-        }`
-      : ''
-  } ${outEp != null ? ELIMINATED_DIM : ''}`
+  const avatarClass = `relative inline-flex shrink-0 ${outEp != null ? ELIMINATED_DIM : ''}`
 
-  // The Sole Survivor's mark is the corner flame badge on the portrait (My
-  // Season, via showSoleSurvivorHalo). On cards without that badge (e.g. the Team
-  // page) it falls back to the champion flame + a gold label below the name.
+  // The Sole Survivor follows the name with the same hand torch the locked and
+  // recap Field use (#839), snuffed once they're voted out. After the name, so
+  // every name in the column starts on the same line; off the portrait, whose
+  // corner on the recap already says who is still in.
   const inner = (
     <>
       <span
@@ -137,7 +132,7 @@ export function RosterCard({
         {avatar}
       </span>
       <span className="min-w-0 text-left">
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-1.5">
           <span
             className={`min-w-0 truncate font-display uppercase ${
               prominent ? 'text-[1.05rem] font-semibold' : 'text-base tracking-wide'
@@ -145,8 +140,21 @@ export function RosterCard({
           >
             {name}
           </span>
+          {isSoleSurvivor && (
+            <span
+              className="inline-flex shrink-0"
+              title={`${ssTitle}${soleSurvivorBonus > 0 ? ` · +${soleSurvivorBonus}` : ''}${
+                ssWindowOpen ? ' — changeable until the designation locks' : ''
+              }`}
+            >
+              <SoleSurvivorTorch snuffed={outEp != null} className="h-[21px] w-3.5" />
+              <span className="sr-only"> · Sole Survivor</span>
+            </span>
+          )}
         </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+        {/* Collapses when there is nothing to say, so a lone name centres on
+            the portrait instead of floating above an empty line. */}
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 empty:hidden">
           {note && (
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
               {outEp == null && contestant?.tribe_color && (
@@ -170,7 +178,7 @@ export function RosterCard({
           {outEp == null && swappedInEpisode != null && (
             <span
               className="inline-flex items-center gap-1 rounded-full border border-paper-edge bg-black/[.03] px-1.5 py-px text-[10px] font-extrabold tracking-[0.04em] text-paper-ink-faded"
-              title={`Swapped onto your roster in episode ${swappedInEpisode}`}
+              title={`Swapped onto the tribe in episode ${swappedInEpisode}`}
             >
               {/* Two-arrow swap glyph + the episode it happened. Provenance, so
                   it stays neutral — gold here would compete with the idol and
@@ -204,21 +212,6 @@ export function RosterCard({
             >
               Undo swap
             </button>
-          )}
-          {isSoleSurvivor && !hasSoleSurvivorHalo && (
-            <span
-              className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.08em] ${
-                ssWindowOpen ? 'text-stone-500' : 'text-gold-800'
-              }`}
-              title={ssWindowOpen ? `${ssTitle} — changeable until the designation locks` : ssTitle}
-            >
-              {/* Fallback mark for cards without the corner badge (e.g. the Team
-                  page): the champion flame + gold label. Its own TorchDefs so the
-                  card stands alone. */}
-              <TorchDefs />
-              <Torch champion lit title="" className="h-4 w-4 shrink-0" />
-              Sole Survivor{soleSurvivorBonus > 0 && ` · +${soleSurvivorBonus}`}
-            </span>
           )}
         </span>
       </span>

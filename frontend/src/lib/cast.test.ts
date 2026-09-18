@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CastMember } from '../types'
-import { castStatus, rankCast } from './cast'
+import { castStatus, isMerged, rankCast } from './cast'
 
 function member(
   name: string,
@@ -50,5 +50,20 @@ describe('cast ranking helpers', () => {
     expect(castStatus(member('A', 0))).toBe('Still in the game')
     expect(castStatus(member('B', 0, 4))).toBe('Eliminated in episode 4')
     expect(castStatus({ placement: 2, eliminated_in_episode: 12 })).toBe('Placed #2')
+  })
+})
+
+describe('isMerged', () => {
+  it('is true once everyone still in shares one tribe, ignoring boots', () => {
+    expect(isMerged([member('A', 0, null, 'Ora'), member('B', 0, null, 'Vula')])).toBe(false)
+    expect(isMerged([member('A', 0, null, 'Ora'), member('B', 0, 4, 'Vula')])).toBe(true)
+    expect(
+      isMerged([
+        member('A', 0, null, 'Ora'),
+        { eliminated_in_episode: null, tribe_name: 'Redemption Island', on_redemption_from_episode: 8 },
+      ]),
+    ).toBe(true)
+    // No tribes set yet (before the first is assigned) is not a merge.
+    expect(isMerged([{ eliminated_in_episode: null, tribe_name: null }])).toBe(false)
   })
 })

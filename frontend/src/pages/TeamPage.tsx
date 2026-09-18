@@ -11,8 +11,8 @@ import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { displayName } from '../lib/cast'
-import { episodeClosed } from '../lib/episodes'
+import { displayName, isMerged } from '../lib/cast'
+import { episodeClosed, openEpisode } from '../lib/episodes'
 import { pathQuery } from '../lib/queries'
 import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '../lib/rosterBreakdown'
 import { rankStandings } from '../lib/standings'
@@ -212,14 +212,27 @@ export function TeamPage() {
   }))
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
+  const merged = isMerged(contestants)
   const episodeTitles = new Map(episodes.map((episode) => [episode.episode_number, episode.title]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
-  const active = roster.filter((pick) => pick.active_until_episode === null)
-  // Most recent swap on top, the first swap at the bottom.
-  const swappedOut = roster
-    .filter((pick) => pick.active_until_episode !== null)
-    .sort((a, b) => (b.active_until_episode ?? 0) - (a.active_until_episode ?? 0))
   const rosterBaseEp = roster.length > 0 ? Math.min(...roster.map((pick) => pick.active_from_episode)) : 0
+  // Same board as My Season: a boot stays on the Tribe list, greyed, for the
+  // episode after it, then joins the swapped-out picks under Snuffed. The
+  // swap-in chip likewise goes once the castaway's first episode on the team
+  // has aired.
+  const latestAired = episodes.filter(episodeClosed).reduce((max, e) => Math.max(max, e.episode_number), 0)
+  const openEpNum = seasonQ.data ? openEpisode(episodes, seasonQ.data)?.episode_number : undefined
+  const eliminatedIn = (pick: RosterPick) => contestantMap.get(pick.contestant_id)?.eliminated_in_episode ?? null
+  const isStaleBoot = (pick: RosterPick) => {
+    const elim = eliminatedIn(pick)
+    return pick.active_until_episode === null && elim != null && openEpNum != null && elim < openEpNum - 1
+  }
+  const active = roster.filter((pick) => pick.active_until_episode === null && !isStaleBoot(pick))
+  // Most recent departure on top — a swap leaves when it ends, a boot when it's voted out.
+  const leftIn = (pick: RosterPick) => pick.active_until_episode ?? eliminatedIn(pick) ?? 0
+  const snuffed = roster
+    .filter((pick) => pick.active_until_episode !== null || isStaleBoot(pick))
+    .sort((a, b) => leftIn(b) - leftIn(a))
   // A swap's penalty books only once the episode it happened in has closed
   // (matches My Season; penalties are 0 under the token-cost model).
   const penaltyBooked = (pick: RosterPick) =>
@@ -227,7 +240,7 @@ export function TeamPage() {
   const doubles = plays.filter((play) => play.advantage_type === 'double_vote_points')
   const ranked = rankStandings(siblings).find(({ entry }) => entry.user_id === userId)
   const finaleScored = episodes.some((episode) => episode.is_finale && episode.status === 'scored')
-  // Swapped-out castaways is a footnote inside Tribe: expand-all opens it,
+  // Snuffed is a footnote inside Tribe: expand-all opens it,
   // but its being closed doesn't make the page read as collapsed.
   const sections: SectionKey[] = ['tribe', 'ballot', ...(finaleScored ? ['finale' as const] : [])]
   const allOpen = sections.every((key) => open[key])
@@ -293,7 +306,7 @@ export function TeamPage() {
           <SectionShell title="Tribe" prominent open={open.tribe} onToggle={toggleSection('tribe')} right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
               <Notice title="Team details are still private">Tribe and weekly-play choices unlock when tribes lock.</Notice>
-            ) : active.length === 0 && !rosterQ.isPending ? (
+            ) : !roster.some((pick) => pick.active_until_episode === null) && !rosterQ.isPending ? (
               // Only once the roster has answered: a swipe can outrun the
               // prefetch, and "no tribe" is an answer rather than a wait.
               <Notice title="No tribe submitted">This player does not have an active tribe yet.</Notice>
@@ -306,10 +319,14 @@ export function TeamPage() {
                       key={pick.id}
                       contestantId={pick.contestant_id}
                       contestant={contestantMap.get(pick.contestant_id)}
+                      showTribe={!merged}
                       isSoleSurvivor={pick.is_sole_survivor}
-                      showSoleSurvivorHalo
                       soleSurvivorBonus={pick.is_sole_survivor ? ssBonus : 0}
-                      swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
+                      swappedInEpisode={
+                        pick.active_from_episode > rosterBaseEp && latestAired <= pick.active_from_episode
+                          ? pick.active_from_episode
+                          : null
+                      }
                       right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                       bioLink={false}
                       expanded={expanded.has(pick.contestant_id)}
@@ -320,23 +337,28 @@ export function TeamPage() {
                   ))}
               </RosterManifest>
             )}
-            {swappedOut.length > 0 && (
+            {snuffed.length > 0 && (
               <div className="mt-6">
-                {/* Swapped-out castaways read exactly like My Season's: a real
-                    roster card each — the points they banked while held, the
-                    episodes they were yours for, and a tap into their scoped
+                {/* Snuffed reads exactly like My Season's: a real roster card
+                    each — the points they banked while held, the episodes a
+                    swap was theirs for, and a tap into their scoped
                     per-episode breakdown. Not the flat out→into ledger. */}
-                <SectionShell title="Swapped-out castaways" open={open.swapped} onToggle={toggleSection('swapped')}>
+                <SectionShell title="Snuffed" open={open.swapped} onToggle={toggleSection('swapped')}>
                   <RosterManifest>
-                    {swappedOut.map((pick) => (
+                    {snuffed.map((pick) => (
                       <RosterCard
                         key={pick.id}
                         contestantId={pick.contestant_id}
                         contestant={contestantMap.get(pick.contestant_id)}
+                        showTribe={!merged}
+                        // A snuffed Sole Survivor keeps its snuffed torch for the rest of the season.
+                        isSoleSurvivor={pick.is_sole_survivor}
                         right={
                           <span className="flex items-center gap-2 text-xs">
                             <Points value={rosterPoints.get(pick.contestant_id)} />
-                            <span className="text-paper-ink-faded">ep {pick.active_from_episode}–{pick.active_until_episode}</span>
+                            {pick.active_until_episode !== null && (
+                              <span className="text-paper-ink-faded">ep {pick.active_from_episode}–{pick.active_until_episode}</span>
+                            )}
                           </span>
                         }
                         bioLink={false}
@@ -349,7 +371,7 @@ export function TeamPage() {
                           activeUntil={pick.active_until_episode}
                           doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP}
                           episodeTitles={episodeTitles}
-                          swapPenalty={penaltyBooked(pick) ? pick.swap_penalty_points : 0}
+                          swapPenalty={pick.active_until_episode !== null && penaltyBooked(pick) ? pick.swap_penalty_points : 0}
                         />
                       </RosterCard>
                     ))}
