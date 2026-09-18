@@ -1041,6 +1041,7 @@ export function MySeasonPage() {
         <EpisodeResultReveal
           result={displayResult}
           mode={recapMode}
+          soleSurvivorId={d.roster.find((pick) => pick.is_sole_survivor)?.contestant_id ?? null}
           onContinue={recapMode === 'automatic' ? acknowledgeResult : undefined}
           onClose={recapMode === 'replay' ? () => setRecapParam(null) : undefined}
           onPrev={recapMode === 'replay' && prevRecapId ? () => setRecapParam(prevRecapId) : undefined}

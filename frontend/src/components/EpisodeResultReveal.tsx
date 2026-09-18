@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { DoubleBadge } from './DoubleBadge'
+import { SoleSurvivorTorch } from './SoleSurvivorTorch'
 
 /** Compact signed score used all over the card — no "pts" noise (#477). */
 function signed(value: number) {
@@ -88,6 +89,7 @@ export function EpisodeResultReveal({
   onPrev,
   onNext,
   field,
+  soleSurvivorId = null,
 }: EpisodeResultRevealProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -340,6 +342,7 @@ export function EpisodeResultReveal({
                         imageUrl={member.image_url}
                         value={member.points + (doubled ? rosterDouble.bonus_points : 0)}
                         eliminated={eliminatedIds.has(member.contestant_id)}
+                        soleSurvivor={member.contestant_id === soleSurvivorId}
                         icon={doubled ? <DoubleBadge size={20} title="Double Castaway Points" /> : null}
                         breakdown={
                           doubled && rosterDouble.bonus_points !== 0
@@ -534,6 +537,7 @@ function ResultRow({
   imageUrl,
   value,
   eliminated = false,
+  soleSurvivor = false,
   icon = null,
   breakdown = [],
 }: {
@@ -541,6 +545,7 @@ function ResultRow({
   imageUrl: string | null
   value: number
   eliminated?: boolean
+  soleSurvivor?: boolean
   /** The idol on the castaway the week's double rode. */
   icon?: React.ReactNode
   breakdown?: EpisodeResultBreakdownLine[]
@@ -563,12 +568,17 @@ function ResultRow({
         <span className={eliminated ? ELIMINATED_DIM : undefined}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
         </span>
-        <span
-          className={`min-w-0 flex-1 truncate text-sm font-medium ${
-            eliminated ? `text-cream-100/45 ${ELIMINATED_STRIKE}` : 'text-cream-100'
-          }`}
-        >
-          {name}
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span
+            className={`min-w-0 truncate text-sm font-medium ${
+              eliminated ? `text-cream-100/45 ${ELIMINATED_STRIKE}` : 'text-cream-100'
+            }`}
+          >
+            {name}
+          </span>
+          {/* Snuffed the week they go out, like the Field below. */}
+          {soleSurvivor && <SoleSurvivorTorch snuffed={eliminated} />}
+          {soleSurvivor && <span className="sr-only">Sole Survivor</span>}
         </span>
         {eliminated && <span className="sr-only">voted out this episode</span>}
         {/* The idol rides after the name so a doubled row keeps its name's left
@@ -620,4 +630,6 @@ interface EpisodeResultRevealProps {
   onNext?: () => void
   /** The league's teams for this episode — the locked-state Field. */
   field?: React.ReactNode
+  /** Your Sole Survivor, marked with the torch in your Tribe lane. */
+  soleSurvivorId?: string | null
 }
