@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { api, ApiError } from '../lib/api'
-import type { UserProfile } from '../types'
+import { api, ApiError, clearApiCache } from '../lib/api'
 import { supabase } from '../lib/supabase'
+import type { UserProfile } from '../types'
 import { AuthContext } from './context'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -38,6 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Whoever is arriving or leaving, the cached reads belong to the session
+      // that made them (#814).
+      clearApiCache()
       if (session) {
         // Same rule as the boot path above (#93): only expose the session
         // once the profile is loaded, or ProtectedRoute sees
