@@ -38,7 +38,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 27: Blood vs. Water',
   },
   {
-    text: 'Give me a rusty spoon so I can dig both my eyeballs out and then try jam it through my eye socket into my brain.',
+    text: 'Give me a rusty spoon so I can dig both my eyeballs out and then try to jam it through my eye socket into my brain.',
     who: 'Tyson',
     season: 'Season 27: Blood vs. Water',
   },
@@ -133,7 +133,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 13: Cook Islands',
   },
   {
-    text: 'Well I’m wearing this… but I also put on her panties on my head.',
+    text: 'I also put on her panties on my head.',
     who: 'Tarzan',
     season: 'Season 24: One World',
   },
@@ -294,7 +294,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 1: Borneo',
   },
   {
-    text: "Fear keeps people loyal. That's straight out of The Godfather.",
+    text: "Fear keeps people loyal.",
     who: 'Boston Rob',
     season: 'Season 4: Marquesas',
   },
