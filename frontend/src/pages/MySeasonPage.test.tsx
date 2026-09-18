@@ -672,6 +672,8 @@ describe('MySeasonPage state shell', () => {
     // Edit sits in the lane's footer with the lock date, not on the toolbar.
     const edit = within(roster).getByRole('button', { name: /locks when episode 2 starts.*Edit tribe/ })
     await userEvent.click(edit)
+    // Focus follows the fold into the picker rather than dropping to the body (#846).
+    expect(within(roster).getByText(/Rearrange your tribe freely/)).toHaveFocus()
     // The picker has no rows to play on, so the gold card leaves with them.
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
@@ -680,6 +682,8 @@ describe('MySeasonPage state shell', () => {
     await waitFor(() =>
       expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/roster', { contestant_ids: ['cast-2', 'cast-3'] }),
     )
+    // ...and back to Edit once the picker folds away.
+    await waitFor(() => expect(edit).toHaveFocus())
 
     // The server deleted the play with Kenzie; the hero learns that without a
     // reload, so there is no stale Undo to 404 on ("Advantage not found").
