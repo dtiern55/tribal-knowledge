@@ -282,8 +282,11 @@ html.locked-night .app-shell .border-forest-300,
 html.locked-night .app-shell .border-jade-200 {
   border-color: rgb(242 233 219 / 12%);
 }
-/* The "needs review" banner keeps a warm cast on dark instead of light gold. */
-html.locked-night .app-shell .bg-gold-50 {
+/* The "needs review" banner keeps a warm cast on dark instead of light gold.
+   Gold-100 too: its ink is lifted below, so a pale fill left it light on light
+   (the Standings ×2 chip). */
+html.locked-night .app-shell .bg-gold-50,
+html.locked-night .app-shell .bg-gold-100 {
   background-color: #2c2716;
 }
 html.locked-night .app-shell .border-gold-100,
