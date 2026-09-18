@@ -205,8 +205,8 @@ export function RulesPage() {
         <ul className="mt-4 space-y-2 text-sm leading-6 text-gray-700">
           <li><b>Tribe:</b> draft {season.roster_size} castaways. They score for what they do on the show.</li>
           <li>
-            <b>Swaps:</b> trade castaways in and out through Episode {swapLockEpisodeNumber(season) - 1}.
-            {season.free_swaps > 0 ? ` The first ${season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} are`} free, then each costs points.` : ' Each swap costs points.'}
+            <b>Swaps:</b> available until the Episode {swapLockEpisodeNumber(season) - 1} lock.
+            {season.free_swaps > 0 ? ` The first ${season.free_swaps === 1 ? 'is' : `${season.free_swaps} are`} free, then each costs points.` : ' Each costs points.'}
           </li>
           <li><b>Ballot:</b> each episode, pick who is going home. Every correct pick scores.</li>
           <li><b>Weekly advantage:</b> each episode, double one castaway's points or add a Power Vote to your ballot.</li>
@@ -221,10 +221,9 @@ export function RulesPage() {
       <div className="mt-8 space-y-8">
         <RuleSection id="tribe" title="Tribe">
           <RuleList>
-            <li>
-              Pick {season.roster_size} castaways. Change them freely until Episode {season.roster_lock_episode ?? 2}.
-            </li>
-            <li>A castaway scores for you only while they are on your tribe. Voted-out castaways stay until you swap them out.</li>
+            <li>Your tribe of {season.roster_size} castaways. Select before the Episode {season.roster_lock_episode ?? 2} lock.</li>
+            <li>Swaps available up until the Episode {swapLockEpisodeNumber(season) - 1} lock.</li>
+            <li>At the Episode {swapLockEpisodeNumber(season) - 1} lock, your Sole Survivor designation must be a castaway on your tribe.</li>
           </RuleList>
         </RuleSection>
 
@@ -236,7 +235,7 @@ export function RulesPage() {
             </li>
             <li>The cost comes off the castaway you drop.</li>
             <li>You can undo a swap until the episode locks.</li>
-            <li>Swap as often as you like through Episode {swapLockEpisodeNumber(season) - 1}. After that your tribe is locked.</li>
+            <li>Swap as often as you like until the Episode {swapLockEpisodeNumber(season) - 1} lock. After that your tribe is locked.</li>
           </RuleList>
         </RuleSection>
 
