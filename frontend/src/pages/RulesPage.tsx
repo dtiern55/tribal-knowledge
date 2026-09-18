@@ -341,7 +341,7 @@ export function RulesPage() {
               They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
             </li>
             <li><b>Edge of Extinction:</b> works the same as Redemption Island.</li>
-            <li><b>Voted back in:</b> a castaway who returns to the game any other way scores like a Redemption Island return.</li>
+            <li><b>Voted back in:</b> a castaway who returns to the game any other way scores as a return to the game.</li>
             <li><b>Exile Island and similar trips:</b> count for nothing.</li>
             <li><b>Multiple eliminations:</b> when more than one castaway goes home in an episode, each correct pick scores.</li>
           </RuleList>

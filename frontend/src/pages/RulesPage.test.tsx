@@ -36,9 +36,9 @@ function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
     scoring_events: [
       { event_type: 'win_individual_immunity', label: 'Win individual immunity', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly at tribal', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
-      { event_type: 'win_redemption_duel', label: 'Win a Redemption Island duel', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
-      { event_type: 'return_from_redemption', label: 'Return from Redemption Island at the merge', point_value: 12, postmerge_point_value: null, token_value: 0, is_per_unit: false },
-      { event_type: 'return_from_redemption_endgame', label: 'Return from Redemption Island in the endgame', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'win_redemption_duel', label: 'Win a duel to stay in the game', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'return_from_redemption', label: 'Return to the game at the merge', point_value: 12, postmerge_point_value: null, token_value: 0, is_per_unit: false },
+      { event_type: 'return_from_redemption_endgame', label: 'Return to the game in the endgame', point_value: 15, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'mystery_event', label: 'Mystery event', point_value: 1, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'cry', label: 'Cry', point_value: 0, postmerge_point_value: null, token_value: 5, is_per_unit: false },
     ],
@@ -102,9 +102,9 @@ describe('RulesPage', () => {
     expect(screen.getByRole('heading', { name: 'Other' })).toBeVisible()
     expect(screen.getByText('Mystery event')).toBeVisible()
     expect(screen.queryByText('Cry')).not.toBeInTheDocument()
-    expect(screen.getByText('Win a Redemption Island duel')).toBeVisible()
-    expect(screen.getByText('Return from Redemption Island at the merge')).toBeVisible()
-    expect(screen.getByText('Return from Redemption Island in the endgame')).toBeVisible()
+    expect(screen.getByText('Win a duel to stay in the game')).toBeVisible()
+    expect(screen.getByText('Return to the game at the merge')).toBeVisible()
+    expect(screen.getByText('Return to the game in the endgame')).toBeVisible()
     expect(screen.getByText(/counts as the boot on your ballot but is still in the game/)).toBeVisible()
   })
 
