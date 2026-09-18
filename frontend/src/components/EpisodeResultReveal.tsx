@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
-import { DoubleBadge } from './DoubleBadge'
+import { AdvantageStamp, DoubleBadge } from './DoubleBadge'
 import { SoleSurvivorTorch } from './SoleSurvivorTorch'
 
 /** Compact signed score used all over the card — no "pts" noise (#477). */
@@ -343,7 +343,7 @@ export function EpisodeResultReveal({
                         value={member.points + (doubled ? rosterDouble.bonus_points : 0)}
                         eliminated={eliminatedIds.has(member.contestant_id)}
                         soleSurvivor={member.contestant_id === soleSurvivorId}
-                        icon={doubled ? <DoubleBadge size={20} title="Double Castaway Points" /> : null}
+                        doubled={doubled}
                         breakdown={
                           doubled && rosterDouble.bonus_points !== 0
                             ? [...member.breakdown, { event_type: 'double_roster_points', label: 'Double Castaway Points', quantity: 1, points: rosterDouble.bonus_points }]
@@ -382,22 +382,25 @@ export function EpisodeResultReveal({
                     <div
                       key={`${pick.prediction_type}:${pick.contestant_id}`}
                       className={`flex min-w-0 items-center gap-3 px-3.5 py-2.5 ${
-                        pick.correct ? 'bg-jade-600/12' : ''
+                        pick.correct ? 'bg-jade-600/25' : ''
                       }`}
                     >
-                      <ContestantAvatar
-                        name={pick.name}
-                        imageUrl={pick.image_url}
-                        tribeColor={null}
-                        tribeName={null}
-                        size="sm"
-                      />
+                      <span className="relative flex shrink-0">
+                        <ContestantAvatar
+                          name={pick.name}
+                          imageUrl={pick.image_url}
+                          tribeColor={null}
+                          tribeName={null}
+                          size="sm"
+                        />
+                        {doubled && voteDouble.target_contestant_id != null && (
+                          <AdvantageStamp size={15} title="Power Vote" dark />
+                        )}
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
                         {label && <span className="block text-xs text-cream-100/45">{label}</span>}
                       </span>
-                      {/* Idol after the name, same as the Tribe lane, so names stay aligned. */}
-                      {doubled && voteDouble.target_contestant_id != null && <DoubleBadge size={20} title="Power Vote" />}
                       <span
                         className={`shrink-0 font-display font-semibold tabular-nums ${
                           pick.correct ? 'text-jade-200' : 'text-cream-100/45'
@@ -538,7 +541,7 @@ function ResultRow({
   value,
   eliminated = false,
   soleSurvivor = false,
-  icon = null,
+  doubled = false,
   breakdown = [],
 }: {
   name: string
@@ -546,8 +549,8 @@ function ResultRow({
   value: number
   eliminated?: boolean
   soleSurvivor?: boolean
-  /** The idol on the castaway the week's double rode. */
-  icon?: React.ReactNode
+  /** The week's Double Castaway Points rode this castaway: the idol stamps the portrait. */
+  doubled?: boolean
   breakdown?: EpisodeResultBreakdownLine[]
 }) {
   const [open, setOpen] = useState(false)
@@ -565,8 +568,9 @@ function ResultRow({
         {/* Voted out reads the way Cast/Standings show it (#457): grey avatar,
             name crossed off. The point sources stay behind the chevron so a big
             scorer never blows the row up (#477). */}
-        <span className={eliminated ? ELIMINATED_DIM : undefined}>
+        <span className={`relative flex shrink-0 ${eliminated ? ELIMINATED_DIM : ''}`}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
+          {doubled && <AdvantageStamp size={15} title="Double Castaway Points" dark />}
         </span>
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
           <span
@@ -581,9 +585,6 @@ function ResultRow({
           {soleSurvivor && <span className="sr-only">Sole Survivor</span>}
         </span>
         {eliminated && <span className="sr-only">voted out this episode</span>}
-        {/* The idol rides after the name so a doubled row keeps its name's left
-            edge in line with the plain rows above and below it. */}
-        {icon}
         <span className="shrink-0 font-display font-semibold text-cream-100 tabular-nums">{signed(value)}</span>
         {expandable && (
           <svg

@@ -7,7 +7,8 @@ import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../componen
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
-import { HubBallotMark, PlayMark } from '../components/HubPlayMarks'
+import { AdvantageStamp, DoubleBadge } from '../components/DoubleBadge'
+import { HubBallotMark } from '../components/HubPlayMarks'
 import { SoleSurvivorTorch } from '../components/SoleSurvivorTorch'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
@@ -152,7 +153,7 @@ const POWER_VOTE = ADV_LABELS.double_vote_points
 
 // The expanded row: that player's latest week — the tribe they carried into
 // it, what each castaway scored, and who they voted for. An advantage gets no
-// line of its own; it marks the thing it doubled with a ×2. Earlier weeks are
+// line of its own; the idol is stamped on what it doubled (#849). Earlier weeks are
 // the Team page's job, one tap away at the bottom. What the week paid the
 // player is the number the collapsed row already shows a few pixels above.
 //
@@ -202,7 +203,7 @@ function HistoryPanel({
         <>
           <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-forest-800">
             Ep {episode.episode_number}
-            {wholeBallotDoubled && <PlayMark text={POWER_VOTE} title={`${POWER_VOTE} on this whole ballot`} />}
+            {wholeBallotDoubled && <DoubleBadge size={16} title={`${POWER_VOTE} on this whole ballot`} />}
           </span>
           <dl className="mt-1 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
             <dt className={label}>Tribe</dt>
@@ -223,8 +224,9 @@ function HistoryPanel({
                   const scored = member.points * (isDoubled ? 2 : 1)
                   return (
                     <span key={member.contestant_id} className="flex w-full items-center gap-1.5 text-sm">
-                      <span className={lost ? ELIMINATED_DIM : undefined}>
+                      <span className={`relative flex shrink-0 ${lost ? ELIMINATED_DIM : ''}`}>
                         <ContestantAvatar name={member.name} imageUrl={member.image_url} size="sm" tribeColor={member.tribe_color} tribeName={member.tribe_name} />
+                        {isDoubled && <AdvantageStamp size={15} title="Double Castaway Points on them this episode" />}
                       </span>
                       <span className={`truncate text-paper-ink ${lost ? ELIMINATED_STRIKE : ''}`}>{member.name}</span>
                       {isSoleSurvivor && (
@@ -233,12 +235,9 @@ function HistoryPanel({
                           <span className="sr-only">Sole Survivor</span>
                         </span>
                       )}
-                      {isDoubled && <PlayMark text="×2" title="Double Castaway Points on them this episode" />}
                       <span
                         className={`ml-auto shrink-0 font-medium tabular-nums ${
-                          isDoubled && scored > 0
-                            ? 'text-gold-700'
-                            : scored > 0
+                          scored > 0
                               ? 'text-jade-700'
                               : scored < 0
                                 ? 'text-terracotta-600'
@@ -259,8 +258,8 @@ function HistoryPanel({
                 <span className="text-sm text-paper-ink-faded">No votes</span>
               ) : (
                 votes.map((vote) => {
-                  // Two facts per vote, one channel each: gold is the Power
-                  // Vote, a filled card is a hit, an outlined one missed. Whether
+                  // Two facts per vote, one channel each: the stamped idol is the
+                  // Power Vote, a filled card is a hit, an outlined one missed. Whether
                   // it hit is the Hub's answer, so a Redemption Island duel
                   // loss doesn't read as a correct call (#655).
                   const power = vote.contestant_id === powerVote

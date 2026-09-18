@@ -24,8 +24,8 @@ import {
 } from '../lib/rosterBreakdown'
 import { RosterCard } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
-import { DoubleBadge } from '../components/DoubleBadge'
-import { HubBallotMark, PlayMark } from '../components/HubPlayMarks'
+import { AdvantageStamp, DoubleBadge } from '../components/DoubleBadge'
+import { HubBallotMark } from '../components/HubPlayMarks'
 import { RuleLink } from '../components/RuleLink'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
@@ -1329,13 +1329,19 @@ function LockedState({
                       shows your scores in place, it does not send you to the Cast
                       page. */}
                   <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <ContestantAvatar
-                      name={name}
-                      imageUrl={contestant?.image_url ?? null}
-                      tribeColor={contestant?.tribe_color ?? null}
-                      tribeName={contestant?.tribe_name ?? null}
-                      size="sm"
-                    />
+                    <span className="relative flex shrink-0">
+                      <ContestantAvatar
+                        name={name}
+                        imageUrl={contestant?.image_url ?? null}
+                        tribeColor={contestant?.tribe_color ?? null}
+                        tribeName={contestant?.tribe_name ?? null}
+                        size="sm"
+                      />
+                      {played?.advantage_type === 'double_roster_points' &&
+                        played.target_contestant_id === pick.contestant_id && (
+                          <AdvantageStamp size={15} title="Double Castaway Points this episode" dark={broadcast} />
+                        )}
+                    </span>
                     {/* The Sole Survivor pick is the torch after the name and
                         no more: it does not matter to this episode (#685). */}
                     <span className="truncate font-medium">{name}</span>
@@ -1346,12 +1352,6 @@ function LockedState({
                       </>
                     )}
                   </span>
-                  {played?.advantage_type === 'double_roster_points' &&
-                    played.target_contestant_id === pick.contestant_id && (
-                      <span className="shrink-0">
-                        <DoubleBadge size={26} title="Double Castaway Points this episode" />
-                      </span>
-                    )}
                   {(() => {
                     const v = rosterPoints.get(pick.contestant_id)
                     if (v == null) return null
@@ -1432,7 +1432,6 @@ function LockedState({
                     doubled={doubled}
                     tribeColor={contestant?.tribe_color}
                     rotation={[-0.9, 0.6, -0.3][index % 3]}
-                    leading={doubled ? <DoubleBadge size={20} title="Power Vote" /> : null}
                   />
                 )
               })}
@@ -1572,21 +1571,23 @@ function LeagueHub({
             <ul className="mt-2 space-y-1.5">
               {topBoots.map(({ survivor, n, doubled }) => (
                 <li key={survivor.contestant_id} className="flex items-center gap-2 text-sm">
-                  <ContestantAvatar
-                    name={survivor.name}
-                    imageUrl={survivor.image_url}
-                    tribeColor={survivor.tribe_color}
-                    tribeName={survivor.tribe_name}
-                    size="sm"
-                  />
-                  <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
-                  {doubled > 0 && (
-                    <PlayMark
-                      text={`${ADV_LABELS.double_vote_points} ×${doubled}`}
-                      title={`${doubled} ${doubled === 1 ? 'Power Vote' : 'Power Votes'} on this castaway`}
-                      dark={broadcast}
+                  <span className="relative flex shrink-0">
+                    <ContestantAvatar
+                      name={survivor.name}
+                      imageUrl={survivor.image_url}
+                      tribeColor={survivor.tribe_color}
+                      tribeName={survivor.tribe_name}
+                      size="sm"
                     />
-                  )}
+                    {doubled > 0 && (
+                      <AdvantageStamp
+                        size={15}
+                        title={`${doubled} ${doubled === 1 ? 'Power Vote' : 'Power Votes'} on this castaway`}
+                        dark={broadcast}
+                      />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
                   <span className={`shrink-0 text-xs font-semibold tabular-nums ${sub}`}>
                     {n} {n === 1 ? 'vote' : 'votes'}
                   </span>
@@ -1732,17 +1733,13 @@ function LeagueHub({
                       </div>
                     </div>
                   ) : (
-                  /* The Field follows Standings: gold names the Power Vote,
-                      while a fill says the vote was correct after scoring. */
+                  /* The Field follows Standings: the idol stamps the Power Vote,
+                      and a fill says the vote was correct after scoring. */
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
                       {wholeBallotDoubled && (
-                        <PlayMark
-                          text={ADV_LABELS.double_vote_points}
-                          title={`${ADV_LABELS.double_vote_points} on this whole ballot`}
-                          dark={broadcast}
-                        />
+                        <DoubleBadge size={16} title={`${ADV_LABELS.double_vote_points} on this whole ballot`} />
                       )}
                     </div>
                     {entry.ballot.length > 0 ? (
@@ -1829,12 +1826,7 @@ function HubCastawayRow({
                     size="sm"
                   />
                   {s.contestant_id === doubledContestantId && (
-                    <PlayMark
-                      text="×2"
-                      title="Double Castaway Points on them this episode"
-                      dark={dark}
-                      className="absolute -right-2 -top-1.5 z-10"
-                    />
+                    <AdvantageStamp size={15} title="Double Castaway Points on them this episode" dark={dark} />
                   )}
                 </span>
                 <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">
@@ -2984,7 +2976,6 @@ function RosterSection({
                 isSoleSurvivor={pick.is_sole_survivor}
                 soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                 isDoubled={doubledTarget === pick.contestant_id}
-                seal={false}
                 ssWindowOpen={ssOpen}
                 swappedInEpisode={
                   pick.active_from_episode > rosterBaseEp && latestAired <= pick.active_from_episode
@@ -3349,14 +3340,14 @@ function BallotRecord({
               // Only scored episodes have a settled result. A correct vote gets
               // the CorrectVote pill; incorrect stays neutral, not red — most
               // votes miss and a wall of red feels bad (#53, #135).
-              const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
+              const power = p.contestant_id === x2
               if (scored && result?.correct === true)
                 return (
                   <CorrectVote
                     key={p.id}
                     name={name}
-                    points={result.points > 0 ? result.points + (mark ? (ballotDouble?.points_earned ?? 0) : 0) : undefined}
-                    icon={mark}
+                    points={result.points > 0 ? result.points + (power ? (ballotDouble?.points_earned ?? 0) : 0) : undefined}
+                    power={power}
                   />
                 )
               return (
@@ -3367,10 +3358,9 @@ function BallotRecord({
                     pickC?.eliminated_in_episode != null &&
                     pickC.eliminated_in_episode < ep.episode_number
                   }
-                  doubled={mark != null}
+                  doubled={power}
                   tribeColor={pickC?.tribe_color}
                   rotation={[-0.9, 0.6, -0.3][index % 3]}
-                  leading={mark}
                 />
               )
             })}
@@ -3407,7 +3397,8 @@ function BallotRecord({
         role="group"
         aria-label="Votes"
         tabIndex={0}
-        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+        // Room above the chips for the stamp, which the scroller would clip.
+        className={`flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto ${x2 ? 'pt-1.5 pr-1.5' : ''}`}
       >
         {picks.length === 0 ? (
           <span className="text-sm text-gray-500">No votes</span>
@@ -3420,16 +3411,16 @@ function BallotRecord({
             // misses stay neutral rather than red (#53, #135). The idol sits
             // on the named pick, and its pill carries what the Power Vote
             // paid (pickResults are base values, #136).
-            const mark = p.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
+            const power = p.contestant_id === x2
             return scored && result?.correct === true ? (
-              <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points + (mark ? (ballotDouble?.points_earned ?? 0) : 0) : undefined} icon={mark} />
+              <CorrectVote key={p.id} name={name} points={result.points > 0 ? result.points + (power ? (ballotDouble?.points_earned ?? 0) : 0) : undefined} power={power} />
             ) : (
               <span
                 key={p.id}
-                className={`ballot-chip inline-flex shrink-0 items-center gap-1 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
+                className={`ballot-chip relative inline-flex shrink-0 items-center gap-1 rounded-md border border-cream-200 bg-white px-2 py-0.5 text-sm ${scored ? 'text-gray-500' : 'text-gray-700'}`}
               >
-                {mark}
                 {name}
+                {power && <AdvantageStamp size={16} title="Power Vote" />}
               </span>
             )
           })
@@ -3478,7 +3469,7 @@ function RailNode({
   )
 }
 
-/** The castaway on a rail row, with the idol on the Power Vote's corner; a
+/** The castaway on a rail row, with the idol stamped on the Power Vote; a
  *  dashed ring when the rung is empty. */
 function RailAvatar({
   contestant,
@@ -3499,11 +3490,7 @@ function RailAvatar({
         tribeColor={contestant?.tribe_color ?? null}
         tribeName={contestant?.tribe_name ?? null}
       />
-      {power && (
-        <span className="absolute -right-2 -bottom-1.5">
-          <DoubleBadge size={20} title="Power Vote" />
-        </span>
-      )}
+      {power && <AdvantageStamp size={22} title="Power Vote" />}
     </span>
   )
 }

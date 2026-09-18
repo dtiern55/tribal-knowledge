@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Contestant } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
-import { DoubleBadge } from './DoubleBadge'
+import { AdvantageStamp } from './DoubleBadge'
 import { SoleSurvivorTorch } from './SoleSurvivorTorch'
 import { displayName } from '../lib/cast'
 
@@ -37,7 +37,6 @@ export function RosterCard({
   lit = false,
   expanded = false,
   onToggle,
-  seal = true,
   prominent = false,
   children,
 }: {
@@ -75,9 +74,6 @@ export function RosterCard({
   // given, a chevron reveals `children` below the row.
   expanded?: boolean
   onToggle?: () => void
-  // Whether a doubled row wears the idol. My Season says it in words and
-  // puts the idol on the tab instead (#694); another player's team keeps it.
-  seal?: boolean
   // The My Team card's scale (My Season redesign): a 42px portrait and a
   // larger name, so your own five read as people rather than manifest lines.
   // Another player's team keeps the compact manifest row.
@@ -92,19 +88,6 @@ export function RosterCard({
   // replacement for the tribe — it rides as its own tag so the tribe stays
   // visible (#406 review).
   const note = outEp != null ? `Out · episode ${outEp}` : showTribe ? (contestant?.tribe_name ?? null) : null
-  // On the team card the doubled row says so in its own tribe line — the idol
-  // by the score is the mark, this is the words (My Season redesign).
-  const doubledNote = prominent && isDoubled && outEp == null
-
-  // At row scale the idol rests near the points column, not as a tiny suffix on
-  // the castaway's name. The tilt keeps it feeling hand-placed.
-  const doubleSeal =
-    isDoubled && seal ? (
-      <span className="relative z-10 -my-3 mr-1 shrink-0 translate-y-0.5 rotate-[9deg]">
-        <DoubleBadge size={36} />
-      </span>
-    ) : null
-
   const avatar = (
     <>
       <ContestantAvatar
@@ -114,6 +97,8 @@ export function RosterCard({
         tribeName={contestant?.tribe_name ?? null}
         size={prominent ? 'lg' : 'md'}
       />
+      {/* The week's Double Castaway Points, stamped on the portrait (#849). */}
+      {isDoubled && <AdvantageStamp size={prominent ? 26 : 22} title="Double Castaway Points this episode" />}
     </>
   )
 
@@ -165,14 +150,6 @@ export function RosterCard({
                 />
               )}
               {note}
-              {doubledNote && ' · ×2 this week'}
-            </span>
-          )}
-          {/* Nobody has a tribe before the first one is set, so the doubled
-              note needs a home of its own when there's no tribe line. */}
-          {!note && doubledNote && (
-            <span className="inline-flex items-center text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
-              ×2 this week
             </span>
           )}
           {outEp == null && swappedInEpisode != null && (
@@ -244,7 +221,6 @@ export function RosterCard({
           >
             {inner}
             <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">
-              {doubleSeal}
               {right}
               {/* Reserve the chevron's width while picking, so the points don't
                   slide right when the toggle drops out of the row (#164). */}
@@ -277,7 +253,6 @@ export function RosterCard({
               <span className="flex min-w-0 flex-1 items-center gap-3">{inner}</span>
             )}
             <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
-              {doubleSeal}
               {right}
               {onToggle && (
                 <button

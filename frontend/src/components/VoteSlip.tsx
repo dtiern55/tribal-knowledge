@@ -1,4 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
+import { AdvantageStamp } from './DoubleBadge'
 
 /**
  * One submitted vote, treated like a handwritten Tribal Council slip.
@@ -16,11 +17,10 @@ export function VoteSlip({
   dark = false,
   tribeColor = null,
   rotation = 0,
-  leading,
 }: {
   name: string
   stale?: boolean
-  /** The vote wearing the Power Vote (#673): gold, so it reads at a glance. */
+  /** The vote wearing the Power Vote (#673): the idol stamps its corner (#849). */
   doubled?: boolean
   /** On a dark surface (the recap card) the app's locked-night slip colors
    *  aren't in play, so carry them here instead of reading forest-on-forest. */
@@ -28,12 +28,10 @@ export function VoteSlip({
   tribeColor?: string | null
   /** Supplied per slip and stable across renders, so the pile never reshuffles. */
   rotation?: number
-  /** Content on the slip before the name: the ×2 idol on a doubled vote. */
-  leading?: ReactNode
 }) {
   return (
     <span
-      className={`ballot-slip ${dark ? 'ballot-slip--dark' : ''} ${stale ? 'ballot-slip--stale' : ''} ${doubled ? 'ballot-slip--doubled' : ''}`}
+      className={`ballot-slip relative ${dark ? 'ballot-slip--dark' : ''} ${stale ? 'ballot-slip--stale' : ''}`}
       style={
         {
           '--ballot-tribe-color': tribeColor ?? 'var(--color-gold-500)',
@@ -41,8 +39,8 @@ export function VoteSlip({
         } as CSSProperties
       }
     >
-      {leading}
       <span className={stale ? 'line-through' : undefined}>{name}</span>
+      {doubled && <AdvantageStamp size={18} title="Power Vote" dark={dark} />}
     </span>
   )
 }
