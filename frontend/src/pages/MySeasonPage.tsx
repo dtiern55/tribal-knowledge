@@ -206,26 +206,31 @@ function useMySeasonData() {
     // no ballot the week reads as owed, and the page used to open on "your
     // ballot and tribe both need you" and correct itself a moment later.
     //
-    // "Has it answered", not "is it pending". A refetch of a query that holds
-    // no data resets it to pending (query-core's `fetchState`), and the reads
-    // gated here have consumers that mount *behind* this gate — the Tribe
-    // lane, the Sole Survivor line and the locked screen all read the roster.
-    // On `isPending` a refused roster spun: the error opened the gate, the
-    // lane mounted, its mount refetched the stale error, that refetch turned
-    // the gate's own term back to pending, the lane unmounted, and round
-    // again, one request per lap. `isFetched` counts answers, and a refusal
-    // is an answer — the same thing the `.finally` that set `rosterFor` meant.
+    // The rule for which side of a gate a read sits on: a read whose refusal
+    // is forgiven gates on "has it answered", one whose refusal reaches the
+    // error gate below gates on "is it pending".
+    //
+    // Because a refetch of a query holding no data resets it to pending
+    // (query-core's `fetchState`), and an errored query is always stale, so a
+    // window focus or any write refetches it. For a forgiven read that reset
+    // is a loop: the roster's error opens this gate, the Tribe lane mounts,
+    // its mount refetches the stale error, the refetch turns the term here
+    // back to pending, the lane unmounts, and round again at round-trip speed.
+    // `isFetched` counts answers, and a refusal is an answer — the same thing
+    // the `.finally` that set `rosterFor` meant. For the rest `isPending` is
+    // the honest one: they show the error, and their reset should read as the
+    // loader rather than flash a live page drawn on an empty cast.
     loading:
-      !seasonsQ.isFetched ||
+      seasonsQ.isPending ||
       // The one render between the list landing and the latch above.
       ((seasonsQ.data?.length ?? 0) > 0 && seasonId == null) ||
       (season != null &&
-        (!contestantsQ.isFetched ||
-          !episodesQ.isFetched ||
-          !standingsQ.isFetched ||
-          !breakdownQ.isFetched ||
-          !playsQ.isFetched ||
-          !revealQ.isFetched ||
+        (contestantsQ.isPending ||
+          episodesQ.isPending ||
+          standingsQ.isPending ||
+          breakdownQ.isPending ||
+          playsQ.isPending ||
+          revealQ.isPending ||
           !rosterQ.isFetched ||
           (openEp != null && !openPicksQ.isFetched))),
     error:
@@ -1226,9 +1231,15 @@ function LockedState({
 
   // Error before loader: a disabled query stays pending, so a refused read
   // would otherwise sit under the loader for good.
+  //
+  // The bracket read is the forgiven one here, so it waits on an answer
+  // rather than on "not pending": it 404s for everyone who filed no bracket,
+  // and a refetch of a query with no data resets it to pending — so on
+  // `isPending` the whole locked screen would drop to the loader for a round
+  // trip every time the phone came back to it on finale night.
   const loadError = rosterQ.error ?? picksQ.error
   if (loadError) return <p className="text-terracotta-600">{loadError.message}</p>
-  if (picks == null || roster == null || (episode.is_finale && finaleQ.isPending))
+  if (picks == null || roster == null || (episode.is_finale && !finaleQ.isFetched))
     return <PageLoader />
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
