@@ -206,17 +206,21 @@ export function RulesPage() {
       <PageHeader eyebrow={season.name} title="Rules" />
 
       <section id="basics" aria-labelledby="basics-title" className="scroll-mt-24 border-y border-forest-200 py-5">
-        <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">How it works</h2>
-        <div className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
-          <p>
-            Two things earn you points: your tribe of {season.roster_size} castaways, who score for what they do on
-            the show, and your weekly ballot, where you call who goes home.
-          </p>
-          <p>
-            Before each episode airs, submit your ballot and choose your advantage. You can change either until the
-            episode locks. Most points after the finale wins.
-          </p>
-        </div>
+        <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">The short version</h2>
+        <ul className="mt-4 space-y-2 text-sm leading-6 text-gray-700">
+          <li><b>Tribe:</b> draft {season.roster_size} castaways. They score for what they do on the show.</li>
+          <li>
+            <b>Swaps:</b> trade castaways in and out through Episode {swapLockEpisodeNumber(season) - 1}.
+            {season.free_swaps > 0 ? ` The first ${season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} are`} free, then each costs points.` : ' Each swap costs points.'}
+          </li>
+          <li><b>Ballot:</b> each episode, pick who is going home. Every correct pick scores.</li>
+          <li><b>Weekly advantage:</b> each episode, double one castaway's points or add a Power Vote to your ballot.</li>
+          <li><b>Sole Survivor:</b> after the merge, name one castaway on your tribe. They earn you a bonus at the finale.</li>
+          <li><b>Finale:</b> predict the Final 4, the Final 3, and the winner.</li>
+        </ul>
+        <p className="mt-4 text-sm leading-6 text-gray-700">
+          Your ballot, advantage, and swaps can change until the episode locks. Most points after the finale wins.
+        </p>
       </section>
 
       <div className="mt-8 space-y-8">
