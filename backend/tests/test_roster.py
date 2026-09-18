@@ -375,6 +375,49 @@ def test_two_swaps_in_one_episode_each_undoable(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_reswap_this_episodes_swap_in_keeps_its_price(client, db_conn, current_user):
+    """A -> B then B -> C in one episode is A -> C at A -> B's price, not a
+    new rung, and undoing C still brings A back."""
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2, free_swaps=1
+    )
+    insert_episode(db_conn, season["id"], episode_number=3)
+    b, c, y = (insert_contestant(db_conn, season["id"], n) for n in "BCY")
+    ls = season["league_season_id"]
+    client.post(
+        f"/league-seasons/{ls}/roster",
+        json={"contestant_ids": [str(x["id"]) for x in contestants]},
+    )
+    for old, new in ((contestants[0], b), (contestants[1], y), (b, c)):
+        r = client.post(
+            f"/league-seasons/{ls}/roster/swap",
+            json={
+                "old_contestant_id": str(old["id"]),
+                "new_contestant_id": str(new["id"]),
+            },
+        )
+        assert r.status_code == 200, r.json()
+
+    def roster():
+        rows = client.get(f"/league-seasons/{ls}/roster/{current_user['id']}").json()
+        return {p["contestant_id"]: p for p in rows}
+
+    after = roster()
+    assert str(b["id"]) not in after
+    assert after[str(c["id"])]["active_from_episode"] == 3
+    assert after[str(contestants[0]["id"])]["swap_penalty_points"] == 0
+    assert after[str(contestants[1]["id"])]["swap_penalty_points"] == -10
+
+    assert (
+        client.delete(f"/league-seasons/{ls}/roster/swap/{c['id']}").status_code == 204
+    )
+    after = roster()
+    assert after[str(contestants[0]["id"])]["active_until_episode"] is None
+    # Undoing the free swap leaves the other as the season's first: free.
+    assert after[str(contestants[1]["id"])]["swap_penalty_points"] == 0
+
+
+@pytest.mark.integration
 def test_swap_allowed_when_weekly_play_already_used(client, db_conn, current_user):
     """#404 reverses #307: the swap and the doubles no longer compete."""
     season, contestants = _make_season_with_roster(

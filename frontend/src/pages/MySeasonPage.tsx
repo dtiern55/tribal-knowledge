@@ -607,6 +607,10 @@ export function MySeasonPage() {
     d.breakdown.picks.map((p) => [`${p.episode_id}:${p.contestant_id}`, p]),
   )
   const state = resolveMySeasonState(d.season, d.episodes)
+  // Moments on the page wait out the recap. An unseen result counts before its
+  // param lands (the router applies it a beat late, in a transition), and
+  // until it has been continued.
+  const recapPending = displayResult != null || recapId != null || d.automaticResult != null
 
   function openReplay(episode: Episode) {
     setReplayError(null)
@@ -832,7 +836,7 @@ export function MySeasonPage() {
             <RecordPanel beat="roster" active>
               <div id="roster">
                 <RosterSection
-                  revealOpen={displayResult != null}
+                  revealOpen={recapPending}
                   season={d.season}
                   contestants={d.contestants}
                   episodes={d.episodes}
@@ -918,7 +922,7 @@ export function MySeasonPage() {
           >
             <div id="roster">
               <RosterSection
-                revealOpen={displayResult != null}
+                revealOpen={recapPending}
                 onMomentPending={setSwapMomentPending}
                 season={d.season}
                 contestants={d.contestants}
@@ -978,6 +982,7 @@ export function MySeasonPage() {
             onReplay={openReplay}
             replayLoading={replayLoading}
             replayError={replayError}
+            recapOpen={displayResult != null}
             standing={d.standing}
           />
         </div>
@@ -1013,6 +1018,7 @@ export function MySeasonPage() {
           onReplay={openReplay}
           replayLoading={replayLoading}
           replayError={replayError}
+          recapOpen={displayResult != null}
           standing={d.standing}
         />
       )}
@@ -1836,6 +1842,7 @@ function HistorySection({
   onReplay,
   replayLoading,
   replayError,
+  recapOpen,
   standing,
 }: {
   season: Season
@@ -1847,12 +1854,19 @@ function HistorySection({
   onReplay: (episode: Episode) => void
   replayLoading: string | null
   replayError: string | null
+  recapOpen: boolean
   /** The card previews the last episode from the standings row the page
    *  already loaded (#803) — it used to build a whole episode result for two
    *  numbers, on every load, with the sheet shut. */
   standing: StandingEntry | null
 }) {
   const [open, setOpen] = useState(false)
+  // The sheet holds, its button saying Loading…, until the recap is up to
+  // cover it: closing on the tap left the bare page showing while the replay
+  // was read, and that looked like the tap had gone nowhere.
+  useEffect(() => {
+    if (recapOpen) setOpen(false)
+  }, [recapOpen])
 
   // Weekly ballots only: the finale is its own 3-part ballot (#86), and
   // pre-roster-lock premieres accept no votes (#82).
@@ -1940,10 +1954,7 @@ function HistorySection({
             pickResults={pickResults}
             plays={plays}
             contestants={contestants}
-            onReplay={(episode) => {
-              setOpen(false)
-              onReplay(episode)
-            }}
+            onReplay={onReplay}
             replayLoading={replayLoading}
             replayError={replayError}
             onClose={() => setOpen(false)}
@@ -2020,7 +2031,7 @@ function FirstLossMoment({ onClose }: { onClose: () => void }) {
 }
 
 // The recap replays + past ballots, in a bottom sheet
-// (#478) matching the app's other sheets. Replay closes the sheet; the recap
+// (#478) matching the app's other sheets. The recap closes the sheet; the recap
 // reveal opens over the page from MySeasonPage.
 function HistorySheet({
   scoredEpisodes,
@@ -2600,6 +2611,12 @@ function RosterSection({
   // No cap on swaps in an episode: the rising price is the rate limit (#716). A
   // swap made this episode is reversible from its row until picks lock.
   const openEpNumber = weekly.openEpisode?.episode_number
+  // Dropping someone swapped in this episode re-points that swap (roster.py):
+  // it keeps its price rather than taking the next one.
+  const reswapping =
+    dropping != null &&
+    openEpNumber != null &&
+    activeRoster.some((p) => p.contestant_id === dropping && p.active_from_episode === openEpNumber)
   const swapAvailable =
     season.status !== 'completed' &&
     !windowOpen &&
@@ -2945,7 +2962,11 @@ function RosterSection({
                   rather than as faded helper text. */}
               <p className="text-xs text-paper-ink">
                 Takes effect this episode and{' '}
-                {nextSwapCost === 0 ? (
+                {reswapping ? (
+                  <span className="font-semibold">
+                    replaces the swap you already made, at no extra cost
+                  </span>
+                ) : nextSwapCost === 0 ? (
                   <span className="font-semibold">is free — your first swap of the season</span>
                 ) : (
                   <>

@@ -1176,6 +1176,48 @@ describe('MySeasonPage state shell', () => {
     expect(localStorage.getItem('mytribe.first-loss.season-1')).toBe('1')
   })
 
+  it('holds the first-loss card until the recap is continued', async () => {
+    localStorage.removeItem('mytribe.first-loss.season-1')
+    const user = userEvent.setup()
+    let unseen = true
+    mockGet({ ...season, swap_lock_episode: 10 }, async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [
+          episode(1, 'scored', '2026-08-01T00:00:00Z'),
+          episode(2, 'scored', '2026-08-08T00:00:00Z'),
+          episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+        ]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_name: 'Yanu', eliminated_in_episode: 2 },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_name: 'Siga', eliminated_in_episode: null },
+          { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return unseen ? result() : undefined
+      return []
+    })
+    vi.mocked(api.quiet.post).mockImplementation(async () => {
+      unseen = false
+      return {}
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await screen.findByRole('button', { name: 'Continue' })
+    expect(screen.queryByRole('dialog', { name: /tribe has spoken/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('dialog', { name: /tribe has spoken/i })).toBeVisible()
+  })
+
   it('holds the Sole Survivor card until the first-loss card is dismissed (#798)', async () => {
     localStorage.removeItem('mytribe.first-loss.season-1')
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
@@ -1732,9 +1774,10 @@ describe('MySeasonPage state shell', () => {
     await user.click(screen.getByRole('button', { name: /^History/ }))
     await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*Replay/ }))
-    // A recap that can't be read closes rather than sitting empty, and says
-    // why back on the sheet it was opened from.
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    // A recap that can't be read never opens; the sheet it was asked from
+    // stays up and says why.
+    expect(await screen.findByText('Recap is unavailable')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('History')
 
     // The server is fine now, and the same recap has to open — the refused
     // answer is still in the cache for five minutes, and the effect that
@@ -1745,8 +1788,6 @@ describe('MySeasonPage state shell', () => {
     // asks for it — under the harness's zero the query would be long gone and
     // this would pass without meaning anything.
     fail = false
-    await user.click(screen.getByRole('button', { name: /^History/ }))
-    await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
     await user.click(screen.getByRole('button', { name: /Ep 2.*Replay/ }))
     expect(await screen.findByRole('dialog')).toHaveTextContent('Ep 2 replay')
   })
