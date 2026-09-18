@@ -38,7 +38,10 @@ export function AdvantageStamp({ size, title, dark = false }: { size: number; ti
       className={`advantage-stamp ${dark ? 'advantage-stamp--dark' : ''} pointer-events-none absolute z-10 flex -rotate-[8deg] rounded-full`}
       style={{ top: -size * 0.28, right: -size * 0.32 }}
     >
-      <DoubleBadge size={size} title={title} stamp />
+      {/* The flat stamp art only where the full idol turns to mush: the 15-18 px
+          stamps on the Field, recap, Standings and ballot chips. The 22-26 px
+          ones on My Season and the ballot rail have room for the real idol. */}
+      <DoubleBadge size={size} title={title} stamp={size <= 18} />
     </span>
   )
 }
