@@ -254,7 +254,7 @@ function HistoryPanel({
               )}
             </dd>
 
-            <dt className={label}>Voted</dt>
+            <dt className={label}>Ballot</dt>
             <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
               {votes.length === 0 ? (
                 <span className="text-sm text-paper-ink-faded">No votes</span>
