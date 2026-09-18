@@ -693,13 +693,13 @@ export function MySeasonPage() {
     // Holding a dead slot is a position, not a chore: sitting on an eliminated
     // castaway for a week — to spend the weekly play on a x2 instead, or to
     // see who looks strong first — is a legitimate way to play. So it is worth
-    // saying out loud and it keeps the hero warm, but it is not a task and it
-    // never nags. Nothing can be done about it at all once swaps are spent or
-    // closed, and by then most rosters have one.
+    // saying out loud on the Tribe tab, but it is not a task: it never nags,
+    // never takes the headline and never keeps the hero warm. Nothing can be
+    // done about it at all once swaps are spent or closed, and by then most
+    // rosters have one, so the note drops it then.
     const deadSlots = held.length - active.length
-    const canSwap = !swapsLocked(d.season!, d.episodes)
-    const heldDead = deadSlots > 0 && canSwap
-    const rosterDone = held.length > 0 && (deadSlots === 0 || !canSwap)
+    const heldDead = deadSlots > 0 && !swapsLocked(d.season!, d.episodes)
+    const rosterDone = held.length > 0
     // A finale ballot is only "done" when a full bracket has been locked in —
     // a complete-but-unsaved draft still owes a submit, same as the weekly one.
     const ballotDone = isFinale
@@ -715,7 +715,7 @@ export function MySeasonPage() {
         // and the scoring all speak roster.
         label: 'Tribe',
         done: rosterDone,
-        note: `${active.length} active${swappedThisEpisode ? ' · swapped' : ''}`,
+        note: `${active.length} active${heldDead ? ` · ${deadSlots} out` : ''}${swappedThisEpisode ? ' · swapped' : ''}`,
       },
       {
         key: 'ballot',
@@ -745,7 +745,7 @@ export function MySeasonPage() {
     return {
       beats,
       // Nothing left at all, owed or optional. Colours the hero.
-      settled: left === 0 && !heldDead && !advantageUnplayed && !ssUnnamed,
+      settled: left === 0 && !advantageUnplayed && !ssUnnamed,
       // Name the thing rather than counting it: "1 task left" made you go
       // looking for which one.
       headline:
@@ -763,15 +763,11 @@ export function MySeasonPage() {
               ? 'Pick your tribe'
               : ssUnnamed
                 ? 'Name your Sole Survivor'
-                : heldDead
-                  ? deadSlots === 1
-                    ? 'A castaway in your tribe is out'
-                    : `${deadSlots} castaways in your tribe are out`
-                  : advantageUnplayed
-                    ? 'Your advantage is still unplayed'
-                    : isFinale
-                      ? "You're all set for the finale"
-                      : `You're all set for Ep ${openEp.episode_number}`,
+                : advantageUnplayed
+                  ? 'Your advantage is still unplayed'
+                  : isFinale
+                    ? "You're all set for the finale"
+                    : `You're all set for Ep ${openEp.episode_number}`,
     }
   }
 
