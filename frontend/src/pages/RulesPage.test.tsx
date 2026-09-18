@@ -69,7 +69,7 @@ describe('RulesPage', () => {
     serve(response())
     renderWithApp(<RulesPage />)
 
-    expect(await screen.findByRole('heading', { name: 'The short version' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'The basics' })).toBeVisible()
     for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings', 'Twists']) {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }

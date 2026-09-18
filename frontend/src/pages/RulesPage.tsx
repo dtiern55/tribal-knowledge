@@ -201,7 +201,7 @@ export function RulesPage() {
       <PageHeader eyebrow={season.name} title="Rules" />
 
       <section id="basics" aria-labelledby="basics-title" className="scroll-mt-24 border-y border-forest-200 py-5">
-        <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">The short version</h2>
+        <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">The basics</h2>
         <ul className="mt-4 space-y-2 text-sm leading-6 text-gray-700">
           <li><b>Tribe:</b> draft {season.roster_size} castaways. They score for what they do on the show.</li>
           <li>
