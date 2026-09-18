@@ -2211,6 +2211,10 @@ export function AdminPage() {
         </ol>
       </nav>
 
+      <Section id="dry-run" title="Dry run" description="Move a seeded practice season to any week. Everything before the pick is scored, the pick and everything after reopen. Refused for a season with real players.">
+        <DryRunSection season={season} episodes={episodes} />
+      </Section>
+
       <Section id="episodes" title="Episode operations" description="The active episode comes first: verify the schedule, enter results, review, then publish scoring.">
         <EpisodesSection
           season={season}
@@ -2237,10 +2241,6 @@ export function AdminPage() {
 
       <Section id="league-settings" title="Leagues" description="Each league has its own join code and members.">
         <LeaguesSection leagues={leagues} seasons={allSeasons} episodesBySeason={episodesBySeason} />
-      </Section>
-
-      <Section id="dry-run" title="Dry run" description="Move a seeded practice season to any week. Everything before the pick is scored, the pick and everything after reopen. Refused for a season with real players.">
-        <DryRunSection season={season} episodes={episodes} />
       </Section>
 
       <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
