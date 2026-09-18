@@ -75,9 +75,9 @@ describe('RulesPage', () => {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
-    expect(screen.getByText(/There is no limit on the number of swaps/)).toBeVisible()
+    expect(screen.getByText(/Swap as often as you like/)).toBeVisible()
     expect(screen.getByText(/3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11/)).toBeVisible()
-    expect(screen.getByText(/worth 16\. After the merge, 20\./)).toBeVisible()
+    expect(screen.getByText('+16 before merge, +20 after')).toBeVisible()
     expect(screen.queryByText(/roster/i)).not.toBeInTheDocument()
   })
 
@@ -87,7 +87,7 @@ describe('RulesPage', () => {
 
     // Swaps still show a number: the lock defaults to episode 8, so the last
     // swappable episode is 7 even when the season sets nothing explicit.
-    expect(await screen.findByText(/The last episode you can swap for is episode 7/)).toBeVisible()
+    expect(await screen.findByText(/Swap as often as you like through Episode 7/)).toBeVisible()
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
   })
 

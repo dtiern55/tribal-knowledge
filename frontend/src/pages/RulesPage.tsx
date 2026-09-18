@@ -209,12 +209,12 @@ export function RulesPage() {
         <h2 id="basics-title" className="font-display text-2xl tracking-wide text-forest-900">How it works</h2>
         <div className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
           <p>
-            Two things earn you points. First, the tribe of {season.roster_size} castaways you draft. All season they
-            score for what they do on the show: winning challenges, voting correctly, finding idols, making the merge.
-            Second, your weekly ballot: each episode you call who goes home, and every correct pick scores.
+            Two things earn you points: your tribe of {season.roster_size} castaways, who score for what they do on
+            the show, and your weekly ballot, where you call who goes home.
           </p>
           <p>
-            Before each episode airs, submit your ballot and choose your advantage. Most points after the finale wins.
+            Before each episode airs, submit your ballot and choose your advantage. You can change either until the
+            episode locks. Most points after the finale wins.
           </p>
         </div>
       </section>
@@ -223,10 +223,9 @@ export function RulesPage() {
         <RuleSection id="tribe" title="Tribe">
           <RuleList>
             <li>
-              Pick {season.roster_size} castaways. Your tribe locks before Episode {season.roster_lock_episode ?? 2}. Until then you can change it freely.
+              Pick {season.roster_size} castaways. Change them freely until Episode {season.roster_lock_episode ?? 2}.
             </li>
-            <li>A castaway scores for you only while they are on your tribe. A voted-out castaway stays on your tribe until you swap them out.</li>
-            <li>Finalists earn a lot at the finale, for making final tribal, finishing runner-up, and winning.</li>
+            <li>A castaway scores for you only while they are on your tribe. Voted-out castaways stay until you swap them out.</li>
           </RuleList>
         </RuleSection>
 
@@ -237,63 +236,43 @@ export function RulesPage() {
               After that, each swap costs points: {swapCostLadder(season)}.
             </li>
             <li>The cost comes off the castaway you drop, even if they were already voted out. You can undo a swap until the episode locks.</li>
-            <li>There is no limit on the number of swaps while they are open. The last episode you can swap for is episode {swapLockEpisodeNumber(season) - 1}. After that your tribe is locked for the rest of the season.</li>
+            <li>Swap as often as you like through Episode {swapLockEpisodeNumber(season) - 1}. After that your tribe is locked.</li>
           </RuleList>
         </RuleSection>
 
         <RuleSection id="ballot" title="Ballot">
           <RuleList>
             <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
-            {rungScores.length > 0 ? (
-              <li>
-                Rank your picks: put the name you are surest of on top. Each correct pick scores by its rank.
-                {` Before the merge the ranks are worth ${rungScores.map((score) => score.point_value).join(', ')}`}
-                {rungScores.some((score) => score.postmerge_point_value != null && score.postmerge_point_value !== score.point_value)
-                  ? `; after the merge, ${rungScores.map((score) => score.postmerge_point_value ?? score.point_value).join(', ')}.`
-                  : '.'}
-              </li>
-            ) : (
-              <li>
-                Each correct pick scores on its own.
-                {ballotScore && ballotScore.postmerge_point_value != null && ballotScore.postmerge_point_value !== ballotScore.point_value
-                  ? ` Before the merge a correct pick is worth ${ballotScore.point_value}. After the merge, ${ballotScore.postmerge_point_value}.`
-                  : ballotScore ? ` A correct pick is worth ${ballotScore.point_value}.` : ''}
-              </li>
-            )}
-            <li>You can change your ballot until the episode locks. One episode is open at a time. The next opens once the last one is scored.</li>
-            <li>The finale has its own ballot. See <a href="#finale" className="font-medium text-forest-700 underline underline-offset-2">Finale</a>.</li>
+            <li>
+              {rungScores.length > 0
+                ? 'Rank your picks, surest on top. Each correct pick scores by its rank.'
+                : 'Each correct pick scores on its own.'}
+            </li>
           </RuleList>
         </RuleSection>
 
         <RuleSection id="weekly-play" title="Weekly advantage">
           <RuleList>
-            <li>Each episode you get one advantage, and it is played on your tribe or on your ballot. Use it or lose it.</li>
-            <li><b>On your tribe:</b> a double point boost. One castaway on your tribe earns double this episode.</li>
+            <li>Each episode you get one advantage to play on your tribe or your ballot. Use it or lose it.</li>
+            <li><b>On your tribe:</b> a double point boost. One castaway earns double this episode.</li>
             <li>
-              <b>On your ballot:</b> a Power Vote. One extra name above your ranked picks
-              {powerVoteScore
-                ? `, worth ${powerVoteScore.point_value}${powerVoteScore.postmerge_point_value != null && powerVoteScore.postmerge_point_value !== powerVoteScore.point_value ? ` before the merge and ${powerVoteScore.postmerge_point_value} after` : ''} if they go home.`
-                : ', and if they go home it pays double.'}
+              <b>On your ballot:</b> a Power Vote, one extra name above your ranked picks
+              {powerVoteScore ? '.' : ' that pays double if they go home.'}
             </li>
-            <li>
-              You can change or remove it until the episode locks.
-              {season.advantage_lock_episode != null && ` Advantages close at Episode ${season.advantage_lock_episode}.`}
-            </li>
+            {season.advantage_lock_episode != null && <li>Advantages close at Episode {season.advantage_lock_episode}.</li>}
           </RuleList>
         </RuleSection>
 
         <RuleSection id="sole-survivor" title="Sole Survivor">
           <RuleList>
-            <li>Once the merge hits, name one castaway on your tribe as your Sole Survivor.</li>
-            <li>Your Sole Survivor locks when swaps do.</li>
+            <li>Once the merge hits, name one castaway on your tribe as your Sole Survivor. They lock when swaps do.</li>
             <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
           </RuleList>
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
           <RuleList>
-            <li>The finale ballot is a bracket, not a boot pick. Name your Final 4, your Final 3, and the winner.</li>
-            <li>Each correct Final 4 name and Final 3 name scores on its own. Naming the exact Final 3 earns a bonus. The winner scores on top.</li>
+            <li>The finale ballot is a bracket: name your Final 4, your Final 3, and the winner.</li>
             <li>No swaps and no advantage on the finale.</li>
           </RuleList>
           {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
@@ -341,7 +320,6 @@ export function RulesPage() {
               <li>
                 <b>Redemption Island:</b> a castaway sent to the island counts as the boot on your ballot but is still in the game.
                 They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
-                Every duel they win scores, and coming back scores more, most of all late in the season. Losing there is the real elimination.
               </li>
             )}
           </RuleList>
