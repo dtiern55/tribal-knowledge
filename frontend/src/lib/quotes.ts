@@ -38,6 +38,21 @@ export const QUOTES: Quote[] = [
     season: 'Season 27: Blood vs. Water',
   },
   {
+    text: 'Give me a rusty spoon so I can dig both my eyeballs out and then try jam it through my eye socket into my brain.',
+    who: 'Tyson',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
+    text: "If everyone played the game the way you do, I'd win 100% of the time.",
+    who: 'Tyson',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
+    text: "It's a puzzle. And I can't even spell.",
+    who: 'Kat',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
     text: "It's a fucking stick!",
     who: 'Eliza',
     season: 'Season 16: Micronesia',
@@ -234,7 +249,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 13: Cook Islands',
   },
   {
-    text: 'Wh- what… Are you saying people are lying?',
+    text: 'What... Are you saying people are lying?',
     who: 'Mike White',
     season: 'Season 37: David vs. Goliath',
   },
@@ -279,7 +294,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 1: Borneo',
   },
   {
-    text: "Fear keeps people loyal. That's straight out of The Godfather. It's true.",
+    text: "Fear keeps people loyal. That's straight out of The Godfather.",
     who: 'Boston Rob',
     season: 'Season 4: Marquesas',
   },
@@ -287,11 +302,6 @@ export const QUOTES: Quote[] = [
     text: "Digging into the sand is the dumbest idea I've ever had in my life.",
     who: 'Rupert',
     season: 'Season 8: All-Stars',
-  },
-  {
-    text: "You question a woman's character, you question a woman's ability — she'll snap your neck.",
-    who: 'Chris Daugherty',
-    season: 'Season 9: Vanuatu',
   },
   {
     text: 'Chaos is my friend.',
@@ -302,11 +312,6 @@ export const QUOTES: Quote[] = [
     text: 'Stick to the plan!',
     who: 'Keith Nale',
     season: 'Season 29: San Juan del Sur',
-  },
-  {
-    text: 'I truly believe that butterflies are dead relatives saying hi.',
-    who: 'Xander',
-    season: 'Season 41',
   },
   {
     text: 'Forty bucks to lick your fingers.',
