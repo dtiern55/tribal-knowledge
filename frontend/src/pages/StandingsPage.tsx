@@ -285,8 +285,18 @@ function HistoryPanel({
 export function StandingsPage() {
   const { session } = useAuth()
   const userId = session?.user?.id
-  // One row open at a time (#806).
-  const [openId, setOpenId] = useState<string | null>(null)
+  // One row open at a time (#806), unless Expand all opened them together;
+  // then rows close one by one without collapsing the rest.
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const toggleRow = (id: string) =>
+    setOpenIds((prev) => {
+      if (prev.has(id)) {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      }
+      return prev.size > 1 ? new Set(prev).add(id) : new Set([id])
+    })
 
   const { season, isLoading: seasonLoading, error: seasonError } = useActiveSeason()
   const standings = useQuery(
@@ -325,7 +335,7 @@ export function StandingsPage() {
   const ranked = rankStandings(entries)
   const mine = ranked.find(({ entry }) => entry.user_id === userId)
   const hasScoring = entries.some((e) => e.total_points !== 0)
-
+  const allOpen = openIds.size === ranked.length
 
   return (
     <div>
@@ -355,14 +365,18 @@ export function StandingsPage() {
           <TorchDefs />
           <div className="flex items-center justify-between border-b border-paper-line px-4 py-2.5">
             <span className="font-display text-[11px] font-bold uppercase tracking-[0.13em] text-forest-700">League</span>
-            <span className="font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-paper-ink-faded">
-              {ranked.length} players
-            </span>
+            <button
+              type="button"
+              onClick={() => setOpenIds(allOpen ? new Set() : new Set(ranked.map(({ entry }) => entry.user_id)))}
+              className="font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-forest-700 underline underline-offset-2"
+            >
+              {allOpen ? 'Collapse all' : 'Expand all'}
+            </button>
           </div>
           <ol>
             {ranked.map(({ entry, rank, tied }) => {
               const isMe = entry.user_id === userId
-              const isOpen = openId === entry.user_id
+              const isOpen = openIds.has(entry.user_id)
               return (
                 <li key={entry.user_id} className="border-b border-paper-line last:border-b-0">
                   {/* The row opens its own history in place; the Team page is a
@@ -370,7 +384,7 @@ export function StandingsPage() {
                       instead of a link nested in a button (#806). */}
                   <button
                     type="button"
-                    onClick={() => setOpenId(isOpen ? null : entry.user_id)}
+                    onClick={() => toggleRow(entry.user_id)}
                     aria-expanded={isOpen}
                     aria-controls={`history-${entry.user_id}`}
                     aria-current={isMe ? 'true' : undefined}

@@ -306,4 +306,16 @@ describe('StandingsPage', () => {
     expect(screen.getByText('+12').className).toContain('text-jade-700')
     expect(voted).not.toContainElement(mark)
   })
+
+  it('opens and closes every row from the header toggle', async () => {
+    mockExpansionApi({ advantage_type: null, advantage_target: null })
+    renderWithApp(<StandingsPage />)
+    const row = await screen.findByRole('button', { name: /Danny/ })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+  })
 })
