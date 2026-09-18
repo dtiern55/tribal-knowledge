@@ -5,80 +5,83 @@ vi.mock('./supabase', () => ({
   supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
 }))
 
+/** A fetch nobody answers until `answerAll` is called, so a request can be
+ *  held in the air for as long as a test needs it there. */
+function deferredFetch(body: unknown = [{ id: 'season-1' }]) {
+  const answers: (() => void)[] = []
+  const fetchMock = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        answers.push(() => resolve({ ok: true, status: 200, json: async () => body }))
+      }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  return { fetchMock, answerAll: () => answers.forEach((answer) => answer()) }
+}
+
+/** apiFetch awaits the auth session before it fetches; let that drain. */
+const sent = async () => {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('api.get', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.useRealTimers()
     clearApiCache()
   })
 
-  /** A fetch that answers every call with the same body, counting calls. */
-  function stubFetch(body: unknown = [{ id: 'season-1' }]) {
-    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => body }))
-    vi.stubGlobal('fetch', fetchMock)
-    return fetchMock
-  }
-
   it('shares a GET already in the air, and sends again once it has settled (#803)', async () => {
-    let resolve: (value: unknown) => void = () => {}
-    const fetchMock = vi.fn(
-      () =>
-        new Promise((r) => {
-          resolve = () => r({ ok: true, status: 200, json: async () => [{ id: 'season-1' }] })
-        }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+    const { fetchMock, answerAll } = deferredFetch()
 
     const both = Promise.all([api.get('/league-seasons'), api.get('/league-seasons')])
-    // apiFetch awaits the auth session first, so let the microtasks drain.
-    await Promise.resolve()
-    await Promise.resolve()
+    await sent()
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    resolve(null)
+    answerAll()
     const [first, second] = await both
     expect(first).toEqual([{ id: 'season-1' }])
     expect(second).toBe(first)
 
-    // Settled, and now held: the next caller is answered from the cache.
-    expect(await api.get('/league-seasons')).toEqual([{ id: 'season-1' }])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('answers from the cache for a while, then asks again (#814)', async () => {
-    const fetchMock = stubFetch()
-    await api.get('/seasons/show-1/cast')
-    await api.get('/seasons/show-1/cast')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-
-    // Half a minute on, the answer is stale enough to ask again.
-    const later = Date.now() + 31_000
-    vi.spyOn(Date, 'now').mockReturnValue(later)
-    await api.get('/seasons/show-1/cast')
+    // Settled, and nothing is held: the answers live in the query cache now
+    // (#816), so the next caller here is a fresh request.
+    const third = api.get('/league-seasons')
+    await sent()
+    answerAll()
+    expect(await third).toEqual([{ id: 'season-1' }])
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('forgets everything it read once this client writes (#814)', async () => {
-    const fetchMock = stubFetch()
-    await api.get('/league-seasons/ls-1/roster/user-1')
-    await api.get('/league-seasons/ls-1/standings')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+  it('drops a read a write has overtaken (#814)', async () => {
+    const { fetchMock, answerAll } = deferredFetch()
 
-    // A swap invalidates far more than the path it posts to, so the whole
-    // cache goes rather than a guess at which reads it touched.
-    await api.post('/league-seasons/ls-1/roster', { contestant_id: 'c-1' })
-    await api.get('/league-seasons/ls-1/roster/user-1')
-    await api.get('/league-seasons/ls-1/standings')
-    expect(fetchMock).toHaveBeenCalledTimes(5)
+    const beforeWrite = api.get('/league-seasons/ls-1/standings')
+    await sent()
+    // A swap lands while the standings read is still out. The refetch it
+    // triggers must be a new question, not the one asked before the swap —
+    // sharing that request would store a pre-write answer as the fresh one.
+    const write = api.post('/league-seasons/ls-1/roster', { contestant_id: 'c-1' })
+    await sent()
+    answerAll()
+    await write
+
+    const afterWrite = api.get('/league-seasons/ls-1/standings')
+    await sent()
+    answerAll()
+    await Promise.all([beforeWrite, afterWrite])
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
-  it('drops what it read when the session changes (#814)', async () => {
-    const fetchMock = stubFetch()
-    await api.get('/me')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+  it('drops what it is reading when the session changes (#814)', async () => {
+    const { fetchMock, answerAll } = deferredFetch()
 
+    const beforeSignOut = api.get('/me')
+    await sent()
     // One player's reads must never be served to the next.
     clearApiCache()
-    await api.get('/me')
+    const afterSignIn = api.get('/me')
+    await sent()
+    answerAll()
+    await Promise.all([beforeSignOut, afterSignIn])
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

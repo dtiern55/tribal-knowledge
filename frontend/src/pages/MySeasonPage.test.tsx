@@ -1531,6 +1531,7 @@ describe('MySeasonPage state shell', () => {
         { ...episode(2, 'scored', '2026-08-08T00:00:00Z'), is_finale: true },
       ],
       result({ is_finale: true }),
+      undefined,
       { ...season, status: 'completed' },
     )
     vi.mocked(api.post).mockResolvedValue({})

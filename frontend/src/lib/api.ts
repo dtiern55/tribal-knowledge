@@ -38,49 +38,35 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json() as Promise<T>
 }
 
-// The shell, the drawer and the page all ask for the same things as they
-// mount — /league-seasons went out four times a load, the roster three (#803).
-// A GET already in the air is shared rather than sent again. Sharers get the
-// same parsed body, so callers must treat a response as read-only.
+// A GET already in the air is shared rather than sent again. Every page reads
+// through the query cache now (#816), which holds answers and dedupes by key
+// on its own — what is left here is the reads outside it (the profile, the
+// admin proposals, a lazily-expanded breakdown) and the seam below, which the
+// query cache can't provide: dropping a request a write has overtaken.
+// Sharers get the same parsed body, so callers must treat a response as
+// read-only.
 const inFlight = new Map<string, Promise<unknown>>()
 
-// ...and for a short while after it lands, the answer is kept, so stepping
-// between pages doesn't re-ask for the cast, the episodes or a standings table
-// that costs the server ~350ms to compute (#814). Short, because the one thing
-// this client can't see is the commissioner scoring an episode: anything it
-// does itself empties the cache below.
-const CACHE_MS = 30_000
-const cached = new Map<string, { at: number; body: unknown }>()
-
 function sharedGet<T>(path: string): Promise<T> {
-  const hit = cached.get(path)
-  if (hit && Date.now() - hit.at < CACHE_MS) return Promise.resolve(hit.body as T)
   const existing = inFlight.get(path)
   if (existing) return existing as Promise<T>
-  const request = apiFetch<T>(path)
-    .then((body) => {
-      // Only if this request is still the current one: a write between the ask
-      // and the answer drops it from `inFlight`, and caching a pre-write body
-      // here would serve it as fresh for the next 30 seconds.
-      if (inFlight.get(path) === request) cached.set(path, { at: Date.now(), body })
-      return body
-    })
-    .finally(() => {
-      if (inFlight.get(path) === request) inFlight.delete(path)
-    })
+  const request = apiFetch<T>(path).finally(() => {
+    // Only if this request is still the current one: a write between the ask
+    // and the answer drops it, and the entry it dropped must stay dropped.
+    if (inFlight.get(path) === request) inFlight.delete(path)
+  })
   inFlight.set(path, request)
   return request
 }
 
-/** Forget everything cached. Called on every write and when the session
- *  changes — one player's reads must never survive into another's.
+/** Forget anything still in the air. Called on every write and when the
+ *  session changes — one player's reads must never survive into another's,
+ *  and a refetch triggered by a write would otherwise be handed the answer to
+ *  a question asked before it.
  *
  *  `notify` is false for a write that invalidates its own reads (#816): the
- *  cache still empties, the query layer is left to the caller. */
+ *  query layer is left to the caller. */
 export function clearApiCache(notify = true): void {
-  cached.clear()
-  // Including anything still in the air: a refetch triggered by this write
-  // would otherwise be handed the pre-write body and store it as fresh.
   inFlight.clear()
   if (notify) for (const listener of mutationListeners) listener()
 }
@@ -93,10 +79,10 @@ export function onApiMutation(listener: () => void): void {
   mutationListeners.add(listener)
 }
 
-// Any write empties the whole cache rather than reasoning about which paths a
-// swap or a ballot touches. There are ~36 write sites and one of them forgetting
-// to invalidate is a wrong roster on screen; a write is rare enough (a few per
-// player per week) that over-clearing costs nothing worth keeping.
+// A write marks every read stale rather than reasoning about which paths a
+// swap or a ballot touches. One write site forgetting is a wrong roster on
+// screen; `api.quiet.*` below is how a write that does name its paths opts
+// out (#816).
 function mutate<T>(path: string, options: RequestInit, notify = true): Promise<T> {
   return apiFetch<T>(path, options).finally(() => clearApiCache(notify))
 }

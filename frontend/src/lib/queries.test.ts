@@ -28,16 +28,36 @@ describe('the write backstop', () => {
     invalidate.mockRestore()
   })
 
-  it('still empties the 30s read cache when it is quiet', async () => {
-    const fetched = stubFetch()
-    fetched.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve([]) })
+  // The 30s answer cache is gone now the last page reads through queries
+  // (#816). What `lib/api.ts` still owns is the request in the air, and a
+  // quiet write has to drop that too: the refetch it is about to ask for is
+  // exactly the one that must not be handed a pre-write answer.
+  it('drops a read the write overtook, quiet or not', async () => {
+    const answers: (() => void)[] = []
+    const fetched = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          answers.push(() => resolve({ ok: true, status: 200, json: async () => [] }))
+        }),
+    )
+    vi.stubGlobal('fetch', fetched)
+    // apiFetch awaits the auth session before it fetches; let that drain.
+    const sent = async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    }
 
-    await api.get('/episodes/ep-1/eliminations')
-    await api.get('/episodes/ep-1/eliminations')
-    expect(fetched).toHaveBeenCalledTimes(1) // held, as the cache should
+    const beforeWrite = api.get('/episodes/ep-1/eliminations')
+    await sent()
+    const write = api.quiet.delete('/eliminations/elim-1')
+    await sent()
+    answers.forEach((answer) => answer())
+    await write
 
-    await api.quiet.delete('/eliminations/elim-1')
-    await api.get('/episodes/ep-1/eliminations')
-    expect(fetched).toHaveBeenCalledTimes(3)
+    const refetch = api.get('/episodes/ep-1/eliminations')
+    await sent()
+    answers.forEach((answer) => answer())
+    await Promise.all([beforeWrite, refetch])
+    expect(fetched).toHaveBeenCalledTimes(3) // the read, the write, the refetch
   })
 })
