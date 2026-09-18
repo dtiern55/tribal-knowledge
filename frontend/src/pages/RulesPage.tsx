@@ -59,9 +59,6 @@ const EVENT_GROUPS: [string, string[]][] = [
   ]],
 ]
 
-// Only shown on a season that has the island (#655).
-const REDEMPTION_EVENTS = new Set(['win_redemption_duel', 'return_from_redemption', 'return_from_redemption_endgame'])
-
 const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
 // Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
@@ -181,10 +178,8 @@ export function RulesPage() {
   if (error) return <Notice tone="error" title="Could not load the rules">{error.message}</Notice>
   if (!rules) return <ColdStart />
 
-  const { season, scoring_events, prediction_scores, has_redemption } = rules
-  const tribeEvents = scoring_events.filter(
-    (event) => event.point_value !== 0 && (has_redemption || !REDEMPTION_EVENTS.has(event.event_type)),
-  )
+  const { season, scoring_events, prediction_scores } = rules
+  const tribeEvents = scoring_events.filter((event) => event.point_value !== 0)
   const grouped = EVENT_GROUPS.map(([title, keys]) => [
     title,
     keys.map((key) => tribeEvents.find((e) => e.event_type === key)).filter((e): e is RuleScoringEvent => e != null),
@@ -320,12 +315,16 @@ export function RulesPage() {
             <li><b>Quit or removal:</b> a quit, medical removal, or disqualification counts as a boot.</li>
             <li><b>Successful idol play:</b> the person the idol protected got votes and would have gone home without it.</li>
             <li><b>Idol nullifier voids a real idol:</b> the nullifier hit a castaway who played a real idol. Aimed at nothing, it scores the play alone.</li>
-            {has_redemption && (
-              <li>
-                <b>Redemption Island:</b> a castaway sent to the island counts as the boot on your ballot but is still in the game.
-                They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
-              </li>
-            )}
+          </RuleList>
+        </RuleSection>
+
+        <RuleSection id="twists" title="Twists">
+          <p className="mb-3 text-sm leading-6 text-gray-700">Not every season has these. If one shows up, this is how it counts.</p>
+          <RuleList>
+            <li>
+              <b>Redemption Island:</b> a castaway sent to the island counts as the boot on your ballot but is still in the game.
+              They stay on your tribe and keep scoring, and cannot be picked on a ballot while there.
+            </li>
           </RuleList>
         </RuleSection>
       </div>

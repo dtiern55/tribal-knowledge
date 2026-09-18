@@ -50,7 +50,6 @@ function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
       { advantage_type: 'double_vote_points', label: 'Double Vote Points', token_cost: 15, enabled: true },
       { advantage_type: 'extra_vote', label: 'Extra Vote', token_cost: 5, enabled: false },
     ],
-    has_redemption: false,
     ...overrides,
   }
 }
@@ -71,7 +70,7 @@ describe('RulesPage', () => {
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'The short version' })).toBeVisible()
-    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings']) {
+    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings', 'Twists']) {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
@@ -91,22 +90,17 @@ describe('RulesPage', () => {
     expect(screen.getByText(/You get 3 picks an episode/)).toBeVisible()
   })
 
-  it('groups tribe scoring and hides Redemption Island unless the season has it', async () => {
+  it('groups tribe scoring and always shows the twists', async () => {
     serve(response())
-    const { unmount } = renderWithApp(<RulesPage />)
+    renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'Challenges' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Tribal Council' })).toBeVisible()
     expect(screen.getByText('+3 before merge, +5 after')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Other' })).toBeVisible()
     expect(screen.getByText('Mystery event')).toBeVisible()
-    expect(screen.queryByText(/Redemption Island/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cry')).not.toBeInTheDocument()
-    unmount()
-
-    serve(response({ has_redemption: true }))
-    renderWithApp(<RulesPage />)
-    expect(await screen.findByText('Win a Redemption Island duel')).toBeVisible()
+    expect(screen.getByText('Win a Redemption Island duel')).toBeVisible()
     expect(screen.getByText('Return from Redemption Island at the merge')).toBeVisible()
     expect(screen.getByText('Return from Redemption Island in the endgame')).toBeVisible()
     expect(screen.getByText(/counts as the boot on your ballot but is still in the game/)).toBeVisible()
