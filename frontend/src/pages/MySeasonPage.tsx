@@ -6,7 +6,7 @@ import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { activeSeason, api } from '../lib/api'
 import { pathQuery, useApiMutation } from '../lib/queries'
-import { displayName } from '../lib/cast'
+import { displayName, isMerged } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
@@ -2583,6 +2583,7 @@ function RosterSection({
       (e) => e.episode_number === (pick.active_until_episode ?? 0) + 1 && episodeClosed(e),
     )
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
+  const merged = isMerged(contestants)
 
   // Light gold SS outline while the designation window is open, solid once
   // locked (#190).
@@ -2978,6 +2979,7 @@ function RosterSection({
                 key={pick.id}
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
+                showTribe={!merged}
                 isSoleSurvivor={pick.is_sole_survivor}
                 soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                 isDoubled={doubledTarget === pick.contestant_id}
@@ -3255,6 +3257,7 @@ function RosterSection({
                   key={pick.id}
                   contestantId={pick.contestant_id}
                   contestant={contestantMap.get(pick.contestant_id)}
+                  showTribe={!merged}
                   right={
                     <span className="flex items-center gap-2 text-xs">
                       <Points value={rosterPoints.get(pick.contestant_id)} />

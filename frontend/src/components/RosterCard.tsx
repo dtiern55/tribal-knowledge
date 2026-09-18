@@ -23,6 +23,7 @@ export function RosterCard({
   contestantId,
   contestant,
   isSoleSurvivor = false,
+  showTribe = true,
   soleSurvivorBonus = 0,
   isDoubled = false,
   ssWindowOpen = false,
@@ -43,6 +44,8 @@ export function RosterCard({
   contestantId: string
   contestant: Contestant | undefined
   isSoleSurvivor?: boolean
+  // Off after the merge, when every castaway would name the same tribe.
+  showTribe?: boolean
   // The +50% finale bonus this designation earned, named in the torch's
   // tooltip. 0 leaves it out (no bonus yet).
   soleSurvivorBonus?: number
@@ -88,7 +91,7 @@ export function RosterCard({
   // a boot shows when it happened instead. A swap-in is provenance, not a
   // replacement for the tribe — it rides as its own tag so the tribe stays
   // visible (#406 review).
-  const note = outEp != null ? `Out · episode ${outEp}` : (contestant?.tribe_name ?? null)
+  const note = outEp != null ? `Out · episode ${outEp}` : showTribe ? (contestant?.tribe_name ?? null) : null
   // On the team card the doubled row says so in its own tribe line — the idol
   // by the score is the mark, this is the words (My Season redesign).
   const doubledNote = prominent && isDoubled && outEp == null
@@ -149,7 +152,9 @@ export function RosterCard({
             </span>
           )}
         </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+        {/* Collapses when there is nothing to say, so a lone name centres on
+            the portrait instead of floating above an empty line. */}
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 empty:hidden">
           {note && (
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-paper-ink-faded">
               {outEp == null && contestant?.tribe_color && (

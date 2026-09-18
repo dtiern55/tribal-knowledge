@@ -11,7 +11,7 @@ import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { displayName } from '../lib/cast'
+import { displayName, isMerged } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
 import { pathQuery } from '../lib/queries'
 import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '../lib/rosterBreakdown'
@@ -212,6 +212,7 @@ export function TeamPage() {
   }))
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
+  const merged = isMerged(contestants)
   const episodeTitles = new Map(episodes.map((episode) => [episode.episode_number, episode.title]))
   const doubledByContestantEp = doubledByContestantEpisode(plays, episodes)
   const active = roster.filter((pick) => pick.active_until_episode === null)
@@ -306,6 +307,7 @@ export function TeamPage() {
                       key={pick.id}
                       contestantId={pick.contestant_id}
                       contestant={contestantMap.get(pick.contestant_id)}
+                      showTribe={!merged}
                       isSoleSurvivor={pick.is_sole_survivor}
                       soleSurvivorBonus={pick.is_sole_survivor ? ssBonus : 0}
                       swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
@@ -332,6 +334,7 @@ export function TeamPage() {
                         key={pick.id}
                         contestantId={pick.contestant_id}
                         contestant={contestantMap.get(pick.contestant_id)}
+                        showTribe={!merged}
                         right={
                           <span className="flex items-center gap-2 text-xs">
                             <Points value={rosterPoints.get(pick.contestant_id)} />
