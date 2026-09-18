@@ -2743,7 +2743,6 @@ function RosterSection({
   const advantageStrip =
     weekly.openEpisode == null ||
     weekly.openEpisode.is_finale ||
-    picking === 'swap' ||
     // The picker replaces the rows the idol would land on (#706).
     (windowOpen && editing) ||
     weekly.locked ||
@@ -2805,6 +2804,9 @@ function RosterSection({
         disabled={picking != null}
         onClick={() => {
           setMoment(null)
+          // Cleared on the way in, not out: the strip and the replacements
+          // keep their words while they fold away (#826).
+          setDropping(null)
           onStartSwap?.()
         }}
         aria-label={`Swap · ${nextSwapCost === 0 ? 'free' : nextSwapCost}`}
@@ -2832,8 +2834,22 @@ function RosterSection({
 
   return (
     <>
-      {advantageStrip}
-      {picking === 'swap' && (
+      {/* A swap folds the offer out of the way rather than pulling it (#826). */}
+      <div
+        className="collapse-rows"
+        data-open={picking !== 'swap'}
+        inert={picking === 'swap'}
+        aria-hidden={picking === 'swap'}
+      >
+        <div>{advantageStrip}</div>
+      </div>
+      <div
+        className="collapse-rows"
+        data-open={picking === 'swap'}
+        inert={picking !== 'swap'}
+        aria-hidden={picking !== 'swap'}
+      >
+        <div>
         <p className="flex items-center gap-3 border-b border-terracotta-200 bg-terracotta-50/80 px-4 py-2 text-xs font-semibold text-terracotta-800">
           <span className="min-w-0 flex-1">
             {dropping
@@ -2846,16 +2862,14 @@ function RosterSection({
           </span>
           <button
             type="button"
-            onClick={() => {
-              setDropping(null)
-              onPickingDone?.()
-            }}
+            onClick={() => onPickingDone?.()}
             className="shrink-0 text-[11px] uppercase tracking-wide text-forest-700 underline underline-offset-2"
           >
             Cancel
           </button>
         </p>
-      )}
+        </div>
+      </div>
       {/* Always mounted so it can fold away with the room light instead of
           vanishing in one frame (#826); inert while folded. */}
       <div
@@ -2968,7 +2982,13 @@ function RosterSection({
             ))}
           </ul>
 
-          {picking === 'swap' && dropping && (
+          <div
+            className="collapse-rows"
+            data-open={picking === 'swap' && dropping != null}
+            inert={!(picking === 'swap' && dropping != null)}
+            aria-hidden={!(picking === 'swap' && dropping != null)}
+          >
+            <div>
             <div className="space-y-2 border-t border-paper-line px-4 py-3">
               {/* The price is the mechanic now, so it reads at full strength
                   rather than as faded helper text. */}
@@ -2989,12 +3009,7 @@ function RosterSection({
                   <button
                     key={c.id}
                     onClick={() =>
-                      swap.mutate(c.id, {
-                        onSuccess: () => {
-                          setDropping(null)
-                          onPickingDone?.()
-                        },
-                      })
+                      swap.mutate(c.id, { onSuccess: () => onPickingDone?.() })
                     }
                     disabled={swapping}
                     className="flex items-center gap-2 p-3 rounded-lg border border-cream-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-forest-500 disabled:opacity-40"
@@ -3011,7 +3026,8 @@ function RosterSection({
                 ))}
               </div>
             </div>
-          )}
+            </div>
+          </div>
 
         </div>
       ) : windowOpen ? (
@@ -4305,11 +4321,21 @@ function PicksSection({
                 </>
               )}
             </div>
-            {!confirmed && (
-              // The picker sits in a recessed tray under the rail, so the
-              // ballot reads as the thing on top and the picker as where the
-              // names come from. The margins cancel this section's padding.
-              <div className="ballot-tray -mx-4 -mb-3.5 px-4 pt-4 pb-3.5 text-center">
+            {/* The margins cancel this section's padding. Save folds the
+                picker into the foot, and Edit folds it back out, rather than
+                swapping one for the other in a frame (#826). */}
+            <div className="-mx-4 -mb-3.5">
+            <div
+              className="collapse-rows"
+              data-open={!confirmed}
+              inert={confirmed}
+              aria-hidden={confirmed}
+            >
+              <div>
+              {/* The picker sits in a recessed tray under the rail, so the
+                  ballot reads as the thing on top and the picker as where the
+                  names come from. */}
+              <div className="ballot-tray px-4 pt-4 pb-3.5 text-center">
                 <p className="ballot-sheet__count mb-4">Tap a castaway to add them</p>
                 {grid}
                 {episodeError && <p role="alert" className="mb-3 rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{episodeError}</p>}
@@ -4336,15 +4362,17 @@ function PicksSection({
                   )}
                 </div>
               </div>
-            )}
-            {confirmed && (
-              // The lane's own foot, where Tribe keeps Edit tribe. The margins
-              // cancel this section's padding; width auto undoes the foot's
-              // 100%, which is there for the button feet.
-              <div
-                className="lane-card__foot -mx-4 -mb-3.5 mt-2 justify-center gap-2.5 text-sm"
-                style={{ width: 'auto' }}
-              >
+              </div>
+            </div>
+            <div
+              className="collapse-rows"
+              data-open={confirmed}
+              inert={!confirmed}
+              aria-hidden={!confirmed}
+            >
+              <div>
+              {/* The lane's own foot, where Tribe keeps Edit tribe. */}
+              <div className="lane-card__foot mt-2 justify-center gap-2.5 text-sm">
                 <span className="inline-flex items-center gap-1.5 font-semibold text-jade-700">
                   <svg viewBox="0 0 24 24" className="size-3.5 flex-none" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 13l4 4L19 7" />
@@ -4360,7 +4388,9 @@ function PicksSection({
                   Edit ballot
                 </button>
               </div>
-            )}
+              </div>
+            </div>
+            </div>
             </>
           )
         })()}
