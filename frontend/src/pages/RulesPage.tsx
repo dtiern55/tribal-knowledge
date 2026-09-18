@@ -289,6 +289,9 @@ export function RulesPage() {
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
+          <p className="text-sm leading-6 text-gray-700">
+            The ballot is replaced by a prediction bracket. The weekly advantage is not played for the final episode.
+          </p>
           {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
         </RuleSection>
 
