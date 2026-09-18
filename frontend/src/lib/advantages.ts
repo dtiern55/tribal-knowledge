@@ -1,5 +1,7 @@
 import defaultIcon from '../assets/default-advantage-icon.webp'
+import defaultStamp from '../assets/default-advantage-stamp.webp'
 import s27Icon from '../assets/s27-advantage-icon.webp'
+import s27Stamp from '../assets/s27-advantage-stamp.webp'
 import s51Icon from '../assets/s51-advantage-icon.webp'
 import s51Stamp from '../assets/s51-advantage-stamp.webp'
 
@@ -17,13 +19,14 @@ export function advantageIdolFor(seasonNumber: number | null | undefined): strin
 
 /** The flat, bold version of a season's idol for the corner stamp (#849), which
  *  renders at 14-26 px where the full idol's detail turns to mush. A season
- *  without one stamps its full idol. */
+ *  without one stamps the skull, matching its skull idol. */
 const SEASON_STAMPS: Record<number, string> = {
+  27: s27Stamp,
   51: s51Stamp,
 }
 
 export function advantageStampFor(seasonNumber: number | null | undefined): string {
-  return (seasonNumber != null && SEASON_STAMPS[seasonNumber]) || advantageIdolFor(seasonNumber)
+  return (seasonNumber != null && SEASON_STAMPS[seasonNumber]) || defaultStamp
 }
 
 // Display names for advantage types. Shared so My Season and another player's
