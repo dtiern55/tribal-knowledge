@@ -8,10 +8,8 @@ export function SoleSurvivorExample({ className = '' }: { className?: string }) 
         Example
       </p>
       <p className="mt-0.5 text-sm text-paper-ink">
-        <span className="inline-flex items-center gap-1 align-[-4px]">
-          <b className="font-display font-bold text-gold-800">Aubry</b>
-          <SoleSurvivorTorch />
-        </span>{' '}
+        <b className="font-display font-bold text-gold-800">Aubry</b>{' '}
+        <SoleSurvivorTorch className="inline-block h-4 w-3 align-[-3px]" />{' '}
         is your Sole Survivor. In the finale she:
       </p>
       <dl className="mt-2 space-y-1 text-sm tabular-nums text-paper-ink">
