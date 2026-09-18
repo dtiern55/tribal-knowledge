@@ -1,9 +1,10 @@
 import type { Session } from '@supabase/supabase-js'
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNavigate, useSearchParams } from 'react-router'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode, EpisodeResult, Season } from '../types'
 import { renderWithApp } from '../test/render'
@@ -1392,6 +1393,63 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('heading', { name: 'Finale ballot' })).toBeVisible()
     // The stale weekly "Ballot" section is gone at the finale.
     expect(screen.queryByRole('heading', { name: 'Ballot' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the locked finale screen up when the refused bracket read is retried (#822)', async () => {
+    // Everyone who filed no bracket gets a 404 here, which the locked screen
+    // forgives — it reads as no ballot. A refused query holds no data, so a
+    // refetch resets it to pending, on every window focus and after every
+    // write; on `isPending` the whole screen would drop to the loader for a
+    // round trip each time, on finale night.
+    const bracketPath = `/league-seasons/season-1/finale-predictions/${auth.session.user.id}`
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      { ...episode(2, 'upcoming', '2026-08-02T00:00:00Z'), is_finale: true },
+    ]
+    const asked: string[] = []
+    mockGet(season, async (path: string) => {
+      asked.push(path)
+      if (path === '/seasons/season-1/episodes') return episodes
+      if (path === '/seasons/season-1/contestants') {
+        return [{ id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu' }]
+      }
+      if (path === bracketPath) {
+        // Refuses at once the first time; the retry stays in the air, so the
+        // screen can be read while the refused query is back to pending.
+        if (asked.filter((p) => p === path).length > 1) return new Promise(() => {})
+        throw new ApiError('No bracket submitted', 404)
+      }
+      if (path === `/league-seasons/season-1/roster/${auth.session.user.id}`) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_until_episode: null }]
+      }
+      if (path === `/league-seasons/season-1/scoring-breakdown/${auth.session.user.id}`) return { roster: [], picks: [] }
+      if (path === `/league-seasons/season-1/advantage-plays/${auth.session.user.id}`) return []
+      if (path === '/league-seasons/season-1/standings') return []
+      if (path.endsWith('/reveal')) return undefined
+      if (path.endsWith('/hub')) return []
+      // Anything else fails the test, including the weekly boot-vote read the
+      // finale must not make.
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    // The test holds the cache so it can trigger the retry itself.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithApp(<MySeasonPage />, { auth, client })
+
+    expect(await screen.findByRole('heading', { name: 'Results are pending' })).toBeVisible()
+
+    // What a window focus or a write elsewhere does: everything refetches. The
+    // turn of the event loop is what gets the refetch's pending state on
+    // screen — react-query notifies through a microtask, so an act with
+    // nothing awaited in it returns before React has seen it.
+    await act(async () => {
+      void client.invalidateQueries()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    // The retry really went out and is still out, or this proves nothing.
+    expect(asked.filter((p) => p === bracketPath)).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: 'Results are pending' })).toBeVisible()
   })
 
   it('hides roster members eliminated in an earlier episode from the locked roster', async () => {
