@@ -355,10 +355,13 @@ def swap_roster_pick(
             )
             penalty = _swap_penalty(ls, cur.fetchone()["n"] + 1)
 
+            # The Sole Survivor flag leaves with the castaway, so the pick is
+            # free to name someone else without an Undo first.
             cur.execute(
                 """
                 update roster_picks
-                set active_until_episode = %s, swap_penalty_points = %s
+                set active_until_episode = %s, swap_penalty_points = %s,
+                    is_sole_survivor = false
                 where id = %s
                 """,
                 [swap_episode - 1, penalty, str(old_pick["id"])],
@@ -422,8 +425,8 @@ def undo_roster_swap(
     An exact reversal — the closed pick comes back as it was, penalty cleared,
     and the incoming pick is removed. There is no per-episode allowance to
     restore; #715 dropped that cap and swaps are priced by ordinal instead.
-    Restoring the closed row also restores its Sole Survivor flag, if it held
-    one.
+    The one thing it does not bring back is a Sole Survivor flag: the swap
+    cleared it, and the pick may have moved on since.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:

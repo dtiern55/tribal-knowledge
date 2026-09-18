@@ -177,6 +177,11 @@ def test_swap_roster_pick(client, db_conn, current_user):
         f"/league-seasons/{season['league_season_id']}/roster",
         json={"contestant_ids": [str(c["id"]) for c in contestants]},
     )
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update roster_picks set is_sole_survivor = true where contestant_id = %s",
+            [str(contestants[0]["id"])],
+        )
     r = client.post(
         f"/league-seasons/{season['league_season_id']}/roster/swap",
         json={
@@ -198,6 +203,8 @@ def test_swap_roster_pick(client, db_conn, current_user):
     # The first swap each season is free (#404): no penalty, and no advantage
     # play either — the swap no longer touches the weekly play at all.
     assert old["swap_penalty_points"] == 0
+    # The Sole Survivor pick leaves with them, free to name again (no Undo).
+    assert not any(p["is_sole_survivor"] for p in roster)
     plays = client.get(
         f"/league-seasons/{season['league_season_id']}/advantage-plays/{current_user['id']}"
     ).json()
