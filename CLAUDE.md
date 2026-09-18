@@ -50,6 +50,11 @@ an auto-merge.
 - A value that keys a query must not be re-derived per render if anything is
   written against it. Latch the id in state and look the row up from live query
   data, or a list refetch silently re-points writes at a different row.
+- Every UI change is checked in both themes: unlocked (daylight) and locked
+  (`html.locked-night` in `index.css`). The locked theme repaints by overriding
+  specific color utilities, so a `bg-*` / `text-*` / `border-*` class that isn't
+  in those rules stays daylight under lock and can land light-on-light or
+  dark-on-dark. Add the override when a new one appears.
 - All league times are Central (America/Chicago) in the UI; API/DB are UTC.
   Conversion happens in `frontend/src/lib/time.ts`.
 - Database connects via Supabase transaction pooler (port 6543), not direct Postgres.
