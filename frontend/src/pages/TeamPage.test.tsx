@@ -96,6 +96,55 @@ describe('TeamPage', () => {
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
   })
 
+  it('reads the teams either side in the background, so a swipe lands ready (#814)', async () => {
+    const standing = (user_id: string, display_name: string, total_points: number) =>
+      ({
+        user_id, display_name, roster_points: total_points, elimination_points: 0,
+        finale_points: 0, total_points, trend: null, trend_delta: 0, last_episode_points: 0,
+        active_survivors: [], recently_eliminated_survivors: [], sole_survivor_contestant_id: null,
+      }) as StandingEntry
+    // Standings order: Ahead, then the team on screen, then Behind.
+    const field = [standing('ahead', 'Ahead', 30), standing('me', 'Me', 20), standing('behind', 'Behind', 10)]
+
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
+      if (path.endsWith('/contestants')) return []
+      if (path.endsWith('/standings')) return field
+      if (path.endsWith('/episodes')) return [] as Episode[]
+      if (path.includes('/roster/')) return []
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [], sole_survivor_bonus: 0 }
+      if (path.includes('/advantage-plays/')) return []
+      if (path.includes('/picks/')) return {}
+      if (path.endsWith('/eliminations')) return []
+      if (path.includes('/finale-predictions/')) return null
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/me' },
+    )
+
+    expect(await screen.findByRole('heading', { name: /Me's Season/ })).toBeVisible()
+
+    // Both neighbours' per-player reads go out without being asked for.
+    await vi.waitFor(() => {
+      for (const sibling of ['ahead', 'behind']) {
+        for (const path of [
+          `/league-seasons/season-1/roster/${sibling}`,
+          `/league-seasons/season-1/scoring-breakdown/${sibling}`,
+          `/league-seasons/season-1/advantage-plays/${sibling}`,
+          `/league-seasons/season-1/picks/${sibling}`,
+          `/league-seasons/season-1/finale-predictions/${sibling}`,
+        ]) {
+          expect(api.get).toHaveBeenCalledWith(path)
+        }
+      }
+    })
+  })
+
   it('starts with only Tribe open; Expand all reveals the ballot (#646)', async () => {
     const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
     vi.mocked(api.get).mockImplementation(async (path: string) => {
