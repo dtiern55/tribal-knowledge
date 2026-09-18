@@ -270,10 +270,6 @@ export function RulesPage() {
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
-          <RuleList>
-            <li>The finale ballot is a bracket: name your Final 4, your Final 3, and the winner.</li>
-            <li>No swaps and no advantage on the finale.</li>
-          </RuleList>
           {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
         </RuleSection>
 
