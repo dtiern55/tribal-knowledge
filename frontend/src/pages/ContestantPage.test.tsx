@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { screen } from '@testing-library/react'
 import { Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import type { Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { ContestantPage } from './ContestantPage'
@@ -10,7 +10,6 @@ import { ContestantPage } from './ContestantPage'
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
-  getActiveSeason: vi.fn(),
 }))
 
 const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
@@ -24,8 +23,9 @@ const CAST = [
 ]
 
 function arrange() {
-  vi.mocked(getActiveSeason).mockResolvedValue(season)
   vi.mocked(api.get).mockImplementation(async (path: string) => {
+    // The page picks the active season out of this list, as every page does.
+    if (path === '/league-seasons') return [season]
     if (path.endsWith('/performance')) {
       return {
         name: 'Kenzie', image_url: null, placement: null, eliminated_in_episode: null,
@@ -96,8 +96,8 @@ const BIO_QA = [
 ]
 
 function arrangeBio() {
-  vi.mocked(getActiveSeason).mockResolvedValue({ ...season, roster_lock_episode: 2 } as Season)
   vi.mocked(api.get).mockImplementation(async (path: string) => {
+    if (path === '/league-seasons') return [{ ...season, roster_lock_episode: 2 } as Season]
     if (path.endsWith('/performance')) {
       return {
         name: 'Ana Sani', image_url: null, placement: null, eliminated_in_episode: null,

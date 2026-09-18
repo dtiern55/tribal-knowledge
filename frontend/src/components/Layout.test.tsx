@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderWithApp } from '../test/render'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import type { AuthContextValue } from '../auth/context'
 import type { Episode, Season } from '../types'
 import { Layout } from './Layout'
@@ -11,7 +11,6 @@ import { Layout } from './Layout'
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn().mockResolvedValue([]) },
-  getActiveSeason: vi.fn().mockResolvedValue(null),
   pinSeason: vi.fn(),
 }))
 
@@ -38,6 +37,7 @@ function renderLayout(route = '/', auth?: Partial<AuthContextValue>) {
 describe('Layout', () => {
   const season = {
     id: 'season-1',
+    season_id: 'show-1',
     name: 'Review season',
     status: 'active',
     roster_lock_episode: 1,
@@ -48,8 +48,7 @@ describe('Layout', () => {
     localStorage.removeItem('tribal-knowledge-shell-theme')
     localStorage.removeItem('tk-theme-override')
     document.querySelector('meta[name="theme-color"]')?.remove()
-    // Restore the module defaults so a per-test override can't leak forward.
-    vi.mocked(getActiveSeason).mockResolvedValue(null)
+    // Restore the module default so a per-test override can't leak forward.
     vi.mocked(api.get).mockResolvedValue([])
   })
 
@@ -88,19 +87,20 @@ describe('Layout', () => {
     const themeColor = document.createElement('meta')
     themeColor.name = 'theme-color'
     document.head.append(themeColor)
-    // Stays locked across the mount fetch and the navigation re-fetch — the
-    // shell re-derives its theme on every navigation now (persistent mock,
-    // reset in afterEach).
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockResolvedValue([
+    // Stays locked across the navigation: the shell reads the season and its
+    // episodes out of the app's query cache (persistent mock, reset in afterEach).
+    const episodes = [
       {
         id: 'episode-3',
-        season_id: season.id,
+        season_id: season.season_id,
         episode_number: 3,
         picks_lock_at: new Date(Date.now() - 60_000).toISOString(),
         status: 'upcoming',
       } as Episode,
-    ])
+    ]
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === '/league-seasons' ? [season] : episodes,
+    )
     const user = userEvent.setup()
     renderLayout()
 

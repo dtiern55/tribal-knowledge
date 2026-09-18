@@ -52,9 +52,12 @@ export function pathQuery<T>(path: string | null) {
  * `/league-seasons` serves the whole app; which of them is "active" is a pure
  * function of that list plus the pinned choice, so it costs nothing to derive
  * per page rather than fetching again.
+ *
+ * `enabled` is for the app shell, which renders before anyone is signed in and
+ * must not ask for a league-season it has no token for.
  */
-export function useActiveSeason() {
-  const query = useQuery(pathQuery<Season[]>('/league-seasons'))
+export function useActiveSeason(enabled = true) {
+  const query = useQuery({ ...pathQuery<Season[]>('/league-seasons'), enabled })
   return { ...query, season: query.data ? activeSeason(query.data) : undefined }
 }
 

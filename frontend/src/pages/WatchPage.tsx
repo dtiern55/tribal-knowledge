@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
@@ -6,10 +7,11 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { useAuth } from '../auth/useAuth'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import { rankCast } from '../lib/cast'
 import { airingEpisode } from '../lib/episodes'
-import type { CastMember, Episode, RulesResponse, Season } from '../types'
+import { pathQuery, useActiveSeason } from '../lib/queries'
+import type { CastMember, Episode, RulesResponse } from '../types'
 import {
   chipEventsForTab,
   convertWinsToTeam,
@@ -53,13 +55,7 @@ function groupByTribe(members: CastMember[]) {
  *  browser (localStorage per episode) — it hands off to admin, writes nothing. */
 export function WatchPage() {
   const { profile } = useAuth()
-  const [season, setSeason] = useState<Season | null>(null)
-  const [episode, setEpisode] = useState<Episode | null>(null)
-  const [cast, setCast] = useState<CastMember[]>([])
-  const [rules, setRules] = useState<RulesResponse | null>(null)
   const [watch, setWatch] = useState<WatchState>(emptyState)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [tab, setTab] = useState<TabKey>('wins')
   const [chipSel, setChipSel] = useState<Record<string, string>>({})
@@ -71,57 +67,56 @@ export function WatchPage() {
   const [synced, setSynced] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  const seasonQ = useActiveSeason()
+  const season = seasonQ.season
+  const castQ = useQuery(pathQuery<CastMember[]>(season ? `/seasons/${season.season_id}/cast` : null))
+  const episodesQ = useQuery(pathQuery<Episode[]>(season ? `/seasons/${season.season_id}/episodes` : null))
+  const rulesQ = useQuery(pathQuery<RulesResponse>(season ? `/league-seasons/${season.id}/rules` : null))
+  const cast = castQ.data ?? []
+  const rules = rulesQ.data ?? null
+  const episode =
+    season && episodesQ.data ? airingEpisode(episodesQ.data, season) ?? episodesQ.data.at(-1) ?? null : null
+  // Server is the source of truth (cross-device); the scoring ritual reads it.
+  const savedQ = useQuery(
+    pathQuery<{ data: Partial<WatchState> }>(
+      season && episode ? `/league-seasons/${season.id}/episodes/${episode.id}/watch` : null,
+    ),
+  )
+
+  const loading =
+    seasonQ.isLoading ||
+    (season != null && (castQ.isPending || episodesQ.isPending || rulesQ.isPending)) ||
+    (episode != null && savedQ.isPending)
+  const error = seasonQ.error ?? castQ.error ?? episodesQ.error ?? rulesQ.error
+
+  // Seed the editable tracker once, when the saved copy has answered either way.
+  // A refusal (offline, nothing saved yet) falls back to this device's copy.
+  const episodeId = episode?.id
   useEffect(() => {
-    async function load() {
+    if (!episodeId || loaded || savedQ.isPending) return
+    const server = savedQ.data?.data
+    let initial: WatchState | null =
+      server && Object.keys(server).length ? { ...emptyState(), ...server } : null
+    if (!initial) {
       try {
-        const active = await getActiveSeason()
-        setSeason(active)
-        if (!active) return
-        const [members, episodes, ruleset] = await Promise.all([
-          api.get<CastMember[]>(`/seasons/${active.season_id}/cast`),
-          api.get<Episode[]>(`/seasons/${active.season_id}/episodes`),
-          api.get<RulesResponse>(`/league-seasons/${active.id}/rules`),
-        ])
-        setCast(members)
-        setRules(ruleset)
-        const ep = airingEpisode(episodes, active) ?? episodes.at(-1) ?? null
-        setEpisode(ep)
-        if (ep) {
-          let initial: WatchState | null = null
-          try {
-            // Server is the source of truth (cross-device); the scoring ritual
-            // reads it. Fall back to this device's copy if the fetch fails.
-            const server = await api.get<{ data: Partial<WatchState> }>(
-              `/league-seasons/${active.id}/episodes/${ep.id}/watch`,
-            )
-            if (server.data && Object.keys(server.data).length) initial = { ...emptyState(), ...server.data }
-          } catch {
-            // Offline or nothing saved yet — try the local copy below.
-          }
-          if (!initial) {
-            try {
-              const stored = JSON.parse(localStorage.getItem(storageKey(ep.id)) ?? 'null') as WatchState | null
-              if (stored) initial = { ...emptyState(), ...stored }
-            } catch {
-              // Unreadable scratchpad, start clean.
-            }
-          }
-          if (initial) setWatch(initial)
-          setLoaded(true)
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load the episode')
-      } finally {
-        setLoading(false)
+        const stored = JSON.parse(localStorage.getItem(storageKey(episodeId)) ?? 'null') as WatchState | null
+        if (stored) initial = { ...emptyState(), ...stored }
+      } catch {
+        // Unreadable scratchpad, start clean.
       }
     }
-    void load()
-  }, [])
+    if (initial) setWatch(initial)
+    setLoaded(true)
+  }, [episodeId, loaded, savedQ.isPending, savedQ.data])
 
+  // Ids, not the rows they came from: a write invalidates every query (#814),
+  // and depending on the refetched episode object would make this effect save
+  // again on its own answer.
+  const leagueSeasonId = season?.id
   useEffect(() => {
-    if (!episode || !season || !loaded) return
+    if (!episodeId || !leagueSeasonId || !loaded) return
     try {
-      localStorage.setItem(storageKey(episode.id), JSON.stringify(watch))
+      localStorage.setItem(storageKey(episodeId), JSON.stringify(watch))
     } catch {
       // Storage unavailable — the tracker still works for this sitting.
     }
@@ -129,25 +124,26 @@ export function WatchPage() {
     // localStorage above is the offline fallback.
     setSynced('saving')
     clearTimeout(saveTimer.current)
-    const lsId = season.id
-    const epId = episode.id
     saveTimer.current = setTimeout(() => {
       api
-        .put(`/league-seasons/${lsId}/episodes/${epId}/watch`, { data: watch })
+        .put(`/league-seasons/${leagueSeasonId}/episodes/${episodeId}/watch`, { data: watch })
         .then(() => setSynced('saved'))
         .catch(() => setSynced('error'))
     }, 800)
     return () => clearTimeout(saveTimer.current)
-  }, [episode, season, watch, loaded])
+  }, [episodeId, leagueSeasonId, watch, loaded])
 
   // No pre/post-merge toggle: the tribes flatten on their own at the merge,
   // since the merge tribe is one tribe. postMerge only picks the point rate.
-  const active = useMemo(() => rankCast(cast).filter((c) => c.eliminated_in_episode == null), [cast])
+  const active = useMemo(
+    () => rankCast(castQ.data ?? []).filter((c) => c.eliminated_in_episode == null),
+    [castQ.data],
+  )
   const groups = useMemo(() => groupByTribe(active), [active])
   const recorded = deriveScoringEvents(watch).length + watch.boots.length
 
   if (loading) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load the episode">{error}</Notice>
+  if (error) return <Notice tone="error" title="Could not load the episode">{error.message}</Notice>
   if (!profile?.is_admin)
     return (
       <Notice tone="error" title="Commissioner access required">

@@ -1,13 +1,13 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { WatchPage } from './WatchPage'
 
 vi.mock('../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api')>()), api: { get: vi.fn(), put: vi.fn() }, getActiveSeason: vi.fn() }))
+  ...(await importOriginal<typeof import('../lib/api')>()), api: { get: vi.fn(), put: vi.fn() } }))
 
 const season = { id: 'ls-1', season_id: 'season-1', name: 'Survivor 51', roster_lock_episode: 1, merge_episode: null } as Season
 const episode = { id: 'ep-1', episode_number: 5, picks_lock_at: '2020-01-01T00:00:00Z', status: 'locked' } as Episode
@@ -28,9 +28,9 @@ const admin = { auth: { profile: { id: 'u1', display_name: 'Danny', is_admin: tr
 describe('WatchPage', () => {
   beforeEach(() => {
     localStorage.clear()
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.put).mockResolvedValue(undefined as never)
     vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/league-seasons') return Promise.resolve([season]) as never
       if (path.endsWith('/watch')) return Promise.resolve({ data: {} }) as never
       if (path.endsWith('/episodes')) return Promise.resolve([episode]) as never
       if (path.endsWith('/rules')) return Promise.resolve(rules) as never

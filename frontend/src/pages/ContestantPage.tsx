@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ContestantPortrait } from '../components/ContestantPortrait'
 import { ELIMINATED_DIM } from '../components/ContestantAvatar'
@@ -7,11 +8,11 @@ import { Notice } from '../components/Notice'
 import { PageLoader } from '../components/PageLoader'
 import { SectionShell } from '../components/SectionShell'
 import { useAuth } from '../auth/useAuth'
-import { api, getActiveSeason } from '../lib/api'
 import { castStatus } from '../lib/cast'
 import { advantagesOpenYet } from '../lib/episodes'
+import { pathQuery, useActiveSeason } from '../lib/queries'
 import { useSwipeNav } from '../lib/swipe'
-import type { CastMember, ContestantPerformance, Episode, RosterPick, ScoringBreakdown, Season } from '../types'
+import type { CastMember, ContestantPerformance, Episode, RosterPick, ScoringBreakdown } from '../types'
 
 function Points({ value, suffix = 'pts' }: { value: number; suffix?: string }) {
   const color = value > 0 ? 'text-jade-700' : value < 0 ? 'text-terracotta-600' : 'text-paper-ink-faded'
@@ -37,15 +38,9 @@ const bioLabel = (q: string): string => BIO_LABELS[q] ?? q
 export function ContestantPage() {
   const { contestantId } = useParams()
   const [searchParams] = useSearchParams()
-  const [perf, setPerf] = useState<ContestantPerformance | null>(null)
-  const [cast, setCast] = useState<CastMember[]>([])
-  const [season, setSeason] = useState<Season | null>(null)
-  const [episodes, setEpisodes] = useState<Episode[]>([])
   // null = follow the auto default (open while picking, closed after); once the
   // reader toggles it, their choice sticks for the session.
   const [bioOpen, setBioOpen] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const castQuery = searchParams.get('cast')
   // Arriving from My Season is a different context: you're looking at one of
   // *your* castaways, so the siblings you swipe through are the rest of your
@@ -54,8 +49,6 @@ export function ContestantPage() {
   const fromRoster = searchParams.get('from') === 'roster'
   const { session } = useAuth()
   const userId = session?.user?.id
-  const [rosterIds, setRosterIds] = useState<string[] | null>(null)
-  const [earnedForYou, setEarnedForYou] = useState<number | null>(null)
   // Each episode is its own collapsed row, matching the roster breakdown (#257).
   const [openEps, setOpenEps] = useState<Set<number>>(new Set())
   const toggleEp = (n: number) =>
@@ -71,56 +64,34 @@ export function ContestantPage() {
       ? `?cast=${encodeURIComponent(castQuery)}`
       : ''
 
-  useEffect(() => {
-    if (!contestantId) return
-    setLoading(true)
-    setError(null)
-    api
-      .get<ContestantPerformance>(`/contestants/${contestantId}/performance`)
-      .then(setPerf)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load contestant'))
-      .finally(() => setLoading(false))
-  }, [contestantId])
+  const perfQuery = useQuery({
+    ...pathQuery<ContestantPerformance>(contestantId ? `/contestants/${contestantId}/performance` : null),
+    // Swiping to a sibling keeps the current castaway on screen until the next
+    // one arrives, instead of strobing the full-page loader between them (#451).
+    placeholderData: keepPreviousData,
+  })
+  const perf = perfQuery.data
+  const loading = perfQuery.isPlaceholderData
 
-  useEffect(() => {
-    let live = true
-    void getActiveSeason()
-      .then(async (s) => {
-        if (!s || !live) return
-        setSeason(s)
-        const [rows, eps] = await Promise.all([
-          api.get<CastMember[]>(`/seasons/${s.season_id}/cast`),
-          api.get<Episode[]>(`/seasons/${s.season_id}/episodes`),
-        ])
-        if (!live) return
-        setCast(rows)
-        setEpisodes(eps)
-      })
-      .catch(() => {})
-    return () => { live = false }
-  }, [])
+  // The season, cast and episodes are context, not the page: they decide who
+  // you swipe to and whether the bio opens. A failure there leaves those alone
+  // rather than erroring the castaway you asked for, as their `.catch()`es did.
+  const { season } = useActiveSeason()
+  const cast = useQuery(pathQuery<CastMember[]>(season ? `/seasons/${season.season_id}/cast` : null)).data ?? []
+  const episodes = useQuery(pathQuery<Episode[]>(season ? `/seasons/${season.season_id}/episodes` : null)).data ?? []
 
-  useEffect(() => {
-    if (!fromRoster || !userId) return
-    let live = true
-    void getActiveSeason()
-      .then(async (season) => {
-        if (!season) return
-        const [picks, breakdown] = await Promise.all([
-          api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`),
-          api.get<ScoringBreakdown>(`/league-seasons/${season.id}/scoring-breakdown/${userId}`),
-        ])
-        if (!live) return
-        setRosterIds(
-          picks.filter((p) => p.active_until_episode === null).map((p) => p.contestant_id),
-        )
-        setEarnedForYou(
-          breakdown.roster.find((r) => r.contestant_id === contestantId)?.points ?? 0,
-        )
-      })
-      .catch(() => live && setRosterIds([]))
-    return () => { live = false }
-  }, [fromRoster, userId, contestantId])
+  const ownPath = fromRoster && userId && season ? `/league-seasons/${season.id}` : null
+  const ownRoster = useQuery(pathQuery<RosterPick[]>(ownPath && `${ownPath}/roster/${userId}`))
+  const ownBreakdown = useQuery(pathQuery<ScoringBreakdown>(ownPath && `${ownPath}/scoring-breakdown/${userId}`))
+  // Until the roster answers, swipe the whole cast; if it refuses, swipe nowhere.
+  const rosterIds = ownRoster.isPending
+    ? null
+    : (ownRoster.data ?? [])
+        .filter((p) => p.active_until_episode === null)
+        .map((p) => p.contestant_id)
+  const earnedForYou = ownBreakdown.data
+    ? ownBreakdown.data.roster.find((r) => r.contestant_id === contestantId)?.points ?? 0
+    : null
 
   // Same order My Season shows them in, so swiping matches the list you left.
   const siblings =
@@ -142,8 +113,8 @@ export function ContestantPage() {
   // Only the first load gets the full torch loader. Swiping to a sibling keeps
   // the current castaway on screen (softly dimmed) until the next arrives, so
   // stepping through entries doesn't strobe a loader between each one (#451).
-  if (loading && !perf) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load this castaway">{error}</Notice>
+  if (perfQuery.isLoading) return <PageLoader />
+  if (perfQuery.error) return <Notice tone="error" title="Could not load this castaway">{perfQuery.error.message}</Notice>
   if (!perf) return <Notice title="Contestant not found"><Link className="text-forest-700 underline" to={backHref}>{fromRoster ? 'Return to My Season' : 'Return to the cast'}</Link></Notice>
 
   const eliminated = perf.eliminated_in_episode != null
