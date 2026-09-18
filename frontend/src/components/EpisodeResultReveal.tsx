@@ -394,7 +394,7 @@ export function EpisodeResultReveal({
                           size="sm"
                         />
                         {doubled && voteDouble.target_contestant_id != null && (
-                          <AdvantageStamp size={15} title="Power Vote" dark />
+                          <AdvantageStamp size={15} title="Power Vote" />
                         )}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -570,7 +570,7 @@ function ResultRow({
             scorer never blows the row up (#477). */}
         <span className={`relative flex shrink-0 ${eliminated ? ELIMINATED_DIM : ''}`}>
           <ContestantAvatar name={name} imageUrl={imageUrl} tribeColor={null} tribeName={null} size="sm" />
-          {doubled && <AdvantageStamp size={15} title="Double Castaway Points" dark />}
+          {doubled && <AdvantageStamp size={15} title="Double Castaway Points" />}
         </span>
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
           <span

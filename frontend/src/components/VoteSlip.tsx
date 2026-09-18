@@ -40,7 +40,7 @@ export function VoteSlip({
       }
     >
       <span className={stale ? 'line-through' : undefined}>{name}</span>
-      {doubled && <AdvantageStamp size={18} title="Power Vote" dark={dark} />}
+      {doubled && <AdvantageStamp size={18} title="Power Vote" />}
     </span>
   )
 }

@@ -26,7 +26,7 @@ export function HubBallotMark({
     <span className={`relative inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${tone}`}>
       {correct && <span className="sr-only">Correct — </span>}
       {name}
-      {power && <AdvantageStamp size={16} title="Power Vote on this vote" dark={dark} />}
+      {power && <AdvantageStamp size={16} title="Power Vote on this vote" />}
     </span>
   )
 }

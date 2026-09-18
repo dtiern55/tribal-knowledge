@@ -1339,7 +1339,7 @@ function LockedState({
                       />
                       {played?.advantage_type === 'double_roster_points' &&
                         played.target_contestant_id === pick.contestant_id && (
-                          <AdvantageStamp size={15} title="Double Castaway Points this episode" dark={broadcast} />
+                          <AdvantageStamp size={15} title="Double Castaway Points this episode" />
                         )}
                     </span>
                     {/* The Sole Survivor pick is the torch after the name and
@@ -1583,7 +1583,6 @@ function LeagueHub({
                       <AdvantageStamp
                         size={15}
                         title={`${doubled} ${doubled === 1 ? 'Power Vote' : 'Power Votes'} on this castaway`}
-                        dark={broadcast}
                       />
                     )}
                   </span>
@@ -1710,7 +1709,6 @@ function LeagueHub({
                         : null
                     }
                     soleSurvivorId={entry.sole_survivor_contestant_id}
-                    dark={broadcast}
                   />
                   {/* The finale's ballot is the bracket, drawn the way your own
                       card draws it (#801). */}
@@ -1794,7 +1792,6 @@ function HubCastawayRow({
   empty,
   doubledContestantId = null,
   soleSurvivorId = null,
-  dark = false,
 }: {
   label: string
   survivors: StandingSurvivor[]
@@ -1804,7 +1801,6 @@ function HubCastawayRow({
   doubledContestantId?: string | null
   /** Their Sole Survivor pick: a small hand torch beside an otherwise plain name. */
   soleSurvivorId?: string | null
-  dark?: boolean
 }) {
   return (
     <div>
@@ -1826,7 +1822,7 @@ function HubCastawayRow({
                     size="sm"
                   />
                   {s.contestant_id === doubledContestantId && (
-                    <AdvantageStamp size={15} title="Double Castaway Points on them this episode" dark={dark} />
+                    <AdvantageStamp size={15} title="Double Castaway Points on them this episode" />
                   )}
                 </span>
                 <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">

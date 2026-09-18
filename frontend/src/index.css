@@ -741,15 +741,6 @@ html.locked-night .app-shell .ss-champion::before {
   border-width: var(--tribe-border-width, 0);
 }
 
-/* The advantage stamp's cut-out ring takes the surface it sits on (#849). */
-.advantage-stamp {
-  box-shadow: 0 0 0 1.5px #fffaf2;
-}
-.advantage-stamp--dark,
-html.locked-night .app-shell .advantage-stamp {
-  box-shadow: 0 0 0 1.5px #12261f;
-}
-
 /* The lifted idol snaps back to where it was grabbed on a missed drop. */
 .seal-ghost {
   transition: none;
