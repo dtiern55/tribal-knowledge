@@ -1,4 +1,4 @@
-import { QueryClient, useQuery } from '@tanstack/react-query'
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { activeSeason, api, ApiError, onApiMutation } from './api'
 import type { Season } from '../types'
 
@@ -61,8 +61,47 @@ export function useActiveSeason(enabled = true) {
   return { ...query, season: query.data ? activeSeason(query.data) : undefined }
 }
 
-// Writes invalidate everything, the same blunt rule the hand-rolled cache used
-// (#814): ~36 write sites against ~20 read paths, and one of them forgetting is
-// a wrong roster on screen. Registered from here so `lib/api.ts` stays free of
-// any import of this file.
+// A write through `api.post` and friends invalidates everything, the same blunt
+// rule the hand-rolled cache used (#814): one write site forgetting is a wrong
+// roster on screen. `api.quiet.*` is the opt-out, for the writes below that say
+// what they changed. Registered from here so `lib/api.ts` stays free of any
+// import of this file.
 onApiMutation(() => void queryClient.invalidateQueries())
+
+/**
+ * A write that names the API paths it changes (#816). Its `write` must use
+ * `api.quiet.*`, or the backstop above fires first and this is just slower.
+ *
+ * The backstop is right for a season-wide change and wrong for a busy one: the
+ * commissioner toggles eliminations and scoring events a dozen times an
+ * evening, and each toggle would otherwise refetch every league, every cast and
+ * every episode list on the console. What isn't named is still marked stale —
+ * it just keeps what it has until something asks again.
+ */
+export function useApiMutation<TVars, TData>({
+  write,
+  invalidates,
+  onSuccess,
+}: {
+  write: (vars: TVars) => Promise<TData>
+  invalidates: string[]
+  onSuccess?: (data: TData, vars: TVars) => void
+}) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: write,
+    // On the way out either way: a write that fails part-way — the elimination
+    // retype is a DELETE then a POST — has still changed the server, and
+    // leaving the old answer up would be the flick-back this exists to prevent.
+    onSettled: async () => {
+      void client.invalidateQueries({ refetchType: 'none' })
+      // The named paths refetch now, cancelling anything already in the air so
+      // a pre-write body can't land as fresh. Awaited, so the mutation stays
+      // pending until the answer is on screen.
+      await Promise.all(
+        invalidates.map((path) => client.invalidateQueries({ queryKey: ['api', path] })),
+      )
+    },
+    onSuccess,
+  })
+}

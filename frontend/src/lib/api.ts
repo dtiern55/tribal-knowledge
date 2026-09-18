@@ -59,22 +59,30 @@ function sharedGet<T>(path: string): Promise<T> {
   if (existing) return existing as Promise<T>
   const request = apiFetch<T>(path)
     .then((body) => {
-      cached.set(path, { at: Date.now(), body })
+      // Only if this request is still the current one: a write between the ask
+      // and the answer drops it from `inFlight`, and caching a pre-write body
+      // here would serve it as fresh for the next 30 seconds.
+      if (inFlight.get(path) === request) cached.set(path, { at: Date.now(), body })
       return body
     })
-    .finally(() => inFlight.delete(path))
+    .finally(() => {
+      if (inFlight.get(path) === request) inFlight.delete(path)
+    })
   inFlight.set(path, request)
   return request
 }
 
 /** Forget everything cached. Called on every write and when the session
- *  changes — one player's reads must never survive into another's. */
-export function clearApiCache(): void {
+ *  changes — one player's reads must never survive into another's.
+ *
+ *  `notify` is false for a write that invalidates its own reads (#816): the
+ *  cache still empties, the query layer is left to the caller. */
+export function clearApiCache(notify = true): void {
   cached.clear()
   // Including anything still in the air: a refetch triggered by this write
   // would otherwise be handed the pre-write body and store it as fresh.
   inFlight.clear()
-  for (const listener of mutationListeners) listener()
+  if (notify) for (const listener of mutationListeners) listener()
 }
 
 const mutationListeners = new Set<() => void>()
@@ -89,19 +97,29 @@ export function onApiMutation(listener: () => void): void {
 // swap or a ballot touches. There are ~36 write sites and one of them forgetting
 // to invalidate is a wrong roster on screen; a write is rare enough (a few per
 // player per week) that over-clearing costs nothing worth keeping.
-function mutate<T>(path: string, options: RequestInit): Promise<T> {
-  return apiFetch<T>(path, options).finally(clearApiCache)
+function mutate<T>(path: string, options: RequestInit, notify = true): Promise<T> {
+  return apiFetch<T>(path, options).finally(() => clearApiCache(notify))
+}
+
+function writes(notify: boolean) {
+  return {
+    post: <T>(path: string, body: unknown) =>
+      mutate<T>(path, { method: 'POST', body: JSON.stringify(body) }, notify),
+    put: <T>(path: string, body: unknown) =>
+      mutate<T>(path, { method: 'PUT', body: JSON.stringify(body) }, notify),
+    patch: <T>(path: string, body: unknown) =>
+      mutate<T>(path, { method: 'PATCH', body: JSON.stringify(body) }, notify),
+    delete: <T>(path: string) => mutate<T>(path, { method: 'DELETE' }, notify),
+  }
 }
 
 export const api = {
   get: <T>(path: string) => sharedGet<T>(path),
-  post: <T>(path: string, body: unknown) =>
-    mutate<T>(path, { method: 'POST', body: JSON.stringify(body) }),
-  put: <T>(path: string, body: unknown) =>
-    mutate<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: <T>(path: string, body: unknown) =>
-    mutate<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(path: string) => mutate<T>(path, { method: 'DELETE' }),
+  ...writes(true),
+  /** Writes that invalidate their own reads (#816): same call, same cache
+   *  clear, without the "everything is stale" broadcast. Quietness belongs to
+   *  the call rather than to a flag something else could be standing in. */
+  quiet: writes(false),
 }
 
 // The Standings season pick sticks app-wide (issue: every page independently

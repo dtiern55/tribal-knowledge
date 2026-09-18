@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { SlidePuzzleLoader } from '../components/SlidePuzzleLoader'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
-import { api, getActiveSeason } from '../lib/api'
+import { activeSeason, api } from '../lib/api'
+import { pathQuery, useApiMutation } from '../lib/queries'
 import { commissionerContext, commissionerEpisodeLabel } from '../lib/adminWorkflow'
 import { displayName } from '../lib/cast'
 import { ContestantAvatar } from '../components/ContestantAvatar'
@@ -187,13 +189,7 @@ function ActionBtn({
 
 // ─── Season section ───────────────────────────────────────────────────────────
 
-function SeasonSection({
-  season,
-  onUpdated,
-}: {
-  season: Season
-  onUpdated: (s: Season) => void
-}) {
+function SeasonSection({ season }: { season: Season }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(season.name)
   const [mergeEp, setMergeEp] = useState(String(season.merge_episode ?? ''))
@@ -216,8 +212,9 @@ function SeasonSection({
 
   function save() {
     void run(setSaving, setError, async () => {
-      // The show fields live on the season, the rule knobs on this league's
-      // league-season (#595); the second PATCH returns the merged shape.
+      // Left on `api.*`: these two writes move the rules the whole app reads —
+      // the season list, this league-season's rules, every page's lock state —
+      // so the blanket invalidate is the honest answer for them (#816).
       await api.patch<ShowSeason>(`/seasons/${season.season_id}`, {
         name,
         merge_episode: mergeEp ? Number(mergeEp) : null,
@@ -227,13 +224,12 @@ function SeasonSection({
           .sort((a, b) => a.from_episode - b.from_episode),
         status,
       })
-      const updated = await api.patch<Season>(`/league-seasons/${season.id}`, {
+      await api.patch<Season>(`/league-seasons/${season.id}`, {
         roster_lock_episode: lockEp ? Number(lockEp) : null,
         ...(season.token_economy_enabled
           ? { swap_token_cost: Number(swapCost) }
           : {}),
       })
-      onUpdated(updated)
       setEditing(false)
     })
   }
@@ -390,22 +386,34 @@ function SeasonSection({
 function ContestantsSection({
   seasonId,
   contestants,
-  onUpdated,
 }: {
   seasonId: string
   contestants: Contestant[]
-  onUpdated: (cs: Contestant[]) => void
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editNickname, setEditNickname] = useState('')
   const [editPlacement, setEditPlacement] = useState('')
   const [editImageUrl, setEditImageUrl] = useState('')
-  const [saving, setSaving] = useState(false)
   const [addText, setAddText] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
-  const [editError, setEditError] = useState<string | null>(null)
+
+  const castPath = `/seasons/${seasonId}/contestants`
+  const saveContestant = useApiMutation({
+    write: (id: string) =>
+      api.quiet.patch<Contestant>(`/contestants/${id}`, {
+        name: editName,
+        nickname: editNickname.trim(),
+        placement: editPlacement ? Number(editPlacement) : null,
+        image_url: editImageUrl.trim() || null,
+      }),
+    invalidates: [castPath],
+    onSuccess: () => setEditingId(null),
+  })
+  const addCast = useApiMutation({
+    write: (names: string[]) => api.quiet.post<Contestant[]>(castPath, { names }),
+    invalidates: [castPath],
+    onSuccess: () => setAddText(''),
+  })
 
   function startEdit(c: Contestant) {
     setEditingId(c.id)
@@ -413,20 +421,7 @@ function ContestantsSection({
     setEditNickname(c.nickname ?? '')
     setEditPlacement(c.placement != null ? String(c.placement) : '')
     setEditImageUrl(c.image_url ?? '')
-    setEditError(null)
-  }
-
-  function saveEdit(id: string) {
-    void run(setSaving, setEditError, async () => {
-      const updated = await api.patch<Contestant>(`/contestants/${id}`, {
-        name: editName,
-        nickname: editNickname.trim(),
-        placement: editPlacement ? Number(editPlacement) : null,
-        image_url: editImageUrl.trim() || null,
-      })
-      onUpdated(contestants.map((c) => (c.id === id ? updated : c)))
-      setEditingId(null)
-    })
+    saveContestant.reset()
   }
 
   function addContestants() {
@@ -434,12 +429,7 @@ function ContestantsSection({
       .split('\n')
       .map((n) => n.trim())
       .filter(Boolean)
-    if (!names.length) return
-    void run(setAdding, setAddError, async () => {
-      const added = await api.post<Contestant[]>(`/seasons/${seasonId}/contestants`, { names })
-      onUpdated([...contestants, ...added])
-      setAddText('')
-    })
+    if (names.length) addCast.mutate(names)
   }
 
   return (
@@ -464,8 +454,11 @@ function ContestantsSection({
                 className="w-20 border border-cream-200 rounded px-2 py-1 text-sm"
                 placeholder="Place"
               />
-              <ActionBtn onClick={() => saveEdit(c.id)} disabled={saving}>
-                {saving ? '…' : 'Save'}
+              <ActionBtn
+                onClick={() => saveContestant.mutate(c.id)}
+                disabled={saveContestant.isPending}
+              >
+                {saveContestant.isPending ? '…' : 'Save'}
               </ActionBtn>
               <ActionBtn variant="secondary" onClick={() => setEditingId(null)}>
                 ✕
@@ -488,7 +481,7 @@ function ContestantsSection({
                 placeholder="Photo URL (upload in Supabase Studio, paste the public link)"
               />
             </div>
-            <ErrorMsg msg={editError} />
+            <ErrorMsg msg={saveContestant.error?.message ?? null} />
           </div>
         ) : (
           <div
@@ -518,9 +511,9 @@ function ContestantsSection({
           className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm mb-2"
           placeholder="Castaway 01&#10;Castaway 02"
         />
-        <ErrorMsg msg={addError} />
-        <ActionBtn onClick={addContestants} disabled={adding || !addText.trim()}>
-          {adding ? 'Adding…' : 'Add'}
+        <ErrorMsg msg={addCast.error?.message ?? null} />
+        <ActionBtn onClick={addContestants} disabled={addCast.isPending || !addText.trim()}>
+          {addCast.isPending ? 'Adding…' : 'Add'}
         </ActionBtn>
       </div>
     </div>
@@ -560,21 +553,25 @@ interface ImportProposal {
 }
 
 /** Review-gated survivoR import (#132): load the server's proposal, uncheck
- * anything wrong, apply through the normal additive endpoints. */
+ * anything wrong, apply through the normal additive endpoints.
+ *
+ * Deliberately still on `api.*` (#816). The proposal is a one-shot read behind
+ * a button, with a review the commissioner is part-way through — a query that
+ * refetched on its own would wipe the checkboxes — and applying it writes
+ * eliminations, events and placements in one go, so the blanket invalidate is
+ * the right refresh. */
 function ImportSection({
   episode,
   contestants,
   eventTypes,
   elims,
   events,
-  onApplied,
 }: {
   episode: Episode
   contestants: Contestant[]
   eventTypes: ScoringEventType[]
   elims: EliminationRow[]
   events: ScoringEventRow[]
-  onApplied: (added: { elims: EliminationRow[]; events: ScoringEventRow[] }) => void
 }) {
   const [sourceSeason, setSourceSeason] = useState('')
   const [proposal, setProposal] = useState<ImportProposal | null>(null)
@@ -655,7 +652,6 @@ function ImportSection({
           placement: pl.placement,
         })
       }
-      onApplied({ elims: addedElims, events: addedEvents })
       setProposal(null)
       setSuccess(
         `Applied ${addedElims.length} eliminations, ${addedEvents.length} events, ${pls.length} placements.`,
@@ -782,50 +778,41 @@ function EpisodeInsightEditor({
   const [selected, setSelected] = useState<string[]>([])
   const [notes, setNotes] = useState<{ label: string; value: string; detail: string }[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const stored = selected.length + notes.length
 
+  const insightsPath = `/episodes/${episode.id}/insights`
+  const insightsQ = useQuery(pathQuery<EpisodeInsightConfig[]>(insightsPath))
+
+  // Seed the editable copy once, whichever way the read lands: a failure shows
+  // its message above an empty editor, as it did before.
   useEffect(() => {
-    let live = true
-    api
-      .get<EpisodeInsightConfig[]>(`/episodes/${episode.id}/insights`)
-      .then((items) => {
-        if (!live) return
-        setSelected(
-          items
-            .filter((item) => item.insight_type !== 'manual_note')
-            .map((item) => {
-              if (item.insight_type === 'pick_popularity') {
-                return `pick:${item.contestant_id ?? ''}`
-              }
-              if (item.insight_type === 'weekly_play_usage') {
-                return `play:${item.advantage_type ?? ''}`
-              }
-              return item.insight_type
-            }),
-        )
-        setNotes(
-          items
-            .filter((item) => item.insight_type === 'manual_note')
-            .map((item) => ({
-              label: item.label ?? '',
-              value: item.value ?? '',
-              detail: item.detail ?? '',
-            })),
-        )
-        setLoaded(true)
-      })
-      .catch((cause) => {
-        if (!live) return
-        setError(cause instanceof Error ? cause.message : 'Could not load insights')
-        setLoaded(true)
-      })
-    return () => {
-      live = false
-    }
-  }, [episode.id])
+    if (loaded || insightsQ.isPending) return
+    const items = insightsQ.data ?? []
+    setSelected(
+      items
+        .filter((item) => item.insight_type !== 'manual_note')
+        .map((item) => {
+          if (item.insight_type === 'pick_popularity') {
+            return `pick:${item.contestant_id ?? ''}`
+          }
+          if (item.insight_type === 'weekly_play_usage') {
+            return `play:${item.advantage_type ?? ''}`
+          }
+          return item.insight_type
+        }),
+    )
+    setNotes(
+      items
+        .filter((item) => item.insight_type === 'manual_note')
+        .map((item) => ({
+          label: item.label ?? '',
+          value: item.value ?? '',
+          detail: item.detail ?? '',
+        })),
+    )
+    setLoaded(true)
+  }, [loaded, insightsQ.isPending, insightsQ.data])
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const options = [
@@ -875,9 +862,13 @@ function EpisodeInsightEditor({
     )
   }
 
+  const saveInsights = useApiMutation({
+    write: (body: unknown[]) => api.quiet.put<EpisodeInsightConfig[]>(insightsPath, body),
+    invalidates: [insightsPath],
+    onSuccess: () => setSaved(true),
+  })
+
   function save() {
-    setSaving(true)
-    setError(null)
     setSaved(false)
     const toggles = selected.map((key) => {
       if (key.startsWith('pick:')) {
@@ -896,12 +887,7 @@ function EpisodeInsightEditor({
         value: note.value.trim(),
         detail: note.detail.trim() || null,
       }))
-    const body = [...toggles, ...noteEntries]
-    api
-      .put<EpisodeInsightConfig[]>(`/episodes/${episode.id}/insights`, body)
-      .then(() => setSaved(true))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : 'Could not save insights'))
-      .finally(() => setSaving(false))
+    saveInsights.mutate([...toggles, ...noteEntries])
   }
 
   return (
@@ -989,12 +975,12 @@ function EpisodeInsightEditor({
           </div>
         </>
       )}
-      <ErrorMsg msg={error} />
+      <ErrorMsg msg={insightsQ.error?.message ?? saveInsights.error?.message ?? null} />
       <SuccessMsg msg={saved ? 'Reveal insights saved.' : null} />
       {loaded && (
         <div className="mt-3 flex items-center gap-3">
-          <ActionBtn onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save reveal insights'}
+          <ActionBtn onClick={save} disabled={saveInsights.isPending}>
+            {saveInsights.isPending ? 'Saving…' : 'Save reveal insights'}
           </ActionBtn>
           <span className="text-xs text-gray-500">{stored}/3 added</span>
         </div>
@@ -1008,13 +994,11 @@ function EpisodePanel({
   tokenEconomyEnabled,
   contestants,
   eventTypes,
-  onUpdated,
 }: {
   episode: Episode
   tokenEconomyEnabled: boolean
   contestants: Contestant[]
   eventTypes: ScoringEventType[]
-  onUpdated: (ep: Episode) => void
 }) {
   // Edit fields
   const [epNum, setEpNum] = useState(String(episode.episode_number))
@@ -1023,129 +1007,105 @@ function EpisodePanel({
   const [locksAt, setLocksAt] = useState(utcToCentralLocal(episode.picks_lock_at))
   const [maxPicks, setMaxPicks] = useState(String(episode.max_elimination_picks))
   const [isFinale, setIsFinale] = useState(episode.is_finale)
-  const [editSaving, setEditSaving] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
 
-  // Eliminations — live: each add/remove persists immediately (issue #71)
-  const [elims, setElims] = useState<EliminationRow[]>([])
-  const [elimLoaded, setElimLoaded] = useState(false)
-  const [elimBusy, setElimBusy] = useState<string | null>(null)
-  const [elimError, setElimError] = useState<string | null>(null)
-
-  // Scoring events — live: each add/remove persists immediately (issue #71)
-  const [events, setEvents] = useState<ScoringEventRow[]>([])
-  const [eventsLoaded, setEventsLoaded] = useState(false)
   const [newContestant, setNewContestant] = useState('')
   const [newEventType, setNewEventType] = useState(eventTypes[0]?.event_type ?? '')
   const [newQty, setNewQty] = useState(1)
-  const [eventsBusy, setEventsBusy] = useState(false)
-  const [eventsError, setEventsError] = useState<string | null>(null)
 
   // Score episode
   const [scoring, setScoring] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
   const [scoreSuccess, setScoreSuccess] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Load eliminations and scoring events when panel opens
-    async function loadData() {
-      const [elimRows, eventRows] = await Promise.all([
-        api.get<EliminationRow[]>(`/episodes/${episode.id}/eliminations`).catch(() => []),
-        api.get<ScoringEventRow[]>(`/episodes/${episode.id}/scoring-events`).catch(() => []),
-      ])
-      setElims(elimRows)
-      setElimLoaded(true)
-      setEvents(eventRows)
-      setEventsLoaded(true)
-    }
-    void loadData()
-  }, [episode.id])
+  // Eliminations and scoring events — live: each add/remove persists
+  // immediately (issue #71), and each write refetches only the ledger it
+  // touched. A night at the console is dozens of these (#816).
+  const elimPath = `/episodes/${episode.id}/eliminations`
+  const eventsPath = `/episodes/${episode.id}/scoring-events`
+  // Recording an elimination mints the castaway's placement and removing it
+  // clears one (app/routers/eliminations.py), so the cast list moves with it.
+  const castPath = `/seasons/${episode.season_id}/contestants`
+  const schedulePath = `/seasons/${episode.season_id}/episodes`
+  const elimsQ = useQuery(pathQuery<EliminationRow[]>(elimPath))
+  const eventsQ = useQuery(pathQuery<ScoringEventRow[]>(eventsPath))
+  const elims = elimsQ.data ?? []
+  const events = eventsQ.data ?? []
+  // A refusal counts as answered, as the `.catch(() => [])` on these two reads
+  // used to: the section draws empty rather than sitting on "Loading…".
+  const elimLoaded = !elimsQ.isPending
+  const eventsLoaded = !eventsQ.isPending
 
-  function saveEpisode() {
-    void run(setEditSaving, setEditError, async () => {
-      const updated = await api.patch<Episode>(`/episodes/${episode.id}`, {
+  const saveEpisodeM = useApiMutation({
+    write: () =>
+      api.quiet.patch<Episode>(`/episodes/${episode.id}`, {
         episode_number: Number(epNum),
         title: title.trim() === '' ? null : title.trim(),
         air_date: airDate,
         picks_lock_at: centralLocalToUtc(locksAt),
         max_elimination_picks: Number(maxPicks),
         is_finale: isFinale,
-      })
-      onUpdated(updated)
-    })
-  }
+      }),
+    invalidates: [schedulePath],
+  })
 
-  function toggleElim(contestantId: string) {
-    const existing = elims.find((e) => e.contestant_id === contestantId)
-    setElimBusy(contestantId)
-    void run(
-      (b) => setElimBusy(b ? contestantId : null),
-      setElimError,
-      async () => {
-        if (existing) {
-          await api.delete(`/eliminations/${existing.id}`)
-          setElims((prev) => prev.filter((e) => e.id !== existing.id))
-        } else {
-          const [row] = await api.post<EliminationRow[]>(
-            `/episodes/${episode.id}/eliminations`,
-            [{ contestant_id: contestantId, elimination_type: 'voted_out' }],
-          )
-          setElims((prev) => [...prev, row])
-        }
-      },
-    )
-  }
+  const toggleElimM = useApiMutation({
+    write: async (contestantId: string) => {
+      const existing = elims.find((e) => e.contestant_id === contestantId)
+      if (existing) await api.quiet.delete(`/eliminations/${existing.id}`)
+      else
+        await api.quiet.post<EliminationRow[]>(elimPath, [
+          { contestant_id: contestantId, elimination_type: 'voted_out' },
+        ])
+    },
+    invalidates: [elimPath, castPath],
+  })
 
-  function setElimType(contestantId: string, optionKey: string) {
-    const existing = elims.find((e) => e.contestant_id === contestantId)
-    const option = ELIMINATION_TYPES.find((t) => t.value === optionKey)
-    if (!existing || !option) return
-    setElimBusy(contestantId)
-    // No PATCH endpoint — replace the row (delete + re-add with the new type)
-    void run(
-      (b) => setElimBusy(b ? contestantId : null),
-      setElimError,
-      async () => {
-        await api.delete(`/eliminations/${existing.id}`)
-        const [row] = await api.post<EliminationRow[]>(
-          `/episodes/${episode.id}/eliminations`,
-          [
-            {
-              contestant_id: contestantId,
-              elimination_type: option.elimination_type,
-              is_final: option.is_final,
-            },
-          ],
-        )
-        setElims((prev) => prev.map((e) => (e.id === existing.id ? row : e)))
-      },
-    )
-  }
+  // No PATCH endpoint — replace the row (delete + re-add with the new type)
+  const setElimTypeM = useApiMutation({
+    write: async ({ contestantId, optionKey }: { contestantId: string; optionKey: string }) => {
+      const existing = elims.find((e) => e.contestant_id === contestantId)
+      const option = ELIMINATION_TYPES.find((t) => t.value === optionKey)
+      if (!existing || !option) return
+      await api.quiet.delete(`/eliminations/${existing.id}`)
+      await api.quiet.post<EliminationRow[]>(elimPath, [
+        {
+          contestant_id: contestantId,
+          elimination_type: option.elimination_type,
+          is_final: option.is_final,
+        },
+      ])
+    },
+    invalidates: [elimPath, castPath],
+  })
 
-  function addEvent() {
-    if (!newContestant) return
-    void run(setEventsBusy, setEventsError, async () => {
-      const [row] = await api.post<ScoringEventRow[]>(
-        `/episodes/${episode.id}/scoring-events`,
-        [{ contestant_id: newContestant, event_type: newEventType, quantity: newQty }],
-      )
-      setEvents((prev) => [...prev, row])
-      setNewQty(1)
-    })
-  }
+  const addEventM = useApiMutation({
+    write: () =>
+      api.quiet.post<ScoringEventRow[]>(eventsPath, [
+        { contestant_id: newContestant, event_type: newEventType, quantity: newQty },
+      ]),
+    invalidates: [eventsPath],
+    onSuccess: () => setNewQty(1),
+  })
+  const removeEventM = useApiMutation({
+    write: (id: string) => api.quiet.delete(`/scoring-events/${id}`),
+    invalidates: [eventsPath],
+  })
 
-  function removeEvent(id: string) {
-    void run(setEventsBusy, setEventsError, async () => {
-      await api.delete(`/scoring-events/${id}`)
-      setEvents((prev) => prev.filter((e) => e.id !== id))
-    })
-  }
+  // Which row is mid-write: its checkbox and type select stay locked until the
+  // refetched ledger is on screen, so neither can flick back to the old answer.
+  const elimBusy = toggleElimM.isPending
+    ? toggleElimM.variables
+    : setElimTypeM.isPending
+      ? setElimTypeM.variables.contestantId
+      : null
+  const eventsBusy = addEventM.isPending || removeEventM.isPending
 
   function scoreEpisode() {
     setScoreSuccess(null)
     void run(setScoring, setScoreError, async () => {
-      const updated = await api.post<Episode>(`/episodes/${episode.id}/score`, {})
-      onUpdated(updated)
+      // Left on `api.*` (#816): scoring publishes the week — standings, every
+      // player's ledger, the reveal — so everything cached should go.
+      await api.post<Episode>(`/episodes/${episode.id}/score`, {})
       setScoreSuccess('Episode scored.')
     })
   }
@@ -1217,10 +1177,10 @@ function EpisodePanel({
             </label>
           </div>
         </div>
-        <ErrorMsg msg={editError} />
+        <ErrorMsg msg={saveEpisodeM.error?.message ?? null} />
         <div className="mt-3">
-          <ActionBtn onClick={saveEpisode} disabled={editSaving}>
-            {editSaving ? 'Saving…' : 'Save episode'}
+          <ActionBtn onClick={() => saveEpisodeM.mutate(undefined)} disabled={saveEpisodeM.isPending}>
+            {saveEpisodeM.isPending ? 'Saving…' : 'Save episode'}
           </ActionBtn>
         </div>
       </div>
@@ -1241,7 +1201,7 @@ function EpisodePanel({
                     type="checkbox"
                     checked={isSelected}
                     disabled={elimBusy === c.id}
-                    onChange={() => toggleElim(c.id)}
+                    onChange={() => toggleElimM.mutate(c.id)}
                     id={`elim-${episode.id}-${c.id}`}
                   />
                   <label
@@ -1255,7 +1215,9 @@ function EpisodePanel({
                     <select
                       value={elimOptionKey(draft)}
                       disabled={elimBusy === c.id}
-                      onChange={(e) => setElimType(c.id, e.target.value)}
+                      onChange={(e) =>
+                        setElimTypeM.mutate({ contestantId: c.id, optionKey: e.target.value })
+                      }
                       className="border border-cream-200 rounded px-2 py-1 text-xs"
                     >
                       {ELIMINATION_TYPES.map((t) => (
@@ -1270,7 +1232,9 @@ function EpisodePanel({
             })}
           </div>
         )}
-        <ErrorMsg msg={elimError} />
+        <ErrorMsg
+          msg={elimsQ.error?.message ?? toggleElimM.error?.message ?? setElimTypeM.error?.message ?? null}
+        />
         <p className="text-xs text-gray-500 mt-2">Changes save automatically.</p>
       </div>
 
@@ -1295,7 +1259,7 @@ function EpisodePanel({
                       {ev.quantity !== 1 && ` ×${ev.quantity}`}
                     </span>
                     <button
-                      onClick={() => removeEvent(ev.id)}
+                      onClick={() => removeEventM.mutate(ev.id)}
                       disabled={eventsBusy}
                       className="text-gray-500 hover:text-terracotta-500 text-xs disabled:opacity-40"
                     >
@@ -1338,7 +1302,7 @@ function EpisodePanel({
               />
               <ActionBtn
                 variant="secondary"
-                onClick={addEvent}
+                onClick={() => newContestant && addEventM.mutate(undefined)}
                 disabled={!newContestant || eventsBusy}
               >
                 {eventsBusy ? 'Saving…' : '+ Add'}
@@ -1346,7 +1310,9 @@ function EpisodePanel({
             </div>
           </>
         )}
-        <ErrorMsg msg={eventsError} />
+        <ErrorMsg
+          msg={eventsQ.error?.message ?? addEventM.error?.message ?? removeEventM.error?.message ?? null}
+        />
       </div>
 
       {/* Import from survivoR (#132) */}
@@ -1357,10 +1323,6 @@ function EpisodePanel({
           eventTypes={eventTypes}
           elims={elims}
           events={events}
-          onApplied={({ elims: ae, events: av }) => {
-            setElims((prev) => [...prev, ...ae])
-            setEvents((prev) => [...prev, ...av])
-          }}
         />
       )}
 
@@ -1420,16 +1382,12 @@ interface EpisodeProposal {
 
 /** Create a season's episodes from TVmaze's schedule (#197): real air dates,
  * picks_lock_at defaulting to the airstamp; the admin reviews then creates
- * through the normal episode endpoint. */
-function EpisodeProposalSection({
-  season,
-  episodes,
-  onCreated,
-}: {
-  season: Season
-  episodes: Episode[]
-  onCreated: (eps: Episode[]) => void
-}) {
+ * through the normal episode endpoint.
+ *
+ * On `api.*` for the same reasons as the survivoR import above (#816): a
+ * one-shot proposal behind a review, then a run of writes best followed by the
+ * blanket invalidate. */
+function EpisodeProposalSection({ season }: { season: Season }) {
   const [tvmazeSeason, setTvmazeSeason] = useState('')
   const [proposal, setProposal] = useState<EpisodeProposal | null>(null)
   const [checked, setChecked] = useState<Set<number>>(new Set())
@@ -1466,26 +1424,22 @@ function EpisodeProposalSection({
   function apply() {
     if (!proposal) return
     void run(setApplying, setError, async () => {
-      const created: Episode[] = []
+      let created = 0
       for (const e of proposal.episodes) {
         if (!checked.has(e.episode_number)) continue
-        created.push(
-          await api.post<Episode>(`/seasons/${season.season_id}/episodes`, {
-            episode_number: e.episode_number,
-            air_date: e.air_date,
-            picks_lock_at: e.picks_lock_at,
-            is_finale: e.is_finale,
-            // TVmaze hands us the episode title; dropping it here is why
-            // episodes created in bulk showed up untitled (#487).
-            title: e.name || null,
-          }),
-        )
+        await api.post<Episode>(`/seasons/${season.season_id}/episodes`, {
+          episode_number: e.episode_number,
+          air_date: e.air_date,
+          picks_lock_at: e.picks_lock_at,
+          is_finale: e.is_finale,
+          // TVmaze hands us the episode title; dropping it here is why
+          // episodes created in bulk showed up untitled (#487).
+          title: e.name || null,
+        })
+        created += 1
       }
-      onCreated(
-        [...episodes, ...created].sort((a, b) => a.episode_number - b.episode_number),
-      )
       setProposal(null)
-      setSuccess(`Created ${created.length} episode${created.length === 1 ? '' : 's'}.`)
+      setSuccess(`Created ${created} episode${created === 1 ? '' : 's'}.`)
     })
   }
 
@@ -1562,14 +1516,12 @@ function EpisodesSection({
   contestants,
   eventTypes,
   focusEpisodeId,
-  onUpdated,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
   eventTypes: ScoringEventType[]
   focusEpisodeId?: string
-  onUpdated: (eps: Episode[]) => void
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(focusEpisodeId ?? null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -1579,35 +1531,26 @@ function EpisodesSection({
   // Blank = take the season's elimination picks schedule (#269).
   const [maxPicks, setMaxPicks] = useState('')
   const [isFinale, setIsFinale] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
 
-  function addEpisode() {
-    void run(setAdding, setAddError, async () => {
-      const ep = await api.post<Episode>(`/seasons/${season.season_id}/episodes`, {
+  const addEpisodeM = useApiMutation({
+    write: () =>
+      api.quiet.post<Episode>(`/seasons/${season.season_id}/episodes`, {
         episode_number: Number(epNum),
         air_date: airDate,
         picks_lock_at: centralLocalToUtc(locksAt),
         max_elimination_picks: maxPicks ? Number(maxPicks) : undefined,
         is_finale: isFinale,
-      })
-      onUpdated([...episodes, ep].sort((a, b) => a.episode_number - b.episode_number))
+      }),
+    invalidates: [`/seasons/${season.season_id}/episodes`],
+    onSuccess: () => {
       setShowAddForm(false)
       setEpNum('')
       setAirDate('')
       setLocksAt('')
       setMaxPicks('')
       setIsFinale(false)
-    })
-  }
-
-  function handleEpisodeUpdated(updated: Episode) {
-    onUpdated(
-      episodes
-        .map((ep) => (ep.id === updated.id ? updated : ep))
-        .sort((a, b) => a.episode_number - b.episode_number),
-    )
-  }
+    },
+  })
 
   const statusBadge = (episode: Episode) => {
     const status = commissionerEpisodeLabel(episode)
@@ -1659,7 +1602,6 @@ function EpisodesSection({
               tokenEconomyEnabled={season.token_economy_enabled}
               contestants={contestants}
               eventTypes={eventTypes}
-              onUpdated={handleEpisodeUpdated}
             />
           )}
         </div>
@@ -1718,10 +1660,13 @@ function EpisodesSection({
               </label>
             </div>
           </div>
-          <ErrorMsg msg={addError} />
+          <ErrorMsg msg={addEpisodeM.error?.message ?? null} />
           <div className="flex gap-2">
-            <ActionBtn onClick={addEpisode} disabled={adding || !epNum || !airDate || !locksAt}>
-              {adding ? 'Adding…' : 'Add episode'}
+            <ActionBtn
+              onClick={() => addEpisodeM.mutate(undefined)}
+              disabled={addEpisodeM.isPending || !epNum || !airDate || !locksAt}
+            >
+              {addEpisodeM.isPending ? 'Adding…' : 'Add episode'}
             </ActionBtn>
             <ActionBtn variant="secondary" onClick={() => setShowAddForm(false)}>
               Cancel
@@ -1737,7 +1682,7 @@ function EpisodesSection({
         </button>
       )}
 
-      <EpisodeProposalSection season={season} episodes={episodes} onCreated={onUpdated} />
+      <EpisodeProposalSection season={season} />
     </div>
   )
 }
@@ -1763,12 +1708,10 @@ function LeagueRow({
   league,
   seasons,
   episodesBySeason,
-  onUpdated,
 }: {
   league: League
   seasons: Season[]
   episodesBySeason: Record<string, Episode[]>
-  onUpdated: (l: League) => void
 }) {
   const [name, setName] = useState(league.name)
   const [joinCode, setJoinCode] = useState(league.join_code)
@@ -1780,24 +1723,17 @@ function LeagueRow({
   function save() {
     setSuccess(null)
     void run(setSaving, setError, async () => {
-      onUpdated(
-        await api.patch<League>(`/leagues/${league.id}`, {
-          name: name.trim(),
-          join_code: joinCode.trim(),
-        }),
-      )
+      await api.patch<League>(`/leagues/${league.id}`, {
+        name: name.trim(),
+        join_code: joinCode.trim(),
+      })
       setSuccess('Saved.')
     })
   }
 
   return (
     <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
-      <LeagueOverview
-        league={league}
-        seasons={seasons}
-        episodesBySeason={episodesBySeason}
-        onMembersChanged={(member_count) => onUpdated({ ...league, member_count })}
-      />
+      <LeagueOverview league={league} seasons={seasons} episodesBySeason={episodesBySeason} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor={`league-name-${league.id}`} className="block text-xs text-gray-500 mb-1">Name</label>
@@ -1837,30 +1773,22 @@ function LeagueOverview({
   league,
   seasons,
   episodesBySeason,
-  onMembersChanged,
 }: {
   league: League
   seasons: Season[]
   episodesBySeason: Record<string, Episode[]>
-  onMembersChanged: (count: number) => void
 }) {
-  const [members, setMembers] = useState<LeagueMember[] | null>(null)
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    void api.get<LeagueMember[]>(`/leagues/${league.id}/members`).then(setMembers)
-  }, [league.id])
+  // The roll answers on its own, after the page has drawn, as it always did.
+  const members = useQuery(pathQuery<LeagueMember[]>(`/leagues/${league.id}/members`)).data ?? null
 
-  function update(next: LeagueMember[]) {
-    setMembers(next)
-    onMembersChanged(next.length)
-  }
-
+  // Both writes change `/leagues` too (the member count), so they keep the
+  // blanket invalidate rather than naming a pair of paths.
   function add() {
     void run(setBusy, setError, async () => {
-      const m = await api.post<LeagueMember>(`/leagues/${league.id}/members`, { email: email.trim() })
-      update([...(members ?? []), m])
+      await api.post<LeagueMember>(`/leagues/${league.id}/members`, { email: email.trim() })
       setEmail('')
     })
   }
@@ -1869,7 +1797,6 @@ function LeagueOverview({
     if (!window.confirm(`Remove ${m.display_name} from ${league.name}?`)) return
     void run(setBusy, setError, async () => {
       await api.delete(`/leagues/${league.id}/members/${m.id}`)
-      update((members ?? []).filter((x) => x.id !== m.id))
     })
   }
 
@@ -1939,34 +1866,30 @@ function LeagueOverview({
 }
 
 function AddSeasonToLeague({ league }: { league: League }) {
-  const [shows, setShows] = useState<ShowSeason[]>([])
-  const [played, setPlayed] = useState<Set<string>>(new Set())
   const [seasonId, setSeasonId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  useEffect(() => {
-    void Promise.all([api.get<ShowSeason[]>('/seasons'), api.get<Season[]>('/league-seasons')]).then(
-      ([ss, lss]) => {
-        setShows(ss)
-        setPlayed(new Set(lss.filter((l) => l.league_id === league.id).map((l) => l.season_id)))
-      },
-    )
-  }, [league.id])
+  const shows = useQuery(pathQuery<ShowSeason[]>('/seasons')).data ?? []
+  // The same `/league-seasons` read the page runs on, so this costs nothing.
+  const leagueSeasons = useQuery(pathQuery<Season[]>('/league-seasons')).data ?? []
+  const played = new Set(
+    leagueSeasons.filter((l) => l.league_id === league.id).map((l) => l.season_id),
+  )
 
   const options = shows.filter((s) => !played.has(s.id))
-  if (!options.length) return null
 
   function add() {
     setSuccess(null)
     void run(setBusy, setError, async () => {
       await api.post<Season>(`/leagues/${league.id}/seasons`, { season_id: seasonId })
-      setPlayed((prev) => new Set(prev).add(seasonId))
       setSeasonId('')
       setSuccess('Season added — set its rules in Season setup.')
     })
   }
+
+  if (!options.length) return null
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -1994,12 +1917,10 @@ function LeaguesSection({
   leagues,
   seasons,
   episodesBySeason,
-  onChanged,
 }: {
   leagues: League[]
   seasons: Season[]
   episodesBySeason: Record<string, Episode[]>
-  onChanged: (ls: League[]) => void
 }) {
   const [name, setName] = useState('')
   const [joinCode, setJoinCode] = useState('')
@@ -2008,8 +1929,7 @@ function LeaguesSection({
 
   function create() {
     void run(setBusy, setError, async () => {
-      const created = await api.post<League>('/leagues', { name: name.trim(), join_code: joinCode.trim() })
-      onChanged([...leagues, created])
+      await api.post<League>('/leagues', { name: name.trim(), join_code: joinCode.trim() })
       setName('')
       setJoinCode('')
     })
@@ -2023,7 +1943,6 @@ function LeaguesSection({
           league={l}
           seasons={seasons.filter((s) => s.league_id === l.id)}
           episodesBySeason={episodesBySeason}
-          onUpdated={(u) => onChanged(leagues.map((x) => (x.id === u.id ? u : x)))}
         />
       ))}
       <div className="p-4 bg-white border border-cream-200 rounded-xl space-y-3">
@@ -2173,60 +2092,68 @@ function CreateSeasonSection({
 
 export function AdminPage() {
   const { profile } = useAuth()
-  const [season, setSeason] = useState<Season | null>(null)
-  const [contestants, setContestants] = useState<Contestant[]>([])
-  const [episodes, setEpisodes] = useState<Episode[]>([])
-  const [eventTypes, setEventTypes] = useState<ScoringEventType[]>([])
-  const [leagues, setLeagues] = useState<League[]>([])
-  // Every league-season plus each show's episodes, for the Leagues overview.
-  const [allSeasons, setAllSeasons] = useState<Season[]>([])
-  const [episodesBySeason, setEpisodesBySeason] = useState<Record<string, Episode[]>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Leagues load regardless of season: the cold-start create form needs one to
+  // sign up, and the Leagues section manages them (#595).
+  const seasonsQ = useQuery(pathQuery<Season[]>('/league-seasons'))
+  const leaguesQ = useQuery(pathQuery<League[]>('/leagues'))
+  const allSeasons = seasonsQ.data ?? []
 
-  // Season-scoped load, reused after #526's create form makes the first season
-  // exist so the page doesn't render with the empty state the mount-time load
-  // left behind.
-  const loadSeason = useCallback(async (target: Season) => {
-    setSeason(target)
-    const [cs, eps, types] = await Promise.all([
-      api.get<Contestant[]>(`/seasons/${target.season_id}/contestants`),
-      api.get<Episode[]>(`/seasons/${target.season_id}/episodes`),
-      // Season-scoped since #170's snapshot; the global route is gone
-      api.get<ScoringEventType[]>(`/seasons/${target.season_id}/scoring-event-types`),
-    ])
-    setContestants(cs)
-    setEpisodes(eps.sort((a, b) => a.episode_number - b.episode_number))
-    setEventTypes(types)
-  }, [])
-
+  // The season the console operates on, latched by id the first time the list
+  // lands. Not re-derived per render: `activeSeason` follows the pinned choice
+  // and the "first active" rule, and this page can change both — completing
+  // the season here would otherwise move every write below to another one.
+  const [seasonId, setSeasonId] = useState<string | null>(null)
+  const season = allSeasons.find((s) => s.id === seasonId) ?? null
   useEffect(() => {
-    async function load() {
-      try {
-        // Leagues load regardless of season: the cold-start create form needs
-        // one to sign up, and the Leagues section manages them (#595).
-        const [active, ls, all] = await Promise.all([
-          getActiveSeason(),
-          api.get<League[]>('/leagues'),
-          api.get<Season[]>('/league-seasons'),
-        ])
-        setLeagues(ls)
-        setAllSeasons(all)
-        const showIds = [...new Set(all.map((s) => s.season_id))]
-        const eps = await Promise.all(showIds.map((id) => api.get<Episode[]>(`/seasons/${id}/episodes`)))
-        setEpisodesBySeason(Object.fromEntries(showIds.map((id, i) => [id, eps[i]])))
-        if (active) await loadSeason(active)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load')
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
-  }, [loadSeason])
+    // `season` too, not just the id: an id that no longer names a row in the
+    // list re-derives rather than stranding the page on the create form.
+    if ((seasonId && season) || !seasonsQ.data) return
+    setSeasonId(activeSeason(seasonsQ.data)?.id ?? null)
+  }, [seasonId, season, seasonsQ.data])
 
+  // Every show any league is playing, for the Leagues overview.
+  const showIds = [...new Set(allSeasons.map((s) => s.season_id))]
+  const showEpisodes = useQueries({
+    queries: showIds.map((id) => pathQuery<Episode[]>(`/seasons/${id}/episodes`)),
+  })
+  const episodesBySeason = Object.fromEntries(
+    showIds.map((id, i) => [id, showEpisodes[i]?.data ?? []]),
+  )
+
+  const showId = season?.season_id
+  const contestantsQ = useQuery(pathQuery<Contestant[]>(showId ? `/seasons/${showId}/contestants` : null))
+  const episodesQ = useQuery(pathQuery<Episode[]>(showId ? `/seasons/${showId}/episodes` : null))
+  // Season-scoped since #170's snapshot; the global route is gone
+  const eventTypesQ = useQuery(
+    pathQuery<ScoringEventType[]>(showId ? `/seasons/${showId}/scoring-event-types` : null),
+  )
+  const contestants = contestantsQ.data ?? []
+  const episodes = [...(episodesQ.data ?? [])].sort((a, b) => a.episode_number - b.episode_number)
+  const eventTypes = eventTypesQ.data ?? []
+  const leagues = leaguesQ.data ?? []
+
+  // Before the loader, not after it: the season-scoped reads stay disabled
+  // until the league-season list answers, and a disabled query is pending
+  // forever, so a refused read would sit under the loader for good.
+  const error =
+    seasonsQ.error ??
+    leaguesQ.error ??
+    showEpisodes.find((q) => q.error)?.error ??
+    contestantsQ.error ??
+    episodesQ.error ??
+    eventTypesQ.error
+  if (error) return <Notice tone="error" title="Could not load commissioner tools">{error.message}</Notice>
+  const loading =
+    seasonsQ.isPending ||
+    leaguesQ.isPending ||
+    showEpisodes.some((q) => q.isPending) ||
+    // The one render between the list landing and the latch above.
+    (allSeasons.length > 0 && seasonId == null) ||
+    // And the other way round, straight after the create form below: the id is
+    // latched but the list it came from is still being refetched.
+    (seasonId != null && season == null && seasonsQ.isFetching) ||
+    (season != null && (contestantsQ.isPending || episodesQ.isPending || eventTypesQ.isPending))
   if (loading) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load commissioner tools">{error}</Notice>
 
   if (!profile?.is_admin) {
     return <Notice tone="error" title="Commissioner access required">Your account is not authorized to manage the league. The server also enforces administrator permissions on every mutation.</Notice>
@@ -2240,7 +2167,7 @@ export function AdminPage() {
           title="Create the first season"
           description="This league has no seasons yet. Create one to open scheduling, cast setup, and scoring."
         />
-        <CreateSeasonSection leagues={leagues} onCreated={(s) => void loadSeason(s)} />
+        <CreateSeasonSection leagues={leagues} onCreated={(s) => setSeasonId(s.id)} />
       </div>
     )
   }
@@ -2286,20 +2213,15 @@ export function AdminPage() {
           contestants={contestants}
           eventTypes={eventTypes}
           focusEpisodeId={context.stage === 'review' ? context.episode?.id : undefined}
-          onUpdated={setEpisodes}
         />
       </Section>
 
       <Section id="season-setup" title="Season setup" description="Configuration that controls locks, merge timing, and ballot capacity.">
-        <SeasonSection season={season} onUpdated={setSeason} />
+        <SeasonSection season={season} />
       </Section>
 
       <Section id="cast-setup" title={`Cast setup (${contestants.length})`} description="Add contestants and maintain names, placements, and photos.">
-        <ContestantsSection
-          seasonId={season.season_id}
-          contestants={contestants}
-          onUpdated={setContestants}
-        />
+        <ContestantsSection seasonId={season.season_id} contestants={contestants} />
       </Section>
 
       {season.token_economy_enabled && (
@@ -2309,24 +2231,11 @@ export function AdminPage() {
       )}
 
       <Section id="league-settings" title="Leagues" description="Each league has its own join code and members.">
-        <LeaguesSection
-          leagues={leagues}
-          seasons={allSeasons}
-          episodesBySeason={episodesBySeason}
-          onChanged={setLeagues}
-        />
+        <LeaguesSection leagues={leagues} seasons={allSeasons} episodesBySeason={episodesBySeason} />
       </Section>
 
       <Section id="dry-run" title="Dry run" description="Move a seeded practice season to any week. Everything before the pick is scored, the pick and everything after reopen. Refused for a season with real players.">
-        <DryRunSection
-          season={season}
-          episodes={episodes}
-          onJumped={async () => {
-            const all = await api.get<Season[]>('/league-seasons')
-            setAllSeasons(all)
-            await loadSeason(all.find((s) => s.id === season.id) ?? season)
-          }}
-        />
+        <DryRunSection season={season} episodes={episodes} />
       </Section>
 
       <Section id="loader-preview" title="Loading screen preview" description="Show the slide-puzzle loader full-screen to test it — it rarely stays up long enough to see.">
@@ -2338,15 +2247,7 @@ export function AdminPage() {
 
 // Time travel for a seeded practice season (app/routers/dry_run.py): pick a
 // week, land on it open or just after its lock, or on the finished season.
-function DryRunSection({
-  season,
-  episodes,
-  onJumped,
-}: {
-  season: Season
-  episodes: Episode[]
-  onJumped: () => Promise<void>
-}) {
+function DryRunSection({ season, episodes }: { season: Season; episodes: Episode[] }) {
   const [target, setTarget] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -2355,8 +2256,11 @@ function DryRunSection({
     const [ep, locked] = target.split(':')
     const body = ep === 'complete' ? { complete: true } : { episode: Number(ep), locked: locked === 'locked' }
     void run(setBusy, setError, async () => {
+      // Left on `api.*` (#816): a jump rewrites the whole season's state, so
+      // the blanket invalidate reloads the same reads this used to reload by
+      // hand. It doesn't hold "Jumping…" until they land, as the old await
+      // did — a practice-season tool, so the label is all that changes.
       await api.post<Episode[]>(`/seasons/${season.season_id}/jump`, body)
-      await onJumped()
     })
   }
 

@@ -1,15 +1,19 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import type { Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { AdminPage } from './AdminPage'
 
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
-  api: { get: vi.fn(), patch: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
-  getActiveSeason: vi.fn(),
+  api: {
+    get: vi.fn(), patch: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn(),
+    // The writes that name what they changed go through the quiet set (#816),
+    // so a test asserting on `api.post` is also asserting it stayed loud.
+    quiet: { post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  },
 }))
 
 const season = {
@@ -39,7 +43,6 @@ describe('AdminPage current rules', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('does not expose token-era settings or scoring copy', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/leagues') {
         return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
@@ -68,7 +71,6 @@ describe('AdminPage current rules', () => {
 
   it('previews every unlocked and locked loading-screen texture', async () => {
     const user = userEvent.setup()
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/leagues') {
         return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
@@ -101,8 +103,8 @@ describe('AdminPage current rules', () => {
 
   it('requires explicit confirmation before publishing episode scores', async () => {
     const user = userEvent.setup()
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
       if (path.endsWith('/episodes')) return [{ id: 'episode-1', season_id: season.id, episode_number: 2, air_date: '2026-08-01', max_elimination_picks: 3, is_finale: false, picks_lock_at: '2026-08-01T00:00:00Z', status: 'upcoming', created_at: '2026-08-01T00:00:00Z' }]
       if (path === '/leagues') return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 3, created_at: '2026-01-01' }]
       return []
@@ -119,10 +121,47 @@ describe('AdminPage current rules', () => {
     expect(api.post).toHaveBeenCalledWith('/episodes/episode-1/score', {})
   })
 
+  it('re-reads only the ledger a scoring event touched (#816)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
+      if (path === '/leagues') return [{ id: 'league-1', name: 'Snakes and Rats', join_code: 'test-code', member_count: 1, created_at: '2026-01-01' }]
+      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', image_url: null }]
+      if (path.endsWith('/scoring-event-types')) return [{ event_type: 'individual_immunity', label: 'Individual immunity', point_value: 5 }]
+      if (path.endsWith('/episodes')) {
+        return [{ id: 'episode-1', season_id: season.season_id, episode_number: 2, air_date: '2026-08-01', max_elimination_picks: 3, is_finale: false, picks_lock_at: '2026-08-01T00:00:00Z', status: 'upcoming', created_at: '2026-08-01T00:00:00Z' }]
+      }
+      return []
+    })
+    vi.mocked(api.quiet.post).mockResolvedValue([{ id: 'ev-1', contestant_id: 'cast-1', event_type: 'individual_immunity', quantity: 1 }])
+
+    renderWithApp(<AdminPage />, {
+      auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
+    })
+    // The episode under review opens with the panel already expanded.
+    const castSelect = (await screen.findByRole('option', { name: 'Contestant…' })).closest('select')!
+    await user.selectOptions(castSelect, 'cast-1')
+
+    // A night at the console is dozens of these. Before the write names what it
+    // changes, each one refetched every league, every cast and every schedule.
+    vi.mocked(api.get).mockClear()
+    await user.click(screen.getByRole('button', { name: '+ Add' }))
+
+    await waitFor(() =>
+      expect(api.quiet.post).toHaveBeenCalledWith('/episodes/episode-1/scoring-events', [
+        { contestant_id: 'cast-1', event_type: 'individual_immunity', quantity: 1 },
+      ]),
+    )
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/episodes/episode-1/scoring-events'))
+    expect([...new Set(vi.mocked(api.get).mock.calls.map(([path]) => path))]).toEqual([
+      '/episodes/episode-1/scoring-events',
+    ])
+  })
+
   it('lets the commissioner curate up to three scored-episode insights', async () => {
     const user = userEvent.setup()
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
       if (path.endsWith('/contestants')) {
         return [{ id: 'cast-1', name: 'Kenzie', image_url: null }]
       }
@@ -148,7 +187,7 @@ describe('AdminPage current rules', () => {
       }
       return []
     })
-    vi.mocked(api.put).mockResolvedValue([])
+    vi.mocked(api.quiet.put).mockResolvedValue([])
 
     renderWithApp(<AdminPage />, {
       auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
@@ -163,7 +202,7 @@ describe('AdminPage current rules', () => {
     expect(screen.getByLabelText(/Tribe Swap usage/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Save reveal insights' }))
 
-    expect(api.put).toHaveBeenCalledWith('/episodes/episode-1/insights', [
+    expect(api.quiet.put).toHaveBeenCalledWith('/episodes/episode-1/insights', [
       { insight_type: 'pick_popularity', contestant_id: 'cast-1' },
       { insight_type: 'performance_vs_median' },
       { insight_type: 'weekly_play_usage', advantage_type: 'double_vote_points' },
