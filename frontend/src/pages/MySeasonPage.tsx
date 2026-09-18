@@ -101,8 +101,6 @@ function SealGhost({
   )
 }
 
-// My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
-// season sections + the one data load, so both pages live in this file.
 const EMPTY_BREAKDOWN: ScoringBreakdown = {
   roster: [],
   picks: [],
@@ -110,6 +108,8 @@ const EMPTY_BREAKDOWN: ScoringBreakdown = {
   sole_survivor_bonus: 0,
 }
 
+// My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
+// season sections + the one data load, so both pages live in this file.
 function useMySeasonData() {
   const { session } = useAuth()
   const userId = session?.user?.id
@@ -2671,7 +2671,6 @@ function RosterSection({
     designate.error?.message ??
     submit.error?.message ??
     null
-
 
   // Pre-lock, Edit lives in the lane's footer (the Snuffed ledger's slot
   // mid-season) rather than the toolbar, where it stacked a quiet text link

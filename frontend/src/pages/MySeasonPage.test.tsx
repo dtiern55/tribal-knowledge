@@ -917,7 +917,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
   })
 
-  it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
+  it('starts a swap from the roster, prices it, commits it on the cards, and re-reads only what it changed', async () => {
     mockGet({ ...season, free_swaps: 1, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
@@ -961,6 +961,7 @@ describe('MySeasonPage state shell', () => {
     // The cost is stated again at the moment of choosing, not just in the header.
     expect(screen.getByText('costs -10 points')).toBeVisible()
     expect(screen.getByText(/you can undo it until picks lock/)).toBeVisible()
+    vi.mocked(api.get).mockClear()
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Venus/ }))
 
     await waitFor(() =>
@@ -969,6 +970,30 @@ describe('MySeasonPage state shell', () => {
         new_contestant_id: 'cast-3',
       }),
     )
+    // The swap names the two things it changed — the tribe, and the play
+    // roster.py drops with a doubled castaway (#816). Before that it emptied
+    // the cache, and every read on the page went out again behind it.
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/league-seasons/season-1/roster/user-1'),
+    )
+    expect([...new Set(vi.mocked(api.get).mock.calls.map(([path]) => path))].sort()).toEqual([
+      '/league-seasons/season-1/advantage-plays/user-1',
+      '/league-seasons/season-1/roster/user-1',
+    ])
+  })
+
+  it('says a read was refused rather than claiming there is no season (#816)', async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error('Could not reach the league'))
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    // Every season-scoped read is disabled while the league-season list is
+    // unanswered, and a disabled query reads as pending — so the failure has
+    // to be gated before both the loader and the empty state. Falling through
+    // to the cold start tells a player their commissioner never started a
+    // season, which is a different thing entirely.
+    expect(await screen.findByText('Could not reach the league')).toBeVisible()
+    expect(screen.queryByText(/Camp isn’t set up yet/)).not.toBeInTheDocument()
   })
 
   it('offers Undo on a swap made this episode, and reverses it', async () => {
