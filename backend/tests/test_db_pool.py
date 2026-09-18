@@ -122,3 +122,25 @@ def test_a_handler_error_alone_keeps_the_connection(pooled):
             raise ValueError("not found")
 
     assert conn.rollbacks == 1 and pool.returned == [conn]
+
+
+def test_a_full_pool_waits_for_a_connection_instead_of_failing(pooled, monkeypatch):
+    """A page fires more reads than the pool holds; the extras queue."""
+    import threading
+
+    monkeypatch.setattr(database, "_slots", threading.BoundedSemaphore(1))
+    conn = FakeConn()
+    pool = pooled([conn])
+    pool.getconn = lambda: pool.queue.pop(0)  # IndexError if two ever overlap
+    pool.putconn = lambda c, close=False: pool.queue.append(c)
+
+    def read():
+        with database.get_db():
+            time.sleep(0.05)
+
+    threads = [threading.Thread(target=read) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert conn.commits == 3

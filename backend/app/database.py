@@ -24,6 +24,11 @@ _POOL_MAX = int(os.environ.get("DB_POOL_MAX", "10"))
 # rather than trusted. A busy stretch never pays for the check; the first
 # request after a quiet one pays ~25ms instead of a ~145ms fresh handshake.
 _IDLE_CHECK_SECONDS = 60
+# psycopg2's pool raises the moment it is empty rather than waiting, and a page
+# fires a dozen reads at once against FastAPI's 40 worker threads. Each request
+# queues for one of these instead; a wait this long means the database is stuck.
+_slots = threading.BoundedSemaphore(_POOL_MAX)
+_SLOT_WAIT_SECONDS = 10
 
 _pool: psycopg2_pool.ThreadedConnectionPool | None = None
 _pool_lock = threading.Lock()
@@ -92,27 +97,32 @@ def _checkout():
 
 @contextmanager
 def get_db():
-    pool, conn = _checkout()
-    broken = False
+    if not _slots.acquire(timeout=_SLOT_WAIT_SECONDS):
+        raise HTTPException(status_code=503, detail="Database busy")
     try:
-        yield conn
-        conn.commit()
-    except Exception:
-        broken = True
+        pool, conn = _checkout()
+        broken = False
         try:
-            conn.rollback()
-            broken = False
-        except psycopg2.Error:
-            # A connection that cannot even roll back is finished; closing it
-            # keeps the next request from inheriting the mess.
-            pass
-        raise
+            yield conn
+            conn.commit()
+        except Exception:
+            broken = True
+            try:
+                conn.rollback()
+                broken = False
+            except psycopg2.Error:
+                # A connection that cannot even roll back is finished; closing it
+                # keeps the next request from inheriting the mess.
+                pass
+            raise
+        finally:
+            if broken:
+                pool.putconn(conn, close=True)
+            else:
+                _idle_since[id(conn)] = time.monotonic()
+                pool.putconn(conn)
     finally:
-        if broken:
-            pool.putconn(conn, close=True)
-        else:
-            _idle_since[id(conn)] = time.monotonic()
-            pool.putconn(conn)
+        _slots.release()
 
 
 def lock_user_season(cur, user_id, league_season_id) -> None:
