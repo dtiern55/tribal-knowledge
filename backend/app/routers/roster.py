@@ -287,7 +287,14 @@ def swap_roster_pick(
                 )
 
             swap_episode = episode["episode_number"]
-            if swap_episode <= old_pick["active_from_episode"]:
+            # Swapping out someone you swapped in this same episode reads as
+            # "undo, then swap the original out for someone else": the row is
+            # repointed, so it keeps its rung on the price ladder.
+            reswap = (
+                old_pick["active_from_episode"] == swap_episode
+                and old_pick["replaced_pick_id"] is not None
+            )
+            if swap_episode <= old_pick["active_from_episode"] and not reswap:
                 raise HTTPException(
                     status_code=400,
                     detail="Swap episode must be after the contestant was added",
@@ -340,6 +347,36 @@ def swap_roster_pick(
                     detail="Contestant has already been on this roster",
                 )
 
+            # A Double Castaway Points play resting on the outgoing castaway
+            # would read as played and score nothing (scoring joins on the
+            # active roster). It leaves with them; the swap's undo does not
+            # bring it back.
+            cur.execute(
+                """
+                delete from advantage_plays
+                where user_id = %s and league_season_id = %s and episode_id = %s
+                  and advantage_type = 'double_roster_points'
+                  and target_contestant_id = %s
+                """,
+                [
+                    str(user_id),
+                    str(league_season_id),
+                    episode["id"],
+                    str(body.old_contestant_id),
+                ],
+            )
+
+            if reswap:
+                # A Sole Survivor flag was on the castaway leaving, not the one
+                # arriving.
+                cur.execute(
+                    "update roster_picks"
+                    " set contestant_id = %s, is_sole_survivor = false"
+                    " where id = %s returning *",
+                    [str(body.new_contestant_id), str(old_pick["id"])],
+                )
+                return cur.fetchone()
+
             # Swaps are priced in points (#403/#404) and no longer touch the
             # weekly play; there is no per-episode cap either, the rising
             # price is the rate limit. The cost is written onto the pick being
@@ -365,25 +402,6 @@ def swap_roster_pick(
                 where id = %s
                 """,
                 [swap_episode - 1, penalty, str(old_pick["id"])],
-            )
-
-            # A Double Castaway Points play resting on the outgoing castaway
-            # would read as played and score nothing (scoring joins on the
-            # active roster). It leaves with them; the swap's undo does not
-            # bring it back.
-            cur.execute(
-                """
-                delete from advantage_plays
-                where user_id = %s and league_season_id = %s and episode_id = %s
-                  and advantage_type = 'double_roster_points'
-                  and target_contestant_id = %s
-                """,
-                [
-                    str(user_id),
-                    str(league_season_id),
-                    episode["id"],
-                    str(body.old_contestant_id),
-                ],
             )
 
             cur.execute(
