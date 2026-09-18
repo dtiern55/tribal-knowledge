@@ -281,3 +281,42 @@ def test_hub_carries_per_castaway_points_and_vote_results(
     votes = {vote["name"]: vote for vote in row["ballot"]}
     assert votes["Boot"]["correct"] is True
     assert votes["Star"]["correct"] is False
+
+
+@pytest.mark.integration
+def test_hub_tribe_leads_with_sole_survivor_then_season_points(
+    client, db_conn, current_user
+):
+    """Each tribe reads Sole Survivor first, then by what each castaway has
+    earned that team this season — not alphabetically."""
+    season = insert_season(db_conn)
+    ep = insert_episode(
+        db_conn,
+        season["id"],
+        episode_number=1,
+        status="scored",
+        picks_lock_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    cast = {
+        name: insert_contestant(db_conn, season["id"], name=name)
+        for name in ["Able", "Mid", "Star", "Zero"]
+    }
+    for name, c in cast.items():
+        insert_roster_pick(
+            db_conn,
+            current_user["id"],
+            season["id"],
+            c["id"],
+            is_sole_survivor=name == "Zero",
+        )
+    insert_scoring_event(
+        db_conn, ep["id"], cast["Star"]["id"], "win_individual_immunity"
+    )
+    insert_scoring_event(db_conn, ep["id"], cast["Star"]["id"], "win_individual_reward")
+    insert_scoring_event(db_conn, ep["id"], cast["Mid"]["id"], "win_individual_reward")
+    score_episode(db_conn, ep["id"])
+
+    (row,) = client.get(
+        f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+    ).json()
+    assert [m["name"] for m in row["roster"]] == ["Zero", "Star", "Mid", "Able"]
