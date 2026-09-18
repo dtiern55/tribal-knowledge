@@ -327,7 +327,19 @@ def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
 def roster_points_by_contestant(
     conn, league_season_id: UUID, user_id: UUID
 ) -> dict[str, int]:
-    """One user's roster points broken down per contestant (My Season, #52).
+    """One user's roster points broken down per contestant (My Season, #52)."""
+    return {
+        cid: pts
+        for (_, cid), pts in roster_points_by_pick(
+            conn, league_season_id, user_id
+        ).items()
+    }
+
+
+def roster_points_by_pick(
+    conn, league_season_id: UUID, user_id: Optional[UUID] = None
+) -> dict[tuple[str, str], int]:
+    """Roster points per (user, contestant); every user unless one is named.
 
     Same rules as roster_points() but grouped by contestant and scoped to one
     user: scoring-event points during each contestant's active range — doubled
@@ -336,16 +348,18 @@ def roster_points_by_contestant(
     Folds the Double Roster doubling in now (#257 reverses #136), so summing
     these always equals the user's roster_points total.
     """
-    points: dict[str, int] = {}
+    points: dict[tuple[str, str], int] = {}
+    uid = str(user_id) if user_id else None
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            select contestant_id,
+            select user_id, contestant_id,
                    sum(pts)
                      + round(sum(case when ss then pts else 0 end) * 0.5)::int
                      as points
             from (
-              select se.contestant_id::text as contestant_id,
+              select rp.user_id::text as user_id,
+                     se.contestant_id::text as contestant_id,
                      (ep.is_finale and rp.is_sole_survivor) as ss,
                      {EVENT_POINTS_SQL}
                      * (case when dbl.id is not null then 2 else 1 end)
@@ -362,20 +376,22 @@ def roster_points_by_contestant(
             {DOUBLE_ROSTER_JOIN_SQL}
             -- Hidden until the episode locks (#559): this breakdown is visible
             -- to other players once rosters lock, so it must gate too.
-            where rp.user_id = %s and {episode_locked_sql("ep")}
+            where (%s::uuid is null or rp.user_id = %s::uuid)
+              and {episode_locked_sql("ep")}
             ) x
-            group by contestant_id
+            group by user_id, contestant_id
             """,
-            [str(league_season_id), str(user_id)],
+            [str(league_season_id), uid, uid],
         )
         for row in cur.fetchall():
-            points[row["contestant_id"]] = row["points"]
+            points[(row["user_id"], row["contestant_id"])] = row["points"]
 
         # Same book-at-lock rule as roster_points(): a pending swap's penalty
         # stays off the breakdown until its episode locks (#164 follow-up).
         cur.execute(
             f"""
-            select rp.contestant_id::text as contestant_id,
+            select rp.user_id::text as user_id,
+                   rp.contestant_id::text as contestant_id,
                    sum(
                      case when {EPISODE_LOCKED_SQL}
                           then rp.swap_penalty_points else 0 end
@@ -385,14 +401,15 @@ def roster_points_by_contestant(
             left join episodes pe
               on pe.season_id = ls.season_id
              and pe.episode_number = rp.active_until_episode + 1
-            where rp.league_season_id = %s and rp.user_id = %s
-            group by rp.contestant_id
+            where rp.league_season_id = %s
+              and (%s::uuid is null or rp.user_id = %s::uuid)
+            group by rp.user_id, rp.contestant_id
             """,
-            [str(league_season_id), str(user_id)],
+            [str(league_season_id), uid, uid],
         )
         for row in cur.fetchall():
-            cid = row["contestant_id"]
-            points[cid] = points.get(cid, 0) + row["penalty"]
+            key = (row["user_id"], row["contestant_id"])
+            points[key] = points.get(key, 0) + row["penalty"]
 
     return points
 

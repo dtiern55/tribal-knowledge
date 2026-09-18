@@ -1271,10 +1271,18 @@ function LockedState({
   // earlier episode can't earn points, so listing them here is misleading.
   // Eliminations from the airing (not-yet-scored) episode aren't recorded yet,
   // so this keeps this-episode boots and finalists (never eliminated) in view.
-  const activeRoster = roster.filter((pick) => {
-    const elim = contestantMap.get(pick.contestant_id)?.eliminated_in_episode
-    return elim == null || elim >= episode.episode_number
-  })
+  // The Sole Survivor leads, then whoever has earned you the most this season —
+  // the same order the Field's tribes take.
+  const activeRoster = roster
+    .filter((pick) => {
+      const elim = contestantMap.get(pick.contestant_id)?.eliminated_in_episode
+      return elim == null || elim >= episode.episode_number
+    })
+    .sort(
+      (a, b) =>
+        Number(b.is_sole_survivor) - Number(a.is_sole_survivor) ||
+        (rosterPoints.get(b.contestant_id) ?? 0) - (rosterPoints.get(a.contestant_id) ?? 0),
+    )
 
   return (
     <>

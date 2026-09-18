@@ -447,4 +447,16 @@ def get_episode_hub(
             entries.sort(key=lambda e: (-e["_total"], e["display_name"].lower()))
             for e in entries:
                 del e["_total"]
+
+            # Each tribe leads with its Sole Survivor, then the castaways who
+            # have earned that team the most this season.
+            season_pts = scoring.roster_points_by_pick(conn, league_season_id)
+            for e in entries:
+                uid, ss = e["user_id"], e["sole_survivor_contestant_id"]
+                e["roster"].sort(
+                    key=lambda r: (
+                        r["contestant_id"] != ss,
+                        -season_pts.get((uid, r["contestant_id"]), 0),
+                    )
+                )
             return entries
