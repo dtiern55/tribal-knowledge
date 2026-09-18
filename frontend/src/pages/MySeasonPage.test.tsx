@@ -1001,8 +1001,11 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByText('Choose who replaces Charlie')).toBeVisible()
     holdRoster.release()
     holdRoster = null
+    // Folded away rather than removed, so it keeps its words as it goes (#826).
     await waitFor(() =>
-      expect(screen.queryByText('Choose who replaces Charlie')).not.toBeInTheDocument(),
+      expect(
+        screen.getByText('Choose who replaces Charlie').closest('.collapse-rows'),
+      ).toHaveAttribute('data-open', 'false'),
     )
     // The swap names the two things it changed — the tribe, and the play
     // roster.py drops with a doubled castaway (#816). Before that it emptied
