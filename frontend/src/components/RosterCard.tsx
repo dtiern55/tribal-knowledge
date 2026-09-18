@@ -147,7 +147,7 @@ export function RosterCard({
                 ssWindowOpen ? ' — changeable until the designation locks' : ''
               }`}
             >
-              <SoleSurvivorTorch snuffed={outEp != null} className="h-[18px] w-3" />
+              <SoleSurvivorTorch snuffed={outEp != null} className="h-[21px] w-3.5" />
               <span className="sr-only"> · Sole Survivor</span>
             </span>
           )}
