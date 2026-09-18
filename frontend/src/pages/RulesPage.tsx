@@ -44,13 +44,13 @@ const EVENT_GROUPS: [string, string[]][] = [
     'fake_idol_played',
   ]],
   ['Making it far', [
-    'win_redemption_duel',
-    'return_from_redemption',
-    'return_from_redemption_endgame',
     'join_jury',
     'made_final_tribal',
     'runner_up',
     'won_season',
+    'win_redemption_duel',
+    'return_from_redemption',
+    'return_from_redemption_endgame',
   ]],
   ['Moments', [
     'go_on_journey',
