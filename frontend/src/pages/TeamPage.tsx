@@ -351,6 +351,8 @@ export function TeamPage() {
                         contestantId={pick.contestant_id}
                         contestant={contestantMap.get(pick.contestant_id)}
                         showTribe={!merged}
+                        // A snuffed Sole Survivor keeps its snuffed torch for the rest of the season.
+                        isSoleSurvivor={pick.is_sole_survivor}
                         right={
                           <span className="flex items-center gap-2 text-xs">
                             <Points value={rosterPoints.get(pick.contestant_id)} />

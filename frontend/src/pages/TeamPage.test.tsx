@@ -127,7 +127,7 @@ describe('TeamPage', () => {
       if (path.endsWith('/contestants')) return contestants
       if (path.endsWith('/standings')) return [player]
       if (path.endsWith('/episodes')) return episodes
-      if (path.includes('/roster/')) return [pick('old', 2), pick('new', 2), pick('aired', 3), pick('fresh', 6)]
+      if (path.includes('/roster/')) return [{ ...pick('old', 2), is_sole_survivor: true }, pick('new', 2), pick('aired', 3), pick('fresh', 6)]
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
       if (path.includes('/advantage-plays/')) return []
       throw new Error(`Unexpected path: ${path}`)
@@ -146,6 +146,8 @@ describe('TeamPage', () => {
     expect(screen.queryByText('Oldboot')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Snuffed/ }))
     expect(await screen.findByText('Oldboot')).toBeVisible()
+    // Oldboot was their Sole Survivor: the snuffed torch goes with them.
+    expect(screen.getByText('Oldboot').parentElement!.querySelector('.sole-survivor-torch')).toBeInTheDocument()
     // The chip marks a swap-in until their first episode on the team airs.
     expect(screen.getByTitle('Swapped onto the tribe in episode 6')).toBeVisible()
     expect(screen.queryByTitle('Swapped onto the tribe in episode 3')).not.toBeInTheDocument()
