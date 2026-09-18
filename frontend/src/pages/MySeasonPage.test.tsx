@@ -1177,6 +1177,11 @@ describe('MySeasonPage state shell', () => {
     expect(dimmedSwap).not.toHaveAttribute('data-pulse')
     expect(screen.getByText('Choose a castaway to drop')).toBeVisible()
     expect(localStorage.getItem('mytribe.first-loss.season-1')).toBe('1')
+    // Leaving for the Ballot ends the swap, so the lamp doesn't stay on a
+    // hidden Tribe.
+    await openBeat('Ballot')
+    await openBeat('Tribe')
+    expect(screen.getByRole('button', { name: /^Swap ·/ })).toBeEnabled()
   })
 
   it('holds the first-loss card until the recap is continued', async () => {
