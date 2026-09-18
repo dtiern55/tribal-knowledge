@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { advantageIdolFor } from '../lib/advantages'
+import { advantageIdolFor, advantageStampFor } from '../lib/advantages'
 import { resolveMySeasonState } from '../lib/mySeasonState'
 import { pathQuery, useActiveSeason } from '../lib/queries'
 import type { Episode } from '../types'
@@ -49,6 +49,7 @@ export function Layout() {
   useEffect(() => {
     if (!season) return
     document.documentElement.style.setProperty('--advantage-idol', `url(${advantageIdolFor(season.season_number)})`)
+    document.documentElement.style.setProperty('--advantage-stamp', `url(${advantageStampFor(season.season_number)})`)
   }, [season])
 
   useEffect(() => {

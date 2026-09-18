@@ -646,17 +646,17 @@ describe('MySeasonPage state shell', () => {
     })
     renderWithApp(<MySeasonPage />, { auth })
 
-    // The Tribe tab wears the idol; the row says it in words (#694).
+    // The Tribe tab wears the idol, and so does the doubled portrait (#694, #849).
     const rosterTab = await screen.findByRole('tab', { name: /^Tribe/ })
     expect(await within(rosterTab).findByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
     expect(within(screen.getByRole('tab', { name: /^Ballot/ })).queryByRole('img', { name: 'Advantage played here' })).not.toBeInTheDocument()
     expect(screen.getByText('Tribe · Kenzie · double points')).toBeVisible()
-    // Played, the strip is gone: the row says ×2 this week, and the hero
-    // holds Undo. No idol inside the tab.
+    // Played, the strip is gone: the idol is stamped on the doubled portrait,
+    // with no "×2" words, and the hero holds Undo.
     const roster = await openBeat('Tribe')
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
-    expect(within(roster).getByText(/×2 this week/)).toBeVisible()
-    expect(within(roster).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
+    expect(within(roster).getByRole('img', { name: /Double Castaway Points/ })).toBeInTheDocument()
+    expect(roster).not.toHaveTextContent('×2')
     expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
   })
 
@@ -709,9 +709,9 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
-    // The idol is on the tab, not the row; the row says it in words.
+    // The idol is on the tab and stamped on the doubled portrait (#849).
     expect(within(screen.getByRole('tab', { name: /^Tribe/ })).getByRole('img', { name: 'Advantage played here' })).toBeInTheDocument()
-    expect(within(roster).queryByRole('img', { name: /Double Castaway Points/ })).not.toBeInTheDocument()
+    expect(within(roster).getByRole('img', { name: /Double Castaway Points/ })).toBeInTheDocument()
 
     // Undo lives in the hero; the strip comes back with the offer.
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
@@ -1500,7 +1500,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(rivalRow!).getByText('· Sole Survivor')).toBeInTheDocument()
   })
 
-  it('uses compact text play marks and Standings ballot states in the locked Field', async () => {
+  it('stamps the idol on the doubled portrait and the Power Vote chip in the locked Field (#849)', async () => {
     const user = userEvent.setup()
     const episodes = [
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1563,15 +1563,13 @@ describe('MySeasonPage state shell', () => {
     renderWithApp(<MySeasonPage />, { auth })
 
     await user.click(await screen.findByRole('button', { name: 'Expand all' }))
-    expect(await screen.findByLabelText('Double Castaway Points on them this episode')).toHaveTextContent('×2')
-
-    const powerVote = screen.getByTitle('Power Vote on this vote')
+    // The idol is stamped on the doubled portrait and on the Power Vote's
+    // chip; no "×2" and no gold chip (#849).
+    expect(await screen.findByLabelText('Double Castaway Points on them this episode')).toBeInTheDocument()
+    const powerVote = screen.getByLabelText('Power Vote on this vote').closest('.rounded-md')!
     expect(powerVote).toHaveTextContent('Charlie')
-    expect(powerVote.className).toContain('border-gold-400')
-    expect(powerVote.className).toContain('text-gold-700')
-
-    // No season-idol art remains in the shared Field treatment.
-    expect(screen.queryByRole('img', { name: /Power Vote|Double Castaway Points/ })).not.toBeInTheDocument()
+    expect(powerVote.className).not.toContain('gold')
+    expect(screen.queryByText('×2')).not.toBeInTheDocument()
   })
 
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {

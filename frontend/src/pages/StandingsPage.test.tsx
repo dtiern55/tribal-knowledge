@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../lib/api'
@@ -273,13 +273,12 @@ describe('StandingsPage', () => {
     expect(tribe).not.toHaveTextContent('Kenzie')
     expect(tribe).toHaveTextContent('+12')
     expect(tribe).toHaveTextContent('+24')
-    // Gold is the Power Vote and a filled card is a hit: Charlie's vote is the
-    // gold one and it landed, the miss is outlined and neutral. Never an ×2 —
-    // the Power Vote is its own rung, not a multiplier.
-    const marked = screen.getByTitle('Power Vote on this vote')
-    expect(marked).toHaveTextContent('Charlie')
-    expect(marked.className).toContain('bg-gold-200')
-    expect(voted).toContainElement(marked)
+    // The idol stamped on a vote is the Power Vote and a filled card is a hit:
+    // Charlie's vote wears the stamp and it landed, the miss is outlined and
+    // neutral. No gold, and never an ×2 (#849).
+    const charlie = within(voted).getByText('Charlie')
+    expect(charlie).toContainElement(screen.getByLabelText('Power Vote on this vote'))
+    expect(charlie.className).toContain('bg-jade-600/[.22]')
     expect(voted).not.toHaveTextContent('×2')
     expect(screen.getByText('Kenzie').className).toContain('border-stone-300')
 
@@ -289,7 +288,7 @@ describe('StandingsPage', () => {
     )
   })
 
-  it('marks the castaway whose points were doubled with a ×2 (#806)', async () => {
+  it('stamps the idol on the castaway whose points were doubled (#806, #849)', async () => {
     mockExpansionApi({ advantage_type: 'double_roster_points', advantage_target: { contestant_id: 'cast-3', name: 'Ben', image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null } })
 
     await expandDanny()
@@ -297,12 +296,12 @@ describe('StandingsPage', () => {
     const [tribe, voted] = screen.getAllByRole('definition')
     const mark = await screen.findByLabelText('Double Castaway Points on them this episode')
     expect(tribe).toContainElement(mark)
-    expect(mark.parentElement).toHaveTextContent('Ben')
-    // Ben's 24 paid double, so the line reads 48 — the ×2 says why — and the
-    // number is gold like the mark beside it, not jade.
-    expect(mark.parentElement).toHaveTextContent('+48')
+    const row = mark.closest('.w-full')
+    expect(row).toHaveTextContent('Ben')
+    // Ben's 24 paid double, so the line reads 48; the stamp says why.
+    expect(row).toHaveTextContent('+48')
     expect(tribe).not.toHaveTextContent('+24')
-    expect(screen.getByText('+48').className).toContain('text-gold-700')
+    expect(tribe).not.toHaveTextContent('×2')
     // Charlie wasn't doubled, so his stays as scored, in jade.
     expect(screen.getByText('+12').className).toContain('text-jade-700')
     expect(voted).not.toContainElement(mark)
