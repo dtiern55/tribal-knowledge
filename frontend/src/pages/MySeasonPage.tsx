@@ -3095,7 +3095,7 @@ function RosterSection({
         <div className="p-4">
           <p ref={pickerIntroRef} tabIndex={-1} className="text-sm text-gray-600 mb-1 outline-none">
             {hasRoster
-              ? `Rearrange your tribe freely before episode ${season.roster_lock_episode} — no penalty.`
+              ? `Rearrange your tribe freely before episode ${season.roster_lock_episode}.`
               : `Choose ${season.roster_size} castaways for your tribe.`}
           </p>
           <p className="text-xs text-gray-500 mb-4">
