@@ -262,7 +262,8 @@ html.locked-night .app-shell .text-forest-800 {
 html.locked-night .app-shell .text-gray-700,
 html.locked-night .app-shell .text-gray-600,
 html.locked-night .app-shell .text-forest-700,
-html.locked-night .app-shell .text-forest-600 {
+html.locked-night .app-shell .text-forest-600,
+html.locked-night .app-shell .text-stone-500 {
   color: rgb(242 233 219 / 45%);
 }
 
@@ -330,9 +331,39 @@ html.locked-night .app-shell .text-paper-ink-faded {
    slip's forest ink are both dark-on-dark once the paper goes night, and the
    muted grey of a missed vote drops below reading. Lift each to cream or its
    pale tint; the pill's translucent jade fill still says "correct". */
+html.locked-night .app-shell .text-jade-900,
 html.locked-night .app-shell .text-jade-800,
-html.locked-night .app-shell .text-jade-700 {
+html.locked-night .app-shell .text-jade-700,
+html.locked-night .app-shell .text-jade-600 {
   color: var(--color-jade-200);
+}
+
+/* The rest of the dark inks the night paper swallowed: terracotta (errors,
+   negative points, Out, destructive links), the lighter gold, and stone.
+   Terracotta takes the nav's pale tint and its fills the nav's translucent
+   wash, so lifted ink never lands on a pale pink fill. */
+html.locked-night .app-shell .text-terracotta-500,
+html.locked-night .app-shell .text-terracotta-600,
+html.locked-night .app-shell .text-terracotta-700,
+html.locked-night .app-shell .text-terracotta-800,
+html.locked-night .app-shell .text-red-600 {
+  color: var(--color-terracotta-200);
+}
+html.locked-night .app-shell .bg-terracotta-50,
+html.locked-night .app-shell .bg-terracotta-50\/80,
+html.locked-night .app-shell .bg-terracotta-100 {
+  background-color: rgb(196 84 50 / 18%);
+}
+html.locked-night .app-shell .text-gold-600 {
+  color: rgb(233 210 150 / 90%);
+}
+html.locked-night .app-shell .text-stone-600,
+html.locked-night .app-shell .text-stone-700 {
+  color: rgb(242 233 219 / 60%);
+}
+/* The no-photo avatar: its stone initials lift above, so the fill goes dark. */
+html.locked-night .app-shell .bg-stone-200 {
+  background-color: #183a2e;
 }
 html.locked-night .app-shell .ballot-chip {
   color: rgb(242 233 219 / 75%);
