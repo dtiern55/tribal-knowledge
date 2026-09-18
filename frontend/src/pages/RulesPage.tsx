@@ -328,7 +328,7 @@ export function RulesPage() {
             <li><b>Edge of Extinction:</b> works the same as Redemption Island.</li>
             <li><b>Voted back in:</b> a castaway who returns to the game any other way scores like a Redemption Island return.</li>
             <li><b>Exile Island and similar trips:</b> count for nothing.</li>
-            <li><b>Double elimination:</b> when two castaways go home in one episode, each correct pick scores.</li>
+            <li><b>Multiple eliminations:</b> when more than one castaway goes home in an episode, each correct pick scores.</li>
           </RuleList>
         </RuleSection>
       </div>
