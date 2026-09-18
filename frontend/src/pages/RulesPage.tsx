@@ -346,8 +346,8 @@ export function RulesPage() {
             <li><b>Multiple eliminations:</b> when more than one castaway goes home in an episode, each correct pick scores.</li>
           </RuleList>
           <p className="mt-4 text-sm leading-6 text-gray-700">
-            I've tried to account for 50 seasons of twists. If this season throws something truly new, I'll score it with
-            my best judgement, within the bounds of these rules, and I'll tell everyone how I ruled.
+            I've tried to account for 50 seasons of twists. If the “Open Era” throws something truly unique, I'll score it
+            with my best judgement within the bounds of this scoring system. Anything new will be communicated.
           </p>
         </RuleSection>
       </div>
