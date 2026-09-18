@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import type { Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { NavDrawer } from './NavDrawer'
@@ -9,7 +9,6 @@ import { NavDrawer } from './NavDrawer'
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
-  getActiveSeason: vi.fn(),
   pinSeason: vi.fn(),
 }))
 
@@ -31,7 +30,6 @@ const season = {
 describe('NavDrawer', () => {
   beforeEach(() => {
     vi.mocked(api.get).mockResolvedValue([season])
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
   })
 
   it('renders authenticated routed content from deterministic API responses and closes accessibly', async () => {

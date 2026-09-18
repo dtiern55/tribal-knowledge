@@ -8,7 +8,6 @@ import { RulesPage } from './RulesPage'
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
-  getActiveSeason: vi.fn(),
 }))
 
 const season = {

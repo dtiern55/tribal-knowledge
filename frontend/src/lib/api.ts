@@ -131,13 +131,9 @@ export function defaultSeason(seasons: Season[]): Season | null {
 }
 
 /** The league-season every page operates on (#595): the pinned pick if it
- * still exists, else the active one, else the most recent. Pure, so a page
- * holding the list from a query picks the same season the fetch below does. */
+ * still exists, else the active one, else the most recent. Pure: it reads the
+ * list a page already holds from `/league-seasons` rather than fetching. */
 export function activeSeason(seasons: Season[]): Season | null {
   const pinned = localStorage.getItem(SEASON_KEY)
   return seasons.find((s) => s.id === pinned) ?? defaultSeason(seasons)
-}
-
-export async function getActiveSeason(): Promise<Season | null> {
-  return activeSeason(await api.get<Season[]>('/league-seasons'))
 }

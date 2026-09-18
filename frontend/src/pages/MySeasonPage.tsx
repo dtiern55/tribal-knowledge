@@ -205,19 +205,29 @@ function useMySeasonData() {
     // episode's ballot, so both are part of the load: with an empty roster and
     // no ballot the week reads as owed, and the page used to open on "your
     // ballot and tribe both need you" and correct itself a moment later.
+    //
+    // "Has it answered", not "is it pending". A refetch of a query that holds
+    // no data resets it to pending (query-core's `fetchState`), and the reads
+    // gated here have consumers that mount *behind* this gate — the Tribe
+    // lane, the Sole Survivor line and the locked screen all read the roster.
+    // On `isPending` a refused roster spun: the error opened the gate, the
+    // lane mounted, its mount refetched the stale error, that refetch turned
+    // the gate's own term back to pending, the lane unmounted, and round
+    // again, one request per lap. `isFetched` counts answers, and a refusal
+    // is an answer — the same thing the `.finally` that set `rosterFor` meant.
     loading:
-      seasonsQ.isPending ||
+      !seasonsQ.isFetched ||
       // The one render between the list landing and the latch above.
       ((seasonsQ.data?.length ?? 0) > 0 && seasonId == null) ||
       (season != null &&
-        (contestantsQ.isPending ||
-          episodesQ.isPending ||
-          standingsQ.isPending ||
-          breakdownQ.isPending ||
-          playsQ.isPending ||
-          revealQ.isPending ||
-          rosterQ.isPending ||
-          (openEp != null && openPicksQ.isPending))),
+        (!contestantsQ.isFetched ||
+          !episodesQ.isFetched ||
+          !standingsQ.isFetched ||
+          !breakdownQ.isFetched ||
+          !playsQ.isFetched ||
+          !revealQ.isFetched ||
+          !rosterQ.isFetched ||
+          (openEp != null && !openPicksQ.isFetched))),
     error:
       seasonsQ.error ??
       contestantsQ.error ??
@@ -311,12 +321,12 @@ function useWeeklyPlay(
     replaceM.mutate(
       { advantageType, targetContestantId, priorId: play?.id },
       {
-        // Roll the optimistic entry back to the prior play, or remove it.
-        onError: () =>
-          setPlays((prev) => {
-            const without = prev.filter((p) => p.id !== optimistic.id)
-            return play ? [...without, play] : without
-          }),
+        // Take the optimistic entry away and no more. A mutate-level callback
+        // runs *after* the awaited refetch above, so the plays on screen are
+        // already the server's — putting the prior play back here would
+        // re-insert one a half-failed move (delete through, post refused) has
+        // deleted, leaving an Undo that answers "Advantage not found".
+        onError: () => setPlays((prev) => prev.filter((p) => p.id !== optimistic.id)),
       },
     )
   }
@@ -2454,8 +2464,10 @@ function RosterSection({
   // Distinct from "loaded but empty": until the read lands, an empty roster
   // must not render the "submission window has closed" fallback, which flashed
   // on every refresh mid-season before the roster arrived. A refusal counts as
-  // answered, as it did when the failure set the error and left the list empty.
-  const rosterLoaded = !rosterQ.isPending
+  // answered, as it did when the failure set the error and left the list empty
+  // — and `isFetched` holds that answer through a refetch, where `isPending`
+  // would flicker this back to "not loaded" every time one ran.
+  const rosterLoaded = rosterQ.isFetched
 
   // Seed the picker from the current active roster so pre-lock edits start
   // from what you already have (issue #84 free rearranging), and again after a
@@ -2622,8 +2634,14 @@ function RosterSection({
 
   // Every roster write names the roster and the plays: a save or a swap that
   // drops the doubled castaway deletes that play server-side (roster.py), and
-  // the hero kept offering Undo on an advantage that no longer existed. The
-  // refetch is awaited, so a control can't flick back to the old answer.
+  // the hero kept offering Undo on an advantage that no longer existed.
+  //
+  // What each write does when it lands — close the picker, leave the edit
+  // sheet — is passed at the call below rather than set here, because a
+  // mutate-level callback runs after the awaited refetch and one declared
+  // here runs before it. Declared here, the lane would draw the old tribe for
+  // a beat: the castaway you just dropped still on it, or the pre-edit tribe
+  // under "Saved ✓".
   const undo = useApiMutation({
     write: (contestantId: string) =>
       api.quiet.delete(`/league-seasons/${season.id}/roster/swap/${contestantId}`),
@@ -2636,10 +2654,6 @@ function RosterSection({
         new_contestant_id: newContestantId,
       }),
     invalidates: [rosterPath, playsPath],
-    onSuccess: () => {
-      setDropping(null)
-      onPickingDone?.()
-    },
   })
   // Name the Sole Survivor by tapping a roster card in the pick mode the
   // SoleSurvivorLine button starts — mirrors the swap (#164). The breakdown
@@ -2650,7 +2664,6 @@ function RosterSection({
         contestant_id: contestantId,
       }),
     invalidates: [rosterPath, `/league-seasons/${season.id}/scoring-breakdown/${userId}`],
-    onSuccess: () => onPickingDone?.(),
   })
   const submit = useApiMutation({
     write: (contestantIds: string[]) =>
@@ -2658,7 +2671,6 @@ function RosterSection({
         contestant_ids: contestantIds,
       }),
     invalidates: [rosterPath, playsPath],
-    onSuccess: () => setEditing(false),
   })
 
   const swapping = undo.isPending || swap.isPending
@@ -2882,7 +2894,7 @@ function RosterSection({
                           !designatingSS &&
                           pick.active_until_episode === null &&
                           contestantMap.get(pick.contestant_id)?.eliminated_in_episode == null
-                        ? () => designate.mutate(pick.contestant_id)
+                        ? () => designate.mutate(pick.contestant_id, { onSuccess: () => onPickingDone?.() })
                         : undefined
                 }
                 selected={
@@ -2926,7 +2938,14 @@ function RosterSection({
                 {swapCandidates.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => swap.mutate(c.id)}
+                    onClick={() =>
+                      swap.mutate(c.id, {
+                        onSuccess: () => {
+                          setDropping(null)
+                          onPickingDone?.()
+                        },
+                      })
+                    }
                     disabled={swapping}
                     className="flex items-center gap-2 p-3 rounded-lg border border-cream-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-forest-500 disabled:opacity-40"
                   >
@@ -3004,7 +3023,7 @@ function RosterSection({
           ))}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => submit.mutate([...selected])}
+              onClick={() => submit.mutate([...selected], { onSuccess: () => setEditing(false) })}
               disabled={selected.size !== season.roster_size || !rosterDirty || submitting}
               className="px-4 py-2 bg-jade-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jade-700 transition-colors"
             >
@@ -4684,7 +4703,7 @@ function SoleSurvivorLine({
   const rosterPath = `/league-seasons/${season.id}/roster/${userId}`
   const rosterQ = useQuery(pathQuery<RosterPick[]>(rosterPath))
   const roster = rosterQ.data ?? []
-  const loaded = !rosterQ.isPending
+  const loaded = rosterQ.isFetched
 
   const nameOf = (id: string) => {
     const c = contestants.find((c) => c.id === id)
