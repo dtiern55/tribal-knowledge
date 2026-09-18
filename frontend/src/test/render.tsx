@@ -18,18 +18,24 @@ const authenticated: AuthContextValue = {
 interface AppRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   route?: string
   auth?: Partial<AuthContextValue>
+  /** How long an answer outlives the last component watching it. Zero keeps
+   *  one test's cache out of the next, but it also drops a *failed* read the
+   *  moment its component unmounts — where the app holds one for five minutes
+   *  and hands it back, error and all, to whatever mounts next. A test about
+   *  that has to say so. */
+  gcTime?: number
 }
 
 /** Render with deterministic router and auth seams; mock `lib/api` in the
  * test whenever the component performs requests. */
 export function renderWithApp(
   ui: React.ReactNode,
-  { route = '/', auth, ...options }: AppRenderOptions = {},
+  { route = '/', auth, gcTime = 0, ...options }: AppRenderOptions = {},
 ) {
   // A cache per render, so one test's answers never reach the next, and no
   // retries so a rejected request surfaces as the error state immediately.
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    defaultOptions: { queries: { retry: false, gcTime } },
   })
   return render(
     <QueryClientProvider client={queryClient}>

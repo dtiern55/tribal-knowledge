@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNavigate, useSearchParams } from 'react-router'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode, EpisodeResult, Season } from '../types'
 import { renderWithApp } from '../test/render'
@@ -26,10 +26,19 @@ function BackButton() {
   )
 }
 
+// A write that names what it changed goes through `api.quiet.*`, which skips
+// the refetch-everything backstop (#816). Separate spies, so a write going
+// loud is visible here: on this page that is the difference between the idol
+// moving and the idol snapping back to the row it left (#487).
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-  getActiveSeason: vi.fn(),
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    quiet: { post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  },
 }))
 
 const season = {
@@ -110,13 +119,21 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
   }
 }
 
+/** The page reads which league-season it plays from /league-seasons (#816),
+ *  so every test answers that first and its own routes after. */
+function mockGet(leagueSeason: Season, routes: (path: string) => Promise<unknown>) {
+  vi.mocked(api.get).mockImplementation(async (path: string) =>
+    path === '/league-seasons' ? [leagueSeason] : routes(path),
+  )
+}
+
 function arrange(
   episodes: Episode[],
   automaticResult?: EpisodeResult,
   replayResult?: EpisodeResult,
+  leagueSeason: Season = season,
 ) {
-  vi.mocked(getActiveSeason).mockResolvedValue(season)
-  vi.mocked(api.get).mockImplementation(async (path: string) => {
+  mockGet(leagueSeason, async (path: string) => {
     // Show routes live on /seasons; play routes on /league-seasons (#595).
     if (/^\/league-seasons\/[^/]+\/(contestants|episodes)$/.test(path)) throw new Error(`No such route: ${path}`)
     if (/^\/episodes\/[^/]+\/picks/.test(path)) throw new Error(`No such route: ${path}`)
@@ -161,8 +178,7 @@ function arrangePlayWorld(initial: {
       { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
     ],
   }
-  vi.mocked(getActiveSeason).mockResolvedValue(initial.preLock ? { ...season, roster_size: 2 } : season)
-  vi.mocked(api.get).mockImplementation(async (path: string) => {
+  mockGet(initial.preLock ? { ...season, roster_size: 2 } : season, async (path: string) => {
     if (path.endsWith('/episodes')) return [episode(openNumber - 1, 'scored', '2026-08-08T00:00:00Z'), open]
     if (path.endsWith('/contestants')) {
       return [
@@ -195,7 +211,9 @@ function arrangePlayWorld(initial: {
     return []
   })
   let playSeq = 10
-  vi.mocked(api.post).mockImplementation(async (path: string, body: unknown) => {
+  // The world answers the same way whichever set a write came through; the
+  // spies stay separate so a test can say which one it was.
+  const write = async (path: string, body: unknown) => {
     if (path.endsWith('/advantage-plays')) {
       const { advantage_type, target_contestant_id } = body as { advantage_type: string; target_contestant_id: string }
       const play = { id: `play-${++playSeq}`, episode_id: 'episode-3', advantage_type, target_contestant_id }
@@ -230,8 +248,8 @@ function arrangePlayWorld(initial: {
       state.plays = [{ ...state.plays[0], target_contestant_id: doubled_contestant_id }]
     }
     return { picks: state.picks, play: state.plays[0] ?? null }
-  })
-  vi.mocked(api.delete).mockImplementation(async () => {
+  }
+  const remove = async () => {
     const gone = state.plays[0]
     state.plays = []
     if (gone?.advantage_type === 'double_vote_points') {
@@ -241,7 +259,11 @@ function arrangePlayWorld(initial: {
       const rest = state.picks.filter((p) => p.contestant_id !== gone.target_contestant_id)
       state.picks = [...top, ...rest].slice(0, 3).map((p, i) => ({ ...p, rank: i + 1 }))
     }
-  })
+  }
+  vi.mocked(api.post).mockImplementation(write)
+  vi.mocked(api.quiet.post).mockImplementation(write)
+  vi.mocked(api.delete).mockImplementation(remove)
+  vi.mocked(api.quiet.delete).mockImplementation(remove)
   return state
 }
 
@@ -270,8 +292,7 @@ describe('MySeasonPage state shell', () => {
       releaseRoster = resolve
     })
 
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.includes('/roster/')) return rosterPending
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
@@ -343,8 +364,7 @@ describe('MySeasonPage state shell', () => {
     // The tribe is draftable then, but RosterSection renders in both states
     // and its useWeeklyPlay resolves to episode 2 — the one surface that used
     // to leak the "double point boost" play into the premiere (regression).
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'upcoming', '2099-08-20T00:00:00Z'),
@@ -371,8 +391,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('shows what each rostered castaway earned you, without a bio link', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -438,8 +457,7 @@ describe('MySeasonPage state shell', () => {
   it('supports a variable ballot limit, tribe grouping, selection, save, and edit', async () => {
     const user = userEvent.setup()
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open]
       if (path.endsWith('/contestants')) {
         return [
@@ -574,8 +592,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('offers the advantage on each tab, with swaps living on the roster', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, free_swaps: 1, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -660,7 +677,7 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(within(roster).getByRole('button', { name: /Maria/ }))
     await userEvent.click(within(roster).getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/roster', { contestant_ids: ['cast-2', 'cast-3'] }),
+      expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/roster', { contestant_ids: ['cast-2', 'cast-3'] }),
     )
 
     // The server deleted the play with Kenzie; the hero learns that without a
@@ -681,7 +698,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(strip).getByText(/Tap a Survivor/)).toBeVisible()
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
+      expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_roster_points',
         target_contestant_id: 'cast-1',
       }),
@@ -694,7 +711,7 @@ describe('MySeasonPage state shell', () => {
     // Undo lives in the hero; the strip comes back with the offer.
     expect(within(roster).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
-    await waitFor(() => expect(api.delete).toHaveBeenCalled())
+    await waitFor(() => expect(api.quiet.delete).toHaveBeenCalled())
     expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(
       within(await within(roster).findByRole('region', { name: 'Advantage' })).getByRole('button', {
@@ -718,7 +735,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(strip).getByText(/Cast your votes/)).toBeVisible()
     await userEvent.click(within(ballot).getByRole('button', { name: 'Make Charlie your Power Vote' }))
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
+      expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_vote_points',
         target_contestant_id: 'cast-2',
       }),
@@ -766,7 +783,7 @@ describe('MySeasonPage state shell', () => {
       }),
     )
     expect(await screen.findByText('Ballot · Maria · Power Vote')).toBeVisible()
-    expect(api.delete).not.toHaveBeenCalled()
+    expect(api.quiet.delete).not.toHaveBeenCalled()
   })
 
   it('ranks the ballot in ladder order, reorders with the arrows, and a slip dragged into the gold rung is the Power Vote (#694)', async () => {
@@ -812,7 +829,7 @@ describe('MySeasonPage state shell', () => {
     const kenzieSlip = within(within(ballot).getByRole('list', { name: 'Your ballot, surest on top' })).getByText('Kenzie')
     dragTo(kenzieSlip, goldRung)
     await waitFor(() =>
-      expect(api.post).toHaveBeenLastCalledWith('/league-seasons/season-1/advantage-plays', {
+      expect(api.quiet.post).toHaveBeenLastCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_vote_points',
         target_contestant_id: 'cast-1',
       }),
@@ -869,7 +886,7 @@ describe('MySeasonPage state shell', () => {
     // The gold card taps off like any vote, and the name drops to the top
     // rung: Kenzie leads again.
     await userEvent.click(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' }))
-    await waitFor(() => expect(api.delete).toHaveBeenCalled())
+    await waitFor(() => expect(api.quiet.delete).toHaveBeenCalled())
     expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     await waitFor(() => expect(ballotTab).toHaveTextContent('2 of 3'))
     expect(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' })).toHaveTextContent('Top pick')
@@ -888,26 +905,40 @@ describe('MySeasonPage state shell', () => {
 
     // Undo in the hero frees it; the Tribe strip offers again and plays.
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
-    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
+    await waitFor(() => expect(api.quiet.delete).toHaveBeenCalledWith('/advantage-plays/play-1'))
     const strip = await within(roster).findByRole('region', { name: 'Advantage' })
     await userEvent.click(within(strip).getByRole('button', { name: 'Play it here' }))
     await userEvent.click(within(roster).getByRole('button', { name: /Kenzie/ }))
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
+      expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/advantage-plays', {
         advantage_type: 'double_roster_points',
         target_contestant_id: 'cast-1',
       }),
     )
     expect(await screen.findByText('Tribe · Kenzie · double points')).toBeVisible()
+    // Both halves went through the quiet set. Loud, the backstop would fire
+    // mid-move — between the delete and the post of a play that is moving —
+    // refetch the plays with the old one already gone, and snap the idol back
+    // to the row it just left (#487).
+    expect(api.delete).not.toHaveBeenCalled()
+    expect(api.post).not.toHaveBeenCalled()
     // The Power Vote's name dropped to the top rung when the play left.
     await waitFor(() => expect(screen.getByRole('tab', { name: /^Ballot/ })).toHaveTextContent('1 of 3'))
     const ballot = await openBeat('Ballot')
     expect(within(ballot).queryByRole('region', { name: 'Advantage' })).not.toBeInTheDocument()
   })
 
-  it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+  it('starts a swap from the roster, prices it, holds the picker open until the new tribe is on screen, and re-reads only what it changed', async () => {
+    // The roster read the swap triggers, held open by the test so the order
+    // of what the player sees is observable rather than a race.
+    let holdRoster: { promise: Promise<unknown>; release: () => void } | null = null
+    const savedRoster = [
+      // One swap already made, back in episode 3 — so this is the 2nd of the
+      // season (−10) and the one-per-episode rule does not block episode 4.
+      { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: 2, swap_penalty_points: 0 },
+      { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 3, active_until_episode: null, swap_penalty_points: 0 },
+    ]
+    mockGet({ ...season, free_swaps: 1, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -923,14 +954,7 @@ describe('MySeasonPage state shell', () => {
           { id: 'cast-3', name: 'Venus', image_url: null, tribe_name: 'Nami', eliminated_in_episode: null },
         ]
       }
-      if (path.includes('/roster/')) {
-        // One swap already made, back in episode 3 — so this is the 2nd of the
-        // season (−10) and the one-per-episode rule does not block episode 4.
-        return [
-          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: 2, swap_penalty_points: 0 },
-          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 3, active_until_episode: null, swap_penalty_points: 0 },
-        ]
-      }
+      if (path.includes('/roster/')) return holdRoster ? holdRoster.promise : savedRoster
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
       if (path.endsWith('/reveal')) return undefined
       return []
@@ -950,19 +974,83 @@ describe('MySeasonPage state shell', () => {
     // The cost is stated again at the moment of choosing, not just in the header.
     expect(screen.getByText('costs -10 points')).toBeVisible()
     expect(screen.getByText(/you can undo it until picks lock/)).toBeVisible()
+    // `clearAllMocks` keeps implementations, so without this the swap POST is
+    // still answered by the last test's world — which threw on it, and the
+    // assertion below would have been happy with a write that failed.
+    vi.mocked(api.quiet.post).mockResolvedValue({})
+    vi.mocked(api.get).mockClear()
+    let release: () => void = () => {}
+    holdRoster = {
+      promise: new Promise((resolve) => {
+        release = () => resolve([{ ...savedRoster[1], contestant_id: 'cast-3' }])
+      }),
+      release: () => release(),
+    }
     await userEvent.click(within(rosterSection).getByRole('button', { name: /Venus/ }))
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap', {
+      expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap', {
         old_contestant_id: 'cast-2',
         new_contestant_id: 'cast-3',
       }),
     )
+    // The write is through, the new tribe is not here yet — and the picker is
+    // still up. Closing on the write would draw the lane with the castaway you
+    // just dropped still on it, until the read caught up.
+    expect(screen.getByText('Choose who replaces Charlie')).toBeVisible()
+    holdRoster.release()
+    holdRoster = null
+    await waitFor(() =>
+      expect(screen.queryByText('Choose who replaces Charlie')).not.toBeInTheDocument(),
+    )
+    // The swap names the two things it changed — the tribe, and the play
+    // roster.py drops with a doubled castaway (#816). Before that it emptied
+    // the cache, and every read on the page went out again behind it.
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/league-seasons/season-1/roster/user-1'),
+    )
+    expect([...new Set(vi.mocked(api.get).mock.calls.map(([path]) => path))].sort()).toEqual([
+      '/league-seasons/season-1/advantage-plays/user-1',
+      '/league-seasons/season-1/roster/user-1',
+    ])
+    // Which only holds because the write went out quiet: through the loud set
+    // it would take the refetch-everything backstop with it.
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('says a read was refused rather than claiming there is no season (#816)', async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error('Could not reach the league'))
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    // A failed league-season read leaves the page with no season, which is
+    // indistinguishable from a league that has none — so it has to be gated
+    // as a failure first. Falling through to the cold start tells a player
+    // their commissioner never started a season, a different thing entirely.
+    expect(await screen.findByText('Could not reach the league')).toBeVisible()
+    expect(screen.queryByText(/Camp isn’t set up yet/)).not.toBeInTheDocument()
+  })
+
+  it('shows a refused locked-screen read instead of spinning on it (#816)', async () => {
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2026-08-02T00:00:00Z')]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      // The locked screen holds its roster and ballot as "null means not yet",
+      // so a refusal reads as pending forever unless the error is gated first.
+      if (path.includes('/roster/')) throw new Error('Your tribe could not be read')
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByText('Your tribe could not be read')).toBeVisible()
   })
 
   it('offers Undo on a swap made this episode, and reverses it', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -997,14 +1085,13 @@ describe('MySeasonPage state shell', () => {
     await userEvent.click(await within(roster).findByRole('button', { name: 'Undo swap' }))
 
     await waitFor(() =>
-      expect(api.delete).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap/cast-2'),
+      expect(api.quiet.delete).toHaveBeenCalledWith('/league-seasons/season-1/roster/swap/cast-2'),
     )
   })
 
   it('says the tribe has spoken the first time a castaway is voted out, then pulses Swap', async () => {
     localStorage.removeItem('mytribe.first-loss.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1053,8 +1140,7 @@ describe('MySeasonPage state shell', () => {
   it('holds the Sole Survivor card until the first-loss card is dismissed (#798)', async () => {
     localStorage.removeItem('mytribe.first-loss.season-1')
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 4 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 4 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1092,8 +1178,7 @@ describe('MySeasonPage state shell', () => {
 
   it('keeps an unsaved ballot when you look at another beat', async () => {
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open]
       if (path.endsWith('/contestants')) {
         return [
@@ -1124,8 +1209,7 @@ describe('MySeasonPage state shell', () => {
   it('names a Sole Survivor by tapping the tribe once the pick window opens', async () => {
     // The naming popup has its own test; suppress it here.
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T00:00:00Z'), episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
@@ -1137,7 +1221,7 @@ describe('MySeasonPage state shell', () => {
       if (path.endsWith('/reveal')) return undefined
       return []
     })
-    vi.mocked(api.post).mockResolvedValue({})
+    vi.mocked(api.quiet.post).mockResolvedValue({})
 
     renderWithApp(<MySeasonPage />, { auth })
 
@@ -1145,7 +1229,7 @@ describe('MySeasonPage state shell', () => {
     // Now in the pick mode: tap the castaway's roster card.
     await userEvent.click(await screen.findByRole('button', { name: /Kenzie/ }))
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
+      expect(api.quiet.post).toHaveBeenCalledWith('/league-seasons/season-1/sole-survivor', {
         contestant_id: 'cast-1',
       }),
     )
@@ -1153,8 +1237,7 @@ describe('MySeasonPage state shell', () => {
 
   it('pops the info card when the window opens with nobody named, then leaves the button pulsing (#164)', async () => {
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T00:00:00Z'), episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
@@ -1183,8 +1266,7 @@ describe('MySeasonPage state shell', () => {
   it('prompts the hero for the Sole Survivor instead of "all set" while the window is open and none is named (#164)', async () => {
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1') // suppress the popup
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 1 }
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open, episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
       }
@@ -1237,8 +1319,7 @@ describe('MySeasonPage state shell', () => {
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
       episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
@@ -1277,8 +1358,7 @@ describe('MySeasonPage state shell', () => {
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
       { ...episode(2, 'upcoming', '2026-08-02T00:00:00Z'), is_finale: true },
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
@@ -1319,8 +1399,7 @@ describe('MySeasonPage state shell', () => {
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
       episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
@@ -1367,7 +1446,7 @@ describe('MySeasonPage state shell', () => {
         ],
       }),
     )
-    vi.mocked(api.post)
+    vi.mocked(api.quiet.post)
       .mockRejectedValueOnce(new Error('Still saving'))
       .mockResolvedValueOnce({})
     renderWithApp(<MySeasonPage />, { auth })
@@ -1396,15 +1475,54 @@ describe('MySeasonPage state shell', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByRole('tab', { name: /^Ballot/ })).toBeVisible()
-    expect(api.post).toHaveBeenCalledWith(
+    expect(api.quiet.post).toHaveBeenCalledWith(
       '/league-seasons/season-1/reveal-acknowledgement',
       { episode_id: 'episode-2' },
     )
   })
 
+  it('reopens a recap the server refused once, when the server is back (#816)', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z')]
+      }
+      if (path.includes('/episode-results/')) {
+        if (fail) throw new Error('Recap is unavailable')
+        return result()
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth, gcTime: 60_000 })
+    await screen.findByRole('heading', { name: 'Between episodes' })
+    await user.click(screen.getByRole('button', { name: /^History/ }))
+    await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
+    await user.click(screen.getByRole('button', { name: /Ep 2.*Replay/ }))
+    // A recap that can't be read closes rather than sitting empty, and says
+    // why back on the sheet it was opened from.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // The server is fine now, and the same recap has to open — the refused
+    // answer is still in the cache for five minutes, and the effect that
+    // closed the recap reads the same `error` it was closed on. It doesn't
+    // fire twice: re-enabling a query with no data refetches, and that clears
+    // the error in the same render the observer hands back (query-core's
+    // `fetchState`). Which is only true with the app's gcTime, so this test
+    // asks for it — under the harness's zero the query would be long gone and
+    // this would pass without meaning anything.
+    fail = false
+    await user.click(screen.getByRole('button', { name: /^History/ }))
+    await user.click(screen.getByRole('tab', { name: /^Recaps/ }))
+    await user.click(screen.getByRole('button', { name: /Ep 2.*Replay/ }))
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Ep 2 replay')
+  })
+
   it('previews the last episode on the History card from the standings row (#803)', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       // The card used to build a whole episode result for these two numbers.
       if (path.includes('/episode-results/')) throw new Error(`No such route: ${path}`)
       if (path.endsWith('/episodes')) {
@@ -1458,7 +1576,10 @@ describe('MySeasonPage state shell', () => {
     await user.click(screen.getByRole('button', { name: 'Back to My Season' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Between episodes' })).toBeVisible()
+    // Nothing was written at all: a replay is a read, and the reveal it is
+    // not is the one thing here that would acknowledge anything.
     expect(api.post).not.toHaveBeenCalled()
+    expect(api.quiet.post).not.toHaveBeenCalled()
   })
 
   it('tells a Redemption Island week apart: island trips in the headline, only the exit gets a boot chip, the island line names everyone there (#655)', async () => {
@@ -1479,7 +1600,7 @@ describe('MySeasonPage state shell', () => {
         ],
       }),
     )
-    vi.mocked(api.post).mockResolvedValue({})
+    vi.mocked(api.quiet.post).mockResolvedValue({})
     renderWithApp(<MySeasonPage />, { auth })
 
     const dialog = await screen.findByRole('dialog')
@@ -1512,7 +1633,7 @@ describe('MySeasonPage state shell', () => {
         rank_delta: null,
       }),
     )
-    vi.mocked(api.post).mockResolvedValue({})
+    vi.mocked(api.quiet.post).mockResolvedValue({})
     renderWithApp(<MySeasonPage />, { auth })
 
     expect(await screen.findByText('No one was voted out')).toBeVisible()
@@ -1531,9 +1652,10 @@ describe('MySeasonPage state shell', () => {
         { ...episode(2, 'scored', '2026-08-08T00:00:00Z'), is_finale: true },
       ],
       result({ is_finale: true }),
+      undefined,
+      { ...season, status: 'completed' },
     )
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, status: 'completed' })
-    vi.mocked(api.post).mockResolvedValue({})
+    vi.mocked(api.quiet.post).mockResolvedValue({})
     renderWithApp(<MySeasonPage />, { auth })
 
     await user.click(await screen.findByRole('button', { name: 'Continue' }))

@@ -3,19 +3,14 @@ import { activeSeason, api, ApiError, onApiMutation } from './api'
 import type { Season } from '../types'
 
 /**
- * The app's query cache (#816).
+ * The app's query cache (#816), and the only one: every page reads through it
+ * now, so the 30-second cache `lib/api.ts` kept its answers in is gone.
  *
- * Pages are moving onto this one at a time; the ones still on plain
- * `api.get` keep the short cache inside `lib/api.ts`, which also sits under
- * this layer's fetches. Both hold for 30 seconds, so a query going stale is a
- * real request rather than one cache answering the other, and the older cache
- * goes when the last page moves.
- *
- * `staleTime` is the 30 seconds the hand-rolled cache in `lib/api.ts` used, for
- * the same reason: the one change this client can't see is the commissioner
- * scoring an episode. Refetching when the window regains focus is what the old
- * cache couldn't do, and it matters here — this is a phone PWA the league
- * checks *during* an episode, switching away and back.
+ * `staleTime` is the 30 seconds that cache used, for the same reason: the one
+ * change this client can't see is the commissioner scoring an episode.
+ * Refetching when the window regains focus is what the old cache couldn't do,
+ * and it matters here — this is a phone PWA the league checks *during* an
+ * episode, switching away and back.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {

@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import { renderWithApp } from '../test/render'
 import type { CastMember, Season } from '../types'
 import { CastPage } from './CastPage'
@@ -8,7 +8,6 @@ import { CastPage } from './CastPage'
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
-  getActiveSeason: vi.fn(),
 }))
 
 describe('CastPage', () => {
@@ -42,8 +41,11 @@ describe('CastPage', () => {
         total_tokens: 0,
       },
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockResolvedValue(cast)
+    // The season comes from /league-seasons, the cast from the show route it
+    // names; one mockResolvedValue answered both with the cast list.
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === '/league-seasons' ? [season] : cast,
+    )
 
     renderWithApp(<CastPage />)
 
@@ -89,8 +91,11 @@ describe('CastPage', () => {
         total_tokens: 0,
       },
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockResolvedValue(cast)
+    // The season comes from /league-seasons, the cast from the show route it
+    // names; one mockResolvedValue answered both with the cast list.
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === '/league-seasons' ? [season] : cast,
+    )
 
     renderWithApp(<CastPage />)
 
