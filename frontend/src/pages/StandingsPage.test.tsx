@@ -274,14 +274,14 @@ describe('StandingsPage', () => {
     expect(tribe).toHaveTextContent('+12')
     expect(tribe).toHaveTextContent('+24')
     // Gold is the Power Vote and a filled card is a hit: Charlie's vote is the
-    // gold one and it landed, the miss is dotted and neutral. Never an ×2 —
+    // gold one and it landed, the miss is outlined and neutral. Never an ×2 —
     // the Power Vote is its own rung, not a multiplier.
     const marked = screen.getByTitle('Power Vote on this vote')
     expect(marked).toHaveTextContent('Charlie')
     expect(marked.className).toContain('bg-gold-200')
     expect(voted).toContainElement(marked)
     expect(voted).not.toHaveTextContent('×2')
-    expect(screen.getByText('Kenzie').className).toContain('border-dotted')
+    expect(screen.getByText('Kenzie').className).toContain('border-stone-300')
 
     expect(screen.getByRole('link', { name: /Danny's full team page/ })).toHaveAttribute(
       'href',
