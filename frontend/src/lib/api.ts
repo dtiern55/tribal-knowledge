@@ -71,6 +71,9 @@ function sharedGet<T>(path: string): Promise<T> {
  *  changes — one player's reads must never survive into another's. */
 export function clearApiCache(): void {
   cached.clear()
+  // Including anything still in the air: a refetch triggered by this write
+  // would otherwise be handed the pre-write body and store it as fresh.
+  inFlight.clear()
   for (const listener of mutationListeners) listener()
 }
 

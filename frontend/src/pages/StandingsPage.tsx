@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
@@ -336,16 +336,11 @@ export function StandingsPage() {
   // The latest locked episode from the roster lock on. The finale is left out —
   // its ballot is a bracket, not votes, and it reads as the pyramid on the Team
   // page (#82/#86, as on that page).
-  const weekEpisode = useMemo(
-    () =>
-      (episodes.data ?? [])
-        .filter(
-          (e) =>
-            episodeClosed(e) && !e.is_finale && e.episode_number >= (season?.roster_lock_episode ?? 1),
-        )
-        .sort((a, b) => b.episode_number - a.episode_number)[0],
-    [episodes.data, season?.roster_lock_episode],
-  )
+  const weekEpisode = (episodes.data ?? [])
+    .filter(
+      (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (season?.roster_lock_episode ?? 1),
+    )
+    .sort((a, b) => b.episode_number - a.episode_number)[0]
   const hub = useQuery(
     pathQuery<HubEntry[]>(
       season && weekEpisode ? `/league-seasons/${season.id}/episodes/${weekEpisode.id}/hub` : null,
@@ -353,10 +348,7 @@ export function StandingsPage() {
   )
   // A Hub that refuses (the episode never locked) reads as a week with nothing
   // in it, which is the panel's own empty state — not a page error.
-  const hubByUser = useMemo(
-    () => new Map((hub.data ?? []).map((e) => [e.user_id, e])),
-    [hub.data],
-  )
+  const hubByUser = new Map((hub.data ?? []).map((e) => [e.user_id, e]))
   const weekLoading = episodes.isLoading || hub.isLoading
 
   if (seasonLoading || standings.isLoading) return <PageLoader />

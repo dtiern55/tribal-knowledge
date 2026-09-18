@@ -1,5 +1,5 @@
 import { QueryClient, useQuery } from '@tanstack/react-query'
-import { activeSeason, api, onApiMutation } from './api'
+import { activeSeason, api, ApiError, onApiMutation } from './api'
 import type { Season } from '../types'
 
 /**
@@ -24,22 +24,24 @@ export const queryClient = new QueryClient({
       // Keep an answer around long enough to make going back to a page
       // instant, even after its component unmounted.
       gcTime: 5 * 60_000,
+      // v5's default, named here because it is the behaviour this migration
+      // is buying: the league checks the app mid-episode, switching away and
+      // back.
       refetchOnWindowFocus: true,
-      retry: 1,
+      // Retry a server or network failure once; never a refusal. A 403 from
+      // the Hub before an episode locks is an answer, not a flake, and
+      // retrying it only delays the empty state by a second.
+      retry: (failures, error) =>
+        failures < 1 && !(error instanceof ApiError && error.status < 500),
     },
   },
 })
 
-/**
- * Every read goes through `api.get(path)`, so the path *is* the key. Nesting it
- * under 'api' gives one handle for "forget everything".
- */
-export const apiKey = (path: string) => ['api', path] as const
-
-/** The query for an API path. `null` means "not yet" — the id isn't known. */
+/** The query for an API path. Every read goes through `api.get(path)`, so the
+ *  path *is* the key. `null` means "not yet" — the id isn't known. */
 export function pathQuery<T>(path: string | null) {
   return {
-    queryKey: apiKey(path ?? ''),
+    queryKey: ['api', path ?? ''],
     queryFn: () => api.get<T>(path as string),
     enabled: path != null,
   }
@@ -53,11 +55,7 @@ export function pathQuery<T>(path: string | null) {
  */
 export function useActiveSeason() {
   const query = useQuery(pathQuery<Season[]>('/league-seasons'))
-  return {
-    ...query,
-    seasons: query.data,
-    season: query.data ? activeSeason(query.data) : undefined,
-  }
+  return { ...query, season: query.data ? activeSeason(query.data) : undefined }
 }
 
 // Writes invalidate everything, the same blunt rule the hand-rolled cache used
