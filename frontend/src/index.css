@@ -326,6 +326,12 @@ html.locked-night .app-shell .text-paper-ink {
 html.locked-night .app-shell .text-paper-ink-faded {
   color: rgb(242 233 219 / 45%);
 }
+/* The Standings week tray sits a step below the night paper, as it sits a step
+   below the day paper, so the lifted cream ink above stays readable in it. */
+html.locked-night .app-shell .week-tray {
+  background-color: #0e1f19;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 45%);
+}
 
 /* Ballot rows under lock (#685). A correct vote's jade ink and a handwritten
    slip's forest ink are both dark-on-dark once the paper goes night, and the
