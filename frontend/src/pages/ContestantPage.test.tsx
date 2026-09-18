@@ -71,6 +71,17 @@ describe('ContestantPage roster context', () => {
     expect(screen.queryByText(/for you/)).not.toBeInTheDocument()
   })
 
+  it('reads the castaways either side in the background, so a swipe lands ready (#828)', async () => {
+    arrange()
+    renderAt('/contestants/cast-2')
+
+    expect(await screen.findByRole('heading', { name: 'Kenzie' })).toBeVisible()
+    await vi.waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
+      expect(api.get).toHaveBeenCalledWith('/contestants/cast-3/performance')
+    })
+  })
+
   it('swipes only across your roster and shows the doubled total from My Season', async () => {
     arrange()
     renderAt('/contestants/cast-1?from=roster')
