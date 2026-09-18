@@ -192,7 +192,9 @@ function HistoryPanel({
   const wholeBallotDoubled = powerVote === null
 
   return (
-    <div id={id} className="border-t border-paper-line bg-black/[.02] px-4 py-2">
+    // A recessed tray under its row, so a player's row and week read as one
+    // unit and the next player's row is clearly someone else.
+    <div id={id} className="mx-2.5 mb-2.5 rounded-xl bg-paper-line px-3.5 py-2 shadow-[inset_0_1px_3px_rgb(60_40_20_/_0.18)]">
       {waiting ? (
         <p className={note}>Loading…</p>
       ) : episode == null ? (
@@ -378,7 +380,7 @@ export function StandingsPage() {
               const isMe = entry.user_id === userId
               const isOpen = openIds.has(entry.user_id)
               return (
-                <li key={entry.user_id} className="border-b border-paper-line last:border-b-0">
+                <li key={entry.user_id} className="border-b border-paper-edge last:border-b-0">
                   {/* The row opens its own history in place; the Team page is a
                       link inside the panel, so the row stays one tap target
                       instead of a link nested in a button (#806). */}
