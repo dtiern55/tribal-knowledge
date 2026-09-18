@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { renderWithApp } from '../test/render'
 import type { Contestant, ContestantPerformance, Episode, RosterPick, StandingEntry } from '../types'
 import { TeamPage } from './TeamPage'
@@ -144,6 +144,28 @@ describe('TeamPage', () => {
         }
       }
     })
+  })
+
+  it('says the league-season could not be read instead of loading forever (#816)', async () => {
+    // Everything below the league-season read is disabled until it answers, and
+    // a disabled query is pending, so gating the loader on "nothing pending"
+    // would hold the loader over the error for good. A stale link or a URL
+    // copied from another league is a 404/403 here.
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') throw new ApiError('League season not found', 404)
+      if (path.endsWith('/standings')) return []
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1' },
+    )
+
+    expect(await screen.findByText('Could not load this team')).toBeVisible()
+    expect(screen.getByText('League season not found')).toBeVisible()
   })
 
   it('starts with only Tribe open; Expand all reveals the ballot (#646)', async () => {

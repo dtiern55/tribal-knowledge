@@ -139,13 +139,16 @@ export function TeamPage() {
     }
   }, [queryClient, leagueSeasonId, prevId, nextId, loading])
 
+  // Before the loader, not after it: the reads below a failed one stay disabled,
+  // and a disabled query is pending forever, so a 404 on an unknown league-season
+  // or a 403 on another league's link would sit under the loader for good.
+  if (error) return <Notice tone="error" title="Could not load this team">{error.message}</Notice>
   // Keep the current team on screen while swiping to a sibling (#451) — only the
   // first load gets the full torch loader, so stepping through doesn't strobe.
   // A ref rather than `!player`: the standings this page finds the player in are
   // usually already cached from the page you tapped through from, which would
   // otherwise draw an empty Tribe and Ballot while the team's own reads were out.
   if (loading && !drawn.current) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load this team">{error.message}</Notice>
   if (!player) return <Notice title="Player not found"><Link className="text-forest-700 underline" to="/standings">Return to standings</Link></Notice>
   drawn.current = true
 
@@ -247,7 +250,9 @@ export function TeamPage() {
           <SectionShell title="Tribe" prominent open={open.tribe} onToggle={toggleSection('tribe')} right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
               <Notice title="Team details are still private">Tribe and weekly-play choices unlock when tribes lock.</Notice>
-            ) : active.length === 0 ? (
+            ) : active.length === 0 && !rosterQ.isPending ? (
+              // Only once the roster has answered: a swipe can outrun the
+              // prefetch, and "no tribe" is an answer rather than a wait.
               <Notice title="No tribe submitted">This player does not have an active tribe yet.</Notice>
             ) : (
               <RosterManifest>
@@ -331,7 +336,10 @@ export function TeamPage() {
         )}
 
           <SectionShell title="Ballot" prominent open={open.ballot} onToggle={toggleSection('ballot')} right={<SectionPoints value={player.elimination_points} />}>
-            {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
+            {votes.length === 0 ? (
+              // Same rule as Tribe above: say nothing while the ballot is out.
+              picksQ.isPending ? null : <p className="text-sm text-gray-500">No unlocked ballots yet.</p>
+            ) : (
               // One ledger row per episode, matching the My Season History sheet:
               // "Ep N", the votes (correct ones pilled), a single idol if the
               // ballot was doubled. The episode title is dropped — the week is

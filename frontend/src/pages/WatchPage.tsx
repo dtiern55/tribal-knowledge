@@ -64,6 +64,8 @@ export function WatchPage() {
   const [predictMode, setPredictMode] = useState(false)
   const [openSlot, setOpenSlot] = useState<{ tier: 'finalFour' | 'finalThree' | 'winner'; index: number } | null>(null)
   const [loaded, setLoaded] = useState(false)
+  // Which episode this sitting records, chosen once (below) and then held.
+  const [episodeId, setEpisodeId] = useState<string | null>(null)
   const [synced, setSynced] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -74,24 +76,35 @@ export function WatchPage() {
   const rulesQ = useQuery(pathQuery<RulesResponse>(season ? `/league-seasons/${season.id}/rules` : null))
   const cast = castQ.data ?? []
   const rules = rulesQ.data ?? null
-  const episode =
-    season && episodesQ.data ? airingEpisode(episodesQ.data, season) ?? episodesQ.data.at(-1) ?? null : null
+
+  // Latch the episode the first time the schedule lands, and never move it.
+  // `airingEpisode` answers against the clock and the episode's status, so a
+  // derived target would move mid-sitting — when tonight's lock passes, or the
+  // moment Admin scores the episode — and write the night's work to whichever
+  // episode it moved to.
+  useEffect(() => {
+    if (episodeId || !season || !episodesQ.data) return
+    setEpisodeId((airingEpisode(episodesQ.data, season) ?? episodesQ.data.at(-1))?.id ?? null)
+  }, [episodeId, season, episodesQ.data])
+  const episode = episodesQ.data?.find((e) => e.id === episodeId) ?? null
+
   // Server is the source of truth (cross-device); the scoring ritual reads it.
   const savedQ = useQuery(
     pathQuery<{ data: Partial<WatchState> }>(
-      season && episode ? `/league-seasons/${season.id}/episodes/${episode.id}/watch` : null,
+      season && episodeId ? `/league-seasons/${season.id}/episodes/${episodeId}/watch` : null,
     ),
   )
 
   const loading =
     seasonQ.isLoading ||
     (season != null && (castQ.isPending || episodesQ.isPending || rulesQ.isPending)) ||
-    (episode != null && savedQ.isPending)
+    // The one render between the schedule landing and the latch above.
+    (episodesQ.data != null && episodesQ.data.length > 0 && episodeId == null) ||
+    (episodeId != null && savedQ.isPending)
   const error = seasonQ.error ?? castQ.error ?? episodesQ.error ?? rulesQ.error
 
   // Seed the editable tracker once, when the saved copy has answered either way.
   // A refusal (offline, nothing saved yet) falls back to this device's copy.
-  const episodeId = episode?.id
   useEffect(() => {
     if (!episodeId || loaded || savedQ.isPending) return
     const server = savedQ.data?.data
