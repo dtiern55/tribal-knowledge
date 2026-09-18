@@ -249,7 +249,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 13: Cook Islands',
   },
   {
-    text: 'Wh- what… Are you saying people are lying?',
+    text: 'What... Are you saying people are lying?',
     who: 'Mike White',
     season: 'Season 37: David vs. Goliath',
   },
@@ -302,11 +302,6 @@ export const QUOTES: Quote[] = [
     text: "Digging into the sand is the dumbest idea I've ever had in my life.",
     who: 'Rupert',
     season: 'Season 8: All-Stars',
-  },
-  {
-    text: "You question a woman's character, you question a woman's ability — she'll snap your neck.",
-    who: 'Chris Daugherty',
-    season: 'Season 9: Vanuatu',
   },
   {
     text: 'Chaos is my friend.',
