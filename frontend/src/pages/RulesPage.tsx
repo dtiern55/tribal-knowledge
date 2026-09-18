@@ -145,20 +145,20 @@ function swapCostLadder(season: Season) {
   }
 }
 
-/** "3 picks in Episodes 2 to 5, 2 in Episodes 6 to 10, and 1 from Episode
- *  11 on" (#269). */
+function picksLabel(n: number) {
+  return `${n} pick${n === 1 ? '' : 's'}`
+}
+
+/** One line per pick tier, e.g. "Episodes 2 to 5: 3 picks" (#269). */
 function pickTiers(season: Season) {
   const tiers = [...season.elimination_pick_schedule].sort((a, b) => a.from_episode - b.from_episode)
-  if (tiers.length === 0) return 'You get 3 picks an episode.'
-  const parts = tiers.map((t, i) => {
-    const picks = i === 0 ? `${t.picks} pick${t.picks === 1 ? '' : 's'}` : `${t.picks}`
+  return tiers.map((t, i) => {
+    const picks = picksLabel(t.picks)
     const next = tiers[i + 1]
-    if (!next) return `${picks} from Episode ${t.from_episode} on`
+    if (!next) return `Episode ${t.from_episode} on: ${picks}`
     const last = next.from_episode - 1
-    return last === t.from_episode ? `${picks} in Episode ${last}` : `${picks} in Episodes ${t.from_episode} to ${last}`
+    return last === t.from_episode ? `Episode ${last}: ${picks}` : `Episodes ${t.from_episode} to ${last}: ${picks}`
   })
-  if (parts.length === 1) return `You get ${parts[0]}.`
-  return `You get ${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}.`
 }
 
 export function RulesPage() {
@@ -201,6 +201,7 @@ export function RulesPage() {
     .filter((score): score is RulePredictionScore => score != null)
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
   const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
+  const tiers = pickTiers(season)
   const finaleScores = prediction_scores.filter((score) => FINALE_KEYS.includes(score.key))
 
   return (
@@ -248,7 +249,14 @@ export function RulesPage() {
 
         <RuleSection id="ballot" title="Ballot">
           <RuleList>
-            <li>Each episode, pick who you think is going home. {pickTiers(season)}</li>
+            <li>
+              Each episode, pick who you think is going home.
+              {tiers.length > 1 ? (
+                <ul className="mt-1 list-[circle] space-y-1 pl-5">
+                  {tiers.map((tier) => <li key={tier}>{tier}</li>)}
+                </ul>
+              ) : ` You get ${picksLabel(season.elimination_pick_schedule[0]?.picks ?? 3)} an episode.`}
+            </li>
             <li>
               {rungScores.length > 0
                 ? 'Rank your picks, surest on top. Each correct pick scores by its rank.'

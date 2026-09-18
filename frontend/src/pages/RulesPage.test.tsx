@@ -75,7 +75,9 @@ describe('RulesPage', () => {
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
     expect(screen.getByText(/Swap as often as you like/)).toBeVisible()
-    expect(screen.getByText(/3 picks in Episodes 2 to 5, 2 in Episodes 6 to 10, and 1 from Episode 11 on/)).toBeVisible()
+    for (const tier of ['Episodes 2 to 5: 3 picks', 'Episodes 6 to 10: 2 picks', 'Episode 11 on: 1 pick']) {
+      expect(screen.getByText(tier)).toBeVisible()
+    }
     expect(screen.getByText('+16 before merge, +20 after')).toBeVisible()
     expect(screen.queryByText(/roster/i)).not.toBeInTheDocument()
   })
