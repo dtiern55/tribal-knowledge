@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CorrectVote } from '../components/CorrectVote'
-import { DoubleBadge } from '../components/DoubleBadge'
+import { AdvantageStamp, DoubleBadge } from '../components/DoubleBadge'
 import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
@@ -436,7 +436,8 @@ export function TeamPage() {
                         role="group"
                         aria-label="Votes"
                         tabIndex={0}
-                        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+                        // Room above the chips for the stamp, which the scroller would clip.
+                        className={`flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto ${x2 ? 'pt-1.5 pr-1.5' : ''}`}
                       >
                         {picks.length === 0 ? (
                           <span className="text-sm text-paper-ink-faded">No votes</span>
@@ -444,15 +445,16 @@ export function TeamPage() {
                           picks.map((pick) => {
                             const nameC = contestantMap.get(pick.contestant_id)
                             const name = nameC ? displayName(nameC) : '—'
-                            const mark = pick.contestant_id === x2 ? <DoubleBadge size={18} title="Power Vote" /> : null
+                            const power = pick.contestant_id === x2
                             // Pick results are base values (#136); the Power Vote's name shows what it paid.
                             const base = pickPoints.get(`${episode.id}:${pick.contestant_id}`) ?? 0
-                            const points = base + (mark ? (ballotDouble?.points_earned ?? 0) : 0)
+                            const points = base + (power ? (ballotDouble?.points_earned ?? 0) : 0)
                             return eliminatedIds.has(pick.contestant_id) ? (
-                              <CorrectVote key={pick.id} name={name} points={points > 0 ? points : undefined} icon={mark} />
+                              <CorrectVote key={pick.id} name={name} points={points > 0 ? points : undefined} power={power} />
                             ) : (
-                              <span key={pick.id} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
-                                {mark}{name}
+                              <span key={pick.id} className="relative inline-flex shrink-0 items-center gap-1 rounded-md border border-paper-line bg-black/[.03] px-2 py-0.5 text-sm text-paper-ink-faded">
+                                {name}
+                                {power && <AdvantageStamp size={16} title="Power Vote" />}
                               </span>
                             )
                           })

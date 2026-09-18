@@ -1,31 +1,8 @@
-/** A compact gold label for the weekly play where it changed the field. */
-export function PlayMark({
-  text,
-  title,
-  dark = false,
-  className = '',
-}: {
-  text: string
-  title: string
-  dark?: boolean
-  className?: string
-}) {
-  return (
-    <span
-      className={`inline-flex shrink-0 rounded px-1 text-[10px] font-bold tabular-nums ${
-        dark ? 'bg-gold-300 text-forest-900' : 'bg-gold-100 text-gold-700'
-      } ${className}`}
-      title={title}
-      aria-label={title}
-    >
-      {text}
-    </span>
-  )
-}
+import { AdvantageStamp } from './DoubleBadge'
 
 /**
- * One Hub ballot pick, using the same two-channel language as Standings:
- * gold means Power Vote; a fill means the pick was correct.
+ * One Hub ballot pick. A fill means the pick was correct; the Power Vote is
+ * the idol stamped on its corner (#849), not a colour of its own.
  */
 export function HubBallotMark({
   name,
@@ -39,29 +16,17 @@ export function HubBallotMark({
   dark?: boolean
 }) {
   const tone = dark
-    ? power
-      ? correct
-        ? 'border-gold-400 bg-gold-300/25 font-semibold text-gold-200'
-        : 'border-gold-400/70 text-gold-300'
-      : correct
-        ? 'border-jade-300 bg-jade-300/15 text-jade-100'
-        : 'border-white/25 text-white/60'
-    : power
-      ? correct
-        ? 'border-gold-600 bg-gold-200 font-semibold text-gold-800'
-        : 'border-gold-400 text-gold-700'
-      : correct
-        ? 'border-jade-600 bg-jade-600/[.14] text-jade-800'
-        : 'border-stone-300 text-paper-ink-faded'
-
+    ? correct
+      ? 'border-jade-300 bg-jade-300/30 font-semibold text-jade-50'
+      : 'border-white/25 text-white/60'
+    : correct
+      ? 'border-jade-600 bg-jade-600/[.22] font-semibold text-jade-800'
+      : 'border-stone-300 text-paper-ink-faded'
   return (
-    <span
-      title={power ? 'Power Vote on this vote' : undefined}
-      className={`inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${tone}`}
-    >
-      {power && <span className="sr-only">Power Vote — </span>}
+    <span className={`relative inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${tone}`}>
       {correct && <span className="sr-only">Correct — </span>}
       {name}
+      {power && <AdvantageStamp size={16} title="Power Vote on this vote" />}
     </span>
   )
 }
