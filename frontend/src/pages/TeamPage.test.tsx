@@ -274,9 +274,60 @@ describe('TeamPage', () => {
 
     // Every forgiven read really is back in the air, or this proves nothing.
     for (const path of refused) expect(asked.filter((p) => p === path)).toHaveLength(2)
-    // And the team is still on screen, not back behind the loading state. What
-    // the Tribe section says during that retry is #830, not asserted here.
+    // And the team is still on screen, not back behind the loading state.
     expect(heading).toBeVisible()
     expect(heading.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'false')
+
+    // #830: what the sections say has to survive the retry too. `isError`
+    // clears on the way back to pending, so deriving the private state from it
+    // swapped this notice for an empty Castaway/Points ledger — for a round
+    // trip, at full opacity now that the gate correctly stays open.
+    expect(screen.getByText('Team details are still private')).toBeVisible()
+    expect(screen.queryByText('Castaway')).not.toBeInTheDocument()
+  })
+
+  it('says vote results are missing instead of drawing every vote as a miss (#823)', async () => {
+    // The season's elimination ledger decides which votes hit. It is forgiven
+    // by the loading gate, but unlike this page's other forgiven reads it has
+    // no per-player gate to refuse from — so a refusal means something is
+    // actually wrong, and drawing the ballot without it would grey out every
+    // vote under a header still showing the 5 points they earned.
+    const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
+      if (path === '/seasons/season-1/contestants') return [{ id: 'cast-1', name: 'Kenzie' }]
+      if (path === '/seasons/season-1/episodes') return [episode]
+      if (path === '/league-seasons/season-1/standings') {
+        return [{ user_id: 'friend-1', display_name: 'Friend', roster_points: 0, elimination_points: 5, finale_points: 0, total_points: 5, trend: null, trend_delta: 0, last_episode_points: 5, active_survivors: [], recently_eliminated_survivors: [], sole_survivor_contestant_id: null }]
+      }
+      // The roster and the ballot read fine — only the ledger is gone, so the
+      // rest of the page must stay exactly as it is.
+      if (path === '/league-seasons/season-1/roster/friend-1') return []
+      if (path === '/league-seasons/season-1/scoring-breakdown/friend-1') return { roster: [], picks: [], sole_survivor_contestant_id: null, sole_survivor_bonus: 0 }
+      if (path === '/league-seasons/season-1/advantage-plays/friend-1') return []
+      if (path === '/league-seasons/season-1/picks/friend-1') return { 'ep-1': [{ id: 'pick-1', episode_id: 'ep-1', contestant_id: 'cast-1' }] }
+      if (path === '/league-seasons/season-1/finale-predictions/friend-1') throw new ApiError('No bracket', 404)
+      if (path === '/seasons/season-1/eliminations') throw new ApiError('Server error', 500)
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1' },
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Expand all' }))
+
+    expect(screen.getByText('Vote results didn’t load')).toBeVisible()
+    // Not a ledger row claiming the vote missed, and the points stay on the
+    // header — the section no longer contradicts itself.
+    expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Kenzie')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Ballot/ })).toHaveTextContent('5')
+    // And nothing else fell over: the page still drew, with its error gate shut.
+    expect(screen.getByRole('heading', { name: /Friend's Season/ })).toBeVisible()
+    expect(screen.queryByText('Could not load this team')).not.toBeInTheDocument()
   })
 })

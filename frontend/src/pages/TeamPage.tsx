@@ -109,8 +109,9 @@ export function TeamPage() {
     contestantsQ.isPending ||
     episodesQ.isPending ||
     standingsQ.isPending ||
-    // Not in the error gate: a refused ledger draws the Ballot without it (see
-    // #823), so it is forgiven here too.
+    // Not in the error gate: a refused ledger costs the Ballot section, which
+    // says so itself (#823), and leaves the rest of the page standing — so it
+    // is forgiven here too.
     !eliminationsQ.isFetched ||
     !rosterQ.isFetched ||
     !breakdownQ.isFetched ||
@@ -121,7 +122,17 @@ export function TeamPage() {
   // per-player five are allowed to refuse, exactly as their `.catch()`es used
   // to let them, and so is the elimination ledger (#823).
   const error = seasonQ.error ?? contestantsQ.error ?? episodesQ.error ?? standingsQ.error
-  const hidden = rosterQ.isError || breakdownQ.isError
+  // Which reads refused, in a way that survives their retries. `isError` does
+  // not: a refetch of a query holding no data clears the error on its way back
+  // to pending, so on `isError` these would flip off for a round trip on every
+  // window focus and every write (#830). `errorUpdateCount` is never reset by
+  // `fetchState`, so "has answered with a refusal and still holds nothing" is
+  // stable. It also keeps "not asked yet" out, which matters on a swipe that
+  // outruns the neighbour prefetch: claiming a team is private when we simply
+  // have not read it yet would be a wrong statement, not a quiet one.
+  const refused = (q: { errorUpdateCount: number; data: unknown }) =>
+    q.errorUpdateCount > 0 && q.data === undefined
+  const hidden = refused(rosterQ) || refused(breakdownQ)
 
   const siblings = standingsQ.data ?? []
   const player = siblings.find((standing) => standing.user_id === userId) ?? null
@@ -359,7 +370,17 @@ export function TeamPage() {
         )}
 
           <SectionShell title="Ballot" prominent open={open.ballot} onToggle={toggleSection('ballot')} right={<SectionPoints value={player.elimination_points} />}>
-            {votes.length === 0 ? (
+            {refused(eliminationsQ) ? (
+              // Whether a vote hit is decided by the season's elimination
+              // ledger, so without it every vote below would draw as a miss —
+              // under a header still showing the points they earned (#823).
+              // Unlike this page's other forgiven reads, that one has no
+              // per-player gate to refuse from: it only fails when something
+              // is actually wrong, so say so rather than drawing a wrong
+              // ballot. The other sections read from their own queries and
+              // stay as they are.
+              <Notice title="Vote results didn’t load">Refresh to see this ballot.</Notice>
+            ) : votes.length === 0 ? (
               // Same rule as Tribe above: say nothing while the ballot is out.
               picksQ.isPending ? null : <p className="text-sm text-gray-500">No unlocked ballots yet.</p>
             ) : (
