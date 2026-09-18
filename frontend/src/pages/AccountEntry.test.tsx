@@ -11,7 +11,8 @@ import { LoginPage } from './LoginPage'
 import { ProfilePage } from './ProfilePage'
 import { ResetPasswordPage } from './ResetPasswordPage'
 
-vi.mock('../lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }))
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()), api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: {

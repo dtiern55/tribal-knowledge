@@ -6,7 +6,8 @@ import type { Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { NavDrawer } from './NavDrawer'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
   getActiveSeason: vi.fn(),
   pinSeason: vi.fn(),

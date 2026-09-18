@@ -8,7 +8,8 @@ import type { AuthContextValue } from '../auth/context'
 import type { Episode, Season } from '../types'
 import { Layout } from './Layout'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn().mockResolvedValue([]) },
   getActiveSeason: vi.fn().mockResolvedValue(null),
   pinSeason: vi.fn(),

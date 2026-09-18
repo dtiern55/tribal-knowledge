@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { render } from '@testing-library/react'
 import type { RenderOptions } from '@testing-library/react'
@@ -25,10 +26,17 @@ export function renderWithApp(
   ui: React.ReactNode,
   { route = '/', auth, ...options }: AppRenderOptions = {},
 ) {
+  // A cache per render, so one test's answers never reach the next, and no
+  // retries so a rejected request surfaces as the error state immediately.
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
   return render(
+    <QueryClientProvider client={queryClient}>
     <AuthContext.Provider value={{ ...authenticated, ...auth }}>
       <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
-    </AuthContext.Provider>,
+    </AuthContext.Provider>
+    </QueryClientProvider>,
     options,
   )
 }

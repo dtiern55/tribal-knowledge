@@ -1,11 +1,12 @@
 import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import type { RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { RulesPage } from './RulesPage'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
   getActiveSeason: vi.fn(),
 }))
@@ -56,12 +57,18 @@ function response(overrides: Partial<RulesResponse> = {}): RulesResponse {
 }
 
 describe('RulesPage', () => {
-  beforeEach(() => {
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-  })
+  beforeEach(() => vi.clearAllMocks())
+
+  /** The page reads the league-season list and picks the active one from it,
+   *  then that season's rules. */
+  function serve(rules: RulesResponse) {
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === '/league-seasons' ? [season] : rules,
+    )
+  }
 
   it('states the season rules in words with the known numbers filled in', async () => {
-    vi.mocked(api.get).mockResolvedValue(response())
+    serve(response())
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'How it works' })).toBeVisible()
@@ -76,9 +83,7 @@ describe('RulesPage', () => {
   })
 
   it('leaves the numbers out while a live season has not set them', async () => {
-    vi.mocked(api.get).mockResolvedValue(
-      response({ season: { ...season, swap_lock_episode: null, merge_episode: null, elimination_pick_schedule: [] } }),
-    )
+    serve(response({ season: { ...season, swap_lock_episode: null, merge_episode: null, elimination_pick_schedule: [] } }))
     renderWithApp(<RulesPage />)
 
     // Swaps still show a number: the lock defaults to episode 8, so the last
@@ -88,7 +93,7 @@ describe('RulesPage', () => {
   })
 
   it('groups tribe scoring and hides Redemption Island unless the season has it', async () => {
-    vi.mocked(api.get).mockResolvedValue(response())
+    serve(response())
     const { unmount } = renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'Challenges' })).toBeVisible()
@@ -100,7 +105,7 @@ describe('RulesPage', () => {
     expect(screen.queryByText('Cry')).not.toBeInTheDocument()
     unmount()
 
-    vi.mocked(api.get).mockResolvedValue(response({ has_redemption: true }))
+    serve(response({ has_redemption: true }))
     renderWithApp(<RulesPage />)
     expect(await screen.findByText('Win a Redemption Island duel')).toBeVisible()
     expect(screen.getByText('Return from Redemption Island at the merge')).toBeVisible()
@@ -109,7 +114,7 @@ describe('RulesPage', () => {
   })
 
   it('scrolls to and flashes the section a deep link names', async () => {
-    vi.mocked(api.get).mockResolvedValue(response())
+    serve(response())
     Element.prototype.scrollIntoView = vi.fn()
     renderWithApp(<RulesPage />, { route: '/rules#swaps' })
 
@@ -121,16 +126,14 @@ describe('RulesPage', () => {
   })
 
   it('lists ballot picks with the Power Vote first and plainly labeled ranks', async () => {
-    vi.mocked(api.get).mockResolvedValue(
-      response({
+    serve(response({
         prediction_scores: [
           { key: 'correct_elimination_1', label: 'Correct 1st pick', point_value: 20, postmerge_point_value: 25 },
           { key: 'correct_elimination_2', label: 'Correct 2nd pick', point_value: 16, postmerge_point_value: 20 },
           { key: 'correct_elimination_3', label: 'Correct 3rd pick', point_value: 12, postmerge_point_value: 15 },
           { key: 'power_vote', label: 'Power Vote hits', point_value: 30, postmerge_point_value: 35 },
         ],
-      }),
-    )
+      }))
     renderWithApp(<RulesPage />)
 
     const powerVote = await screen.findByText('Power Vote')

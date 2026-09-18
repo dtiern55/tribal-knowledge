@@ -7,7 +7,8 @@ import type { Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { ContestantPage } from './ContestantPage'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
   getActiveSeason: vi.fn(),
 }))

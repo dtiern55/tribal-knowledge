@@ -6,7 +6,8 @@ import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { WatchPage } from './WatchPage'
 
-vi.mock('../lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() }, getActiveSeason: vi.fn() }))
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()), api: { get: vi.fn(), put: vi.fn() }, getActiveSeason: vi.fn() }))
 
 const season = { id: 'ls-1', season_id: 'season-1', name: 'Survivor 51', roster_lock_episode: 1, merge_episode: null } as Season
 const episode = { id: 'ep-1', episode_number: 5, picks_lock_at: '2020-01-01T00:00:00Z', status: 'locked' } as Episode

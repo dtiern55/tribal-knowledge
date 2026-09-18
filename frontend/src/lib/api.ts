@@ -71,6 +71,15 @@ function sharedGet<T>(path: string): Promise<T> {
  *  changes — one player's reads must never survive into another's. */
 export function clearApiCache(): void {
   cached.clear()
+  for (const listener of mutationListeners) listener()
+}
+
+const mutationListeners = new Set<() => void>()
+
+/** Run something whenever this client writes, or the session changes. The
+ *  query cache registers here rather than this file importing it (#816). */
+export function onApiMutation(listener: () => void): void {
+  mutationListeners.add(listener)
 }
 
 // Any write empties the whole cache rather than reasoning about which paths a
@@ -115,9 +124,13 @@ export function defaultSeason(seasons: Season[]): Season | null {
 }
 
 /** The league-season every page operates on (#595): the pinned pick if it
- * still exists, else the active one, else the most recent. */
-export async function getActiveSeason(): Promise<Season | null> {
-  const seasons = await api.get<Season[]>('/league-seasons')
+ * still exists, else the active one, else the most recent. Pure, so a page
+ * holding the list from a query picks the same season the fetch below does. */
+export function activeSeason(seasons: Season[]): Season | null {
   const pinned = localStorage.getItem(SEASON_KEY)
   return seasons.find((s) => s.id === pinned) ?? defaultSeason(seasons)
+}
+
+export async function getActiveSeason(): Promise<Season | null> {
+  return activeSeason(await api.get<Season[]>('/league-seasons'))
 }

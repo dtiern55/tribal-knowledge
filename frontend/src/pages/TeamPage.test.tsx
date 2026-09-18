@@ -7,7 +7,8 @@ import { renderWithApp } from '../test/render'
 import type { Contestant, ContestantPerformance, Episode, RosterPick, StandingEntry } from '../types'
 import { TeamPage } from './TeamPage'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
 }))
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { ColdStart } from '../components/ColdStart'
@@ -9,10 +10,10 @@ import { PageLoader } from '../components/PageLoader'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
 import { ADV_LABELS } from '../lib/advantages'
-import { api, getActiveSeason } from '../lib/api'
 import { episodeClosed } from '../lib/episodes'
+import { pathQuery, useActiveSeason } from '../lib/queries'
 import { rankStandings } from '../lib/standings'
-import type { Episode, HubEntry, Season, StandingEntry } from '../types'
+import type { Episode, HubEntry, StandingEntry } from '../types'
 
 // How far they moved: a small solid triangle, then the count, both in the
 // movement colour — jade for a climb, terracotta for a slip. The count sits
@@ -319,85 +320,51 @@ function HistoryPanel({
 export function StandingsPage() {
   const { session } = useAuth()
   const userId = session?.user?.id
-  const [seasons, setSeasons] = useState<Season[]>([])
-  const [selectedId, setSelectedId] = useState('')
-  const [entries, setEntries] = useState<StandingEntry[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   // One row open at a time (#806).
   const [openId, setOpenId] = useState<string | null>(null)
-  // The week every row expands into: which episode it is, and the league Hub
-  // for it — one request covering every player's tribe, ballot and play.
-  // Fetched in the background as soon as the standings land rather than on the
-  // first tap, so opening a row is a render and not a wait (#812).
-  const [week, setWeek] = useState<{ episode: Episode | undefined; hub: Map<string, HubEntry> } | null>(
-    null,
+
+  const { season, isLoading: seasonLoading, error: seasonError } = useActiveSeason()
+  const standings = useQuery(
+    pathQuery<StandingEntry[]>(season ? `/league-seasons/${season.id}/standings` : null),
   )
-
-  useEffect(() => {
-    let live = true
-    async function load() {
-      try {
-        const [ss, current] = await Promise.all([
-          api.get<Season[]>('/league-seasons'),
-          getActiveSeason(),
-        ])
-        if (!live) return
-        setSeasons(ss)
-        const activeId = current?.id ?? ''
-        setSelectedId(activeId)
-        if (activeId) {
-          const standings = await api.get<StandingEntry[]>(`/league-seasons/${activeId}/standings`)
-          if (live) setEntries(standings)
-        }
-      } catch (e) {
-        if (live) setError(e instanceof Error ? e.message : 'Failed to load standings')
-      } finally {
-        if (live) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      live = false
-    }
-  }, [])
-
-  const season = seasons.find((s) => s.id === selectedId)
-  const showSeasonId = season?.season_id
-  const rosterLockEpisode = season?.roster_lock_episode
-
-  useEffect(() => {
-    if (!showSeasonId || !selectedId || loading) return
-    let live = true
-    async function load() {
-      const episodes = await api.get<Episode[]>(`/seasons/${showSeasonId}/episodes`)
-      // The week a panel shows: the latest locked episode from the roster lock
-      // on. The finale is left out — its ballot is a bracket, not votes, and it
-      // reads as the pyramid on the Team page (#82/#86, as on that page).
-      const episode = episodes
+  // The week every row expands into. Both reads are their own queries rather
+  // than a step of the page's load, so they fill in behind the standings
+  // instead of holding them up — and a tap finds them already there (#812).
+  const episodes = useQuery(
+    pathQuery<Episode[]>(season ? `/seasons/${season.season_id}/episodes` : null),
+  )
+  // The latest locked episode from the roster lock on. The finale is left out —
+  // its ballot is a bracket, not votes, and it reads as the pyramid on the Team
+  // page (#82/#86, as on that page).
+  const weekEpisode = useMemo(
+    () =>
+      (episodes.data ?? [])
         .filter(
-          (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (rosterLockEpisode ?? 1),
+          (e) =>
+            episodeClosed(e) && !e.is_finale && e.episode_number >= (season?.roster_lock_episode ?? 1),
         )
-        .sort((a, b) => b.episode_number - a.episode_number)[0]
-      // The Hub opens when the episode locks, which is the only kind of episode
-      // chosen above; an empty map still renders the panel's own empty state.
-      const entries = episode
-        ? await api
-            .get<HubEntry[]>(`/league-seasons/${selectedId}/episodes/${episode.id}/hub`)
-            .catch(() => [])
-        : []
-      if (live) setWeek({ episode, hub: new Map(entries.map((e) => [e.user_id, e])) })
-    }
-    void load()
-    return () => {
-      live = false
-    }
-  }, [showSeasonId, selectedId, rosterLockEpisode, loading])
+        .sort((a, b) => b.episode_number - a.episode_number)[0],
+    [episodes.data, season?.roster_lock_episode],
+  )
+  const hub = useQuery(
+    pathQuery<HubEntry[]>(
+      season && weekEpisode ? `/league-seasons/${season.id}/episodes/${weekEpisode.id}/hub` : null,
+    ),
+  )
+  // A Hub that refuses (the episode never locked) reads as a week with nothing
+  // in it, which is the panel's own empty state — not a page error.
+  const hubByUser = useMemo(
+    () => new Map((hub.data ?? []).map((e) => [e.user_id, e])),
+    [hub.data],
+  )
+  const weekLoading = episodes.isLoading || hub.isLoading
 
-  if (loading) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load standings">{error}</Notice>
+  if (seasonLoading || standings.isLoading) return <PageLoader />
+  const error = seasonError ?? standings.error
+  if (error) return <Notice tone="error" title="Could not load standings">{error.message}</Notice>
   if (!season) return <ColdStart />
 
+  const entries = standings.data ?? []
   const ranked = rankStandings(entries)
   const mine = ranked.find(({ entry }) => entry.user_id === userId)
   const hasScoring = entries.some((e) => e.total_points !== 0)
@@ -493,9 +460,9 @@ export function StandingsPage() {
                   {isOpen && (
                     <HistoryPanel
                       id={`history-${entry.user_id}`}
-                      episode={week?.episode}
-                      entry={week?.hub.get(entry.user_id)}
-                      waiting={week == null}
+                      episode={weekEpisode}
+                      entry={hubByUser.get(entry.user_id)}
+                      waiting={weekLoading}
                       name={entry.display_name}
                       teamHref={`/league-seasons/${season.id}/team/${entry.user_id}`}
                     />

@@ -1,45 +1,45 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import { renderWithApp } from '../test/render'
 import type { Season } from '../types'
 import { StandingsPage } from './StandingsPage'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
   api: { get: vi.fn() },
-  getActiveSeason: vi.fn(),
 }))
 
 describe('StandingsPage', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('stays in its loading state until the active season and standings are ready', async () => {
+  it('stays in its loading state until the season list and standings are ready', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
-    let resolveSeason!: (season: Season) => void
-    const seasonPending = new Promise<Season>((resolve) => {
-      resolveSeason = resolve
+    let resolveSeasons!: (seasons: Season[]) => void
+    const seasonsPending = new Promise<Season[]>((resolve) => {
+      resolveSeasons = resolve
     })
-    vi.mocked(getActiveSeason).mockReturnValue(seasonPending)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/league-seasons') return [season]
+      // The page picks the season out of this list, so holding it holds the page.
+      if (path === '/league-seasons') return seasonsPending
       if (path.endsWith('/standings')) return []
+      if (path.endsWith('/episodes')) return []
       throw new Error(`Unexpected path: ${path}`)
     })
 
     renderWithApp(<StandingsPage />)
 
-    await waitFor(() => expect(getActiveSeason).toHaveBeenCalledOnce())
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/league-seasons'))
     expect(screen.queryByText('No season found')).not.toBeInTheDocument()
 
-    resolveSeason(season)
+    resolveSeasons([season])
     expect(await screen.findByRole('heading', { name: 'Standings' })).toBeVisible()
     expect(screen.getByText('No players yet')).toBeVisible()
   })
 
   it('draws the places moved inside the movement triangle, left of the rank (#808)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     const player = (display_name: string, total_points: number, trend: string | null, trend_delta: number) => ({
       user_id: display_name, display_name, roster_points: total_points, elimination_points: 0,
       finale_points: 0, total_points, trend, trend_delta, last_episode_points: 0,
@@ -65,7 +65,6 @@ describe('StandingsPage', () => {
 
   it('shows one lit torch per active pick, without portraits or the points breakdown', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) {
@@ -101,7 +100,6 @@ describe('StandingsPage', () => {
 
   it('keeps a snuffed torch for a pick booted in the last scored episode (#457)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) {
@@ -138,7 +136,6 @@ describe('StandingsPage', () => {
 
   it('flies the Sole Survivor first as the red champion flame, not doubled among the votives (#164)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) {
@@ -171,7 +168,6 @@ describe('StandingsPage', () => {
 
   it('snuffs the champion from the other side when the Sole Survivor is voted out (#164)', async () => {
     const season = { id: 'season-1', name: 'Survivor 51', status: 'active' } as Season
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [season]
       if (path.endsWith('/standings')) {
@@ -216,7 +212,6 @@ describe('StandingsPage', () => {
       contestant_id: id, name, image_url: null, tribe_name: null, tribe_color: null,
       eliminated_episode: null, points: null, correct: null, ...extra,
     })
-    vi.mocked(getActiveSeason).mockResolvedValue(EXPANSION_SEASON)
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [EXPANSION_SEASON]
       if (path.endsWith('/standings')) {
