@@ -2754,7 +2754,8 @@ function RosterSection({
   // Pre-lock, Edit lives in the lane's footer (the Snuffed ledger's slot
   // mid-season) rather than the toolbar, where it stacked a quiet text link
   // over the advantage strip's louder "Play it here" in week two.
-  const editAvailable = windowOpen && rosterLoaded && hasRoster && !editing
+  // The picker shows for a first pick, or pre-lock once Edit is tapped.
+  const pickerOpen = windowOpen && (!hasRoster || editing)
 
   // The advantage on this tab (#673 follow-on): one play per episode, on
   // your tribe or your ballot. On offer, or designating (drag the idol onto
@@ -2769,8 +2770,6 @@ function RosterSection({
   const advantageStrip =
     weekly.openEpisode == null ||
     weekly.openEpisode.is_finale ||
-    // The picker replaces the rows the idol would land on (#706).
-    (windowOpen && editing) ||
     weekly.locked ||
     weekly.play != null ||
     !canDouble ? null : (
@@ -2860,12 +2859,13 @@ function RosterSection({
 
   return (
     <>
-      {/* A swap folds the offer out of the way rather than pulling it (#826). */}
+      {/* A swap, or the Edit picker that replaces the rows the idol would land
+          on (#706), folds the offer out of the way rather than pulling it (#826). */}
       <div
         className="collapse-rows"
-        data-open={picking !== 'swap'}
-        inert={picking === 'swap'}
-        aria-hidden={picking === 'swap'}
+        data-open={picking !== 'swap' && !pickerOpen}
+        inert={picking === 'swap' || pickerOpen}
+        aria-hidden={picking === 'swap' || pickerOpen}
       >
         <div>{advantageStrip}</div>
       </div>
@@ -2926,7 +2926,17 @@ function RosterSection({
         </p>
       )}
 
-      {!rosterLoaded ? null : hasRoster && !(windowOpen && editing) ? (
+      {/* The tribe and the picker trade places by folding, the way the ballot
+          and swap pickers do (#826): Edit folds the tribe up into the picker,
+          and Save or Cancel folds it back. Both stay mounted while the window
+          is open so there is something to fold. */}
+      {rosterLoaded && (
+        <div
+          className="collapse-rows"
+          data-open={hasRoster && !pickerOpen}
+          inert={!hasRoster || pickerOpen}
+          aria-hidden={!hasRoster || pickerOpen}
+        >
         <div>
           <ul>
             {/* Boots sink to the bottom (#190); stable sort keeps the rest in place.
@@ -3060,7 +3070,16 @@ function RosterSection({
           </div>
 
         </div>
-      ) : windowOpen ? (
+        </div>
+      )}
+      {rosterLoaded && windowOpen && (
+        <div
+          className="collapse-rows"
+          data-open={pickerOpen}
+          inert={!pickerOpen}
+          aria-hidden={!pickerOpen}
+        >
+        <div>
         <div className="p-4">
           <p className="text-sm text-gray-600 mb-1">
             {hasRoster
@@ -3125,12 +3144,11 @@ function RosterSection({
             >
               {submitting ? 'Saving…' : hasRoster ? 'Save changes' : 'Lock In Tribe'}
             </button>
-            {hasRoster && editing && (
+            {hasRoster && (
+              // The draft keeps its picks, and this button, while it folds
+              // away; Edit reseeds it on the way back in.
               <button
-                onClick={() => {
-                  setSelected(new Set(savedContestantIds))
-                  setEditing(false)
-                }}
+                onClick={() => setEditing(false)}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
                 Cancel
@@ -3143,14 +3161,19 @@ function RosterSection({
             )}
           </div>
         </div>
-      ) : (
+        </div>
+        </div>
+      )}
+      {rosterLoaded && !hasRoster && !windowOpen && (
         <p className="p-4 text-sm text-gray-500">
           {season.roster_lock_episode == null
             ? 'Tribe selection has not opened yet.'
             : 'Tribe selection has closed.'}
         </p>
       )}
-      {editAvailable && (
+      {windowOpen && rosterLoaded && hasRoster && (
+        <div className="collapse-rows" data-open={!editing} inert={editing} aria-hidden={editing}>
+        <div>
         <button
           type="button"
           onClick={() => {
@@ -3162,6 +3185,8 @@ function RosterSection({
           Your tribe locks when episode {season.roster_lock_episode} starts.
           <span className="font-semibold text-jade-700 underline underline-offset-2">Edit tribe</span>
         </button>
+        </div>
+        </div>
       )}
       {swapSlot && swapFoot && createPortal(swapFoot, swapSlot)}
       {moment === 'popup' &&
