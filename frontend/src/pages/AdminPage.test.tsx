@@ -8,7 +8,12 @@ import { AdminPage } from './AdminPage'
 
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
-  api: { get: vi.fn(), patch: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  api: {
+    get: vi.fn(), patch: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn(),
+    // The writes that name what they changed go through the quiet set (#816),
+    // so a test asserting on `api.post` is also asserting it stayed loud.
+    quiet: { post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  },
 }))
 
 const season = {
@@ -128,7 +133,7 @@ describe('AdminPage current rules', () => {
       }
       return []
     })
-    vi.mocked(api.post).mockResolvedValue([{ id: 'ev-1', contestant_id: 'cast-1', event_type: 'individual_immunity', quantity: 1 }])
+    vi.mocked(api.quiet.post).mockResolvedValue([{ id: 'ev-1', contestant_id: 'cast-1', event_type: 'individual_immunity', quantity: 1 }])
 
     renderWithApp(<AdminPage />, {
       auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
@@ -143,7 +148,7 @@ describe('AdminPage current rules', () => {
     await user.click(screen.getByRole('button', { name: '+ Add' }))
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/episodes/episode-1/scoring-events', [
+      expect(api.quiet.post).toHaveBeenCalledWith('/episodes/episode-1/scoring-events', [
         { contestant_id: 'cast-1', event_type: 'individual_immunity', quantity: 1 },
       ]),
     )
@@ -182,7 +187,7 @@ describe('AdminPage current rules', () => {
       }
       return []
     })
-    vi.mocked(api.put).mockResolvedValue([])
+    vi.mocked(api.quiet.put).mockResolvedValue([])
 
     renderWithApp(<AdminPage />, {
       auth: { profile: { id: 'admin-1', display_name: 'Admin', is_admin: true, leagues: [] } },
@@ -197,7 +202,7 @@ describe('AdminPage current rules', () => {
     expect(screen.getByLabelText(/Tribe Swap usage/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Save reveal insights' }))
 
-    expect(api.put).toHaveBeenCalledWith('/episodes/episode-1/insights', [
+    expect(api.quiet.put).toHaveBeenCalledWith('/episodes/episode-1/insights', [
       { insight_type: 'pick_popularity', contestant_id: 'cast-1' },
       { insight_type: 'performance_vs_median' },
       { insight_type: 'weekly_play_usage', advantage_type: 'double_vote_points' },

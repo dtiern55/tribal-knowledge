@@ -400,7 +400,7 @@ function ContestantsSection({
   const castPath = `/seasons/${seasonId}/contestants`
   const saveContestant = useApiMutation({
     write: (id: string) =>
-      api.patch<Contestant>(`/contestants/${id}`, {
+      api.quiet.patch<Contestant>(`/contestants/${id}`, {
         name: editName,
         nickname: editNickname.trim(),
         placement: editPlacement ? Number(editPlacement) : null,
@@ -410,7 +410,7 @@ function ContestantsSection({
     onSuccess: () => setEditingId(null),
   })
   const addCast = useApiMutation({
-    write: (names: string[]) => api.post<Contestant[]>(castPath, { names }),
+    write: (names: string[]) => api.quiet.post<Contestant[]>(castPath, { names }),
     invalidates: [castPath],
     onSuccess: () => setAddText(''),
   })
@@ -863,7 +863,7 @@ function EpisodeInsightEditor({
   }
 
   const saveInsights = useApiMutation({
-    write: (body: unknown[]) => api.put<EpisodeInsightConfig[]>(insightsPath, body),
+    write: (body: unknown[]) => api.quiet.put<EpisodeInsightConfig[]>(insightsPath, body),
     invalidates: [insightsPath],
     onSuccess: () => setSaved(true),
   })
@@ -1022,6 +1022,9 @@ function EpisodePanel({
   // touched. A night at the console is dozens of these (#816).
   const elimPath = `/episodes/${episode.id}/eliminations`
   const eventsPath = `/episodes/${episode.id}/scoring-events`
+  // Recording an elimination mints the castaway's placement and removing it
+  // clears one (app/routers/eliminations.py), so the cast list moves with it.
+  const castPath = `/seasons/${episode.season_id}/contestants`
   const schedulePath = `/seasons/${episode.season_id}/episodes`
   const elimsQ = useQuery(pathQuery<EliminationRow[]>(elimPath))
   const eventsQ = useQuery(pathQuery<ScoringEventRow[]>(eventsPath))
@@ -1034,7 +1037,7 @@ function EpisodePanel({
 
   const saveEpisodeM = useApiMutation({
     write: () =>
-      api.patch<Episode>(`/episodes/${episode.id}`, {
+      api.quiet.patch<Episode>(`/episodes/${episode.id}`, {
         episode_number: Number(epNum),
         title: title.trim() === '' ? null : title.trim(),
         air_date: airDate,
@@ -1048,13 +1051,13 @@ function EpisodePanel({
   const toggleElimM = useApiMutation({
     write: async (contestantId: string) => {
       const existing = elims.find((e) => e.contestant_id === contestantId)
-      if (existing) await api.delete(`/eliminations/${existing.id}`)
+      if (existing) await api.quiet.delete(`/eliminations/${existing.id}`)
       else
-        await api.post<EliminationRow[]>(elimPath, [
+        await api.quiet.post<EliminationRow[]>(elimPath, [
           { contestant_id: contestantId, elimination_type: 'voted_out' },
         ])
     },
-    invalidates: [elimPath],
+    invalidates: [elimPath, castPath],
   })
 
   // No PATCH endpoint — replace the row (delete + re-add with the new type)
@@ -1063,8 +1066,8 @@ function EpisodePanel({
       const existing = elims.find((e) => e.contestant_id === contestantId)
       const option = ELIMINATION_TYPES.find((t) => t.value === optionKey)
       if (!existing || !option) return
-      await api.delete(`/eliminations/${existing.id}`)
-      await api.post<EliminationRow[]>(elimPath, [
+      await api.quiet.delete(`/eliminations/${existing.id}`)
+      await api.quiet.post<EliminationRow[]>(elimPath, [
         {
           contestant_id: contestantId,
           elimination_type: option.elimination_type,
@@ -1072,19 +1075,19 @@ function EpisodePanel({
         },
       ])
     },
-    invalidates: [elimPath],
+    invalidates: [elimPath, castPath],
   })
 
   const addEventM = useApiMutation({
     write: () =>
-      api.post<ScoringEventRow[]>(eventsPath, [
+      api.quiet.post<ScoringEventRow[]>(eventsPath, [
         { contestant_id: newContestant, event_type: newEventType, quantity: newQty },
       ]),
     invalidates: [eventsPath],
     onSuccess: () => setNewQty(1),
   })
   const removeEventM = useApiMutation({
-    write: (id: string) => api.delete(`/scoring-events/${id}`),
+    write: (id: string) => api.quiet.delete(`/scoring-events/${id}`),
     invalidates: [eventsPath],
   })
 
@@ -1531,7 +1534,7 @@ function EpisodesSection({
 
   const addEpisodeM = useApiMutation({
     write: () =>
-      api.post<Episode>(`/seasons/${season.season_id}/episodes`, {
+      api.quiet.post<Episode>(`/seasons/${season.season_id}/episodes`, {
         episode_number: Number(epNum),
         air_date: airDate,
         picks_lock_at: centralLocalToUtc(locksAt),
@@ -2100,11 +2103,13 @@ export function AdminPage() {
   // and the "first active" rule, and this page can change both — completing
   // the season here would otherwise move every write below to another one.
   const [seasonId, setSeasonId] = useState<string | null>(null)
-  useEffect(() => {
-    if (seasonId || !seasonsQ.data) return
-    setSeasonId(activeSeason(seasonsQ.data)?.id ?? null)
-  }, [seasonId, seasonsQ.data])
   const season = allSeasons.find((s) => s.id === seasonId) ?? null
+  useEffect(() => {
+    // `season` too, not just the id: an id that no longer names a row in the
+    // list re-derives rather than stranding the page on the create form.
+    if ((seasonId && season) || !seasonsQ.data) return
+    setSeasonId(activeSeason(seasonsQ.data)?.id ?? null)
+  }, [seasonId, season, seasonsQ.data])
 
   // Every show any league is playing, for the Leagues overview.
   const showIds = [...new Set(allSeasons.map((s) => s.season_id))]
@@ -2252,7 +2257,9 @@ function DryRunSection({ season, episodes }: { season: Season; episodes: Episode
     const body = ep === 'complete' ? { complete: true } : { episode: Number(ep), locked: locked === 'locked' }
     void run(setBusy, setError, async () => {
       // Left on `api.*` (#816): a jump rewrites the whole season's state, so
-      // the blanket invalidate is exactly the reload this used to do by hand.
+      // the blanket invalidate reloads the same reads this used to reload by
+      // hand. It doesn't hold "Jumping…" until they land, as the old await
+      // did — a practice-season tool, so the label is all that changes.
       await api.post<Episode[]>(`/seasons/${season.season_id}/jump`, body)
     })
   }

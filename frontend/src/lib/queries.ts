@@ -61,25 +61,22 @@ export function useActiveSeason(enabled = true) {
   return { ...query, season: query.data ? activeSeason(query.data) : undefined }
 }
 
-// A write that names the reads it changes raises this while it runs, so the
-// backstop below doesn't fire the refetch-everything it exists to avoid.
-let selfInvalidating = 0
-
-// Every other write invalidates everything, the same blunt rule the hand-rolled
-// cache used (#814): one write site forgetting is a wrong roster on screen.
-// Registered from here so `lib/api.ts` stays free of any import of this file.
-onApiMutation(() => {
-  if (selfInvalidating === 0) void queryClient.invalidateQueries()
-})
+// A write through `api.post` and friends invalidates everything, the same blunt
+// rule the hand-rolled cache used (#814): one write site forgetting is a wrong
+// roster on screen. `api.quiet.*` is the opt-out, for the writes below that say
+// what they changed. Registered from here so `lib/api.ts` stays free of any
+// import of this file.
+onApiMutation(() => void queryClient.invalidateQueries())
 
 /**
- * A write that names the API paths it changes (#816).
+ * A write that names the API paths it changes (#816). Its `write` must use
+ * `api.quiet.*`, or the backstop above fires first and this is just slower.
  *
- * The backstop above is right for a season-wide change and wrong for a busy
- * one: the commissioner toggles eliminations and scoring events a dozen times
- * an evening, and each toggle would otherwise refetch every league, every cast
- * and every episode list on the console. What isn't named is still marked
- * stale — it just keeps what it has until something asks again.
+ * The backstop is right for a season-wide change and wrong for a busy one: the
+ * commissioner toggles eliminations and scoring events a dozen times an
+ * evening, and each toggle would otherwise refetch every league, every cast and
+ * every episode list on the console. What isn't named is still marked stale —
+ * it just keeps what it has until something asks again.
  */
 export function useApiMutation<TVars, TData>({
   write,
@@ -92,23 +89,19 @@ export function useApiMutation<TVars, TData>({
 }) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: async (vars: TVars) => {
-      selfInvalidating += 1
-      try {
-        return await write(vars)
-      } finally {
-        selfInvalidating -= 1
-      }
-    },
-    onSuccess: async (data, vars) => {
+    mutationFn: write,
+    // On the way out either way: a write that fails part-way — the elimination
+    // retype is a DELETE then a POST — has still changed the server, and
+    // leaving the old answer up would be the flick-back this exists to prevent.
+    onSettled: async () => {
       void client.invalidateQueries({ refetchType: 'none' })
       // The named paths refetch now, cancelling anything already in the air so
       // a pre-write body can't land as fresh. Awaited, so the mutation stays
-      // pending until the answer is on screen and a control can't flick back.
+      // pending until the answer is on screen.
       await Promise.all(
         invalidates.map((path) => client.invalidateQueries({ queryKey: ['api', path] })),
       )
-      onSuccess?.(data, vars)
     },
+    onSuccess,
   })
 }
