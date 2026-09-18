@@ -1,9 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { api, getActiveSeason } from '../lib/api'
 import { advantageIdolFor } from '../lib/advantages'
 import { resolveMySeasonState } from '../lib/mySeasonState'
+import { pathQuery, useActiveSeason } from '../lib/queries'
 import type { Episode } from '../types'
 import { BrandWordmark } from './BrandWordmark'
 import { NavDrawer } from './NavDrawer'
@@ -33,42 +34,39 @@ export function Layout() {
     () => (localStorage.getItem('tk-theme-override') as 'auto' | 'day' | 'night') || 'auto',
   )
   const menuButtonRef = useRef<HTMLButtonElement>(null)
-  // Re-derive the shell theme on every navigation, not just on the 30s poll.
-  // Pages fetch their own lock state fresh on mount, so without this the shell
-  // could lag behind the page you just landed on after a lock flips — leaving
-  // the chrome one theme and the content the other until a refresh.
-  const { pathname } = useLocation()
+
+  // The shell reads the same two answers every page reads, out of the same
+  // cache (#816), so the chrome can no longer lag a page it disagrees with —
+  // that is what re-fetching on every navigation used to be for. The poll stays:
+  // a lock flipping mid-episode is the one change nothing else would notice.
+  const seasons = useActiveSeason(authed && !authLoading)
+  const season = seasons.season
+  const episodes = useQuery({
+    ...pathQuery<Episode[]>(season ? `/seasons/${season.season_id}/episodes` : null),
+    refetchInterval: 30_000,
+  })
+
   useEffect(() => {
-    let live = true
+    if (!season) return
+    document.documentElement.style.setProperty('--advantage-idol', `url(${advantageIdolFor(season.season_number)})`)
+  }, [season])
 
-    async function refreshEpisodeTheme() {
-      if (authLoading) return
-      if (!authed) {
-        if (live) setNightMode(false)
-        return
-      }
-      try {
-        const season = await getActiveSeason()
-        if (!season) {
-          if (live) setNightMode(false)
-          return
-        }
-        document.documentElement.style.setProperty('--advantage-idol', `url(${advantageIdolFor(season.season_number)})`)
-        const episodes = await api.get<Episode[]>(`/seasons/${season.season_id}/episodes`)
-        if (live) setNightMode(resolveMySeasonState(season, episodes).kind === 'locked')
-      } catch {
-        // A page-level error handles failed data loads. Keep the last known
-        // shell theme instead of flashing between day and night.
-      }
+  useEffect(() => {
+    if (authLoading) return
+    if (!authed) {
+      setNightMode(false)
+      return
     }
-
-    void refreshEpisodeTheme()
-    const timer = window.setInterval(() => void refreshEpisodeTheme(), 30_000)
-    return () => {
-      live = false
-      window.clearInterval(timer)
+    // Still waiting, or the read failed: keep the last known shell theme rather
+    // than flashing between day and night. A page-level error handles failures.
+    if (seasons.isPending || seasons.isError) return
+    if (!season) {
+      setNightMode(false)
+      return
     }
-  }, [authed, authLoading, pathname])
+    if (!episodes.data) return
+    setNightMode(resolveMySeasonState(season, episodes.data).kind === 'locked')
+  }, [authed, authLoading, seasons.isPending, seasons.isError, season, episodes.data])
 
   // The Admin console follows the app's locked/unlocked state like every other
   // page (#519): the night overrides now cover its surfaces, so the commissioner

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
@@ -10,9 +11,9 @@ import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { api } from '../lib/api'
 import { displayName } from '../lib/cast'
 import { episodeClosed } from '../lib/episodes'
+import { pathQuery } from '../lib/queries'
 import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '../lib/rosterBreakdown'
 import { rankStandings } from '../lib/standings'
 import { useSwipeNav } from '../lib/swipe'
@@ -28,12 +29,6 @@ import type {
   ScoringBreakdown,
   StandingEntry,
 } from '../types'
-
-interface EpisodeVotes {
-  episode: Episode
-  picks: EliminationPick[]
-  eliminatedIds: Set<string>
-}
 
 /** The five reads a team page makes for one player. Named once so the page
  *  and the swipe prefetch below can't drift apart (#814). */
@@ -70,118 +65,57 @@ function SectionPoints({ value }: { value: number }) {
 
 export function TeamPage() {
   const { leagueSeasonId, userId } = useParams()
-  const [siblings, setSiblings] = useState<StandingEntry[]>([])
-  const [player, setPlayer] = useState<StandingEntry | null>(null)
-  const [roster, setRoster] = useState<RosterPick[]>([])
-  const [contestants, setContestants] = useState<Contestant[]>([])
-  const [rosterPoints, setRosterPoints] = useState<Map<string, number>>(new Map())
-  // `${episode_id}:${contestant_id}` -> base points of a correct vote.
-  const [pickPoints, setPickPoints] = useState<Map<string, number>>(new Map())
-  const [ssBonus, setSsBonus] = useState(0)
-  const [bracket, setBracket] = useState<FinalePrediction | null>(null)
-  const [plays, setPlays] = useState<AdvantagePlay[]>([])
-  const [episodes, setEpisodes] = useState<Episode[]>([])
-  const [votes, setVotes] = useState<EpisodeVotes[]>([])
-  const [hidden, setHidden] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   // The page runs its own sections rather than letting them remember per
   // title, which would share state with My Season's Tribe and Ballot (#646).
-  const [open, setOpen] = useState<Record<SectionKey, boolean>>(ALL_CLOSED)
+  // Tribe alone starts open; the rest are a tap or Expand all away.
+  const [open, setOpen] = useState<Record<SectionKey, boolean>>({ ...ALL_CLOSED, tribe: true })
   const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
+  // Whether a team has ever been drawn here; see the loader gate below.
+  const drawn = useRef(false)
 
-  useEffect(() => {
-    if (!leagueSeasonId || !userId) return
-    async function load() {
-      setLoading(true)
-      setError(null)
-      setHidden(false)
-      setRoster([])
-      setPlays([])
-      setVotes([])
-      setSsBonus(0)
-      setBracket(null)
-      try {
-        const season = await api.get<Season>(`/league-seasons/${leagueSeasonId}`)
-        const [cs, standings, episodeRows] = await Promise.all([
-          api.get<Contestant[]>(`/seasons/${season.season_id}/contestants`),
-          api.get<StandingEntry[]>(`/league-seasons/${leagueSeasonId}/standings`),
-          api.get<Episode[]>(`/seasons/${season.season_id}/episodes`),
-        ])
-        setContestants(cs)
-        setEpisodes(episodeRows)
-        // Nothing below reads the request before it, so they all go out
-        // together and are awaited in the order the page wants to set state.
-        const paths = teamPaths(leagueSeasonId!, userId!)
-        const ballotsSent = api
-          .get<Record<string, EliminationPick[]>>(paths.picks)
-          .catch(() => ({}) as Record<string, EliminationPick[]>)
-        const eliminationsSent = api
-          .get<Elimination[]>(`/seasons/${season.season_id}/eliminations`)
-          .catch(() => [])
-        const bracketSent = api.get<FinalePrediction>(paths.finale).catch(() => null)
-        try {
-          // One trip, not three in a row: nothing here reads the one before it.
-          const [savedRoster, breakdown, ownPlays] = await Promise.all([
-            api.get<RosterPick[]>(paths.roster),
-            api.get<ScoringBreakdown>(paths.breakdown),
-            api.get<AdvantagePlay[]>(paths.plays).catch(() => []),
-          ])
-          setRoster(savedRoster)
-          setRosterPoints(new Map(breakdown.roster.map((row) => [row.contestant_id, row.points])))
-          setPickPoints(new Map(breakdown.picks.map((row) => [`${row.episode_id}:${row.contestant_id}`, row.points])))
-          setSsBonus(breakdown.sole_survivor_bonus)
-          setPlays(ownPlays)
-        } catch {
-          setHidden(true)
-        }
+  const seasonQ = useQuery(pathQuery<Season>(leagueSeasonId ? `/league-seasons/${leagueSeasonId}` : null))
+  const showId = seasonQ.data?.season_id
+  const contestantsQ = useQuery(pathQuery<Contestant[]>(showId ? `/seasons/${showId}/contestants` : null))
+  const episodesQ = useQuery(pathQuery<Episode[]>(showId ? `/seasons/${showId}/episodes` : null))
+  // Two requests for the whole ledger, not two per episode (#803). Both answer
+  // for locked episodes only, which is all the Ballot section shows.
+  const eliminationsQ = useQuery(pathQuery<Elimination[]>(showId ? `/seasons/${showId}/eliminations` : null))
+  const standingsQ = useQuery(pathQuery<StandingEntry[]>(leagueSeasonId ? `/league-seasons/${leagueSeasonId}/standings` : null))
+  const paths = leagueSeasonId && userId ? teamPaths(leagueSeasonId, userId) : null
+  const rosterQ = useQuery(pathQuery<RosterPick[]>(paths?.roster ?? null))
+  const breakdownQ = useQuery(pathQuery<ScoringBreakdown>(paths?.breakdown ?? null))
+  const playsQ = useQuery(pathQuery<AdvantagePlay[]>(paths?.plays ?? null))
+  // 403 until this player's picks lock; the finale bracket is also a 404 when
+  // they never filed one (they may only have the Sole Survivor designation).
+  const picksQ = useQuery(pathQuery<Record<string, EliminationPick[]>>(paths?.picks ?? null))
+  const bracketQ = useQuery(pathQuery<FinalePrediction>(paths?.finale ?? null))
 
-        // The finale is a bracket, not elimination votes — it gets its own
-        // Finale section, so keep it out of the weekly Ballot ledger. Premieres
-        // before roster lock accept no votes, so they aren't "No votes" rows (#82).
-        const visible = episodeRows
-          .filter(
-            (e) =>
-              episodeClosed(e) &&
-              !e.is_finale &&
-              e.episode_number >= (season.roster_lock_episode ?? 1),
-          )
-          .sort((a, b) => b.episode_number - a.episode_number)
-        // Two requests for the whole ledger, not two per episode (#803). Both
-        // answer for locked episodes only, which is all this ledger shows.
-        const [ballots, eliminations] = await Promise.all([ballotsSent, eliminationsSent])
-        const outByEpisode = new Map<string, Set<string>>()
-        for (const row of eliminations) {
-          const ids = outByEpisode.get(row.episode_id) ?? new Set<string>()
-          ids.add(row.contestant_id)
-          outByEpisode.set(row.episode_id, ids)
-        }
-        setVotes(visible.map((episode) => ({
-          episode,
-          picks: ballots[episode.id] ?? [],
-          eliminatedIds: outByEpisode.get(episode.id) ?? new Set<string>(),
-        })))
+  // Everything the page used to await before it drew. A refusal counts as
+  // answered — that is the `hidden` state below, not a failure.
+  const queries = [seasonQ, contestantsQ, episodesQ, eliminationsQ, standingsQ, rosterQ, breakdownQ, playsQ, picksQ, bracketQ]
+  const loading = queries.some((q) => q.isPending)
+  // Only the season-wide reads can fail the page; the per-player five are
+  // allowed to refuse, exactly as their `.catch()`es used to let them.
+  const error = seasonQ.error ?? contestantsQ.error ?? episodesQ.error ?? standingsQ.error
+  const hidden = rosterQ.isError || breakdownQ.isError
 
-        // The finale ballot is a separate bracket (Final 4/3/winner), not
-        // elimination picks; 404 when the player never filed one (they may only
-        // have the Sole Survivor designation), 403 until the finale locks.
-        setBracket(await bracketSent)
-        // The player lands last: the page renders the moment it has one, and
-        // the Ballot shell latches its open state on that first render. Set
-        // earlier, it latched on empty votes and
-        // started collapsed (#646).
-        // Tribe alone starts open; the rest are a tap or Expand all away.
-        setOpen({ ...ALL_CLOSED, tribe: true })
-        setPlayer(standings.find((standing) => standing.user_id === userId) ?? null)
-        setSiblings(standings)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load team')
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
-  }, [leagueSeasonId, userId])
+  const siblings = standingsQ.data ?? []
+  const player = siblings.find((standing) => standing.user_id === userId) ?? null
+  const contestants = contestantsQ.data ?? []
+  const episodes = episodesQ.data ?? []
+  const roster = hidden ? [] : rosterQ.data ?? []
+  const plays = hidden ? [] : playsQ.data ?? []
+  const rosterPoints = new Map((breakdownQ.data?.roster ?? []).map((row) => [row.contestant_id, row.points]))
+  // `${episode_id}:${contestant_id}` -> base points of a correct vote.
+  const pickPoints = new Map(
+    (breakdownQ.data?.picks ?? []).map((row) => [`${row.episode_id}:${row.contestant_id}`, row.points]),
+  )
+  const ssBonus = breakdownQ.data?.sole_survivor_bonus ?? 0
+  const bracket = bracketQ.data ?? null
+
+  // Each player starts at Tribe open, as the old per-player load left it.
+  useEffect(() => setOpen({ ...ALL_CLOSED, tribe: true }), [userId])
 
   const idx = siblings.findIndex((standing) => standing.user_id === userId)
   const prevP = idx > 0 ? siblings[idx - 1] : undefined
@@ -191,8 +125,8 @@ export function TeamPage() {
 
   // The teams either side are read in the background once this one is on
   // screen, so swiping to them is a render rather than three waves of requests
-  // (#814). Their answers land in the api cache; the season-wide reads this
-  // page also makes are already there from this player's load.
+  // (#814). Their answers land in the query cache under the same keys the
+  // sibling page will ask for; the season-wide reads are already there.
   const prevId = prevP?.user_id
   const nextId = nextP?.user_id
   useEffect(() => {
@@ -200,16 +134,43 @@ export function TeamPage() {
     for (const sibling of [prevId, nextId]) {
       if (!sibling) continue
       for (const path of Object.values(teamPaths(leagueSeasonId, sibling))) {
-        void api.get(path).catch(() => {})
+        void queryClient.prefetchQuery(pathQuery(path))
       }
     }
-  }, [leagueSeasonId, prevId, nextId, loading])
+  }, [queryClient, leagueSeasonId, prevId, nextId, loading])
 
+  // Before the loader, not after it: the reads below a failed one stay disabled,
+  // and a disabled query is pending forever, so a 404 on an unknown league-season
+  // or a 403 on another league's link would sit under the loader for good.
+  if (error) return <Notice tone="error" title="Could not load this team">{error.message}</Notice>
   // Keep the current team on screen while swiping to a sibling (#451) — only the
   // first load gets the full torch loader, so stepping through doesn't strobe.
-  if (loading && !player) return <PageLoader />
-  if (error) return <Notice tone="error" title="Could not load this team">{error}</Notice>
+  // A ref rather than `!player`: the standings this page finds the player in are
+  // usually already cached from the page you tapped through from, which would
+  // otherwise draw an empty Tribe and Ballot while the team's own reads were out.
+  if (loading && !drawn.current) return <PageLoader />
   if (!player) return <Notice title="Player not found"><Link className="text-forest-700 underline" to="/standings">Return to standings</Link></Notice>
+  drawn.current = true
+
+  const episodeRows = episodes
+    .filter(
+      (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (seasonQ.data?.roster_lock_episode ?? 1),
+    )
+    .sort((a, b) => b.episode_number - a.episode_number)
+  const outByEpisode = new Map<string, Set<string>>()
+  for (const row of eliminationsQ.data ?? []) {
+    const ids = outByEpisode.get(row.episode_id) ?? new Set<string>()
+    ids.add(row.contestant_id)
+    outByEpisode.set(row.episode_id, ids)
+  }
+  // The finale is a bracket, not elimination votes — it gets its own Finale
+  // section, so keep it out of the weekly Ballot ledger. Premieres before roster
+  // lock accept no votes, so they aren't "No votes" rows (#82).
+  const votes = episodeRows.map((episode) => ({
+    episode,
+    picks: picksQ.data?.[episode.id] ?? [],
+    eliminatedIds: outByEpisode.get(episode.id) ?? new Set<string>(),
+  }))
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const episodeTitles = new Map(episodes.map((episode) => [episode.episode_number, episode.title]))
@@ -289,7 +250,9 @@ export function TeamPage() {
           <SectionShell title="Tribe" prominent open={open.tribe} onToggle={toggleSection('tribe')} right={<SectionPoints value={player.roster_points} />}>
             {hidden ? (
               <Notice title="Team details are still private">Tribe and weekly-play choices unlock when tribes lock.</Notice>
-            ) : active.length === 0 ? (
+            ) : active.length === 0 && !rosterQ.isPending ? (
+              // Only once the roster has answered: a swipe can outrun the
+              // prefetch, and "no tribe" is an answer rather than a wait.
               <Notice title="No tribe submitted">This player does not have an active tribe yet.</Notice>
             ) : (
               <RosterManifest>
@@ -373,7 +336,10 @@ export function TeamPage() {
         )}
 
           <SectionShell title="Ballot" prominent open={open.ballot} onToggle={toggleSection('ballot')} right={<SectionPoints value={player.elimination_points} />}>
-            {votes.length === 0 ? <p className="text-sm text-gray-500">No unlocked ballots yet.</p> : (
+            {votes.length === 0 ? (
+              // Same rule as Tribe above: say nothing while the ballot is out.
+              picksQ.isPending ? null : <p className="text-sm text-gray-500">No unlocked ballots yet.</p>
+            ) : (
               // One ledger row per episode, matching the My Season History sheet:
               // "Ep N", the votes (correct ones pilled), a single idol if the
               // ballot was doubled. The episode title is dropped — the week is

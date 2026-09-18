@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { api, getActiveSeason, pinSeason } from '../lib/api'
+import { pinSeason } from '../lib/api'
+import { useActiveSeason } from '../lib/queries'
 import {
   installAvailable,
   isAndroid,
@@ -10,7 +11,6 @@ import {
   onInstallAvailable,
   promptInstall,
 } from '../lib/install'
-import type { Season } from '../types'
 import { CloseIcon, DownloadIcon, GearIcon, HistoryIcon, LogOutIcon, ProfileIcon, RulesIcon } from './icons'
 import { InstallSteps } from './InstallSteps'
 
@@ -36,8 +36,12 @@ export function NavDrawer({
   onThemeOverrideChange?: (value: ThemeOverride) => void
 }) {
   const { signOut, profile } = useAuth()
-  const [seasons, setSeasons] = useState<Season[]>([])
-  const [activeId, setActiveId] = useState('')
+  // The switcher is populated from the same cached `/league-seasons` read the
+  // shell and every page use, so it is already filled by the time the menu
+  // opens (#164) without a fetch of its own.
+  const { data, season } = useActiveSeason()
+  const seasons = data ?? []
+  const activeId = season?.id ?? ''
   const [canPrompt, setCanPrompt] = useState(installAvailable())
   const closeRef = useRef<HTMLButtonElement>(null)
   const drawerRef = useRef<HTMLElement>(null)
@@ -79,18 +83,6 @@ export function NavDrawer({
       returnFocusRef?.current?.focus()
     }
   }, [open, onClose, returnFocusRef])
-
-  // Load seasons + the current pick once, on mount rather than on first open:
-  // the drawer stays mounted the whole session (Layout), so fetching here means
-  // the switcher is already populated by the time the menu is opened (#164).
-  useEffect(() => {
-    void Promise.all([api.get<Season[]>('/league-seasons'), getActiveSeason()]).then(
-      ([ss, active]) => {
-        setSeasons(ss)
-        setActiveId(active?.id ?? '')
-      },
-    )
-  }, [])
 
   // Only name the league when there's more than one to tell apart (#595).
   const multiLeague = new Set(seasons.map((s) => s.league_id)).size > 1
