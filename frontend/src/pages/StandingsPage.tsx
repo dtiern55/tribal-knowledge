@@ -260,7 +260,7 @@ function HistoryPanel({
               ) : (
                 votes.map((vote) => {
                   // Two facts per vote, one channel each: gold is the Power
-                  // Vote, a filled card is a hit, a dotted one missed. Whether
+                  // Vote, a filled card is a hit, an outlined one missed. Whether
                   // it hit is the Hub's answer, so a Redemption Island duel
                   // loss doesn't read as a correct call (#655).
                   const power = vote.contestant_id === powerVote

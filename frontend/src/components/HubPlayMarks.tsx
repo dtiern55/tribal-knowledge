@@ -42,17 +42,17 @@ export function HubBallotMark({
     ? power
       ? correct
         ? 'border-gold-400 bg-gold-300/25 font-semibold text-gold-200'
-        : 'border-dotted border-gold-400 text-gold-300'
+        : 'border-gold-400/70 text-gold-300'
       : correct
         ? 'border-jade-300 bg-jade-300/15 text-jade-100'
-        : 'border-dotted border-white/30 text-white/60'
+        : 'border-white/25 text-white/60'
     : power
       ? correct
         ? 'border-gold-600 bg-gold-200 font-semibold text-gold-800'
-        : 'border-dotted border-gold-500 text-gold-700'
+        : 'border-gold-400 text-gold-700'
       : correct
         ? 'border-jade-600 bg-jade-600/[.14] text-jade-800'
-        : 'border-dotted border-stone-400 text-paper-ink-faded'
+        : 'border-stone-300 text-paper-ink-faded'
 
   return (
     <span

@@ -1518,7 +1518,7 @@ describe('MySeasonPage state shell', () => {
 
     const powerVote = screen.getByTitle('Power Vote on this vote')
     expect(powerVote).toHaveTextContent('Charlie')
-    expect(powerVote.className).toContain('border-dotted')
+    expect(powerVote.className).toContain('border-gold-400')
     expect(powerVote.className).toContain('text-gold-700')
 
     // No season-idol art remains in the shared Field treatment.

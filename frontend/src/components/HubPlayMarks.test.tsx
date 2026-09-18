@@ -9,14 +9,13 @@ describe('HubBallotMark', () => {
     )
 
     const miss = screen.getByTitle('Power Vote on this vote')
-    expect(miss.className).toContain('border-dotted')
+    expect(miss.className).toContain('border-gold-400/70')
     expect(miss.className).toContain('text-gold-300')
     expect(miss.className).not.toContain('bg-gold-300/25')
 
     rerender(<HubBallotMark name="Kenzie" power correct dark />)
 
     const hit = screen.getByTitle('Power Vote on this vote')
-    expect(hit.className).not.toContain('border-dotted')
     expect(hit.className).toContain('bg-gold-300/25')
     expect(hit).toHaveTextContent('Correct')
   })
