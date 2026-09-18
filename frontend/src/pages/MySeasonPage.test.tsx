@@ -1378,6 +1378,41 @@ describe('MySeasonPage state shell', () => {
     expect(within(hero).queryByText(/all set/i)).not.toBeInTheDocument()
   })
 
+  it('lets you hold a dead slot: the hero is all set and the Tribe tab says who is out', async () => {
+    const open = { ...episode(3, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 1 }
+    mockGet({ ...season, swap_lock_episode: 10 }, async (path: string) => {
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'scored', '2026-08-08T00:00:00Z'), open]
+      }
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null },
+          { id: 'cast-2', name: 'Charlie', nickname: null, eliminated_in_episode: 2 },
+          { id: 'cast-3', name: 'Venus', nickname: null, eliminated_in_episode: null },
+        ]
+      }
+      if (path.includes('/roster/')) {
+        return [
+          { id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: true },
+          { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false },
+        ]
+      }
+      if (path.includes('/advantage-plays/')) {
+        return [{ id: 'play-1', episode_id: open.id, advantage_type: 'double_roster_points', target_contestant_id: 'cast-1' }]
+      }
+      if (/\/episodes\/[^/]+\/picks\//.test(path)) return [{ contestant_id: 'cast-3', episode_id: open.id }]
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const hero = await screen.findByRole('region', { name: /this week/i })
+    await waitFor(() => expect(within(hero).getByText("You're all set for Ep 3")).toBeVisible())
+    expect(screen.getByText(/1 active · 1 out/)).toBeInTheDocument()
+  })
+
   it('limits broadcast styling to the short window after lock without changing state', () => {
     const locked = episode(2, 'upcoming', '2026-08-13T18:00:00Z')
     expect(isBroadcastWindow(locked, new Date('2026-08-13T20:00:00Z'))).toBe(true)
