@@ -919,7 +919,16 @@ export function MySeasonPage() {
             glowOut={stageOpen}
             lit={laneLit}
           >
-          <RecordBeats value={beat} onChange={setBeat} beats={week.beats} />
+          <RecordBeats
+            value={beat}
+            onChange={(next) => {
+              // Every pick is answered on the Tribe, so leaving it ends the
+              // pick: left on, the lamp chases the hidden panel to the top.
+              if (next !== 'roster') setPicking(null)
+              setBeat(next)
+            }}
+            beats={week.beats}
+          />
 
           <RecordPanel
             beat="roster"
