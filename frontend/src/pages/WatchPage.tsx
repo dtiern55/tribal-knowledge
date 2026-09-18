@@ -100,13 +100,28 @@ export function WatchPage() {
     (season != null && (castQ.isPending || episodesQ.isPending || rulesQ.isPending)) ||
     // The one render between the schedule landing and the latch above.
     (episodesQ.data != null && episodesQ.data.length > 0 && episodeId == null) ||
-    (episodeId != null && savedQ.isPending)
+    // The saved copy is the forgiven read here — it is not in the error gate
+    // below, because nothing saved yet (a 404) or offline falls back to this
+    // device's copy. So it waits on "has it answered", not on "is it pending":
+    // a refetch of a query holding no data resets it to pending, and an errored
+    // query is always stale, so on `isPending` every window focus would flash
+    // the loader over a night's tracking — mid-episode, which is exactly when
+    // the phone is being picked up and put down.
+    (episodeId != null && !savedQ.isFetched)
   const error = seasonQ.error ?? castQ.error ?? episodesQ.error ?? rulesQ.error
 
   // Seed the editable tracker once, when the saved copy has answered either way.
   // A refusal (offline, nothing saved yet) falls back to this device's copy.
+  //
+  // The same rule as the gate above, and the seed is where it bites hardest:
+  // `loaded` is per-mount but the refused query is cached, so coming back to
+  // the page inside its gcTime retries the refusal while the gate — rightly —
+  // stays open. On `isPending` the tracker would sit empty behind a live
+  // screen until that retry landed, and a tap in the meantime was *lost*: the
+  // save effect below waits on `loaded` too, so nothing reached this device's
+  // copy, and the late seed then read the pre-tap copy back over the tap.
   useEffect(() => {
-    if (!episodeId || loaded || savedQ.isPending) return
+    if (!episodeId || loaded || !savedQ.isFetched) return
     const server = savedQ.data?.data
     let initial: WatchState | null =
       server && Object.keys(server).length ? { ...emptyState(), ...server } : null
@@ -120,7 +135,7 @@ export function WatchPage() {
     }
     if (initial) setWatch(initial)
     setLoaded(true)
-  }, [episodeId, loaded, savedQ.isPending, savedQ.data])
+  }, [episodeId, loaded, savedQ.isFetched, savedQ.data])
 
   // Ids, not the rows they came from: a write invalidates every query (#814),
   // and depending on the refetched episode object would make this effect save

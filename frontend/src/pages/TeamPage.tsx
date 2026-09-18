@@ -70,7 +70,7 @@ export function TeamPage() {
   // title, which would share state with My Season's Tribe and Ballot (#646).
   // Tribe alone starts open; the rest are a tap or Expand all away.
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({ ...ALL_CLOSED, tribe: true })
-  const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
+  const { expanded, perfs, toggleExpand, setExpanded } = useRosterBreakdown()
   // Whether a team has ever been drawn here; see the loader gate below.
   const drawn = useRef(false)
 
@@ -91,14 +91,48 @@ export function TeamPage() {
   const picksQ = useQuery(pathQuery<Record<string, EliminationPick[]>>(paths?.picks ?? null))
   const bracketQ = useQuery(pathQuery<FinalePrediction>(paths?.finale ?? null))
 
-  // Everything the page used to await before it drew. A refusal counts as
-  // answered — that is the `hidden` state below, not a failure.
-  const queries = [seasonQ, contestantsQ, episodesQ, eliminationsQ, standingsQ, rosterQ, breakdownQ, playsQ, picksQ, bracketQ]
-  const loading = queries.some((q) => q.isPending)
-  // Only the season-wide reads can fail the page; the per-player five are
-  // allowed to refuse, exactly as their `.catch()`es used to let them.
+  // Everything the page used to await before it drew, each on the side of the
+  // gate its refusal puts it (the rule, and the same two comments, are at My
+  // Season's gates): a read whose refusal is forgiven waits on "has it
+  // answered", one whose refusal reaches the error gate below waits on "is it
+  // pending". A refusal is an answer — that is the `hidden` state below and
+  // the empty ledgers underneath it, not a failure.
+  //
+  // It matters here because refusal is this page's normal state: every *other*
+  // player's roster, breakdown, plays and picks 403 until their locks pass,
+  // and the bracket 404s for anyone who filed none. A refetch of a query
+  // holding no data resets it to pending (query-core's `fetchState`), and an
+  // errored query is always stale, so a window focus or any write refetches
+  // it — on `isPending` those six terms would re-close this gate every time.
+  const loading =
+    seasonQ.isPending ||
+    contestantsQ.isPending ||
+    episodesQ.isPending ||
+    standingsQ.isPending ||
+    // Not in the error gate: a refused ledger costs the Ballot section, which
+    // says so itself (#823), and leaves the rest of the page standing — so it
+    // is forgiven here too.
+    !eliminationsQ.isFetched ||
+    !rosterQ.isFetched ||
+    !breakdownQ.isFetched ||
+    !playsQ.isFetched ||
+    !picksQ.isFetched ||
+    !bracketQ.isFetched
+  // Only the reads the page can draw nothing without can fail it. The
+  // per-player five are allowed to refuse, exactly as their `.catch()`es used
+  // to let them, and so is the elimination ledger (#823).
   const error = seasonQ.error ?? contestantsQ.error ?? episodesQ.error ?? standingsQ.error
-  const hidden = rosterQ.isError || breakdownQ.isError
+  // Which reads refused, in a way that survives their retries. `isError` does
+  // not: a refetch of a query holding no data clears the error on its way back
+  // to pending, so on `isError` these would flip off for a round trip on every
+  // window focus and every write (#830). `errorUpdateCount` is never reset by
+  // `fetchState`, so "has answered with a refusal and still holds nothing" is
+  // stable. It also keeps "not asked yet" out, which matters on a swipe that
+  // outruns the neighbour prefetch: claiming a team is private when we simply
+  // have not read it yet would be a wrong statement, not a quiet one.
+  const refused = (q: { errorUpdateCount: number; data: unknown }) =>
+    q.errorUpdateCount > 0 && q.data === undefined
+  const hidden = refused(rosterQ) || refused(breakdownQ)
 
   const siblings = standingsQ.data ?? []
   const player = siblings.find((standing) => standing.user_id === userId) ?? null
@@ -114,8 +148,13 @@ export function TeamPage() {
   const ssBonus = breakdownQ.data?.sole_survivor_bonus ?? 0
   const bracket = bracketQ.data ?? null
 
-  // Each player starts at Tribe open, as the old per-player load left it.
-  useEffect(() => setOpen({ ...ALL_CLOSED, tribe: true }), [userId])
+  // Each player starts at Tribe open, as the old per-player load left it, with
+  // every castaway card closed.
+  useEffect(() => {
+    setOpen({ ...ALL_CLOSED, tribe: true })
+    setExpanded([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset per player only
+  }, [userId])
 
   const idx = siblings.findIndex((standing) => standing.user_id === userId)
   const prevP = idx > 0 ? siblings[idx - 1] : undefined
@@ -239,7 +278,11 @@ export function TeamPage() {
           same record read for someone else, not a dashboard beside it. */}
       <div className="mt-8 flex justify-end">
         <button
-          onClick={() => setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, swapped: true })}
+          onClick={() => {
+            setOpen(allOpen ? ALL_CLOSED : { tribe: true, finale: true, ballot: true, swapped: true })
+            // Every castaway card opens with the sections, not just Tribe (#827).
+            setExpanded(allOpen ? [] : roster.map((pick) => pick.contestant_id))
+          }}
           className="text-[11px] font-semibold uppercase tracking-wide text-forest-700 underline underline-offset-2"
         >
           {allOpen ? 'Collapse all' : 'Expand all'}
@@ -269,7 +312,7 @@ export function TeamPage() {
                       swappedInEpisode={pick.active_from_episode > rosterBaseEp ? pick.active_from_episode : null}
                       right={<Points value={rosterPoints.get(pick.contestant_id)} />}
                       bioLink={false}
-                      expanded={expandedId === pick.contestant_id}
+                      expanded={expanded.has(pick.contestant_id)}
                       onToggle={() => toggleExpand(pick.contestant_id)}
                     >
                       <RosterBreakdown perf={perfs.get(pick.contestant_id)} activeFrom={pick.active_from_episode} activeUntil={pick.active_until_episode} doubledByEp={doubledByContestantEp.get(pick.contestant_id) ?? EMPTY_EP_MAP} episodeTitles={episodeTitles} />
@@ -297,7 +340,7 @@ export function TeamPage() {
                           </span>
                         }
                         bioLink={false}
-                        expanded={expandedId === pick.contestant_id}
+                        expanded={expanded.has(pick.contestant_id)}
                         onToggle={() => toggleExpand(pick.contestant_id)}
                       >
                         <RosterBreakdown
@@ -336,7 +379,17 @@ export function TeamPage() {
         )}
 
           <SectionShell title="Ballot" prominent open={open.ballot} onToggle={toggleSection('ballot')} right={<SectionPoints value={player.elimination_points} />}>
-            {votes.length === 0 ? (
+            {refused(eliminationsQ) ? (
+              // Whether a vote hit is decided by the season's elimination
+              // ledger, so without it every vote below would draw as a miss —
+              // under a header still showing the points they earned (#823).
+              // Unlike this page's other forgiven reads, that one has no
+              // per-player gate to refuse from: it only fails when something
+              // is actually wrong, so say so rather than drawing a wrong
+              // ballot. The other sections read from their own queries and
+              // stay as they are.
+              <Notice title="Vote results didn’t load">Refresh to see this ballot.</Notice>
+            ) : votes.length === 0 ? (
               // Same rule as Tribe above: say nothing while the ballot is out.
               picksQ.isPending ? null : <p className="text-sm text-gray-500">No unlocked ballots yet.</p>
             ) : (

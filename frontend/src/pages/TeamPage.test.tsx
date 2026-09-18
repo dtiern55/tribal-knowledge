@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router'
@@ -38,13 +39,14 @@ describe('TeamPage', () => {
       tribe_color: '#7651a1',
       eliminated_in_episode: null,
     } as Contestant
-    const roster = [{
-      id: 'roster-1',
-      contestant_id: contestant.id,
+    const second = { ...contestant, id: 'cast-2', name: 'Rob' } as Contestant
+    const roster = [contestant, second].map((c) => ({
+      id: `roster-${c.id}`,
+      contestant_id: c.id,
       active_from_episode: 2,
       active_until_episode: null,
       is_sole_survivor: false,
-    }] as RosterPick[]
+    })) as RosterPick[]
     const performance = {
       name: contestant.name,
       image_url: null,
@@ -67,7 +69,7 @@ describe('TeamPage', () => {
 
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
-      if (path.endsWith('/contestants')) return [contestant]
+      if (path.endsWith('/contestants')) return [contestant, second]
       if (path.endsWith('/standings')) return [player]
       if (path.endsWith('/episodes')) return [] as Episode[]
       if (path.includes('/roster/')) return roster
@@ -75,7 +77,7 @@ describe('TeamPage', () => {
         return { roster: [{ contestant_id: contestant.id, points: 12 }], picks: [] }
       }
       if (path.includes('/advantage-plays/')) return []
-      if (path === `/contestants/${contestant.id}/performance`) return performance
+      if (path.endsWith('/performance')) return performance
       throw new Error(`Unexpected path: ${path}`)
     })
 
@@ -95,6 +97,11 @@ describe('TeamPage', () => {
     expect(await screen.findByRole('button', { name: /Ep 2/ })).toBeVisible()
     expect(screen.queryByText('Contestant page')).not.toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/contestants/cast-1/performance')
+
+    // Expand all opens every castaway card, not only the one tapped (#827).
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(await screen.findAllByRole('button', { name: /Ep 2/ })).toHaveLength(2)
+    expect(api.get).toHaveBeenCalledWith('/contestants/cast-2/performance')
   })
 
   it('reads the teams either side in the background, so a swipe lands ready (#814)', async () => {
@@ -211,5 +218,122 @@ describe('TeamPage', () => {
     expect(idol.closest('span[class*="jade"]')).toHaveTextContent('Kenzie')
     expect(screen.queryByRole('button', { name: /^Advantages/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse all' })).toBeVisible()
+  })
+
+  it('stays drawn when a forgiven refusal is retried (#822)', async () => {
+    // Another player's team pre-lock: all six reads this page forgives refuse
+    // — the per-player five, and the elimination ledger, which is in the
+    // loading gate but not the error gate. A refused query holds no data, so a
+    // refetch resets it to pending — on every window focus, and after every
+    // write anywhere in the app — and the page must not re-enter its loading
+    // state for any of them.
+    const refused = [
+      '/seasons/season-1/eliminations',
+      '/league-seasons/season-1/roster/friend-1',
+      '/league-seasons/season-1/scoring-breakdown/friend-1',
+      '/league-seasons/season-1/advantage-plays/friend-1',
+      '/league-seasons/season-1/picks/friend-1',
+      '/league-seasons/season-1/finale-predictions/friend-1',
+    ]
+    const player = {
+      user_id: 'friend-1', display_name: 'Friend', roster_points: 0, elimination_points: 0,
+      finale_points: 0, total_points: 0, trend: null, trend_delta: 0, last_episode_points: 0,
+      active_survivors: [], recently_eliminated_survivors: [], sole_survivor_contestant_id: null,
+    } as StandingEntry
+    const asked: string[] = []
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      asked.push(path)
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
+      if (path === '/seasons/season-1/contestants') return [] as Contestant[]
+      if (path === '/seasons/season-1/episodes') return [] as Episode[]
+      if (path === '/league-seasons/season-1/standings') return [player]
+      if (refused.includes(path)) {
+        // Refuses at once the first time; the retry stays in the air, so the
+        // page can be read while the refused query is back to pending.
+        if (asked.filter((p) => p === path).length > 1) return new Promise(() => {}) as Promise<never>
+        throw new ApiError('Not yet', 403)
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    // The test holds the cache so it can trigger the retry itself.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1', client },
+    )
+
+    const heading = await screen.findByRole('heading', { name: /Friend's Season/ })
+    expect(screen.getByText('Team details are still private')).toBeVisible()
+
+    // What a window focus or a write elsewhere does: everything refetches. The
+    // `setTimeout(0)` is what gets the refetch's pending state on screen:
+    // react-query schedules its notifications with `setTimeout(cb, 0)`
+    // (notifyManager), so an act with nothing awaited in it returns before
+    // React has been told anything.
+    await act(async () => {
+      void client.invalidateQueries()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    // Every forgiven read really is back in the air, or this proves nothing.
+    for (const path of refused) expect(asked.filter((p) => p === path)).toHaveLength(2)
+    // And the team is still on screen, not back behind the loading state.
+    expect(heading).toBeVisible()
+    expect(heading.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'false')
+
+    // #830: what the sections say has to survive the retry too. `isError`
+    // clears on the way back to pending, so deriving the private state from it
+    // swapped this notice for an empty Castaway/Points ledger — for a round
+    // trip, at full opacity now that the gate correctly stays open.
+    expect(screen.getByText('Team details are still private')).toBeVisible()
+    expect(screen.queryByText('Castaway')).not.toBeInTheDocument()
+  })
+
+  it('says vote results are missing instead of drawing every vote as a miss (#823)', async () => {
+    // The season's elimination ledger decides which votes hit. It is forgiven
+    // by the loading gate, but unlike this page's other forgiven reads it has
+    // no per-player gate to refuse from — so a refusal means something is
+    // actually wrong, and drawing the ballot without it would grey out every
+    // vote under a header still showing the 5 points they earned.
+    const episode = { id: 'ep-1', season_id: 'season-1', episode_number: 1, is_finale: false, status: 'scored', picks_lock_at: '2020-01-01T00:00:00Z', title: null } as Episode
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
+      if (path === '/seasons/season-1/contestants') return [{ id: 'cast-1', name: 'Kenzie' }]
+      if (path === '/seasons/season-1/episodes') return [episode]
+      if (path === '/league-seasons/season-1/standings') {
+        return [{ user_id: 'friend-1', display_name: 'Friend', roster_points: 0, elimination_points: 5, finale_points: 0, total_points: 5, trend: null, trend_delta: 0, last_episode_points: 5, active_survivors: [], recently_eliminated_survivors: [], sole_survivor_contestant_id: null }]
+      }
+      // The roster and the ballot read fine — only the ledger is gone, so the
+      // rest of the page must stay exactly as it is.
+      if (path === '/league-seasons/season-1/roster/friend-1') return []
+      if (path === '/league-seasons/season-1/scoring-breakdown/friend-1') return { roster: [], picks: [], sole_survivor_contestant_id: null, sole_survivor_bonus: 0 }
+      if (path === '/league-seasons/season-1/advantage-plays/friend-1') return []
+      if (path === '/league-seasons/season-1/picks/friend-1') return { 'ep-1': [{ id: 'pick-1', episode_id: 'ep-1', contestant_id: 'cast-1' }] }
+      if (path === '/league-seasons/season-1/finale-predictions/friend-1') throw new ApiError('No bracket', 404)
+      if (path === '/seasons/season-1/eliminations') throw new ApiError('Server error', 500)
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(
+      <Routes>
+        <Route path="/league-seasons/:leagueSeasonId/team/:userId" element={<TeamPage />} />
+      </Routes>,
+      { route: '/league-seasons/season-1/team/friend-1' },
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Expand all' }))
+
+    expect(screen.getByText('Vote results didn’t load')).toBeVisible()
+    // Not a ledger row claiming the vote missed, and the points stay on the
+    // header — the section no longer contradicts itself.
+    expect(screen.queryByText('Ep 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Kenzie')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Ballot/ })).toHaveTextContent('5')
+    // And nothing else fell over: the page still drew, with its error gate shut.
+    expect(screen.getByRole('heading', { name: /Friend's Season/ })).toBeVisible()
+    expect(screen.queryByText('Could not load this team')).not.toBeInTheDocument()
   })
 })

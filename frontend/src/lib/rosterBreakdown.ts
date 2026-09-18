@@ -35,19 +35,30 @@ export function doubledByContestantEpisode(
 
 /**
  * Lazy per-contestant performance for the tap-to-expand breakdown (#257):
- * one card open at a time, each contestant fetched the first time it opens.
+ * each card opens on its own, and each contestant is fetched the first time
+ * it opens. `setExpanded` opens a whole list at once (Expand all, #827).
  */
 export function useRosterBreakdown() {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expanded, setExpandedIds] = useState<Set<string>>(new Set())
   const [perfs, setPerfs] = useState<Map<string, ContestantPerformance>>(new Map())
-  function toggleExpand(cid: string) {
-    setExpandedId((cur) => (cur === cid ? null : cid))
-    if (!perfs.has(cid)) {
-      api
-        .get<ContestantPerformance>(`/contestants/${cid}/performance`)
-        .then((p) => setPerfs((prev) => new Map(prev).set(cid, p)))
-        .catch(() => {})
-    }
+  function load(cid: string) {
+    if (perfs.has(cid)) return
+    api
+      .get<ContestantPerformance>(`/contestants/${cid}/performance`)
+      .then((p) => setPerfs((prev) => new Map(prev).set(cid, p)))
+      .catch(() => {})
   }
-  return { expandedId, perfs, toggleExpand }
+  function toggleExpand(cid: string) {
+    setExpandedIds((cur) => {
+      const next = new Set(cur)
+      if (!next.delete(cid)) next.add(cid)
+      return next
+    })
+    load(cid)
+  }
+  function setExpanded(cids: string[]) {
+    setExpandedIds(new Set(cids))
+    cids.forEach(load)
+  }
+  return { expanded, perfs, toggleExpand, setExpanded }
 }
