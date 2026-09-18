@@ -2132,6 +2132,15 @@ export function AdminPage() {
   const eventTypes = eventTypesQ.data ?? []
   const leagues = leaguesQ.data ?? []
 
+  // Before both gates: `/leagues` is admin-only, so a non-admin's read 403s
+  // and the error gate below would report "this page isn't for you" as an
+  // outage. `ProtectedRoute` has already settled auth — loading, no session,
+  // a failed profile read and no profile each return before this page renders
+  // — so a profile that is here and not an admin is an answer, not a maybe.
+  if (!profile?.is_admin) {
+    return <Notice tone="error" title="Commissioner access required">Your account is not authorized to manage the league. The server also enforces administrator permissions on every mutation.</Notice>
+  }
+
   // Before the loader, not after it: the season-scoped reads stay disabled
   // until the league-season list answers, and a disabled query is pending
   // forever, so a refused read would sit under the loader for good.
@@ -2154,10 +2163,6 @@ export function AdminPage() {
     (seasonId != null && season == null && seasonsQ.isFetching) ||
     (season != null && (contestantsQ.isPending || episodesQ.isPending || eventTypesQ.isPending))
   if (loading) return <PageLoader />
-
-  if (!profile?.is_admin) {
-    return <Notice tone="error" title="Commissioner access required">Your account is not authorized to manage the league. The server also enforces administrator permissions on every mutation.</Notice>
-  }
 
   if (!season) {
     return (
