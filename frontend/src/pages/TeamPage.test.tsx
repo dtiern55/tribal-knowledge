@@ -147,8 +147,8 @@ describe('TeamPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Snuffed/ }))
     expect(await screen.findByText('Oldboot')).toBeVisible()
     // The chip marks a swap-in until their first episode on the team airs.
-    expect(screen.getByTitle('Swapped onto your roster in episode 6')).toBeVisible()
-    expect(screen.queryByTitle('Swapped onto your roster in episode 3')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Swapped onto the tribe in episode 6')).toBeVisible()
+    expect(screen.queryByTitle('Swapped onto the tribe in episode 3')).not.toBeInTheDocument()
   })
 
   it('reads the teams either side in the background, so a swipe lands ready (#814)', async () => {

@@ -178,7 +178,7 @@ export function RosterCard({
           {outEp == null && swappedInEpisode != null && (
             <span
               className="inline-flex items-center gap-1 rounded-full border border-paper-edge bg-black/[.03] px-1.5 py-px text-[10px] font-extrabold tracking-[0.04em] text-paper-ink-faded"
-              title={`Swapped onto your roster in episode ${swappedInEpisode}`}
+              title={`Swapped onto the tribe in episode ${swappedInEpisode}`}
             >
               {/* Two-arrow swap glyph + the episode it happened. Provenance, so
                   it stays neutral — gold here would compete with the idol and
