@@ -5,6 +5,7 @@ import { ColdStart } from '../components/ColdStart'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { SoleSurvivorExample } from '../components/SoleSurvivorExample'
 import { pathQuery, useActiveSeason } from '../lib/queries'
 import { swapLockEpisodeNumber } from '../lib/episodes'
 import type { RulePredictionScore, RuleScoringEvent, RulesResponse, Season } from '../types'
@@ -144,14 +145,20 @@ function swapCostLadder(season: Season) {
   }
 }
 
-/** "3 picks from Episode 2, 2 from Episode 6, 1 from Episode 11" (#269). */
+/** "3 picks in Episodes 2 to 5, 2 in Episodes 6 to 10, and 1 from Episode
+ *  11 on" (#269). */
 function pickTiers(season: Season) {
   const tiers = [...season.elimination_pick_schedule].sort((a, b) => a.from_episode - b.from_episode)
   if (tiers.length === 0) return 'You get 3 picks an episode.'
-  const parts = tiers.map((t, i) =>
-    i === 0 ? `${t.picks} pick${t.picks === 1 ? '' : 's'} from Episode ${t.from_episode}` : `${t.picks} from Episode ${t.from_episode}`,
-  )
-  return `You get ${parts.join(', ')}.`
+  const parts = tiers.map((t, i) => {
+    const picks = i === 0 ? `${t.picks} pick${t.picks === 1 ? '' : 's'}` : `${t.picks}`
+    const next = tiers[i + 1]
+    if (!next) return `${picks} from Episode ${t.from_episode} on`
+    const last = next.from_episode - 1
+    return last === t.from_episode ? `${picks} in Episode ${last}` : `${picks} in Episodes ${t.from_episode} to ${last}`
+  })
+  if (parts.length === 1) return `You get ${parts[0]}.`
+  return `You get ${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}.`
 }
 
 export function RulesPage() {
@@ -223,7 +230,7 @@ export function RulesPage() {
           <RuleList>
             <li>Your tribe of {season.roster_size} castaways. Select before the Episode {season.roster_lock_episode ?? 2} lock.</li>
             <li>Swaps available up until the Episode {swapLockEpisodeNumber(season) - 1} lock.</li>
-            <li>At the Episode {swapLockEpisodeNumber(season) - 1} lock, your Sole Survivor designation must be a castaway on your tribe.</li>
+            <li>Note: at the Episode {swapLockEpisodeNumber(season) - 1} lock, your Sole Survivor designation must be a castaway on your tribe.</li>
           </RuleList>
         </RuleSection>
 
@@ -233,9 +240,9 @@ export function RulesPage() {
               The first {season.free_swaps === 1 ? 'swap is' : `${season.free_swaps} swaps are`} free.
               After that, each swap costs points: {swapCostLadder(season)}.
             </li>
-            <li>The cost comes off the castaway you drop.</li>
+            <li>The cost is charged to the castaway you drop. That only decides where it shows in your points breakdown. Your total is the same either way.</li>
             <li>You can undo a swap until the episode locks.</li>
-            <li>Swap as often as you like until the Episode {swapLockEpisodeNumber(season) - 1} lock. After that your tribe is locked.</li>
+            <li>Swap as often as you like until the Episode {swapLockEpisodeNumber(season) - 1} lock.</li>
           </RuleList>
         </RuleSection>
 
@@ -252,7 +259,7 @@ export function RulesPage() {
 
         <RuleSection id="weekly-play" title="Weekly advantage">
           <RuleList>
-            <li>Each episode you get one advantage to play on your tribe or your ballot.</li>
+            <li>Each episode except the finale, you get one advantage to play on your tribe or your ballot.</li>
             <li><b>On your tribe:</b> a double point boost. One castaway earns double this episode.</li>
             <li>
               <b>On your ballot:</b> a Power Vote, one extra name above your ranked picks
@@ -267,6 +274,10 @@ export function RulesPage() {
             <li>In Episode {swapLockEpisodeNumber(season) - 1}, your last swap episode, name one castaway on your tribe as your Sole Survivor.</li>
             <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
           </RuleList>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm font-medium text-forest-700 underline underline-offset-2">See an example</summary>
+            <SoleSurvivorExample className="mt-3" />
+          </details>
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
