@@ -7,6 +7,7 @@ import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../componen
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { HubBallotMark, PlayMark } from '../components/HubPlayMarks'
 import { Torch, TorchDefs } from '../components/Torch'
 import { ChevronRightIcon } from '../components/icons'
 import { ADV_LABELS } from '../lib/advantages'
@@ -145,23 +146,6 @@ function Torches({ entry }: { entry: StandingEntry }) {
   )
 }
 
-// Where a played advantage landed: a gold chip on the line it changed. Text,
-// not the season idol — the idol competes with the avatars and the score
-// beside them. Double Castaway Points really is a doubling, so it reads ×2;
-// the Power Vote is its own rung on the ballot ladder (#746), not a multiplier,
-// so it reads by name.
-function PlayMark({ text, title }: { text: string; title: string }) {
-  return (
-    <span
-      className="shrink-0 rounded bg-gold-100 px-1 text-[10px] font-bold tabular-nums text-gold-700"
-      title={title}
-      aria-label={title}
-    >
-      {text}
-    </span>
-  )
-}
-
 // The play's own name, from the shared label map, so a rename reaches here too.
 const POWER_VOTE = ADV_LABELS.double_vote_points
 
@@ -276,30 +260,12 @@ function HistoryPanel({
               ) : (
                 votes.map((vote) => {
                   // Two facts per vote, one channel each: gold is the Power
-                  // Vote, a filled card is a hit, a dotted one missed. Whether
+                  // Vote, a filled card is a hit, an outlined one missed. Whether
                   // it hit is the Hub's answer, so a Redemption Island duel
                   // loss doesn't read as a correct call (#655).
                   const power = vote.contestant_id === powerVote
                   const hit = vote.correct
-                  return (
-                    <span
-                      key={vote.contestant_id}
-                      title={power ? `${POWER_VOTE} on this vote` : undefined}
-                      className={`inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${
-                        power
-                          ? hit
-                            ? 'border-gold-600 bg-gold-200 font-semibold text-gold-800'
-                            : 'border-dotted border-gold-500 text-gold-700'
-                          : hit
-                            ? 'border-jade-600 bg-jade-600/[.14] text-jade-800'
-                            : 'border-dotted border-stone-400 text-paper-ink-faded'
-                      }`}
-                    >
-                      {power && <span className="sr-only">{POWER_VOTE} — </span>}
-                      {hit && <span className="sr-only">Correct — </span>}
-                      {vote.name}
-                    </span>
-                  )
+                  return <HubBallotMark key={vote.contestant_id} name={vote.name} power={power} correct={hit} />
                 })
               )}
             </dd>

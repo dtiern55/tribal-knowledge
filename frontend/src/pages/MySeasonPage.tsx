@@ -25,6 +25,7 @@ import {
 import { RosterCard } from '../components/RosterCard'
 import { CorrectVote } from '../components/CorrectVote'
 import { DoubleBadge } from '../components/DoubleBadge'
+import { HubBallotMark, PlayMark } from '../components/HubPlayMarks'
 import { RuleLink } from '../components/RuleLink'
 import type { Beat, BeatKey } from '../components/SeasonRecord'
 import { LaneStack, RecordBeats, RecordPanel } from '../components/SeasonRecord'
@@ -33,6 +34,7 @@ import { SEAL_LIFT_Y, useSealDrag } from '../lib/sealDrag'
 import { ChevronRightIcon, HistoryIcon } from '../components/icons'
 import { VoteMark } from '../components/VoteMark'
 import { VoteSlip } from '../components/VoteSlip'
+import { SoleSurvivorTorch } from '../components/SoleSurvivorTorch'
 import { useAuth } from '../auth/useAuth'
 import type {
   AdvantagePlay,
@@ -1548,10 +1550,11 @@ function LeagueHub({
                   />
                   <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
                   {doubled > 0 && (
-                    <span className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold tabular-nums ${sub}`}>
-                      <DoubleBadge size={16} title="Power Vote" />
-                      {doubled}
-                    </span>
+                    <PlayMark
+                      text={`${ADV_LABELS.double_vote_points} ×${doubled}`}
+                      title={`${doubled} ${doubled === 1 ? 'Power Vote' : 'Power Votes'} on this castaway`}
+                      dark={broadcast}
+                    />
                   )}
                   <span className={`shrink-0 text-xs font-semibold tabular-nums ${sub}`}>
                     {n} {n === 1 ? 'vote' : 'votes'}
@@ -1609,6 +1612,11 @@ function LeagueHub({
       <ul className="mt-2 space-y-2">
         {entries.map((entry) => {
           const isMe = entry.user_id === userId
+          const powerVote =
+            entry.advantage_type === 'double_vote_points'
+              ? (entry.advantage_target?.contestant_id ?? null)
+              : undefined
+          const wholeBallotDoubled = powerVote === null
           // Points ride the row once the episode is scored (the recap Field);
           // pre-scoring the Hub is picks only, so these gate the recap extras.
           const scored = entry.tribe_points != null
@@ -1634,8 +1642,8 @@ function LeagueHub({
                       {entry.display_name}
                       {isMe && <span className={`ml-1.5 font-normal ${sub}`}>(you)</span>}
                     </span>
-                    {/* The advantage marker (idol + target) is left to the
-                        expanded detail, on the exact castaway/slip. */}
+                    {/* The play marker is left to the expanded detail, on the
+                        exact castaway or ballot pick it changed. */}
                   </div>
                   {/* What their tribe and ballot earned this episode, so the
                       score reads at a glance without opening the row. */}
@@ -1670,7 +1678,7 @@ function LeagueHub({
                         : null
                     }
                     soleSurvivorId={entry.sole_survivor_contestant_id}
-                    broadcast={broadcast}
+                    dark={broadcast}
                   />
                   {/* The finale's ballot is the bracket, drawn the way your own
                       card draws it (#801). */}
@@ -1693,33 +1701,30 @@ function LeagueHub({
                       </div>
                     </div>
                   ) : (
-                  /* Ballots are slips here too, same as your own card above:
-                      the ballot is where you write a name down. */
+                  /* The Field follows Standings: gold names the Power Vote,
+                      while a fill says the vote was correct after scoring. */
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>Ballot</p>
-                      {entry.advantage_type === 'double_vote_points' && !entry.advantage_target && (
-                        <DoubleBadge size={18} title="Power Vote this episode" />
+                      {wholeBallotDoubled && (
+                        <PlayMark
+                          text={ADV_LABELS.double_vote_points}
+                          title={`${ADV_LABELS.double_vote_points} on this whole ballot`}
+                          dark={broadcast}
+                        />
                       )}
                     </div>
                     {entry.ballot.length > 0 ? (
                       <div className="mt-1.5 flex flex-wrap gap-2">
-                        {entry.ballot.map((vote, index) => {
-                          const doubled =
-                            entry.advantage_type === 'double_vote_points' &&
-                            entry.advantage_target?.contestant_id === vote.contestant_id
-                          return (
-                            <VoteSlip
-                              key={vote.contestant_id}
-                              name={vote.name}
-                              doubled={doubled}
-                              dark={broadcast}
-                              tribeColor={vote.tribe_color}
-                              rotation={[-0.9, 0.6, -0.3][index % 3]}
-                              leading={doubled ? <DoubleBadge size={18} title="Power Vote" /> : null}
-                            />
-                          )
-                        })}
+                        {entry.ballot.map((vote) => (
+                          <HubBallotMark
+                            key={vote.contestant_id}
+                            name={vote.name}
+                            power={vote.contestant_id === powerVote}
+                            correct={vote.correct}
+                            dark={broadcast}
+                          />
+                        ))}
                       </div>
                     ) : (
                       <p className={`mt-1 text-xs ${sub}`}>No ballot submitted.</p>
@@ -1761,7 +1766,7 @@ function HubCastawayRow({
   empty,
   doubledContestantId = null,
   soleSurvivorId = null,
-  broadcast = false,
+  dark = false,
 }: {
   label: string
   survivors: StandingSurvivor[]
@@ -1769,16 +1774,16 @@ function HubCastawayRow({
   empty: string
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
-  /** Their Sole Survivor pick: a gold name, nothing louder (#685). */
+  /** Their Sole Survivor pick: a small hand torch beside an otherwise plain name. */
   soleSurvivorId?: string | null
-  broadcast?: boolean
+  dark?: boolean
 }) {
   return (
     <div>
       <p className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>{label}</p>
       {survivors.length > 0 ? (
         // Five to a row so a full tribe sits on one line; portrait over name,
-        // the idol pinned to the portrait it doubled (#685).
+        // the compact ×2 pinned to the portrait it doubled.
         <ul className="mt-1.5 grid grid-cols-5 gap-x-1 gap-y-2">
           {survivors.map((s) => {
             const isSS = s.contestant_id === soleSurvivorId
@@ -1793,13 +1798,17 @@ function HubCastawayRow({
                     size="sm"
                   />
                   {s.contestant_id === doubledContestantId && (
-                    <span className="absolute -right-1.5 -top-1.5">
-                      <DoubleBadge size={18} title="Double Castaway Points this episode" />
-                    </span>
+                    <PlayMark
+                      text="×2"
+                      title="Double Castaway Points on them this episode"
+                      dark={dark}
+                      className="absolute -right-2 -top-1.5 z-10"
+                    />
                   )}
                 </span>
-                <span className={`w-full truncate leading-tight ${isSS ? (broadcast ? 'text-gold-300' : 'text-gold-700') : ''}`}>
-                  {s.name}
+                <span className="flex w-full min-w-0 items-center justify-center gap-0.5 leading-tight">
+                  {isSS && <SoleSurvivorTorch />}
+                  <span className="truncate">{s.name}</span>
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
               </li>

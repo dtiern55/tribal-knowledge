@@ -1392,6 +1392,139 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByTitle('Power Vote this episode')).toBeVisible()
   })
 
+  it("marks another team's Sole Survivor with a small torch instead of a gold name", async () => {
+    const user = userEvent.setup()
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
+    ]
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu' },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_color: '#abcdef', tribe_name: 'Siga' },
+        ]
+      }
+      if (path.endsWith('/hub')) {
+        return [{
+          user_id: 'user-2',
+          display_name: 'Rival',
+          roster: [{
+            contestant_id: 'cast-1',
+            name: 'Kenzie',
+            image_url: null,
+            tribe_color: '#123456',
+            tribe_name: 'Yanu',
+            eliminated_episode: null,
+            points: 0,
+          }],
+          ballot: [],
+          advantage_type: null,
+          advantage_target: null,
+          sole_survivor_contestant_id: 'cast-1',
+          finale: null,
+          tribe_points: null,
+          ballot_points: null,
+        }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      if (path.includes('/advantage-plays/')) return []
+      if (path.includes('/picks/')) return []
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-2', active_until_episode: null }]
+      }
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const rival = await screen.findByText('Rival')
+    const rivalRow = rival.closest('details')
+    expect(rivalRow).not.toBeNull()
+    await user.click(rival)
+
+    const kenzie = await within(rivalRow!).findByText('Kenzie')
+    expect(kenzie).not.toHaveClass('text-gold-300', 'text-gold-700')
+    expect(rivalRow!.querySelector('.sole-survivor-torch')).toBeVisible()
+    expect(within(rivalRow!).getByText('· Sole Survivor')).toBeInTheDocument()
+  })
+
+  it('uses compact text play marks and Standings ballot states in the locked Field', async () => {
+    const user = userEvent.setup()
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
+    ]
+    const survivor = (id: string, name: string) => ({
+      contestant_id: id,
+      name,
+      image_url: null,
+      tribe_color: '#123456',
+      tribe_name: 'Yanu',
+      eliminated_episode: null,
+    })
+    const baseEntry = {
+      ballot: [],
+      sole_survivor_contestant_id: null,
+      finale: null,
+      tribe_points: null,
+      ballot_points: null,
+    }
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/contestants')) {
+        return [
+          { id: 'cast-1', name: 'Kenzie', image_url: null, tribe_color: '#123456', tribe_name: 'Yanu' },
+          { id: 'cast-2', name: 'Charlie', image_url: null, tribe_color: '#abcdef', tribe_name: 'Siga' },
+        ]
+      }
+      if (path.endsWith('/hub')) {
+        const kenzie = survivor('cast-1', 'Kenzie')
+        const charlie = survivor('cast-2', 'Charlie')
+        return [
+          {
+            ...baseEntry,
+            user_id: 'user-2',
+            display_name: 'Tribe player',
+            roster: [{ ...kenzie, points: 0 }],
+            advantage_type: 'double_roster_points',
+            advantage_target: kenzie,
+          },
+          {
+            ...baseEntry,
+            user_id: 'user-3',
+            display_name: 'Ballot player',
+            roster: [{ ...charlie, points: 0 }],
+            ballot: [{ ...charlie, correct: false }],
+            advantage_type: 'double_vote_points',
+            advantage_target: charlie,
+          },
+        ]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      if (path.includes('/advantage-plays/')) return []
+      if (path.includes('/picks/')) return []
+      if (path.includes('/roster/')) return []
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    await user.click(await screen.findByRole('button', { name: 'Expand all' }))
+    expect(await screen.findByLabelText('Double Castaway Points on them this episode')).toHaveTextContent('×2')
+
+    const powerVote = screen.getByTitle('Power Vote on this vote')
+    expect(powerVote).toHaveTextContent('Charlie')
+    expect(powerVote.className).toContain('border-gold-400')
+    expect(powerVote.className).toContain('text-gold-700')
+
+    // No season-idol art remains in the shared Field treatment.
+    expect(screen.queryByRole('img', { name: /Power Vote|Double Castaway Points/ })).not.toBeInTheDocument()
+  })
+
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {
     const episodes = [
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
