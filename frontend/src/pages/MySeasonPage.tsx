@@ -1,9 +1,11 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router'
 import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
-import { api, getActiveSeason } from '../lib/api'
+import { activeSeason, api } from '../lib/api'
+import { pathQuery, useApiMutation } from '../lib/queries'
 import { displayName } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
@@ -101,147 +103,131 @@ function SealGhost({
 
 // My Tribe (roster) and My Votes are separate tabs (#IA split) but share these
 // season sections + the one data load, so both pages live in this file.
+const EMPTY_BREAKDOWN: ScoringBreakdown = {
+  roster: [],
+  picks: [],
+  sole_survivor_contestant_id: null,
+  sole_survivor_bonus: 0,
+}
+
 function useMySeasonData() {
   const { session } = useAuth()
   const userId = session?.user?.id
+  const client = useQueryClient()
 
-  const [season, setSeason] = useState<Season | null>(null)
-  const [contestants, setContestants] = useState<Contestant[]>([])
-  const [episodes, setEpisodes] = useState<Episode[]>([])
-  const [standing, setStanding] = useState<StandingEntry | null>(null)
-  const [breakdown, setBreakdown] = useState<ScoringBreakdown>({
-    roster: [],
-    picks: [],
-    sole_survivor_contestant_id: null,
-    sole_survivor_bonus: 0,
+  // The league-season this page plays, latched by id the first time the list
+  // lands rather than re-derived per render (#816). `activeSeason` follows the
+  // pinned choice and the "first active" rule, and both can move underneath a
+  // page that writes a roster, a ballot and a play against the season it
+  // loaded — a season completed while you are on it would re-point them.
+  const seasonsQ = useQuery({
+    ...pathQuery<Season[]>('/league-seasons'),
+    enabled: userId != null,
   })
-  const [plays, setPlays] = useState<AdvantagePlay[]>([])
-  const [rank, setRank] = useState<number | null>(null)
-  const [playerCount, setPlayerCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  // Bumped whenever the roster changes so sibling sections (Sole Survivor)
-  // that keep their own roster copy refetch instead of going stale (#219-era
-  // pre-lock roster edits).
-  const [rosterVersion, setRosterVersion] = useState(0)
-  const [automaticResult, setAutomaticResult] = useState<EpisodeResult | null>(null)
-  // The beat bar summarises all three sections at once, so the page needs the
-  // roster and this episode's ballot even though the sections fetch their own.
-  const [roster, setRoster] = useState<RosterPick[]>([])
-  const [openPicks, setOpenPicks] = useState<EliminationPick[]>([])
-  // Bumped by the ballot when it saves, so the Ballot beat's count follows.
-  const [ballotVersion, setBallotVersion] = useState(0)
-  // The two fetches below are not part of `loading`, but the hero's headline
-  // and colour are computed from them: with an empty roster and no ballot the
-  // week reads as owed, so the page opened on "your ballot and tribe both need
-  // you" and corrected itself a moment later.
-  //
-  // These record *what* was fetched rather than *that* something was, because
-  // both effects run once with no season and would otherwise report ready
-  // before the real request had even started. Keying them this way also means
-  // a swap or a ballot save refetches without throwing the page back to the
-  // loader — the key has not changed, so it stays ready throughout.
-  const [rosterFor, setRosterFor] = useState<string | null>(null)
-  const [picksFor, setPicksFor] = useState<string | null>(null)
-
+  const [seasonId, setSeasonId] = useState<string | null>(null)
+  const season = seasonsQ.data?.find((s) => s.id === seasonId) ?? null
   useEffect(() => {
-    if (!userId) return
-    async function load() {
-      try {
-        const active = await getActiveSeason()
-        if (!active) {
-          setLoading(false)
-          return
-        }
-        setSeason(active)
+    // `season` too, not just the id: an id that no longer names a row in the
+    // list re-derives rather than stranding the page on the cold start.
+    if ((seasonId && season) || !seasonsQ.data) return
+    setSeasonId(activeSeason(seasonsQ.data)?.id ?? null)
+  }, [seasonId, season, seasonsQ.data])
 
-        const [cs, eps, standings, bd, ownPlays, unseenResult] = await Promise.all([
-          api.get<Contestant[]>(`/seasons/${active.season_id}/contestants`),
-          api.get<Episode[]>(`/seasons/${active.season_id}/episodes`),
-          api.get<StandingEntry[]>(`/league-seasons/${active.id}/standings`),
-          api.get<ScoringBreakdown>(`/league-seasons/${active.id}/scoring-breakdown/${userId}`),
-          api.get<AdvantagePlay[]>(`/league-seasons/${active.id}/advantage-plays/${userId}`),
-          api.get<EpisodeResult | undefined>(`/league-seasons/${active.id}/reveal`),
-        ])
-        setContestants(cs)
-        setEpisodes(eps)
-        // Standings come back rank-ordered, so the user's index is their rank.
-        const idx = standings.findIndex((s) => s.user_id === userId)
-        setRank(idx >= 0 ? idx + 1 : null)
-        setPlayerCount(standings.length)
-        setStanding(standings.find((s) => s.user_id === userId) ?? null)
-        setBreakdown(bd)
-        setPlays(ownPlays)
-        setAutomaticResult(unseenResult ?? null)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load')
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
-  }, [userId])
+  const showId = season?.season_id
+  const own = season && userId ? `/league-seasons/${season.id}` : null
+  const contestantsQ = useQuery(
+    pathQuery<Contestant[]>(showId ? `/seasons/${showId}/contestants` : null),
+  )
+  const episodesQ = useQuery(pathQuery<Episode[]>(showId ? `/seasons/${showId}/episodes` : null))
+  const standingsQ = useQuery(pathQuery<StandingEntry[]>(own && `${own}/standings`))
+  const breakdownQ = useQuery(
+    pathQuery<ScoringBreakdown>(own && `${own}/scoring-breakdown/${userId}`),
+  )
+  const playsPath = own && `${own}/advantage-plays/${userId}`
+  const playsQ = useQuery(pathQuery<AdvantagePlay[]>(playsPath))
+  const revealPath = own && `${own}/reveal`
+  const revealQ = useQuery({
+    ...pathQuery<EpisodeResult | null>(revealPath),
+    // 204 when there is nothing unseen, and a query may not resolve to
+    // undefined — that is v5's "did you forget to return" error.
+    queryFn: async () => (await api.get<EpisodeResult | null>(revealPath as string)) ?? null,
+  })
 
-  // Roster and ballot for the beat bar. Separate from the main load so a swap
-  // or a saved ballot refreshes the summary without refetching the season.
+  // The beat bar summarises all three sections at once, so the page reads the
+  // roster and this episode's ballot even though the sections read their own —
+  // the same paths, so the query cache serves one request for all of them.
+  const episodes = episodesQ.data ?? []
+  const rosterQ = useQuery(pathQuery<RosterPick[]>(own && `${own}/roster/${userId}`))
   const openEp = season ? openEpisode(episodes, season) : undefined
-  useEffect(() => {
-    if (!season || !userId) return
-    const seasonId = season.id
-    api
-      .get<RosterPick[]>(`/league-seasons/${seasonId}/roster/${userId}`)
-      .then(setRoster)
-      .catch(() => setRoster([]))
-      .finally(() => setRosterFor(seasonId))
-    // A roster save or swap that drops the doubled castaway deletes the play
-    // server-side (roster.py). Refetch so the hero doesn't keep showing a play
-    // that no longer exists — Undo on it came back "Advantage not found".
-    if (rosterVersion > 0) {
-      api
-        .get<AdvantagePlay[]>(`/league-seasons/${seasonId}/advantage-plays/${userId}`)
-        .then(setPlays)
-        .catch(() => {})
-    }
-  }, [season, userId, rosterVersion])
-  useEffect(() => {
-    if (!openEp || !userId || !season) {
-      setOpenPicks([])
-      return
-    }
-    const episodeId = openEp.id
-    api
-      .get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episodeId}/picks/${userId}`)
-      .then(setOpenPicks)
-      .catch(() => setOpenPicks([]))
-      .finally(() => setPicksFor(episodeId))
-  }, [openEp?.id, userId, ballotVersion, season?.id])
+  const openPicksPath = own && openEp ? `${own}/episodes/${openEp.id}/picks/${userId}` : null
+  const openPicksQ = useQuery(pathQuery<EliminationPick[]>(openPicksPath))
+
+  // An optimistic play or ballot lands in the cache rather than in a second
+  // copy of it, so the hero, the roster and the ballot all move together and
+  // the write's own invalidate is what reconciles them (#487).
+  const setPlays = useCallback<React.Dispatch<React.SetStateAction<AdvantagePlay[]>>>(
+    (update) => {
+      if (!playsPath) return
+      client.setQueryData<AdvantagePlay[]>(['api', playsPath], (prev) =>
+        typeof update === 'function' ? update(prev ?? []) : update,
+      )
+    },
+    [client, playsPath],
+  )
+  const setOpenPicks = useCallback(
+    (picks: EliminationPick[]) => {
+      if (openPicksPath) client.setQueryData(['api', openPicksPath], picks)
+    },
+    [client, openPicksPath],
+  )
+
+  const standings = standingsQ.data ?? []
+  // Standings come back rank-ordered, so the user's index is their rank.
+  const idx = standings.findIndex((s) => s.user_id === userId)
 
   return {
     userId,
-    roster,
-    openPicks,
+    // A failed roster or ballot read draws the section empty rather than
+    // erroring the page, exactly as their `.catch` did.
+    roster: rosterQ.data ?? [],
+    openPicks: openPicksQ.data ?? [],
     setOpenPicks,
-    bumpBallot: () => setBallotVersion((v) => v + 1),
     season,
-    contestants,
+    contestants: contestantsQ.data ?? [],
     episodes,
-    standing,
-    breakdown,
-    plays,
+    standing: standings.find((s) => s.user_id === userId) ?? null,
+    breakdown: breakdownQ.data ?? EMPTY_BREAKDOWN,
+    plays: playsQ.data ?? [],
     setPlays,
-    rank,
-    playerCount,
-    // Ready when there is nothing to fetch, or when what came back belongs to
-    // the season and episode now on screen.
+    rank: idx >= 0 ? idx + 1 : null,
+    playerCount: standings.length,
+    // The hero's headline and colour are computed from the roster and this
+    // episode's ballot, so both are part of the load: with an empty roster and
+    // no ballot the week reads as owed, and the page used to open on "your
+    // ballot and tribe both need you" and correct itself a moment later.
     loading:
-      loading ||
-      (Boolean(season) && Boolean(userId) && rosterFor !== season?.id) ||
-      (Boolean(openEp) && Boolean(userId) && picksFor !== openEp?.id),
-    error,
-    rosterVersion,
-    bumpRoster: () => setRosterVersion((v) => v + 1),
-    automaticResult,
-    setAutomaticResult,
+      seasonsQ.isPending ||
+      // The one render between the list landing and the latch above.
+      ((seasonsQ.data?.length ?? 0) > 0 && seasonId == null) ||
+      (season != null &&
+        (contestantsQ.isPending ||
+          episodesQ.isPending ||
+          standingsQ.isPending ||
+          breakdownQ.isPending ||
+          playsQ.isPending ||
+          revealQ.isPending ||
+          rosterQ.isPending ||
+          (openEp != null && openPicksQ.isPending))),
+    error:
+      seasonsQ.error ??
+      contestantsQ.error ??
+      episodesQ.error ??
+      standingsQ.error ??
+      breakdownQ.error ??
+      playsQ.error ??
+      revealQ.error,
+    automaticResult: revealQ.data ?? null,
+    revealPath,
   }
 }
 
@@ -259,54 +245,55 @@ function useWeeklyPlay(
   episodes: Episode[],
   plays: AdvantagePlay[],
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>,
+  userId: string,
 ) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const ep = openEpisode(episodes, season)
   const play = ep ? plays.find((p) => p.episode_id === ep.id) : undefined
   // Locked once past the finale cutoff, or not open yet during the watch-only
   // premiere (RosterSection also renders then, so its band must stay hidden).
   const locked = ep ? advantagesLocked(ep, season) || !advantagesOpenYet(season, episodes) : true
 
-  async function spend(advantageType: string, targetContestantId?: string) {
-    setBusy(true)
-    setError(null)
-    try {
-      const created = await api.post<AdvantagePlay>(
-        `/league-seasons/${season.id}/advantage-plays`,
-        {
-          advantage_type: advantageType,
-          target_contestant_id: targetContestantId ?? null,
-        },
-      )
-      setPlays((prev) => [...prev, created])
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Advantage failed')
-    } finally {
-      setBusy(false)
-    }
-  }
+  // A play writes the ballot as well as the play: the Power Vote's name is a
+  // pick, and taking it back removes it and closes the ladder up
+  // (advantage_plays.py). Both are named here, once, after the whole write —
+  // a blanket invalidate would fire between the delete and the post of a move
+  // and snap the idol back to the row it just left (#487).
+  const own = `/league-seasons/${season.id}`
+  const invalidates = [
+    `${own}/advantage-plays/${userId}`,
+    `${own}/picks/${userId}`,
+    ...(ep ? [`${own}/episodes/${ep.id}/picks/${userId}`] : []),
+  ]
 
-  async function takeBack(target: AdvantagePlay) {
-    setBusy(true)
-    setError(null)
-    try {
-      await api.delete(`/advantage-plays/${target.id}`)
-      setPlays((prev) => prev.filter((p) => p.id !== target.id))
-      return true
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Take back failed')
-      return false
-    } finally {
-      setBusy(false)
-    }
+  const takeBackM = useApiMutation({
+    write: (target: AdvantagePlay) => api.quiet.delete(`/advantage-plays/${target.id}`),
+    invalidates,
+    onSuccess: (_result, target) => setPlays((prev) => prev.filter((p) => p.id !== target.id)),
+  })
+
+  const replaceM = useApiMutation({
+    write: async (vars: { advantageType: string; targetContestantId?: string; priorId?: string }) => {
+      if (vars.priorId) await api.quiet.delete(`/advantage-plays/${vars.priorId}`)
+      return api.quiet.post<AdvantagePlay>(`${own}/advantage-plays`, {
+        advantage_type: vars.advantageType,
+        target_contestant_id: vars.targetContestantId ?? null,
+      })
+    },
+    invalidates,
+    onSuccess: (created, vars) =>
+      setPlays((prev) => [
+        ...prev.filter((p) => p.id !== vars.priorId && !p.id.startsWith('pending-')),
+        created,
+      ]),
+  })
+
+  function takeBack(target: AdvantagePlay) {
+    takeBackM.mutate(target)
   }
 
   /** Play the week's advantage, or swap the current one for another. */
-  async function replace(advantageType: string, targetContestantId?: string) {
+  function replace(advantageType: string, targetContestantId?: string) {
     if (!ep) return
-    setBusy(true)
-    setError(null)
     // Show the play on its home (the doubled row, the ballot seal, the strip
     // status) in the same render — whether a first play or a move — instead of
     // after the delete+post round-trip, which read as a hiccup then a pop
@@ -321,36 +308,28 @@ function useWeeklyPlay(
       points_earned: null,
     }
     setPlays((prev) => [...prev.filter((p) => p.id !== play?.id), optimistic])
-    try {
-      if (play) {
-        await api.delete(`/advantage-plays/${play.id}`)
-      }
-      const created = await api.post<AdvantagePlay>(
-        `/league-seasons/${season.id}/advantage-plays`,
-        {
-          advantage_type: advantageType,
-          target_contestant_id: targetContestantId ?? null,
-        },
-      )
-      setPlays((prev) => [
-        ...prev.filter((p) => p.id !== play?.id && p.id !== optimistic.id),
-        created,
-      ])
-      return true
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Advantage failed')
-      // Roll the optimistic entry back to the prior play, or remove it.
-      setPlays((prev) => {
-        const without = prev.filter((p) => p.id !== optimistic.id)
-        return play ? [...without, play] : without
-      })
-      return false
-    } finally {
-      setBusy(false)
-    }
+    replaceM.mutate(
+      { advantageType, targetContestantId, priorId: play?.id },
+      {
+        // Roll the optimistic entry back to the prior play, or remove it.
+        onError: () =>
+          setPlays((prev) => {
+            const without = prev.filter((p) => p.id !== optimistic.id)
+            return play ? [...without, play] : without
+          }),
+      },
+    )
   }
 
-  return { openEpisode: ep, play, locked, busy, error, spend, takeBack, replace }
+  return {
+    openEpisode: ep,
+    play,
+    locked,
+    busy: takeBackM.isPending || replaceM.isPending,
+    error: takeBackM.error?.message ?? replaceM.error?.message ?? null,
+    takeBack,
+    replace,
+  }
 }
 
 export function MySeasonPage() {
@@ -500,8 +479,6 @@ export function MySeasonPage() {
   // Back closes it instead of leaving the page, and a refresh restores it.
   const [searchParams, setSearchParams] = useSearchParams()
   const recapId = searchParams.get('recap')
-  const [replayResult, setReplayResult] = useState<EpisodeResult | null>(null)
-  const [replayLoading, setReplayLoading] = useState<string | null>(null)
   const [replayError, setReplayError] = useState<string | null>(null)
   // Held a render behind the recap param so paging to a neighbour swaps the
   // card in place instead of unmounting and replaying the enter animation.
@@ -538,37 +515,36 @@ export function MySeasonPage() {
     }
   }, [d.automaticResult, recapId, setRecapParam])
 
-  // Derives what the recap shows from the URL param alone: absent closes it,
-  // matching the automatic result shows that (no fetch needed), otherwise
-  // fetch (or reuse) the replay for that episode.
+  // What the recap shows comes from the URL param alone: absent closes it,
+  // matching the automatic result shows that (no read needed), otherwise the
+  // replay for that episode is read here — and kept, so paging to a neighbour
+  // and back doesn't ask again.
+  const replayPath =
+    d.season && recapId && recapId !== d.automaticResult?.episode_id
+      ? `/league-seasons/${d.season.id}/episode-results/${recapId}`
+      : null
+  const replayQ = useQuery(pathQuery<EpisodeResult>(replayPath))
+  const replayResult = replayQ.data ?? null
+  const replayLoading = replayPath && replayQ.isPending ? recapId : null
+  // A recap that can't be read closes rather than sitting empty; its message
+  // stays on the History sheet it was opened from.
   useEffect(() => {
-    if (!recapId) {
-      setReplayResult(null)
-      return
-    }
-    if (recapId === d.automaticResult?.episode_id) return
-    if (replayResult?.episode_id === recapId) return
-    if (!d.season) return
-    let live = true
-    setReplayLoading(recapId)
-    setReplayError(null)
-    api
-      .get<EpisodeResult>(`/league-seasons/${d.season.id}/episode-results/${recapId}`)
-      .then((res) => {
-        if (live) setReplayResult(res)
-      })
-      .catch((error) => {
-        if (!live) return
-        setReplayError(error instanceof Error ? error.message : 'Could not load episode result')
-        setRecapParam(null)
-      })
-      .finally(() => {
-        if (live) setReplayLoading(null)
-      })
-    return () => {
-      live = false
-    }
-  }, [recapId, d.season, d.automaticResult?.episode_id, replayResult?.episode_id, setRecapParam])
+    if (!replayQ.error) return
+    setReplayError(replayQ.error.message)
+    setRecapParam(null)
+  }, [replayQ.error, setRecapParam])
+
+  // Acknowledging a reveal changes nothing else on the page: the card is
+  // dismissed for good, and `/reveal` answers with the next unseen result or
+  // with nothing (#816). Closing is immediate — the refetch only confirms it.
+  const acknowledge = useApiMutation({
+    write: ({ leagueSeasonId, episodeId }: { leagueSeasonId: string; episodeId: string }) =>
+      api.quiet.post(`/league-seasons/${leagueSeasonId}/reveal-acknowledgement`, {
+        episode_id: episodeId,
+      }),
+    invalidates: d.revealPath ? [d.revealPath] : [],
+    onSuccess: () => setRecapParam(null),
+  })
 
   // What the recap should show for the current param: the fresh automatic
   // result, or the fetched replay once it matches.
@@ -598,8 +574,11 @@ export function MySeasonPage() {
     return () => window.clearTimeout(timer)
   }, [picking])
 
+  // Before the loader, not after it: the season-scoped reads stay disabled
+  // until the league-season list answers, and a disabled query reads as
+  // pending forever, so a refused read would sit under the loader for good.
+  if (d.error) return <p className="text-terracotta-600">{d.error.message}</p>
   if (d.loading) return <PageLoader />
-  if (d.error) return <p className="text-terracotta-600">{d.error}</p>
   // #520 gave Standings, Cast, and Rules the cold-start screen but not the
   // landing page, so the commissioner arriving at a league with no season met a
   // grey line instead of #526's "Create the first season" way in.
@@ -613,17 +592,18 @@ export function MySeasonPage() {
   const state = resolveMySeasonState(d.season, d.episodes)
 
   function openReplay(episode: Episode) {
+    setReplayError(null)
     if (recapId === episode.id) return
     setRecapParam(episode.id)
   }
 
   async function acknowledgeResult() {
-    if (!d.automaticResult) return
-    await api.post(`/league-seasons/${d.season!.id}/reveal-acknowledgement`, {
-      episode_id: d.automaticResult.episode_id,
+    if (!d.automaticResult || !d.season) return
+    // Throws on failure, which is how the card knows to stay up and say so.
+    await acknowledge.mutateAsync({
+      leagueSeasonId: d.season.id,
+      episodeId: d.automaticResult.episode_id,
     })
-    d.setAutomaticResult(null)
-    setRecapParam(null)
   }
 
   // Scored episodes in air order, so the recap pager can step to a neighbour by
@@ -843,8 +823,6 @@ export function MySeasonPage() {
                   rosterPoints={rosterPoints}
                   plays={d.plays}
                   setPlays={d.setPlays}
-                  onRosterChange={d.bumpRoster}
-                  rosterVersion={d.rosterVersion}
                 />
               </div>
             </RecordPanel>
@@ -887,6 +865,7 @@ export function MySeasonPage() {
               season={d.season}
               episodes={d.episodes}
               contestants={d.contestants}
+              userId={d.userId}
               plays={d.plays}
               setPlays={d.setPlays}
             />
@@ -900,8 +879,6 @@ export function MySeasonPage() {
             contestants={d.contestants}
             episodes={d.episodes}
             userId={d.userId}
-            rosterVersion={d.rosterVersion}
-            onRosterChange={d.bumpRoster}
             onStartSoleSurvivor={() => {
               setBeat('roster')
               setPicking('sole-survivor')
@@ -934,8 +911,6 @@ export function MySeasonPage() {
                 soleSurvivorBonus={d.breakdown.sole_survivor_bonus}
                 plays={d.plays}
                 setPlays={d.setPlays}
-                onRosterChange={d.bumpRoster}
-                rosterVersion={d.rosterVersion}
                 picking={picking}
                 onPickingDone={() => setPicking(null)}
                 onStartSwap={() => setPicking('swap')}
@@ -959,7 +934,6 @@ export function MySeasonPage() {
                 plays={d.plays}
                 setPlays={d.setPlays}
                 pickResults={pickResults}
-                onBallotSaved={d.bumpBallot}
                 onOpenPicks={d.setOpenPicks}
                 onFinaleProgress={setFinaleProgress}
                 onWorkingChange={setBallotWorking}
@@ -1180,8 +1154,6 @@ function CompleteState({
               soleSurvivorBonus={soleSurvivorBonus}
               plays={plays}
               setPlays={() => {}}
-              onRosterChange={() => {}}
-              rosterVersion={0}
             />
           </div>
         </RecordPanel>
@@ -1219,43 +1191,35 @@ function LockedState({
   plays: AdvantagePlay[]
   rosterPoints: Map<string, number>
 }) {
-  const [picks, setPicks] = useState<EliminationPick[] | null>(null)
-  const [roster, setRoster] = useState<RosterPick[] | null>(null)
-  // Finale only: the bracket ballot replaces the weekly boot vote. null once
-  // loaded means nothing was submitted.
-  const [finale, setFinale] = useState<FinalePrediction | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  // At the finale there is no weekly boot vote — the locked ballot is the
+  // Final 4/3/winner bracket, so the prediction is read instead of the picks.
+  // A refused prediction (404, no ballot submitted) reads as no ballot rather
+  // than erroring the page, the way its `.catch` did.
+  const rosterQ = useQuery(
+    pathQuery<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`),
+  )
+  const picksQ = useQuery(
+    pathQuery<EliminationPick[]>(
+      episode.is_finale
+        ? null
+        : `/league-seasons/${season.id}/episodes/${episode.id}/picks/${userId}`,
+    ),
+  )
+  const finaleQ = useQuery(
+    pathQuery<FinalePrediction>(
+      episode.is_finale ? `/league-seasons/${season.id}/finale-predictions/${userId}` : null,
+    ),
+  )
+  const finale = finaleQ.data ?? null
+  const picks = episode.is_finale ? [] : (picksQ.data ?? null)
+  const roster = rosterQ.data?.filter((pick) => pick.active_until_episode === null) ?? null
 
-  useEffect(() => {
-    let live = true
-    // At the finale there is no weekly boot vote — the locked ballot is the
-    // Final 4/3/winner bracket. Fetch the prediction instead of the picks;
-    // a 404 (no ballot yet) resolves to null rather than erroring the page.
-    const rosterReq = api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
-    const ballotReq = episode.is_finale
-      ? api.get<FinalePrediction>(`/league-seasons/${season.id}/finale-predictions/${userId}`).catch(() => null)
-      : api.get<EliminationPick[]>(`/league-seasons/${season.id}/episodes/${episode.id}/picks/${userId}`)
-    void Promise.all([ballotReq, rosterReq])
-      .then(([ballot, savedRoster]) => {
-        if (!live) return
-        if (episode.is_finale) {
-          setFinale(ballot as FinalePrediction | null)
-          setPicks([]) // no weekly ballot at the finale; satisfies the load gate
-        } else {
-          setPicks(ballot as EliminationPick[])
-        }
-        setRoster(savedRoster.filter((pick) => pick.active_until_episode === null))
-      })
-      .catch((error) => {
-        if (live) setLoadError(error instanceof Error ? error.message : 'Failed to load locked decisions')
-      })
-    return () => {
-      live = false
-    }
-  }, [episode.id, episode.is_finale, season.id, userId])
-
-  if (loadError) return <p className="text-terracotta-600">{loadError}</p>
-  if (picks == null || roster == null) return <PageLoader />
+  // Error before loader: a disabled query stays pending, so a refused read
+  // would otherwise sit under the loader for good.
+  const loadError = rosterQ.error ?? picksQ.error
+  if (loadError) return <p className="text-terracotta-600">{loadError.message}</p>
+  if (picks == null || roster == null || (episode.is_finale && finaleQ.isPending))
+    return <PageLoader />
 
   const contestantMap = new Map(contestants.map((contestant) => [contestant.id, contestant]))
   const played = plays.find((play) => play.episode_id === episode.id)
@@ -1461,22 +1425,15 @@ function LeagueHub({
   /** The Count tiles ride the locked screen; a recap wants only The Field. */
   showCount?: boolean
 }) {
-  const [entries, setEntries] = useState<HubEntry[] | null>(null)
-  const [failed, setFailed] = useState(false)
   // Which player rows are open. Native <details> keeps its own state, so this
   // mirrors it through onToggle and lets one control open or close them all.
   const [openRows, setOpenRows] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    let live = true
-    api
-      .get<HubEntry[]>(`/league-seasons/${leagueSeasonId}/episodes/${episodeId}/hub`)
-      .then((rows) => live && setEntries(rows))
-      .catch(() => live && setFailed(true))
-    return () => {
-      live = false
-    }
-  }, [episodeId])
+  const hubQ = useQuery(
+    pathQuery<HubEntry[]>(`/league-seasons/${leagueSeasonId}/episodes/${episodeId}/hub`),
+  )
+  const entries = hubQ.data ?? null
+  const failed = hubQ.isError
 
   // Flat and unshadowed on purpose: the personal card above is the lit one,
   // these are the league's paperwork. The episode is named at page level, so
@@ -1866,9 +1823,6 @@ function HistorySection({
   standing: StandingEntry | null
 }) {
   const [open, setOpen] = useState(false)
-  // Past ballots, fetched the first time the sheet is opened rather than on
-  // every page load — they are reference, and nobody reads them most weeks.
-  const [pastBallots, setPastBallots] = useState<Map<string, EliminationPick[]> | null>(null)
 
   // Weekly ballots only: the finale is its own 3-part ballot (#86), and
   // pre-roster-lock premieres accept no votes (#82).
@@ -1882,20 +1836,23 @@ function HistorySection({
     .filter((ep) => episodeClosed(ep) && ep.id !== currentBallotEp?.id)
     .reverse()
 
+  // Past ballots, read the first time the sheet is opened rather than on every
+  // page load — they are reference, and nobody reads them most weeks. One
+  // keyed request for every closed episode's picks (#558), and the same path
+  // the open ballot reads, so mid-season the sheet opens on an answer it
+  // already has. A refusal draws no ballots rather than holding "Loading…".
   const closedBallotIds = closedBallots.map((ep) => ep.id).join(',')
-  useEffect(() => {
-    if (!open || !closedBallotIds) return
-    let live = true
-    // One batched request for every closed episode's picks (#558), instead of
-    // fanning out one round-trip per ballot and blocking the tab on Promise.all.
-    api
-      .get<Record<string, EliminationPick[]>>(`/league-seasons/${season.id}/picks/${userId}`)
-      .then((byEpisode) => live && setPastBallots(new Map(Object.entries(byEpisode))))
-      .catch(() => live && setPastBallots(new Map()))
-    return () => {
-      live = false
-    }
-  }, [open, closedBallotIds, userId, season.id])
+  const pastQ = useQuery({
+    ...pathQuery<Record<string, EliminationPick[]>>(
+      `/league-seasons/${season.id}/picks/${userId}`,
+    ),
+    enabled: open && closedBallotIds !== '',
+  })
+  const pastBallots = pastQ.data
+    ? new Map(Object.entries(pastQ.data))
+    : pastQ.isError
+      ? new Map<string, EliminationPick[]>()
+      : null
 
   const scoredEpisodes = episodes
     .filter(
@@ -2346,12 +2303,14 @@ function AdvantageLane({
   season,
   episodes,
   contestants,
+  userId,
   plays,
   setPlays,
 }: {
   season: Season
   episodes: Episode[]
   contestants: Contestant[]
+  userId: string
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
 }) {
@@ -2359,7 +2318,7 @@ function AdvantageLane({
   // is; players kept missing the idol as the tap target (#691). The lane
   // says where the play sits, or where to go and play it, and once played
   // it holds the one control left: Undo. The tabs' strips leave with the play.
-  const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+  const weekly = useWeeklyPlay(season, episodes, plays, setPlays, userId)
   const episode = weekly.openEpisode
   // No advantage during the watch-only premiere, and none at the finale.
   if (!episode || episode.is_finale || !advantagesOpenYet(season, episodes)) return null
@@ -2401,7 +2360,7 @@ function AdvantageLane({
         play != null && !locked ? (
           <button
             type="button"
-            onClick={() => void weekly.takeBack(play)}
+            onClick={() => weekly.takeBack(play)}
             disabled={weekly.busy || play.id.startsWith('pending-')}
             className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-gold-200 underline underline-offset-2 disabled:opacity-40"
           >
@@ -2439,8 +2398,6 @@ function RosterSection({
   soleSurvivorBonus = 0,
   plays,
   setPlays,
-  onRosterChange,
-  rosterVersion,
   picking = null,
   onPickingDone,
   onStartSwap,
@@ -2462,8 +2419,6 @@ function RosterSection({
   soleSurvivorBonus?: number
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
-  onRosterChange: () => void
-  rosterVersion: number
   /** Roster rows answer the Advantage section's "who do you double?" (#398)
    *  and, since swaps left that economy (#404), the roster's own
    *  "who do you drop?". */
@@ -2475,21 +2430,12 @@ function RosterSection({
   /** Where the Swap chip renders: a slot the parent keeps under the lane card. */
   swapSlot?: HTMLElement | null
 }) {
-  const [roster, setRoster] = useState<RosterPick[]>([])
   // The swapped-out ledger, folded into the card's footer.
   const [swappedOpen, setSwappedOpen] = useState(false)
-  // Distinct from "loaded but empty": until the fetch lands, an empty roster
-  // must not render the "submission window has closed" fallback, which flashed
-  // on every refresh mid-season before the roster arrived.
-  const [rosterLoaded, setRosterLoaded] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Who is holding the stage light, for the beat after being chosen.
   // Second half of a swap: who you tapped to drop, waiting on who replaces them.
   const [dropping, setDropping] = useState<string | null>(null)
-  const [swapping, setSwapping] = useState(false)
-  const [designatingSS, setDesignatingSS] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   // Pre-lock, default to showing just your picks (so you can plan an advantage
   // on one); the full picker opens on Edit (#218).
   const [editing, setEditing] = useState(false)
@@ -2498,21 +2444,26 @@ function RosterSection({
   // performance the first time its card is opened.
   const { expandedId, perfs, toggleExpand } = useRosterBreakdown()
 
+  // The same roster the page and the Sole Survivor line read, so it is one
+  // request and one answer for all three (#816). The writes below name it, so
+  // a swap or a designation refreshes it without a version counter.
+  const rosterPath = `/league-seasons/${season.id}/roster/${userId}`
+  const playsPath = `/league-seasons/${season.id}/advantage-plays/${userId}`
+  const rosterQ = useQuery(pathQuery<RosterPick[]>(rosterPath))
+  const roster = rosterQ.data ?? []
+  // Distinct from "loaded but empty": until the read lands, an empty roster
+  // must not render the "submission window has closed" fallback, which flashed
+  // on every refresh mid-season before the roster arrived. A refusal counts as
+  // answered, as it did when the failure set the error and left the list empty.
+  const rosterLoaded = !rosterQ.isPending
+
+  // Seed the picker from the current active roster so pre-lock edits start
+  // from what you already have (issue #84 free rearranging), and again after a
+  // write changes it — the same refresh the version counter used to force.
   useEffect(() => {
-    api
-      .get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
-      .then((picks) => {
-        setRoster(picks)
-        // Seed the picker from the current active roster so pre-lock edits
-        // start from what you already have (issue #84 free rearranging).
-        const active = picks.filter((p) => p.active_until_episode === null)
-        if (active.length) setSelected(new Set(active.map((p) => p.contestant_id)))
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load tribe'))
-      .finally(() => setRosterLoaded(true))
-    // rosterVersion: refetch when a sibling section changes the roster (e.g. a
-    // Sole Survivor designation) so the SS stamp updates without a reload.
-  }, [season.id, userId, rosterVersion])
+    const active = (rosterQ.data ?? []).filter((p) => p.active_until_episode === null)
+    if (active.length) setSelected(new Set(active.map((p) => p.contestant_id)))
+  }, [rosterQ.data])
 
   const lockEpisode =
     season.roster_lock_episode != null
@@ -2559,7 +2510,7 @@ function RosterSection({
   // Double Castaway Points target the next open episode's roster scoring (#81),
   // and draw on the same single weekly play as the vote double and paid
   // swaps (#307).
-  const weekly = useWeeklyPlay(season, episodes, plays, setPlays)
+  const weekly = useWeeklyPlay(season, episodes, plays, setPlays, userId)
 
   // A voted-out castaway lingers on the board — greyed — for the episode after
   // their boot, then sinks into the eliminated bin below with the swapped-out
@@ -2669,79 +2620,57 @@ function RosterSection({
     onMomentPending?.(momentPending)
   }, [momentPending, onMomentPending])
 
-  async function undoSwap(contestantId: string) {
-    setSwapping(true)
-    setError(null)
-    try {
-      await api.delete(`/league-seasons/${season.id}/roster/swap/${contestantId}`)
-      setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
-      onRosterChange()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Undo failed')
-    } finally {
-      setSwapping(false)
-    }
-  }
-
-  async function commitSwap(newContestantId: string) {
-    if (!dropping) return
-    setSwapping(true)
-    setError(null)
-    try {
-      await api.post<RosterPick>(`/league-seasons/${season.id}/roster/swap`, {
+  // Every roster write names the roster and the plays: a save or a swap that
+  // drops the doubled castaway deletes that play server-side (roster.py), and
+  // the hero kept offering Undo on an advantage that no longer existed. The
+  // refetch is awaited, so a control can't flick back to the old answer.
+  const undo = useApiMutation({
+    write: (contestantId: string) =>
+      api.quiet.delete(`/league-seasons/${season.id}/roster/swap/${contestantId}`),
+    invalidates: [rosterPath, playsPath],
+  })
+  const swap = useApiMutation({
+    write: (newContestantId: string) =>
+      api.quiet.post<RosterPick>(`/league-seasons/${season.id}/roster/swap`, {
         old_contestant_id: dropping,
         new_contestant_id: newContestantId,
-      })
-      // The roster changed — the weekly play is no longer involved (#404).
-      const picks = await api.get<RosterPick[]>(
-        `/league-seasons/${season.id}/roster/${userId}`,
-      )
-      setRoster(picks)
-      onRosterChange()
+      }),
+    invalidates: [rosterPath, playsPath],
+    onSuccess: () => {
       setDropping(null)
       onPickingDone?.()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Swap failed')
-    } finally {
-      setSwapping(false)
-    }
-  }
-
+    },
+  })
   // Name the Sole Survivor by tapping a roster card in the pick mode the
-  // SoleSurvivorLine button starts — mirrors commitSwap (#164).
-  async function designateSoleSurvivor(contestantId: string) {
-    setDesignatingSS(true)
-    setError(null)
-    try {
-      await api.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, {
+  // SoleSurvivorLine button starts — mirrors the swap (#164). The breakdown
+  // carries the designation and its finale bonus, so it goes too.
+  const designate = useApiMutation({
+    write: (contestantId: string) =>
+      api.quiet.post<RosterPick>(`/league-seasons/${season.id}/sole-survivor`, {
         contestant_id: contestantId,
-      })
-      setRoster(await api.get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`))
-      onRosterChange()
-      onPickingDone?.()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not name your Sole Survivor')
-    } finally {
-      setDesignatingSS(false)
-    }
-  }
+      }),
+    invalidates: [rosterPath, `/league-seasons/${season.id}/scoring-breakdown/${userId}`],
+    onSuccess: () => onPickingDone?.(),
+  })
+  const submit = useApiMutation({
+    write: (contestantIds: string[]) =>
+      api.quiet.post<RosterPick[]>(`/league-seasons/${season.id}/roster`, {
+        contestant_ids: contestantIds,
+      }),
+    invalidates: [rosterPath, playsPath],
+    onSuccess: () => setEditing(false),
+  })
 
-  async function submitRoster() {
-    setSubmitting(true)
-    setError(null)
-    try {
-      const picks = await api.post<RosterPick[]>(`/league-seasons/${season.id}/roster`, {
-        contestant_ids: [...selected],
-      })
-      setRoster(picks)
-      setEditing(false)
-      onRosterChange()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Submit failed')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const swapping = undo.isPending || swap.isPending
+  const submitting = submit.isPending
+  const designatingSS = designate.isPending
+  const error =
+    rosterQ.error?.message ??
+    undo.error?.message ??
+    swap.error?.message ??
+    designate.error?.message ??
+    submit.error?.message ??
+    null
 
 
   // Pre-lock, Edit lives in the lane's footer (the Snuffed ledger's slot
@@ -2931,7 +2860,7 @@ function RosterSection({
                   !swapping &&
                   pick.active_from_episode > rosterBaseEp &&
                   pick.active_from_episode === openEpNumber
-                    ? () => void undoSwap(pick.contestant_id)
+                    ? () => undo.mutate(pick.contestant_id)
                     : undefined
                 }
                 right={<TeamPoints value={rosterPoints.get(pick.contestant_id) ?? 0} />}
@@ -2946,7 +2875,7 @@ function RosterSection({
                           // optimistically, so waiting for the round-trip
                           // held the stage a beat past the pick (#487).
                           onPickingDone?.()
-                          void weekly.replace('double_roster_points', pick.contestant_id)
+                          weekly.replace('double_roster_points', pick.contestant_id)
                         }
                       : // Only a still-active, still-in castaway can be the
                         // Sole Survivor (#164); the backend rejects the rest.
@@ -2954,7 +2883,7 @@ function RosterSection({
                           !designatingSS &&
                           pick.active_until_episode === null &&
                           contestantMap.get(pick.contestant_id)?.eliminated_in_episode == null
-                        ? () => void designateSoleSurvivor(pick.contestant_id)
+                        ? () => designate.mutate(pick.contestant_id)
                         : undefined
                 }
                 selected={
@@ -2998,7 +2927,7 @@ function RosterSection({
                 {swapCandidates.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => void commitSwap(c.id)}
+                    onClick={() => swap.mutate(c.id)}
                     disabled={swapping}
                     className="flex items-center gap-2 p-3 rounded-lg border border-cream-200 bg-white text-left text-sm font-medium text-gray-700 hover:border-forest-500 disabled:opacity-40"
                   >
@@ -3076,7 +3005,7 @@ function RosterSection({
           ))}
           <div className="flex items-center gap-3">
             <button
-              onClick={submitRoster}
+              onClick={() => submit.mutate([...selected])}
               disabled={selected.size !== season.roster_size || !rosterDirty || submitting}
               className="px-4 py-2 bg-jade-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-jade-700 transition-colors"
             >
@@ -3417,7 +3346,6 @@ function PicksSection({
   plays,
   setPlays,
   pickResults,
-  onBallotSaved,
   onOpenPicks,
   onFinaleProgress,
   onWorkingChange,
@@ -3429,7 +3357,6 @@ function PicksSection({
   plays: AdvantagePlay[]
   setPlays: React.Dispatch<React.SetStateAction<AdvantagePlay[]>>
   pickResults: Map<string, PickResult>
-  onBallotSaved?: () => void
   /** The open episode's saved picks, handed straight to the hero so it
    *  doesn't have to fetch them again (#673). */
   onOpenPicks?: (picks: EliminationPick[]) => void
@@ -3446,20 +3373,8 @@ function PicksSection({
   const [errors, setErrors] = useState<Map<string, string>>(new Map())
   const [editing, setEditing] = useState(false)
   // The season's rung values, for the labels on the ladder. Older seasons
-  // have none and the rungs go unlabelled.
-  const [rules, setRules] = useState<RulesResponse | null>(null)
-  useEffect(() => {
-    let stale = false
-    api
-      .get<RulesResponse>(`/league-seasons/${season.id}/rules`)
-      .then((r) => {
-        if (!stale) setRules(r)
-      })
-      .catch(() => undefined)
-    return () => {
-      stale = true
-    }
-  }, [season.id])
+  // have none, and a refused read leaves the rungs unlabelled the same way.
+  const rules = useQuery(pathQuery<RulesResponse>(`/league-seasons/${season.id}/rules`)).data
   /** What a rung (1 = top) or the Power Vote (0) pays this episode, or null
    *  when the season has no such value. */
   function rungValue(ep: Episode, rank: number): number | null {
@@ -3470,43 +3385,49 @@ function PicksSection({
     return post ? (row.postmerge_point_value ?? row.point_value) : row.point_value
   }
 
+  // One keyed request for every episode's picks (#558/#803), not one per
+  // episode: the fan-out grew a round trip every week of the season. The
+  // History sheet reads the same path, so between them it is one request.
+  const savedQ = useQuery(
+    pathQuery<Record<string, EliminationPick[]>>(`/league-seasons/${season.id}/picks/${userId}`),
+  )
+  // The editable copy is seeded once, whichever way that read lands — a
+  // refusal seeds an empty ballot, as its `.catch` did. It is not re-seeded
+  // from later answers: the ballot below keeps this copy itself, through the
+  // save's response and the re-read the play change triggers, and a seed
+  // landing mid-edit would take names off the ladder as they were written.
+  const [seeded, setSeeded] = useState(false)
   useEffect(() => {
-    async function load() {
-      // One request for every episode's picks (#558/#803), not one per
-      // episode: the fan-out grew a round trip every week of the season.
-      const byEpisode = await api
-        .get<Record<string, EliminationPick[]>>(`/league-seasons/${season.id}/picks/${userId}`)
-        .catch(() => ({}) as Record<string, EliminationPick[]>)
-      const picksMap = new Map(Object.entries(byEpisode))
-      setPicksByEpisode(picksMap)
-      // Drop picks whose castaway was eliminated in an EARLIER episode (#96):
-      // they can't come true, and leaving them wastes a vote slot and shows up
-      // as a Double Vote target. Seeds the editable set with only live picks.
-      // The Power Vote's name is a pick on the server (#673) but lives on
-      // its own sheet here, so it never takes one of the ballot's slots.
-      const elimEp = new Map(contestants.map((c) => [c.id, c.eliminated_in_episode]))
-      const pendingMap = new Map<string, string[]>()
-      for (const ep of episodes) {
-        if (isEpisodeOpen(ep, season, episodes)) {
-          const power = plays.find(
-            (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
-          )?.target_contestant_id
-          const saved = picksMap.get(ep.id) ?? []
-          // The server answers in ladder order (#694).
-          const live = saved.filter((p) => {
-            const out = elimEp.get(p.contestant_id)
-            return p.contestant_id !== power && (out == null || out >= ep.episode_number)
-          })
-          pendingMap.set(ep.id, live.map((p) => p.contestant_id))
-        }
+    if (seeded || savedQ.isPending) return
+    const picksMap = new Map(Object.entries(savedQ.data ?? {}))
+    setPicksByEpisode(picksMap)
+    // Drop picks whose castaway was eliminated in an EARLIER episode (#96):
+    // they can't come true, and leaving them wastes a vote slot and shows up
+    // as a Double Vote target. Seeds the editable set with only live picks.
+    // The Power Vote's name is a pick on the server (#673) but lives on
+    // its own sheet here, so it never takes one of the ballot's slots.
+    const elimEp = new Map(contestants.map((c) => [c.id, c.eliminated_in_episode]))
+    const pendingMap = new Map<string, string[]>()
+    for (const ep of episodes) {
+      if (isEpisodeOpen(ep, season, episodes)) {
+        const power = plays.find(
+          (p) => p.episode_id === ep.id && p.advantage_type === 'double_vote_points',
+        )?.target_contestant_id
+        const saved = picksMap.get(ep.id) ?? []
+        // The server answers in ladder order (#694).
+        const live = saved.filter((p) => {
+          const out = elimEp.get(p.contestant_id)
+          return p.contestant_id !== power && (out == null || out >= ep.episode_number)
+        })
+        pendingMap.set(ep.id, live.map((p) => p.contestant_id))
       }
-      setPending(pendingMap)
     }
-    void load()
-    // plays: only the first load seeds; a later Power Vote change re-reads
-    // the one open ballot below instead.
+    setPending(pendingMap)
+    setSeeded(true)
+    // plays, contestants and episodes are read as they are at the seed; a
+    // later Power Vote change re-reads the one open ballot below instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodes, season, userId, contestants])
+  }, [seeded, savedQ.isPending, savedQ.data])
 
   const contestantMap = new Map(contestants.map((c) => [c.id, c]))
   const isOpen = (ep: Episode) => isEpisodeOpen(ep, season, episodes)
@@ -3534,7 +3455,7 @@ function PicksSection({
     })
   }
 
-  const play = useWeeklyPlay(season, episodes, plays, setPlays)
+  const play = useWeeklyPlay(season, episodes, plays, setPlays, userId)
 
   // Power Vote (#673): the advantage played on the ballot. Designating a
   // name is the play — the idol drags onto a cast card, or the card's idol
@@ -3598,7 +3519,7 @@ function PicksSection({
       ),
     )
     // Any other play this week gives way, same as on the roster.
-    void play.replace('double_vote_points', contestantId)
+    play.replace('double_vote_points', contestantId)
   }
 
   /** Move the Power Vote to another name, like dragging the seal between
@@ -3725,8 +3646,7 @@ function PicksSection({
         lastTarget.current = res.play.target_contestant_id ?? null
       }
       // The Ballot beat shows the saved count, so it follows the save.
-      if (onOpenPicks) onOpenPicks(res.picks)
-      else onBallotSaved?.()
+      onOpenPicks?.(res.picks)
       return true
     } catch (e) {
       setPicksByEpisode((prev) => new Map(prev).set(episodeId, before.picks))
@@ -3801,14 +3721,13 @@ function PicksSection({
         const was = pendingRef.current.get(epId) ?? []
         const next = [...was, ...saved.filter((id) => !was.includes(id))].filter((id) => id !== power)
         setPending((prev) => new Map(prev).set(epId, next))
-        if (onOpenPicks) onOpenPicks(picks)
-        else onBallotSaved?.()
+        onOpenPicks?.(picks)
       })
       .catch(() => undefined)
     return () => {
       stale = true
     }
-  }, [ballotPlay?.id, ballotPlay?.target_contestant_id, settled, openEp, season.id, userId, contestants, onBallotSaved, onOpenPicks])
+  }, [ballotPlay?.id, ballotPlay?.target_contestant_id, settled, openEp, season.id, userId, contestants, onOpenPicks])
 
   // A ladder slip drags onto another rung to reorder, or up into the gold
   // rung to become the Power Vote (#694). Up/down buttons are the tap path.
@@ -3884,7 +3803,6 @@ function PicksSection({
           episodes={episodes}
           finaleEp={finaleEp}
           userId={userId}
-          onBallotSaved={onBallotSaved}
           onProgress={onFinaleProgress}
         />
       )}
@@ -4034,7 +3952,7 @@ function PicksSection({
                             type="button"
                             onClick={() =>
                               isPower
-                                ? void play.takeBack(ballotPlay!)
+                                ? play.takeBack(ballotPlay!)
                                 : designating
                                   ? designatePower(c.id)
                                   : togglePick(ep.id, c.id, maxPicks)
@@ -4223,7 +4141,7 @@ function PicksSection({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => void play.takeBack(ballotPlay)}
+                                onClick={() => play.takeBack(ballotPlay)}
                                 disabled={play.busy || ballotPlay.id.startsWith('pending-')}
                                 aria-label={`Remove ${powerName}`}
                                 className="inline-flex size-8 items-center justify-center rounded-full text-paper-ink-faded hover:bg-terracotta-50 hover:text-terracotta-700 disabled:opacity-25"
@@ -4412,7 +4330,6 @@ function FinaleBallot({
   episodes,
   finaleEp,
   userId,
-  onBallotSaved,
   onProgress,
   actuals,
 }: {
@@ -4421,7 +4338,6 @@ function FinaleBallot({
   episodes: Episode[]
   finaleEp: Episode
   userId: string
-  onBallotSaved?: () => void
   /** Real placements, once the finale is scored: the bracket marks each pick. */
   actuals?: FinaleActuals
   /** Report bracket progress up so the hero tracks picks live. `saved` is true
@@ -4440,23 +4356,27 @@ function FinaleBallot({
 
   const locked = !isEpisodeOpen(finaleEp, season, episodes)
 
+  // The saved bracket, seeded once into the editable copy above: a refusal
+  // (404, nothing submitted yet) starts the form empty, as its `.catch` did,
+  // and the save below keeps this copy itself from then on.
+  const savedQ = useQuery(
+    pathQuery<FinalePrediction>(`/league-seasons/${season.id}/finale-predictions/${userId}`),
+  )
+  const [seeded, setSeeded] = useState(false)
   useEffect(() => {
-    api
-      .get<FinalePrediction>(`/league-seasons/${season.id}/finale-predictions/${userId}`)
-      .then((pred) => {
-        setFinalFour(pred.final_four_contestant_ids ?? [])
-        setFinalThree(pred.final_three_contestant_ids ?? [])
-        setWinner(pred.winner_contestant_id ?? '')
-        setHasSaved(
-          (pred.final_four_contestant_ids?.length ?? 0) > 0 ||
-            (pred.final_three_contestant_ids?.length ?? 0) > 0 ||
-            Boolean(pred.winner_contestant_id),
-        )
-      })
-      .catch(() => {
-        // No prediction yet — form starts empty
-      })
-  }, [season.id, userId])
+    if (seeded || savedQ.isPending) return
+    setSeeded(true)
+    const pred = savedQ.data
+    if (!pred) return
+    setFinalFour(pred.final_four_contestant_ids ?? [])
+    setFinalThree(pred.final_three_contestant_ids ?? [])
+    setWinner(pred.winner_contestant_id ?? '')
+    setHasSaved(
+      (pred.final_four_contestant_ids?.length ?? 0) > 0 ||
+        (pred.final_three_contestant_ids?.length ?? 0) > 0 ||
+        Boolean(pred.winner_contestant_id),
+    )
+  }, [seeded, savedQ.isPending, savedQ.data])
 
   // Report bracket progress to the hero on every pick change. `saved` is true
   // only while showing a committed ballot, so the hero's "all set" waits on a
@@ -4514,7 +4434,6 @@ function FinaleBallot({
       setSaved(true)
       setHasSaved(finalFour.length > 0 || finalThree.length > 0 || Boolean(winner))
       setEditing(false)
-      onBallotSaved?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submit failed')
     } finally {
@@ -4744,8 +4663,6 @@ function SoleSurvivorLine({
   contestants,
   episodes,
   userId,
-  rosterVersion,
-  onRosterChange,
   onStartSoleSurvivor,
   wait = false,
 }: {
@@ -4753,30 +4670,22 @@ function SoleSurvivorLine({
   contestants: Contestant[]
   episodes: Episode[]
   userId: string
-  rosterVersion: number
-  onRosterChange: () => void
   /** Start the pick: the roster rows answer it, the way Swap works (#164). */
   onStartSoleSurvivor?: () => void
   /** Another card is up or owed (results, first loss): the moment waits. */
   wait?: boolean
 }) {
-  const [roster, setRoster] = useState<RosterPick[]>([])
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [loaded, setLoaded] = useState(false)
   // The name-your-Sole-Survivor moment (#164): a one-time popup that explains
   // the stakes, then leaves the button pulsing. Once per browser.
   const [naming, setNaming] = useState<'popup' | 'nudge' | null>(null)
 
-  // Refetch when the roster changes (rosterVersion) so a pre-lock swap can't
-  // leave a removed castaway designated or hide the new pick (#180 follow-up).
-  useEffect(() => {
-    api
-      .get<RosterPick[]>(`/league-seasons/${season.id}/roster/${userId}`)
-      .then(setRoster)
-      .catch(() => setRoster([]))
-      .finally(() => setLoaded(true))
-  }, [season.id, userId, rosterVersion])
+  // The page's roster read, shared (#816): a pre-lock swap can't leave a
+  // removed castaway designated here or hide the new pick, because the write
+  // that made it named this path (#180 follow-up).
+  const rosterPath = `/league-seasons/${season.id}/roster/${userId}`
+  const rosterQ = useQuery(pathQuery<RosterPick[]>(rosterPath))
+  const roster = rosterQ.data ?? []
+  const loaded = !rosterQ.isPending
 
   const nameOf = (id: string) => {
     const c = contestants.find((c) => c.id === id)
@@ -4804,19 +4713,12 @@ function SoleSurvivorLine({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, windowOpen, designee, namingKey, wait])
 
-  async function clearDesignation() {
-    setSaving(true)
-    setError(null)
-    try {
-      await api.delete(`/league-seasons/${season.id}/sole-survivor`)
-      setRoster((rs) => rs.map((p) => ({ ...p, is_sole_survivor: false })))
-      onRosterChange()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Undo failed')
-    } finally {
-      setSaving(false)
-    }
-  }
+  const clearDesignation = useApiMutation({
+    write: () => api.quiet.delete(`/league-seasons/${season.id}/sole-survivor`),
+    invalidates: [rosterPath, `/league-seasons/${season.id}/scoring-breakdown/${userId}`],
+  })
+  const saving = clearDesignation.isPending
+  const error = clearDesignation.error?.message ?? null
 
   // Locked: the roster row already carries the Sole Survivor tag, so a second
   // box restating a decision nobody can change any more is just noise (#487).
@@ -4837,7 +4739,7 @@ function SoleSurvivorLine({
         {error && <span className="sr-only" role="alert">{error}</span>}
         <button
           type="button"
-          onClick={clearDesignation}
+          onClick={() => clearDesignation.mutate(undefined)}
           disabled={saving}
           className="shrink-0 font-display text-xs font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40"
         >

@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNavigate, useSearchParams } from 'react-router'
-import { api, getActiveSeason } from '../lib/api'
+import { api } from '../lib/api'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import type { Episode, EpisodeResult, Season } from '../types'
 import { renderWithApp } from '../test/render'
@@ -26,10 +26,20 @@ function BackButton() {
   )
 }
 
+// The writes that name what they changed go through `api.quiet.*` (#816).
+// Both sets are the same spies here: which of the two a write uses is the
+// query layer's business, covered in `lib/queries.test.ts`, and these tests
+// are about what the page sends.
+const { post, del } = vi.hoisted(() => ({ post: vi.fn(), del: vi.fn() }))
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-  getActiveSeason: vi.fn(),
+  api: {
+    get: vi.fn(),
+    post,
+    patch: vi.fn(),
+    delete: del,
+    quiet: { post, put: vi.fn(), patch: vi.fn(), delete: del },
+  },
 }))
 
 const season = {
@@ -110,13 +120,21 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
   }
 }
 
+/** The page reads which league-season it plays from /league-seasons (#816),
+ *  so every test answers that first and its own routes after. */
+function mockGet(leagueSeason: Season, routes: (path: string) => Promise<unknown>) {
+  vi.mocked(api.get).mockImplementation(async (path: string) =>
+    path === '/league-seasons' ? [leagueSeason] : routes(path),
+  )
+}
+
 function arrange(
   episodes: Episode[],
   automaticResult?: EpisodeResult,
   replayResult?: EpisodeResult,
+  leagueSeason: Season = season,
 ) {
-  vi.mocked(getActiveSeason).mockResolvedValue(season)
-  vi.mocked(api.get).mockImplementation(async (path: string) => {
+  mockGet(leagueSeason, async (path: string) => {
     // Show routes live on /seasons; play routes on /league-seasons (#595).
     if (/^\/league-seasons\/[^/]+\/(contestants|episodes)$/.test(path)) throw new Error(`No such route: ${path}`)
     if (/^\/episodes\/[^/]+\/picks/.test(path)) throw new Error(`No such route: ${path}`)
@@ -161,8 +179,7 @@ function arrangePlayWorld(initial: {
       { id: 'roster-2', contestant_id: 'cast-2', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0 },
     ],
   }
-  vi.mocked(getActiveSeason).mockResolvedValue(initial.preLock ? { ...season, roster_size: 2 } : season)
-  vi.mocked(api.get).mockImplementation(async (path: string) => {
+  mockGet(initial.preLock ? { ...season, roster_size: 2 } : season, async (path: string) => {
     if (path.endsWith('/episodes')) return [episode(openNumber - 1, 'scored', '2026-08-08T00:00:00Z'), open]
     if (path.endsWith('/contestants')) {
       return [
@@ -270,8 +287,7 @@ describe('MySeasonPage state shell', () => {
       releaseRoster = resolve
     })
 
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.includes('/roster/')) return rosterPending
       if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
@@ -343,8 +359,7 @@ describe('MySeasonPage state shell', () => {
     // The tribe is draftable then, but RosterSection renders in both states
     // and its useWeeklyPlay resolves to episode 2 — the one surface that used
     // to leak the "double point boost" play into the premiere (regression).
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'upcoming', '2099-08-20T00:00:00Z'),
@@ -371,8 +386,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('shows what each rostered castaway earned you, without a bio link', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -438,8 +452,7 @@ describe('MySeasonPage state shell', () => {
   it('supports a variable ballot limit, tribe grouping, selection, save, and edit', async () => {
     const user = userEvent.setup()
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open]
       if (path.endsWith('/contestants')) {
         return [
@@ -574,8 +587,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('offers the advantage on each tab, with swaps living on the roster', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, free_swaps: 1, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -906,8 +918,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('starts a swap from the roster, prices it, and commits it on the cards', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, free_swaps: 1, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, free_swaps: 1, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -961,8 +972,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('offers Undo on a swap made this episode, and reverses it', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1003,8 +1013,7 @@ describe('MySeasonPage state shell', () => {
 
   it('says the tribe has spoken the first time a castaway is voted out, then pulses Swap', async () => {
     localStorage.removeItem('mytribe.first-loss.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 10 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 10 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1053,8 +1062,7 @@ describe('MySeasonPage state shell', () => {
   it('holds the Sole Survivor card until the first-loss card is dismissed (#798)', async () => {
     localStorage.removeItem('mytribe.first-loss.season-1')
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 4 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 4 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [
           episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1092,8 +1100,7 @@ describe('MySeasonPage state shell', () => {
 
   it('keeps an unsaved ballot when you look at another beat', async () => {
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 2 }
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open]
       if (path.endsWith('/contestants')) {
         return [
@@ -1124,8 +1131,7 @@ describe('MySeasonPage state shell', () => {
   it('names a Sole Survivor by tapping the tribe once the pick window opens', async () => {
     // The naming popup has its own test; suppress it here.
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T00:00:00Z'), episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
@@ -1153,8 +1159,7 @@ describe('MySeasonPage state shell', () => {
 
   it('pops the info card when the window opens with nobody named, then leaves the button pulsing (#164)', async () => {
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
       if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T00:00:00Z'), episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
@@ -1183,8 +1188,7 @@ describe('MySeasonPage state shell', () => {
   it('prompts the hero for the Sole Survivor instead of "all set" while the window is open and none is named (#164)', async () => {
     localStorage.setItem('mytribe.name-sole-survivor.season-1', '1') // suppress the popup
     const open = { ...episode(2, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 1 }
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, swap_lock_episode: 3 })
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
       if (path.endsWith('/episodes')) {
         return [episode(1, 'scored', '2026-08-01T00:00:00Z'), open, episode(9, 'upcoming', '2099-09-27T00:00:00Z')]
       }
@@ -1237,8 +1241,7 @@ describe('MySeasonPage state shell', () => {
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
       episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
@@ -1277,8 +1280,7 @@ describe('MySeasonPage state shell', () => {
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
       { ...episode(2, 'upcoming', '2026-08-02T00:00:00Z'), is_finale: true },
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
@@ -1319,8 +1321,7 @@ describe('MySeasonPage state shell', () => {
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
       episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
     ]
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       if (path.endsWith('/episodes')) return episodes
       if (path.endsWith('/contestants')) {
         return [
@@ -1403,8 +1404,7 @@ describe('MySeasonPage state shell', () => {
   })
 
   it('previews the last episode on the History card from the standings row (#803)', async () => {
-    vi.mocked(getActiveSeason).mockResolvedValue(season)
-    vi.mocked(api.get).mockImplementation(async (path: string) => {
+    mockGet(season, async (path: string) => {
       // The card used to build a whole episode result for these two numbers.
       if (path.includes('/episode-results/')) throw new Error(`No such route: ${path}`)
       if (path.endsWith('/episodes')) {
@@ -1531,8 +1531,8 @@ describe('MySeasonPage state shell', () => {
         { ...episode(2, 'scored', '2026-08-08T00:00:00Z'), is_finale: true },
       ],
       result({ is_finale: true }),
+      { ...season, status: 'completed' },
     )
-    vi.mocked(getActiveSeason).mockResolvedValue({ ...season, status: 'completed' })
     vi.mocked(api.post).mockResolvedValue({})
     renderWithApp(<MySeasonPage />, { auth })
 
