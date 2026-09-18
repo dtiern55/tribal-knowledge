@@ -1439,9 +1439,10 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByRole('heading', { name: 'Results are pending' })).toBeVisible()
 
     // What a window focus or a write elsewhere does: everything refetches. The
-    // turn of the event loop is what gets the refetch's pending state on
-    // screen — react-query notifies through a microtask, so an act with
-    // nothing awaited in it returns before React has seen it.
+    // `setTimeout(0)` is what gets the refetch's pending state on screen:
+    // react-query schedules its notifications with `setTimeout(cb, 0)`
+    // (notifyManager), so an act with nothing awaited in it returns before
+    // React has been told anything.
     await act(async () => {
       void client.invalidateQueries()
       await new Promise((r) => setTimeout(r, 0))

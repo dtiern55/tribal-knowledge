@@ -215,11 +215,14 @@ describe('TeamPage', () => {
   })
 
   it('stays drawn when a forgiven refusal is retried (#822)', async () => {
-    // Another player's team pre-lock: the per-player reads all refuse, which
-    // this page forgives. A refused query holds no data, so a refetch resets
-    // it to pending — on every window focus, and after every write anywhere in
-    // the app — and the page must not re-enter its loading state for it.
+    // Another player's team pre-lock: all six reads this page forgives refuse
+    // — the per-player five, and the elimination ledger, which is in the
+    // loading gate but not the error gate. A refused query holds no data, so a
+    // refetch resets it to pending — on every window focus, and after every
+    // write anywhere in the app — and the page must not re-enter its loading
+    // state for any of them.
     const refused = [
+      '/seasons/season-1/eliminations',
       '/league-seasons/season-1/roster/friend-1',
       '/league-seasons/season-1/scoring-breakdown/friend-1',
       '/league-seasons/season-1/advantage-plays/friend-1',
@@ -237,7 +240,6 @@ describe('TeamPage', () => {
       if (path === '/league-seasons/season-1') return { id: 'season-1', season_id: 'season-1' }
       if (path === '/seasons/season-1/contestants') return [] as Contestant[]
       if (path === '/seasons/season-1/episodes') return [] as Episode[]
-      if (path === '/seasons/season-1/eliminations') return []
       if (path === '/league-seasons/season-1/standings') return [player]
       if (refused.includes(path)) {
         // Refuses at once the first time; the retry stays in the air, so the
@@ -261,19 +263,19 @@ describe('TeamPage', () => {
     expect(screen.getByText('Team details are still private')).toBeVisible()
 
     // What a window focus or a write elsewhere does: everything refetches. The
-    // turn of the event loop is what gets the refetch's pending state on
-    // screen — react-query notifies through a microtask, so an act with
-    // nothing awaited in it returns before React has seen it.
+    // `setTimeout(0)` is what gets the refetch's pending state on screen:
+    // react-query schedules its notifications with `setTimeout(cb, 0)`
+    // (notifyManager), so an act with nothing awaited in it returns before
+    // React has been told anything.
     await act(async () => {
       void client.invalidateQueries()
       await new Promise((r) => setTimeout(r, 0))
     })
 
-    // The retry really went out and is still out, or this proves nothing: the
-    // refusal notice is gone because the read is pending again.
-    expect(asked.filter((p) => p === refused[0])).toHaveLength(2)
-    expect(screen.queryByText('Team details are still private')).not.toBeInTheDocument()
-    // The team is still on screen, not back behind the loading state.
+    // Every forgiven read really is back in the air, or this proves nothing.
+    for (const path of refused) expect(asked.filter((p) => p === path)).toHaveLength(2)
+    // And the team is still on screen, not back behind the loading state. What
+    // the Tribe section says during that retry is #830, not asserted here.
     expect(heading).toBeVisible()
     expect(heading.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'false')
   })

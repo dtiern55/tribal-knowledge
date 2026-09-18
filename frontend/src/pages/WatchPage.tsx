@@ -112,10 +112,16 @@ export function WatchPage() {
 
   // Seed the editable tracker once, when the saved copy has answered either way.
   // A refusal (offline, nothing saved yet) falls back to this device's copy.
-  // `isPending` is the honest test for a *first* answer, and `loaded` latches,
-  // so the reset a later refetch causes can't re-seed over the night's work.
+  //
+  // The same rule as the gate above, and the seed is where it bites hardest:
+  // `loaded` is per-mount but the refused query is cached, so coming back to
+  // the page inside its gcTime retries the refusal while the gate — rightly —
+  // stays open. On `isPending` the tracker would sit empty behind a live
+  // screen until that retry landed, and a tap in the meantime was *lost*: the
+  // save effect below waits on `loaded` too, so nothing reached this device's
+  // copy, and the late seed then read the pre-tap copy back over the tap.
   useEffect(() => {
-    if (!episodeId || loaded || savedQ.isPending) return
+    if (!episodeId || loaded || !savedQ.isFetched) return
     const server = savedQ.data?.data
     let initial: WatchState | null =
       server && Object.keys(server).length ? { ...emptyState(), ...server } : null
@@ -129,7 +135,7 @@ export function WatchPage() {
     }
     if (initial) setWatch(initial)
     setLoaded(true)
-  }, [episodeId, loaded, savedQ.isPending, savedQ.data])
+  }, [episodeId, loaded, savedQ.isFetched, savedQ.data])
 
   // Ids, not the rows they came from: a write invalidates every query (#814),
   // and depending on the refetched episode object would make this effect save
