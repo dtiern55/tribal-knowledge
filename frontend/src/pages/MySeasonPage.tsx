@@ -2975,7 +2975,6 @@ function RosterSection({
                 contestantId={pick.contestant_id}
                 contestant={contestantMap.get(pick.contestant_id)}
                 isSoleSurvivor={pick.is_sole_survivor}
-                showSoleSurvivorHalo
                 soleSurvivorBonus={pick.is_sole_survivor ? soleSurvivorBonus : 0}
                 isDoubled={doubledTarget === pick.contestant_id}
                 seal={false}
@@ -4911,10 +4910,8 @@ function SoleSurvivorLine({
           right-aligned under Choose. One row isn't reachable at phone width with
           the full lock timestamp. */}
       <div className="flex items-center gap-3">
-        <img
-          src="/sole-survivor-flame-halo.png"
-          alt=""
-          className={`${designee ? 'h-8' : 'h-10'} w-auto shrink-0 motion-safe:transition-[height] motion-safe:duration-500`}
+        <SoleSurvivorTorch
+          className={`${designee ? 'h-8' : 'h-10'} aspect-[2/3] shrink-0 motion-safe:transition-[height] motion-safe:duration-500`}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -4984,7 +4981,7 @@ function SoleSurvivorLine({
               </p>
               <p className="mt-0.5 text-sm text-paper-ink">
                 <span className="inline-flex items-center gap-1 align-[-4px]">
-                  <img src="/sole-survivor-flame-halo.png" alt="" className="h-4 w-auto" />
+                  <SoleSurvivorTorch />
                   <b className="font-display font-bold text-gold-800">Aubry</b>
                 </span>{' '}
                 is your Sole Survivor. In the finale she:
