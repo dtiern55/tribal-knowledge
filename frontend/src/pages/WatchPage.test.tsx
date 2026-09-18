@@ -1,7 +1,8 @@
+import { QueryClient } from '@tanstack/react-query'
 import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import type { CastMember, Episode, RulesResponse, Season } from '../types'
 import { renderWithApp } from '../test/render'
 import { WatchPage } from './WatchPage'
@@ -110,5 +111,120 @@ describe('WatchPage', () => {
   it('gates non-commissioners out', async () => {
     renderWithApp(<WatchPage />, { auth: { profile: { id: 'u2', display_name: 'Player', is_admin: false, leagues: [] } } })
     expect(await screen.findByText('Commissioner access required')).toBeInTheDocument()
+  })
+
+  it('stays on screen when the refused tracker read is retried (#822)', async () => {
+    // Nothing saved for this episode yet, so the tracker read 404s and the page
+    // forgives it — this device's copy is the fallback. A refused query holds no
+    // data, so a refetch resets it to pending, on every window focus and after
+    // every write anywhere in the app. Mid-episode that is constant, and the
+    // page must not flash its loader over the night's tracking each time.
+    const watchPath = '/league-seasons/ls-1/episodes/ep-1/watch'
+    const asked: string[] = []
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      asked.push(path)
+      if (path === '/league-seasons') return Promise.resolve([season]) as never
+      if (path === '/seasons/season-1/cast') return Promise.resolve(cast) as never
+      if (path === '/seasons/season-1/episodes') return Promise.resolve([episode]) as never
+      if (path === '/league-seasons/ls-1/rules') return Promise.resolve(rules) as never
+      if (path === watchPath) {
+        // Refuses at once the first time; the retry stays in the air, so the
+        // page can be read while the refused query is back to pending.
+        if (asked.filter((p) => p === path).length > 1) return new Promise(() => {}) as never
+        return Promise.reject(new ApiError('No tracker saved', 404)) as never
+      }
+      return Promise.reject(new Error(`Unexpected path: ${path}`)) as never
+    })
+
+    // The test holds the cache so it can trigger the retry itself.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithApp(<WatchPage />, { ...admin, client })
+
+    expect(await screen.findByRole('heading', { name: 'Watch tracker' })).toBeVisible()
+
+    // What a window focus or a write elsewhere does: everything refetches. The
+    // `setTimeout(0)` is what gets the refetch's pending state on screen:
+    // react-query schedules its notifications with `setTimeout(cb, 0)`
+    // (notifyManager), so an act with nothing awaited in it returns before
+    // React has been told anything.
+    await act(async () => {
+      void client.invalidateQueries()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    // The retry really went out and is still out, or this proves nothing.
+    expect(asked.filter((p) => p === watchPath)).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: 'Watch tracker' })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Extras/ })).toBeVisible()
+  })
+
+  it('keeps a tap made while a remount retries the refused tracker read (#822)', async () => {
+    // The dangerous half of the same rule, on the seed rather than the gate.
+    // `loaded` is per-mount but the refused read is cached for five minutes,
+    // so stepping to Admin and back retries it while the screen is up. On
+    // `isPending` the seed waited for that retry, the save effect waits on the
+    // seed, and a tap in between reached neither this device's copy nor the
+    // server — and the late seed read the pre-tap copy back over it.
+    const watchPath = '/league-seasons/ls-1/episodes/ep-1/watch'
+    const asked: string[] = []
+    let refuse: () => void = () => {}
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      asked.push(path)
+      if (path === '/league-seasons') return Promise.resolve([season]) as never
+      if (path === '/seasons/season-1/cast') return Promise.resolve(cast) as never
+      if (path === '/seasons/season-1/episodes') return Promise.resolve([episode]) as never
+      if (path === '/league-seasons/ls-1/rules') return Promise.resolve(rules) as never
+      if (path === watchPath) {
+        // Nothing saved for this episode. The remount's retry is held until the
+        // test releases it, which is the window a tap has to survive.
+        if (asked.filter((p) => p === path).length > 1) {
+          return new Promise((_, reject) => {
+            refuse = () => reject(new ApiError('No tracker saved', 404))
+          }) as never
+        }
+        return Promise.reject(new ApiError('No tracker saved', 404)) as never
+      }
+      return Promise.reject(new Error(`Unexpected path: ${path}`)) as never
+    })
+
+    const user = userEvent.setup()
+    const boot = async (name: RegExp) => {
+      await user.click(await screen.findByRole('button', { name: /Tribal/ }))
+      // "Voted out" is a collapsed section below the votes; scope to it so we
+      // pick the boot button, not the same-named voter row.
+      const votedOut = screen.getByText('Voted out').closest('details') as HTMLElement
+      await user.click(within(votedOut).getByRole('button', { name }))
+    }
+
+    // One cache across both mounts, as the app has: the refusal is still in it.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const sitting = renderWithApp(<WatchPage />, { ...admin, client })
+    await boot(/Rizo/)
+    expect(JSON.parse(localStorage.getItem('tk-watch-ep-1') ?? '{}')).toMatchObject({ boots: ['c2'] })
+
+    // To Admin and straight back in, inside the cached refusal's lifetime.
+    sitting.unmount()
+    renderWithApp(<WatchPage />, { ...admin, client })
+    expect(await screen.findByRole('heading', { name: 'Watch tracker' })).toBeVisible()
+    expect(asked.filter((p) => p === watchPath)).toHaveLength(2)
+
+    // A tap while that retry is still in the air, then the refusal lands.
+    await boot(/Sage/)
+    await act(async () => {
+      refuse()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(JSON.parse(localStorage.getItem('tk-watch-ep-1') ?? '{}')).toMatchObject({
+      boots: ['c2', 'c1'],
+    })
+    // And the debounced save carries both, not the copy the seed would have
+    // put back.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 900))
+    })
+    const [path, body] = vi.mocked(api.put).mock.calls.at(-1) ?? []
+    expect(path).toBe(watchPath)
+    expect(body).toMatchObject({ data: { boots: ['c2', 'c1'] } })
   })
 })

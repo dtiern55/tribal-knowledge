@@ -91,12 +91,35 @@ export function TeamPage() {
   const picksQ = useQuery(pathQuery<Record<string, EliminationPick[]>>(paths?.picks ?? null))
   const bracketQ = useQuery(pathQuery<FinalePrediction>(paths?.finale ?? null))
 
-  // Everything the page used to await before it drew. A refusal counts as
-  // answered — that is the `hidden` state below, not a failure.
-  const queries = [seasonQ, contestantsQ, episodesQ, eliminationsQ, standingsQ, rosterQ, breakdownQ, playsQ, picksQ, bracketQ]
-  const loading = queries.some((q) => q.isPending)
-  // Only the season-wide reads can fail the page; the per-player five are
-  // allowed to refuse, exactly as their `.catch()`es used to let them.
+  // Everything the page used to await before it drew, each on the side of the
+  // gate its refusal puts it (the rule, and the same two comments, are at My
+  // Season's gates): a read whose refusal is forgiven waits on "has it
+  // answered", one whose refusal reaches the error gate below waits on "is it
+  // pending". A refusal is an answer — that is the `hidden` state below and
+  // the empty ledgers underneath it, not a failure.
+  //
+  // It matters here because refusal is this page's normal state: every *other*
+  // player's roster, breakdown, plays and picks 403 until their locks pass,
+  // and the bracket 404s for anyone who filed none. A refetch of a query
+  // holding no data resets it to pending (query-core's `fetchState`), and an
+  // errored query is always stale, so a window focus or any write refetches
+  // it — on `isPending` those six terms would re-close this gate every time.
+  const loading =
+    seasonQ.isPending ||
+    contestantsQ.isPending ||
+    episodesQ.isPending ||
+    standingsQ.isPending ||
+    // Not in the error gate: a refused ledger draws the Ballot without it (see
+    // #823), so it is forgiven here too.
+    !eliminationsQ.isFetched ||
+    !rosterQ.isFetched ||
+    !breakdownQ.isFetched ||
+    !playsQ.isFetched ||
+    !picksQ.isFetched ||
+    !bracketQ.isFetched
+  // Only the reads the page can draw nothing without can fail it. The
+  // per-player five are allowed to refuse, exactly as their `.catch()`es used
+  // to let them, and so is the elimination ledger (#823).
   const error = seasonQ.error ?? contestantsQ.error ?? episodesQ.error ?? standingsQ.error
   const hidden = rosterQ.isError || breakdownQ.isError
 
