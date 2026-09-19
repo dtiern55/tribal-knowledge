@@ -388,4 +388,54 @@ export const QUOTES: Quote[] = [
     who: 'James',
     season: 'Season 20: Heroes vs. Villains',
   },
+  {
+    text: 'I want to give individual immunity to Natalie.',
+    who: 'Erik Reichenbach',
+    season: 'Season 16: Micronesia',
+  },
+  {
+    text: 'Fe Fi Fo Fum, I want you on my team.',
+    who: 'Christian',
+    season: 'Season 50',
+  },
+  {
+    text: "I'm listening to them, and it turns out no one ate the burger.",
+    who: 'Liz Wilcox',
+    season: 'Season 46',
+  },
+  {
+    text: 'Puzzles lay down for me like lovers.',
+    who: 'Debbie',
+    season: 'Season 32: Kaôh Rōng',
+  },
+  {
+    text: "I've got a strength like a gymnast. And a tenacity like a giant squid.",
+    who: 'Debbie',
+    season: 'Season 34: Game Changers',
+  },
+  {
+    text: 'She died, dude.',
+    who: 'Thunder D',
+    season: 'Season 7: Pearl Islands',
+  },
+  {
+    text: 'That is... not an immunity idol. That is just part of the voting podium.',
+    who: 'Jeff Probst',
+    season: 'Season 40: Winners at War',
+  },
+  {
+    text: "I was freezing, I didn't get any sleep, I didn't have any water, no food, no fire. I had the best time of my life.",
+    who: 'Coach',
+    season: 'Season 18: Tocantins',
+  },
+  {
+    text: "Any 37-year-old man who thinks he's a dragon slayer belongs in a mental institution.",
+    who: 'Taj',
+    season: 'Season 18: Tocantins',
+  },
+  {
+    text: "…We're gonna go to matches.",
+    who: 'Jeff Probst',
+    season: 'Season 13: Cook Islands',
+  },
 ]
