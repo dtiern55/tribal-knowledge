@@ -174,7 +174,7 @@ export function ContestantPage() {
         >
           <span aria-hidden>‹</span> {fromRoster ? 'My Season' : 'Cast'}
         </Link>
-        <HeaderPager prev={href(prevC)} next={href(nextC)} prevLabel={prevC?.name} nextLabel={nextC?.name} />
+        <HeaderPager prev={href(prevC)} next={href(nextC)} prevLabel={prevC?.name} nextLabel={nextC?.name} index={idx} total={n} />
       </div>
 
       <header className="grid gap-5 border-b border-cream-200 pb-7 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start md:grid-cols-[15rem_minmax(0,1fr)]">

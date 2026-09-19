@@ -286,7 +286,7 @@ export function TeamPage() {
         // record this is (#646).
         title={`${player.display_name}'s Season`}
         description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
-        actions={<HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
+        actions={<HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} index={idx} total={n} />}
       />
 
       {/* One column at every width, in My Season's order (#646): this is the
