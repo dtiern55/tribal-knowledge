@@ -1,12 +1,12 @@
 /**
  * Watch tracker (#737, v2): pure state + derivation for the commissioner's
- * live-episode scratchpad. The tracker captures what Danny sees while watching
- * and hands off a summary he applies on the admin page — it writes nothing to
- * the backend itself. Everything here is pure so the derivation is testable.
+ * live-episode scratchpad. The tracker captures what Danny sees while watching;
+ * the scoring ritual reads the saved state. Everything here is pure so the
+ * derivation is testable.
  */
 import type { CastMember, RuleScoringEvent } from '../types'
 
-export type TabKey = 'tribes' | 'wins' | 'tribal' | 'extras' | 'camp' | 'final' | 'notes'
+export type TabKey = 'tribes' | 'camp' | 'challenge' | 'tribal' | 'advantages' | 'final' | 'notes'
 
 /** The four win events the Wins tab drives directly (tribe pills + per-person
  *  toggles), rather than as generic tap chips. */
@@ -31,29 +31,81 @@ export const NON_CHIP = new Set<string>([
   ...PLACEMENT_EVENTS,
 ])
 
-// Where each tappable event lands. Anything unmapped falls to Camp, so a newly
-// enabled event type still shows up somewhere instead of vanishing.
-const TAB_FOR_EVENT: Record<string, TabKey> = {
-  eliminated_holding_idol: 'tribal',
-  join_jury: 'tribal',
-  blindside_with_active_idol: 'extras',
-  episode_title_quote: 'extras',
-  read_treemail_or_instructions: 'extras',
-  jeff_thats_how_you_do_it: 'extras',
-  fake_idol_played: 'extras',
-  steal_immunity_idol: 'extras',
-  win_fire_making_challenge: 'final',
+/** Where a tappable event is entered: a tab's main chips, or a tucked-away
+ *  section of one (Jeff's strip, Redemption, tribal advantages, the boot rows). */
+export type ChipGroup = 'camp' | 'jeff' | 'redemption' | 'tribal' | 'boot' | 'advantages' | 'final'
+
+// Every-episode events sit up front; the rare ones are tucked into sections.
+// Chips show in list order. Anything unlisted falls to Camp, so a newly enabled
+// event type still shows up somewhere instead of vanishing.
+const GROUPS: Record<ChipGroup, string[]> = {
+  camp: ['go_on_journey', 'episode_title_quote', 'read_treemail_or_instructions'],
+  jeff: ['jeff_thats_how_you_do_it'],
+  redemption: ['win_redemption_duel', 'return_from_redemption', 'return_from_redemption_endgame'],
+  tribal: [
+    'play_idol',
+    'votes_blocked_by_idol',
+    'idol_played_successfully',
+    'play_other_advantage',
+    'shot_in_the_dark_success',
+    'play_idol_nullifier',
+    'nullifier_played_successfully',
+    'steal_immunity_idol',
+    'blindside_with_active_idol',
+    'fake_idol_played',
+  ],
+  boot: ['eliminated_holding_idol', 'join_jury'],
+  advantages: [
+    'acquire_active_idol',
+    'acquire_inactive_idol',
+    'activate_inactive_idol',
+    'acquire_extra_vote',
+    'acquire_other_advantage',
+  ],
+  final: ['win_fire_making_challenge'],
 }
 
-export const tabForEvent = (eventType: string): TabKey => TAB_FOR_EVENT[eventType] ?? 'camp'
+const TAB_OF_GROUP: Record<ChipGroup, TabKey> = {
+  camp: 'camp',
+  jeff: 'challenge',
+  redemption: 'challenge',
+  tribal: 'tribal',
+  boot: 'tribal',
+  advantages: 'advantages',
+  final: 'final',
+}
 
-export const chipEventsForTab = (events: RuleScoringEvent[], tab: TabKey): RuleScoringEvent[] =>
-  events.filter((e) => !NON_CHIP.has(e.event_type) && tabForEvent(e.event_type) === tab)
+export const groupForEvent = (eventType: string): ChipGroup =>
+  (Object.keys(GROUPS) as ChipGroup[]).find((g) => GROUPS[g].includes(eventType)) ?? 'camp'
+
+export function chipEventsForGroup(events: RuleScoringEvent[], group: ChipGroup): RuleScoringEvent[] {
+  const order = (e: RuleScoringEvent) => {
+    const i = GROUPS[group].indexOf(e.event_type)
+    return i < 0 ? GROUPS[group].length : i
+  }
+  return events
+    .filter((e) => !NON_CHIP.has(e.event_type) && groupForEvent(e.event_type) === group)
+    .sort((a, b) => order(a) - order(b))
+}
+
+/** The tab an awarded event was entered on, for the Notes summary. */
+export function tabForAward(eventType: string): TabKey {
+  if ((Object.values(WIN_EVENTS) as string[]).includes(eventType)) return 'challenge'
+  if (eventType === VOTE_CORRECT) return 'tribal'
+  return TAB_OF_GROUP[groupForEvent(eventType)]
+}
 
 // Terser labels for the tracker — the commissioner knows these; the full
 // house-copy labels stay in the rules/results/admin views. Unlisted events
 // fall back to the season label.
 const SHORT_LABEL: Record<string, string> = {
+  nullifier_played_successfully: 'Nullifier voids a real idol',
+  shot_in_the_dark_success: 'Successful shot in the dark',
+  eliminated_holding_idol: 'Had an idol',
+  join_jury: 'Jury',
+  win_redemption_duel: 'Win duel',
+  return_from_redemption: 'Return at the merge',
+  return_from_redemption_endgame: 'Return in the endgame',
   steal_immunity_idol: 'Steal immunity idol',
   fake_idol_played: 'Make fake idol that gets played',
   blindside_with_active_idol: 'Blindside someone with active idol',

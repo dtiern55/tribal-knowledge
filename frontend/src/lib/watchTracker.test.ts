@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyDraftTribes,
-  chipEventsForTab,
+  chipEventsForGroup,
   convertWinsToTeam,
   deriveEliminations,
   deriveScoringEvents,
@@ -9,7 +9,8 @@ import {
   emptyState,
   moveToTribe,
   suggestedBoot,
-  tabForEvent,
+  groupForEvent,
+  tabForAward,
   voteTally,
 } from './watchTracker'
 import type { CastMember, RuleScoringEvent } from '../types'
@@ -68,17 +69,22 @@ describe('watchTracker derivation', () => {
     ])
   })
 
-  it('routes events to tabs and keeps win/vote/placement events off the chips', () => {
-    expect(tabForEvent('jeff_thats_how_you_do_it')).toBe('extras')
-    expect(tabForEvent('win_fire_making_challenge')).toBe('final')
-    expect(tabForEvent('go_on_journey')).toBe('camp') // unmapped default
+  it('routes events to sections and keeps win/vote/placement events off the chips', () => {
+    expect(groupForEvent('jeff_thats_how_you_do_it')).toBe('jeff')
+    expect(groupForEvent('fake_idol_played')).toBe('tribal')
+    expect(groupForEvent('some_new_event')).toBe('camp') // unmapped default
+    expect(tabForAward('win_team_reward')).toBe('challenge')
+    expect(tabForAward('vote_correctly_at_tribal')).toBe('tribal')
+    expect(tabForAward('join_jury')).toBe('tribal')
     const events: RuleScoringEvent[] = [
       { event_type: 'win_team_immunity', label: 'Team immunity', point_value: 5, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
+      { event_type: 'read_treemail_or_instructions', label: 'Treemail', point_value: 3, postmerge_point_value: null, token_value: 0, is_per_unit: true },
       { event_type: 'go_on_journey', label: 'Journey', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
     ]
-    const camp = chipEventsForTab(events, 'camp')
-    expect(camp.map((e) => e.event_type)).toEqual(['go_on_journey']) // win + vote excluded
+    const camp = chipEventsForGroup(events, 'camp')
+    // Win + vote excluded; list order, not rules order.
+    expect(camp.map((e) => e.event_type)).toEqual(['go_on_journey', 'read_treemail_or_instructions'])
   })
 
   it('suggests the vote-tally leader as the boot when none is marked (#774)', () => {
