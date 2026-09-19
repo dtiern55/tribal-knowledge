@@ -270,23 +270,25 @@ export function TeamPage() {
 
   return (
     <div aria-busy={loading} className={`transition-opacity duration-150 ${loading ? 'opacity-60' : ''}`}>
+      {/* The breadcrumb gets its own row so the pager sits top right, where the
+          castaway page has it, instead of wrapping under a long name. */}
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">
+          <Link to="/standings" className="inline-flex items-center gap-1 hover:underline"><span aria-hidden>‹</span> Standings</Link>
+          {ranked && (
+            <>
+              <span className="text-gray-400" aria-hidden>/</span>
+              <span className="text-gray-500">{ranked.tied ? `Tied #${ranked.rank}` : `Rank #${ranked.rank}`}</span>
+            </>
+          )}
+        </span>
+        <HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} index={idx} total={n} />
+      </div>
       <PageHeader
-        eyebrow={
-          <span className="inline-flex items-center gap-1.5">
-            <Link to="/standings" className="inline-flex items-center gap-1 hover:underline"><span aria-hidden>‹</span> Standings</Link>
-            {ranked && (
-              <>
-                <span className="text-gray-400" aria-hidden>/</span>
-                <span className="text-gray-500">{ranked.tied ? `Tied #${ranked.rank}` : `Rank #${ranked.rank}`}</span>
-              </>
-            )}
-          </span>
-        }
         // Possessive against the nav's "My Season": the one cue that says whose
         // record this is (#646).
         title={`${player.display_name}'s Season`}
         description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
-        actions={<HeaderPager prev={href(prevP)} next={href(nextP)} prevLabel={prevP?.display_name} nextLabel={nextP?.display_name} />}
       />
 
       {/* One column at every width, in My Season's order (#646): this is the
