@@ -27,10 +27,13 @@ export function TribeAssigner({
   const [ghost, setGhost] = useState<{ c: CastMember; x: number; y: number } | null>(null)
   const start = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null)
 
-  // Two empty tribes to drop into until the first one is added.
+  // S51's rumored starting tribes, until the first edit makes them the draft.
   const zones = tribes.length
     ? tribes
-    : [0, 1].map((i) => ({ name: '', color: TRIBE_COLORS[i], members: [] as string[] }))
+    : [
+        { name: 'Toka', color: '#e0b020', members: [] as string[] },
+        { name: 'Savu', color: '#7b3fa0', members: [] as string[] },
+      ]
   const byId = new Map(cast.map((c) => [c.id, c]))
   const placed = new Set(zones.flatMap((t) => t.members))
   const pool = cast.filter((c) => !placed.has(c.id))
