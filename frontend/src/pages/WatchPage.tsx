@@ -6,30 +6,36 @@ import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../componen
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { TribeAssigner } from '../components/TribeAssigner'
 import { useAuth } from '../auth/useAuth'
 import { api } from '../lib/api'
 import { rankCast } from '../lib/cast'
 import { airingEpisode } from '../lib/episodes'
 import { pathQuery, useActiveSeason } from '../lib/queries'
-import type { CastMember, Episode, RulesResponse } from '../types'
+import type { CastMember, Episode, RuleScoringEvent, RulesResponse } from '../types'
 import {
-  chipEventsForTab,
+  applyDraftTribes,
+  chipEventsForGroup,
   convertWinsToTeam,
   deriveScoringEvents,
+  draftIsPublished,
   emptyState,
   shortLabel,
   suggestedBoot,
+  tabForAward,
   voteTally,
   WIN_EVENTS,
+  type ChipGroup,
   type TabKey,
   type WatchState,
 } from '../lib/watchTracker'
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'wins', label: 'Immunity & reward' },
-  { key: 'tribal', label: 'Tribal' },
-  { key: 'extras', label: 'Extras' },
+  { key: 'tribes', label: 'Tribes' },
   { key: 'camp', label: 'Camp' },
+  { key: 'challenge', label: 'Challenge' },
+  { key: 'tribal', label: 'Tribal' },
+  { key: 'advantages', label: 'Advantages' },
   { key: 'final', label: 'Final tribal' },
   { key: 'notes', label: 'Notes' },
 ]
@@ -57,7 +63,7 @@ export function WatchPage() {
   const { profile } = useAuth()
   const [watch, setWatch] = useState<WatchState>(emptyState)
 
-  const [tab, setTab] = useState<TabKey>('wins')
+  const [tab, setTab] = useState<TabKey>('camp')
   const [chipSel, setChipSel] = useState<Record<string, string>>({})
   const [openVoters, setOpenVoters] = useState<Set<string>>(new Set())
   const [voterScope, setVoterScope] = useState<Record<string, 'tribe' | 'all'>>({})
@@ -67,6 +73,7 @@ export function WatchPage() {
   // Which episode this sitting records, chosen once (below) and then held.
   const [episodeId, setEpisodeId] = useState<string | null>(null)
   const [synced, setSynced] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [publishing, setPublishing] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const seasonQ = useActiveSeason()
@@ -164,8 +171,8 @@ export function WatchPage() {
   // No pre/post-merge toggle: the tribes flatten on their own at the merge,
   // since the merge tribe is one tribe. postMerge only picks the point rate.
   const active = useMemo(
-    () => rankCast(castQ.data ?? []).filter((c) => c.eliminated_in_episode == null),
-    [castQ.data],
+    () => applyDraftTribes(rankCast(castQ.data ?? []), watch.tribes).filter((c) => c.eliminated_in_episode == null),
+    [castQ.data, watch.tribes],
   )
   const groups = useMemo(() => groupByTribe(active), [active])
   const recorded = deriveScoringEvents(watch).length + watch.boots.length
@@ -181,6 +188,11 @@ export function WatchPage() {
   if (!season || !episode) return <ColdStart />
 
   const postMerge = season.merge_episode != null && episode.episode_number >= season.merge_episode
+  const ptsOf = (e: RuleScoringEvent) => (postMerge && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value)
+  const signed = (n: number) => `${n >= 0 ? '+' : ''}${n}`
+  const nameOf = (id: string) => cast.find((c) => c.id === id)?.name ?? id
+  // Final tribal is once a season, so its tab only shows on the finale.
+  const tabs = TABS.filter((t) => t.key !== 'final' || episode.is_finale)
 
   // ---- mutators ----
   const makeTeamWin = (individualType: string, teamType: string) =>
@@ -268,6 +280,18 @@ export function WatchPage() {
     setOpenSlot(null)
   }
 
+  const publishTribes = () => {
+    if (!confirm('Publish these tribes? Every player sees them right away.')) return
+    setPublishing(true)
+    api
+      .put(`/seasons/${season.season_id}/tribes`, {
+        from_episode: episode.episode_number,
+        tribes: watch.tribes.map((t) => ({ name: t.name.trim(), color: t.color, contestant_ids: t.members })),
+      })
+      .catch((e: Error) => alert(`Could not publish tribes: ${e.message}`))
+      .finally(() => setPublishing(false))
+  }
+
   const wipe = () => {
     if (!confirm('Wipe everything recorded for this episode?')) return
     setWatch(emptyState())
@@ -313,8 +337,37 @@ export function WatchPage() {
   const indImm = watch.wins[WIN_EVENTS.individualImmunity] ?? []
   const indRew = watch.wins[WIN_EVENTS.individualReward] ?? []
 
-  const winsTab = (
+  const jeff = chipEventsForGroup(rules?.scoring_events ?? [], 'jeff')[0]
+  const redemption = chipEventsForGroup(rules?.scoring_events ?? [], 'redemption')
+
+  const challengeTab = (
     <>
+      {jeff && (
+        <div className="mb-4 rounded-xl border border-cream-200 bg-white p-3">
+          <p className="font-display text-sm font-semibold text-forest-900">
+            {shortLabel(jeff.event_type, jeff.label)} <span className="font-normal text-stone-500">{signed(ptsOf(jeff))}</span>
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {active.map((c) => {
+              const on = ((watch.events[jeff.event_type] ?? {})[c.id] ?? 0) > 0
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => tapEvent(jeff.event_type, c.id, false)}
+                  style={on ? undefined : { borderColor: c.tribe_color ?? 'var(--color-stone-200)' }}
+                  className={`rounded-lg border-2 px-3 py-1.5 font-display text-sm font-semibold ${
+                    on ? 'border-jade-600 bg-jade-600 text-white' : 'bg-white text-forest-700'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {indImm.length > 1 && (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-gold-400 bg-gold-100 px-3 py-2 text-sm text-forest-900">
           <span>{indImm.length} marked for individual immunity — only one person wins that. A tribe win?</span>
@@ -393,11 +446,14 @@ export function WatchPage() {
           </span>
         ),
       )}
+      {redemption.length > 0 && tucked('Redemption', 'redemption')}
     </>
   )
 
   const suggestBootId = suggestedBoot(watch)
   const suggestBootName = suggestBootId ? cast.find((c) => c.id === suggestBootId)?.name ?? '—' : null
+
+  const bootEvents = chipEventsForGroup(rules?.scoring_events ?? [], 'boot')
 
   const tribalTab = (
     <>
@@ -474,6 +530,8 @@ export function WatchPage() {
         )}
       </div>
 
+      {tucked('Advantages at tribal', 'tribal')}
+
       <details className="mt-6">
         <summary className="cursor-pointer rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 font-display text-sm font-semibold text-forest-900">
           Voted out
@@ -484,16 +542,36 @@ export function WatchPage() {
         {peopleList((c) => {
           const out = watch.boots.includes(c.id)
           return (
-            <button
-              type="button"
-              onClick={() => toggleBoot(c.id)}
-              aria-pressed={out}
-              className={`flex min-h-14 w-full items-center gap-3 px-3 text-left ${out ? 'bg-terracotta-50' : 'hover:bg-cream-50'}`}
-            >
-              {avatar(c)}
-              {nameText(c)}
-              {out && <span className="ml-auto rounded-md bg-terracotta-100 px-2 py-1 text-[10px] font-bold uppercase text-terracotta-700">Out</span>}
-            </button>
+            <div className={`flex min-h-14 items-center gap-2 pr-3 ${out ? 'bg-terracotta-50' : 'hover:bg-cream-50'}`}>
+              <button
+                type="button"
+                onClick={() => toggleBoot(c.id)}
+                aria-pressed={out}
+                className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-3 text-left"
+              >
+                {avatar(c)}
+                {nameText(c)}
+                {out && <span className="ml-auto rounded-md bg-terracotta-100 px-2 py-1 text-[10px] font-bold uppercase text-terracotta-700">Out</span>}
+              </button>
+              {/* Only a boot can leave holding an idol or join the jury. */}
+              {out &&
+                bootEvents.map((e) => {
+                  const on = ((watch.events[e.event_type] ?? {})[c.id] ?? 0) > 0
+                  return (
+                    <button
+                      key={e.event_type}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => tapEvent(e.event_type, c.id, false)}
+                      className={`h-8 shrink-0 rounded-lg border px-3 text-xs font-bold ${
+                        on ? 'border-jade-600 bg-jade-600 text-white' : 'border-stone-200 bg-white text-stone-500'
+                      }`}
+                    >
+                      {shortLabel(e.event_type, e.label)} {signed(ptsOf(e))}
+                    </button>
+                  )
+                })}
+            </div>
           )
         })}
       </details>
@@ -551,12 +629,11 @@ export function WatchPage() {
     )
   }
 
-  const chipTab = (t: TabKey) => {
-    const events = chipEventsForTab(rules?.scoring_events ?? [], t)
+  function chipBlock(group: ChipGroup) {
+    const events = chipEventsForGroup(rules?.scoring_events ?? [], group)
     if (events.length === 0) return <p className="mt-4 text-sm text-stone-500">No events for this tab in this season.</p>
-    const sel = chipSel[t] ?? events[0].event_type
+    const sel = chipSel[group] ?? events[0].event_type
     const cur = events.find((e) => e.event_type === sel) ?? events[0]
-    const ptsOf = (e: typeof cur) => (postMerge && e.postmerge_point_value != null ? e.postmerge_point_value : e.point_value)
     const pts = ptsOf(cur)
     return (
       <>
@@ -566,16 +643,13 @@ export function WatchPage() {
               key={e.event_type}
               type="button"
               aria-pressed={e.event_type === cur.event_type}
-              onClick={() => setChipSel((m) => ({ ...m, [t]: e.event_type }))}
+              onClick={() => setChipSel((m) => ({ ...m, [group]: e.event_type }))}
               className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
                 e.event_type === cur.event_type ? 'border-terracotta-600 bg-terracotta-600 text-white' : 'border-forest-200 bg-white text-forest-700'
               }`}
             >
               {shortLabel(e.event_type, e.label)}
-              <span className="ml-1 font-normal opacity-70">
-                {ptsOf(e) >= 0 ? '+' : ''}
-                {ptsOf(e)}
-              </span>
+              <span className="ml-1 font-normal opacity-70">{signed(ptsOf(e))}</span>
             </button>
           ))}
         </div>
@@ -598,14 +672,30 @@ export function WatchPage() {
             </button>
           )
         })}
-        <p className="mt-2 text-xs text-stone-400">Worth {pts >= 0 ? '+' : ''}{pts} {cur.is_per_unit ? 'each' : ''} this episode.</p>
+        <p className="mt-2 text-xs text-stone-400">Worth {signed(pts)} {cur.is_per_unit ? 'each' : ''} this episode.</p>
       </>
+    )
+  }
+
+  // The rarely-used events, collapsed so the every-episode ones stay in reach.
+  // The summary names who's already marked, so nothing hides while closed.
+  function tucked(title: string, group: ChipGroup) {
+    const types = new Set(chipEventsForGroup(rules?.scoring_events ?? [], group).map((e) => e.event_type))
+    const marked = [...new Set(deriveScoringEvents(watch).filter((d) => types.has(d.event_type)).map((d) => nameOf(d.contestant_id)))]
+    return (
+      <details className="mt-6">
+        <summary className="cursor-pointer rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 font-display text-sm font-semibold text-forest-900">
+          {title}
+          {marked.length > 0 && <span className="font-normal text-jade-700"> · {marked.join(', ')}</span>}
+        </summary>
+        <div className="mt-3">{chipBlock(group)}</div>
+      </details>
     )
   }
 
   const finaleTab = (
     <>
-      {chipTab('final')}
+      {chipBlock('final')}
       <div className="mt-6">
         <p className="text-center font-display text-xs font-bold uppercase tracking-[0.16em] text-gold-800">The finale</p>
         {finaleTier('winner', watch.finale.winner ? [watch.finale.winner] : [], 1, 'Sole Survivor', true)}
@@ -683,8 +773,91 @@ export function WatchPage() {
     )
   }
 
+  const ruleOf = new Map((rules?.scoring_events ?? []).map((e) => [e.event_type, e]))
+  const awarded = deriveScoringEvents(watch).map((d) => {
+    const rule = ruleOf.get(d.event_type)
+    return {
+      ...d,
+      tab: tabForAward(d.event_type),
+      label: rule ? shortLabel(d.event_type, rule.label) : d.event_type,
+      pts: rule ? ptsOf(rule) * d.quantity : 0,
+    }
+  })
+  // Every vote cast, guesses included, as target <- voters (most votes first).
+  const votesByTarget = Object.entries(
+    Object.entries(watch.votes).reduce<Record<string, { voter: string; confirmed: boolean }[]>>((acc, [voter, v]) => {
+      ;(acc[v.target] ??= []).push({ voter, confirmed: v.confirmed })
+      return acc
+    }, {}),
+  ).sort((a, b) => b[1].length - a[1].length)
+  const countVotes = (voters: { confirmed: boolean }[]) => voters.filter((v) => v.confirmed).length
+  const finaleIds = [...watch.finale.finalFour, ...watch.finale.finalThree, ...(watch.finale.winner ? [watch.finale.winner] : [])]
+
   const notesTab = (
     <>
+      <div className="mb-4 rounded-xl border border-cream-200 bg-white p-3">
+        <h3 className="font-display text-xs font-bold uppercase tracking-[0.14em] text-stone-500">Awarded this episode</h3>
+        {awarded.length === 0 && watch.boots.length === 0 && votesByTarget.length === 0 && finaleIds.length === 0 ? (
+          <p className="mt-1 text-sm text-stone-400">Nothing yet.</p>
+        ) : (
+          tabs.map((t) => {
+            const rows = awarded.filter((a) => a.tab === t.key)
+            const boots = t.key === 'tribal' ? watch.boots : []
+            const votes = t.key === 'tribal' ? votesByTarget : []
+            const finale = t.key === 'final' && finaleIds.length > 0
+            if (!rows.length && !boots.length && !votes.length && !finale) return null
+            return (
+              <div key={t.key} className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">{t.label}</p>
+                <ul className="mt-1 space-y-0.5 text-sm">
+                  {rows.map((a) => (
+                    <li key={`${a.event_type}-${a.contestant_id}`} className="flex gap-2">
+                      <span className="font-semibold text-forest-900">{nameOf(a.contestant_id)}</span>
+                      <span className="text-stone-500">
+                        {a.label}
+                        {a.quantity > 1 && ` x${a.quantity}`}
+                      </span>
+                      <span className="ml-auto font-semibold text-forest-700">{signed(a.pts)}</span>
+                    </li>
+                  ))}
+                  {boots.map((id) => (
+                    <li key={`boot-${id}`} className="flex gap-2">
+                      <span className="font-semibold text-forest-900">{nameOf(id)}</span>
+                      <span className="text-stone-500">Voted out</span>
+                    </li>
+                  ))}
+                  {votes.map(([target, voters]) => (
+                    <li key={`votes-${target}`} className="flex gap-2">
+                      <span className="shrink-0 font-semibold text-forest-900">{nameOf(target)}</span>
+                      <span className="text-stone-500">
+                        ←{' '}
+                        {voters.map((v, i) => (
+                          <span key={v.voter} className={v.confirmed ? undefined : 'italic text-stone-400'}>
+                            {i > 0 && ', '}
+                            {nameOf(v.voter)}
+                            {!v.confirmed && ' (guess)'}
+                          </span>
+                        ))}
+                      </span>
+                      {/* Locked-in votes only, to match the tally on Tribal. */}
+                      <span className="ml-auto shrink-0 font-semibold text-forest-700">
+                        {countVotes(voters)} {countVotes(voters) === 1 ? 'vote' : 'votes'}
+                      </span>
+                    </li>
+                  ))}
+                  {finale && (
+                    <li className="text-stone-500">
+                      Winner {watch.finale.winner ? nameOf(watch.finale.winner) : 'not set'} · Final 3{' '}
+                      {watch.finale.finalThree.map(nameOf).join(', ') || 'not set'} · Final 4{' '}
+                      {watch.finale.finalFour.map(nameOf).join(', ') || 'not set'}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )
+          })
+        )}
+      </div>
       <textarea
         value={watch.notes}
         onChange={(e) => setWatch((w) => ({ ...w, notes: e.target.value }))}
@@ -729,7 +902,7 @@ export function WatchPage() {
       />
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
@@ -745,11 +918,21 @@ export function WatchPage() {
       </div>
 
       <div className="mt-4">
-        {tab === 'wins' && winsTab}
+        {tab === 'tribes' && (
+          <TribeAssigner
+            cast={rankCast(cast).filter((c) => c.eliminated_in_episode == null)}
+            tribes={watch.tribes}
+            onChange={(tribes) => setWatch((w) => ({ ...w, tribes }))}
+            published={draftIsPublished(cast, watch.tribes)}
+            publishing={publishing}
+            onPublish={publishTribes}
+          />
+        )}
+        {tab === 'camp' && chipBlock('camp')}
+        {tab === 'challenge' && challengeTab}
         {tab === 'tribal' && tribalTab}
-        {tab === 'extras' && chipTab('extras')}
-        {tab === 'camp' && chipTab('camp')}
-        {tab === 'final' && finaleTab}
+        {tab === 'advantages' && chipBlock('advantages')}
+        {tab === 'final' && episode.is_finale && finaleTab}
         {tab === 'notes' && notesTab}
       </div>
     </div>

@@ -749,3 +749,16 @@ class WatchNotesEntry(BaseModel):
 
 class WatchNotes(BaseModel):
     data: dict[str, Any]
+
+
+class TribeAssignment(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    contestant_ids: list[UUID]
+
+
+class TribesPublish(BaseModel):
+    """Hand-set tribes from the Watch tracker, effective from an episode."""
+
+    from_episode: int = Field(gt=0)
+    tribes: list[TribeAssignment] = Field(min_length=1)

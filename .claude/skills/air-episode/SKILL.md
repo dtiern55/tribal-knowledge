@@ -265,6 +265,12 @@ Use a traceable `notes` like `import: {source}` on applied events.
 leaking future tribes (#212). Run it every week with this episode's number.
 Visible on the cast page and the My Season tribe lane.
 
+Premiere night, before survivoR has the season, tribes come from the Watch
+tracker's Tribes tab instead (`PUT {API}/seasons/{season_id}/tribes`, published
+by Danny). Until survivoR has data the sync 404s and changes nothing; once it
+does, the sync rebuilds tribes from survivoR, replacing the hand-set names and
+colors. Check that the names match before running it.
+
 **If the merge airs this episode**, also turn on post-merge scoring:
 `PATCH {API}/seasons/{season_id}` `{"merge_episode": N}`. (Don't set it before
 it happens — that's future knowledge.) The point values it changes:
