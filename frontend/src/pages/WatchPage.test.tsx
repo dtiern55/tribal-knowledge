@@ -42,7 +42,7 @@ describe('WatchPage', () => {
     const user = userEvent.setup()
     renderWithApp(<WatchPage />, admin)
 
-    await user.click(await screen.findByRole('button', { name: /Extras/ }))
+    await user.click(await screen.findByRole('button', { name: /^Camp$/ }))
     await user.click(screen.getByRole('button', { name: /Treemail/ }))
     await user.click(screen.getByRole('button', { name: /Sage/ }))
     await user.click(screen.getByRole('button', { name: /Sage/ }))
@@ -154,7 +154,7 @@ describe('WatchPage', () => {
     // The retry really went out and is still out, or this proves nothing.
     expect(asked.filter((p) => p === watchPath)).toHaveLength(2)
     expect(screen.getByRole('heading', { name: 'Watch tracker' })).toBeVisible()
-    expect(screen.getByRole('button', { name: /Extras/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /^Camp$/ })).toBeVisible()
   })
 
   it('keeps a tap made while a remount retries the refused tracker read (#822)', async () => {

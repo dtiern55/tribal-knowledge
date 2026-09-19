@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chipEventsForTab,
+  applyDraftTribes,
+  chipEventsForGroup,
   convertWinsToTeam,
   deriveEliminations,
   deriveScoringEvents,
+  draftIsPublished,
   emptyState,
+  moveToTribe,
   suggestedBoot,
-  tabForEvent,
+  groupForEvent,
+  tabForAward,
   voteTally,
 } from './watchTracker'
-import type { RuleScoringEvent } from '../types'
+import type { CastMember, RuleScoringEvent } from '../types'
 
 describe('watchTracker derivation', () => {
   it('wins become scoring events, one per contestant', () => {
@@ -65,17 +69,22 @@ describe('watchTracker derivation', () => {
     ])
   })
 
-  it('routes events to tabs and keeps win/vote/placement events off the chips', () => {
-    expect(tabForEvent('jeff_thats_how_you_do_it')).toBe('extras')
-    expect(tabForEvent('win_fire_making_challenge')).toBe('final')
-    expect(tabForEvent('go_on_journey')).toBe('camp') // unmapped default
+  it('routes events to sections and keeps win/vote/placement events off the chips', () => {
+    expect(groupForEvent('jeff_thats_how_you_do_it')).toBe('jeff')
+    expect(groupForEvent('fake_idol_played')).toBe('tribal')
+    expect(groupForEvent('some_new_event')).toBe('camp') // unmapped default
+    expect(tabForAward('win_team_reward')).toBe('challenge')
+    expect(tabForAward('vote_correctly_at_tribal')).toBe('tribal')
+    expect(tabForAward('join_jury')).toBe('tribal')
     const events: RuleScoringEvent[] = [
       { event_type: 'win_team_immunity', label: 'Team immunity', point_value: 5, postmerge_point_value: null, token_value: 0, is_per_unit: false },
       { event_type: 'vote_correctly_at_tribal', label: 'Vote correctly', point_value: 3, postmerge_point_value: 5, token_value: 0, is_per_unit: false },
+      { event_type: 'read_treemail_or_instructions', label: 'Treemail', point_value: 3, postmerge_point_value: null, token_value: 0, is_per_unit: true },
       { event_type: 'go_on_journey', label: 'Journey', point_value: 4, postmerge_point_value: null, token_value: 0, is_per_unit: false },
     ]
-    const camp = chipEventsForTab(events, 'camp')
-    expect(camp.map((e) => e.event_type)).toEqual(['go_on_journey']) // win + vote excluded
+    const camp = chipEventsForGroup(events, 'camp')
+    // Win + vote excluded; list order, not rules order.
+    expect(camp.map((e) => e.event_type)).toEqual(['go_on_journey', 'read_treemail_or_instructions'])
   })
 
   it('suggests the vote-tally leader as the boot when none is marked (#774)', () => {
@@ -97,5 +106,31 @@ describe('watchTracker derivation', () => {
     expect(out.win_individual_immunity).toEqual([])
     expect([...out.win_team_immunity].sort()).toEqual(['a', 'b'])
     expect(convertWinsToTeam({}, 'win_individual_immunity', 'win_team_immunity')).toEqual({}) // no-op
+  })
+})
+
+describe('draft tribes', () => {
+  const person = (id: string, tribe_name: string | null = null, tribe_color: string | null = null) =>
+    ({ id, name: id, tribe_name, tribe_color }) as CastMember
+
+  it('moves a contestant between tribes and back to the pool', () => {
+    let t = [
+      { name: 'Luvu', color: '#1f6fb2', members: [] as string[] },
+      { name: 'Gata', color: '#e0b020', members: [] as string[] },
+    ]
+    t = moveToTribe(t, 'a', 0)
+    t = moveToTribe(t, 'a', 1)
+    expect(t.map((x) => x.members)).toEqual([[], ['a']])
+    expect(moveToTribe(t, 'a', null).map((x) => x.members)).toEqual([[], []])
+  })
+
+  it('overrides published tribes, and reads as published once the server matches', () => {
+    const tribes = [{ name: ' Luvu ', color: '#1F6FB2', members: ['a'] }]
+    const cast = [person('a'), person('b', 'Old', '#000000')]
+    const drafted = applyDraftTribes(cast, tribes)
+    expect(drafted.map((c) => c.tribe_name)).toEqual(['Luvu', 'Old'])
+    expect(draftIsPublished(cast, tribes)).toBe(false)
+    expect(draftIsPublished([person('a', 'Luvu', '#1f6fb2')], tribes)).toBe(true)
+    expect(draftIsPublished(cast, [])).toBe(false)
   })
 })
