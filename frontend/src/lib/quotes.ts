@@ -400,7 +400,7 @@ export const QUOTES: Quote[] = [
   },
   {
     text: "I'm listening to them, and it turns out no one ate the burger.",
-    who: 'Liz',
+    who: 'Liz Wilcox',
     season: 'Season 46',
   },
   {
