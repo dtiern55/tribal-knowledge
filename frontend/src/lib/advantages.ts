@@ -11,6 +11,8 @@ import s51Stamp from '../assets/s51-advantage-stamp.webp'
 const SEASON_IDOLS: Record<number, string> = {
   27: s27Icon,
   51: s51Icon,
+  // The prod Blood vs. Water fast run (its own season row) wears the S51 whale.
+  270: s51Icon,
 }
 
 export function advantageIdolFor(seasonNumber: number | null | undefined): string {
@@ -23,6 +25,7 @@ export function advantageIdolFor(seasonNumber: number | null | undefined): strin
 const SEASON_STAMPS: Record<number, string> = {
   27: s27Stamp,
   51: s51Stamp,
+  270: s51Stamp,
 }
 
 export function advantageStampFor(seasonNumber: number | null | undefined): string {
