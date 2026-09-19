@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyDraftTribes,
   chipEventsForTab,
   convertWinsToTeam,
   deriveEliminations,
   deriveScoringEvents,
+  draftIsPublished,
   emptyState,
+  moveToTribe,
   suggestedBoot,
   tabForEvent,
   voteTally,
 } from './watchTracker'
-import type { RuleScoringEvent } from '../types'
+import type { CastMember, RuleScoringEvent } from '../types'
 
 describe('watchTracker derivation', () => {
   it('wins become scoring events, one per contestant', () => {
@@ -97,5 +100,31 @@ describe('watchTracker derivation', () => {
     expect(out.win_individual_immunity).toEqual([])
     expect([...out.win_team_immunity].sort()).toEqual(['a', 'b'])
     expect(convertWinsToTeam({}, 'win_individual_immunity', 'win_team_immunity')).toEqual({}) // no-op
+  })
+})
+
+describe('draft tribes', () => {
+  const person = (id: string, tribe_name: string | null = null, tribe_color: string | null = null) =>
+    ({ id, name: id, tribe_name, tribe_color }) as CastMember
+
+  it('moves a contestant between tribes and back to the pool', () => {
+    let t = [
+      { name: 'Luvu', color: '#1f6fb2', members: [] as string[] },
+      { name: 'Gata', color: '#e0b020', members: [] as string[] },
+    ]
+    t = moveToTribe(t, 'a', 0)
+    t = moveToTribe(t, 'a', 1)
+    expect(t.map((x) => x.members)).toEqual([[], ['a']])
+    expect(moveToTribe(t, 'a', null).map((x) => x.members)).toEqual([[], []])
+  })
+
+  it('overrides published tribes, and reads as published once the server matches', () => {
+    const tribes = [{ name: ' Luvu ', color: '#1F6FB2', members: ['a'] }]
+    const cast = [person('a'), person('b', 'Old', '#000000')]
+    const drafted = applyDraftTribes(cast, tribes)
+    expect(drafted.map((c) => c.tribe_name)).toEqual(['Luvu', 'Old'])
+    expect(draftIsPublished(cast, tribes)).toBe(false)
+    expect(draftIsPublished([person('a', 'Luvu', '#1f6fb2')], tribes)).toBe(true)
+    expect(draftIsPublished(cast, [])).toBe(false)
   })
 })

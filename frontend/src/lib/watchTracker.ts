@@ -4,9 +4,9 @@
  * and hands off a summary he applies on the admin page — it writes nothing to
  * the backend itself. Everything here is pure so the derivation is testable.
  */
-import type { RuleScoringEvent } from '../types'
+import type { CastMember, RuleScoringEvent } from '../types'
 
-export type TabKey = 'wins' | 'tribal' | 'extras' | 'camp' | 'final' | 'notes'
+export type TabKey = 'tribes' | 'wins' | 'tribal' | 'extras' | 'camp' | 'final' | 'notes'
 
 /** The four win events the Wins tab drives directly (tribe pills + per-person
  *  toggles), rather than as generic tap chips. */
@@ -89,6 +89,15 @@ export interface WatchState {
   events: Record<string, Record<string, number>>
   finale: { finalFour: string[]; finalThree: string[]; winner: string | null }
   notes: string
+  /** Hand-set tribes, a draft until published (the premiere, before survivoR
+   *  has them). The tracker groups by these the moment they're set. */
+  tribes: DraftTribe[]
+}
+
+export interface DraftTribe {
+  name: string
+  color: string
+  members: string[]
 }
 
 export const emptyState = (): WatchState => ({
@@ -98,6 +107,7 @@ export const emptyState = (): WatchState => ({
   events: {},
   finale: { finalFour: [], finalThree: [], winner: null },
   notes: '',
+  tribes: [],
 })
 
 export interface DerivedEvent {
@@ -172,3 +182,35 @@ export function convertWinsToTeam(
 // The scoring ritual reads the raw state from the server (deriveScoringEvents /
 // deriveEliminations describe how it maps to scores), so there's no text
 // hand-off to build here.
+
+/** Move a contestant into tribe `to` (an index), or back to the pool (null). */
+export function moveToTribe(tribes: DraftTribe[], id: string, to: number | null): DraftTribe[] {
+  return tribes.map((t, i) => ({
+    ...t,
+    members: i === to ? [...t.members.filter((m) => m !== id), id] : t.members.filter((m) => m !== id),
+  }))
+}
+
+/** The cast as the tracker sees it: draft tribes override the published ones
+ *  for everyone they place, so scoring can group by them before publishing. */
+export function applyDraftTribes(cast: CastMember[], tribes: DraftTribe[]): CastMember[] {
+  const byId = new Map<string, DraftTribe>()
+  for (const t of tribes) for (const id of t.members) byId.set(id, t)
+  if (!byId.size) return cast
+  return cast.map((c) => {
+    const t = byId.get(c.id)
+    return t ? { ...c, tribe_name: t.name.trim() || 'Unnamed tribe', tribe_color: t.color } : c
+  })
+}
+
+/** True once the server's tribes match the draft, i.e. it's been published. */
+export function draftIsPublished(cast: CastMember[], tribes: DraftTribe[]): boolean {
+  const byId = new Map(cast.map((c) => [c.id, c]))
+  const placed = tribes.flatMap((t) => t.members.map((id) => ({ t, c: byId.get(id) })))
+  return (
+    placed.length > 0 &&
+    placed.every(
+      ({ t, c }) => c?.tribe_name === t.name.trim() && c.tribe_color?.toLowerCase() === t.color.toLowerCase(),
+    )
+  )
+}

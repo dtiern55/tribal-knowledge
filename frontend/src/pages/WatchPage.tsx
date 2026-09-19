@@ -6,6 +6,7 @@ import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../componen
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
+import { TribeAssigner } from '../components/TribeAssigner'
 import { useAuth } from '../auth/useAuth'
 import { api } from '../lib/api'
 import { rankCast } from '../lib/cast'
@@ -13,9 +14,11 @@ import { airingEpisode } from '../lib/episodes'
 import { pathQuery, useActiveSeason } from '../lib/queries'
 import type { CastMember, Episode, RulesResponse } from '../types'
 import {
+  applyDraftTribes,
   chipEventsForTab,
   convertWinsToTeam,
   deriveScoringEvents,
+  draftIsPublished,
   emptyState,
   shortLabel,
   suggestedBoot,
@@ -26,6 +29,7 @@ import {
 } from '../lib/watchTracker'
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'tribes', label: 'Tribes' },
   { key: 'wins', label: 'Immunity & reward' },
   { key: 'tribal', label: 'Tribal' },
   { key: 'extras', label: 'Extras' },
@@ -67,6 +71,7 @@ export function WatchPage() {
   // Which episode this sitting records, chosen once (below) and then held.
   const [episodeId, setEpisodeId] = useState<string | null>(null)
   const [synced, setSynced] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [publishing, setPublishing] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const seasonQ = useActiveSeason()
@@ -164,8 +169,8 @@ export function WatchPage() {
   // No pre/post-merge toggle: the tribes flatten on their own at the merge,
   // since the merge tribe is one tribe. postMerge only picks the point rate.
   const active = useMemo(
-    () => rankCast(castQ.data ?? []).filter((c) => c.eliminated_in_episode == null),
-    [castQ.data],
+    () => applyDraftTribes(rankCast(castQ.data ?? []), watch.tribes).filter((c) => c.eliminated_in_episode == null),
+    [castQ.data, watch.tribes],
   )
   const groups = useMemo(() => groupByTribe(active), [active])
   const recorded = deriveScoringEvents(watch).length + watch.boots.length
@@ -266,6 +271,18 @@ export function WatchPage() {
       return { ...w, finale: f }
     })
     setOpenSlot(null)
+  }
+
+  const publishTribes = () => {
+    if (!confirm('Publish these tribes? Every player sees them right away.')) return
+    setPublishing(true)
+    api
+      .put(`/seasons/${season.season_id}/tribes`, {
+        from_episode: episode.episode_number,
+        tribes: watch.tribes.map((t) => ({ name: t.name.trim(), color: t.color, contestant_ids: t.members })),
+      })
+      .catch((e: Error) => alert(`Could not publish tribes: ${e.message}`))
+      .finally(() => setPublishing(false))
   }
 
   const wipe = () => {
@@ -745,6 +762,16 @@ export function WatchPage() {
       </div>
 
       <div className="mt-4">
+        {tab === 'tribes' && (
+          <TribeAssigner
+            cast={rankCast(cast).filter((c) => c.eliminated_in_episode == null)}
+            tribes={watch.tribes}
+            onChange={(tribes) => setWatch((w) => ({ ...w, tribes }))}
+            published={draftIsPublished(cast, watch.tribes)}
+            publishing={publishing}
+            onPublish={publishTribes}
+          />
+        )}
         {tab === 'wins' && winsTab}
         {tab === 'tribal' && tribalTab}
         {tab === 'extras' && chipTab('extras')}

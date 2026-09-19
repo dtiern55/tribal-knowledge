@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin
+from app.schemas import TribesPublish
 from app.tribe_import import build_tribe_data
 
 router = APIRouter(tags=["tribes"])
@@ -157,3 +158,67 @@ def sync_tribes(
         "unmatched": sorted(unmatched),
         "source": season_key,
     }
+
+
+@router.put("/seasons/{season_id}/tribes")
+def publish_tribes(
+    season_id: UUID,
+    body: TribesPublish,
+    _: UUID = Depends(get_current_admin),
+):
+    """Publish hand-set tribes from the Watch tracker, live for everyone at once.
+
+    For a premiere survivoR hasn't caught up to. Replaces whatever membership
+    started at `from_episode`, so re-publishing a fix is safe. A later
+    sync-tribes rebuild overwrites it with survivoR's names and colors.
+    """
+    names = [t.name.strip() for t in body.tribes]
+    if len(set(n.lower() for n in names)) != len(names):
+        raise HTTPException(status_code=400, detail="Tribe names must be unique")
+    ids = [str(c) for t in body.tribes for c in t.contestant_ids]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(status_code=400, detail="A contestant is in two tribes")
+
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "select id from contestants where season_id = %s", [str(season_id)]
+            )
+            cast = {str(r["id"]) for r in cur.fetchall()}
+            if not cast:
+                raise HTTPException(status_code=404, detail="Season not found")
+            if not set(ids) <= cast:
+                raise HTTPException(
+                    status_code=400, detail="Contestant not in this season"
+                )
+
+            cur.execute(
+                "delete from contestant_tribes where from_episode = %s"
+                " and contestant_id in"
+                " (select id from contestants where season_id = %s)",
+                [body.from_episode, str(season_id)],
+            )
+            for name, t in zip(names, body.tribes):
+                cur.execute(
+                    """
+                    insert into tribes (season_id, name, color) values (%s, %s, %s)
+                    on conflict (season_id, name) do update set color = excluded.color
+                    returning id
+                    """,
+                    [str(season_id), name, t.color],
+                )
+                tribe_id = str(cur.fetchone()["id"])
+                for cid in t.contestant_ids:
+                    cur.execute(
+                        "insert into contestant_tribes"
+                        " (contestant_id, tribe_id, from_episode) values (%s, %s, %s)",
+                        [str(cid), tribe_id, body.from_episode],
+                    )
+            # A tribe renamed between publishes is left with nobody in it.
+            cur.execute(
+                "delete from tribes t where t.season_id = %s and not exists"
+                " (select 1 from contestant_tribes ct where ct.tribe_id = t.id)",
+                [str(season_id)],
+            )
+
+    return {"tribes": len(names), "memberships_applied": len(ids)}
