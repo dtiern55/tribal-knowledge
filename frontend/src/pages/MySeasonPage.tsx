@@ -1573,22 +1573,29 @@ function LeagueHub({
             <ul className="mt-2 space-y-1.5">
               {topBoots.map(({ survivor, n, doubled }) => (
                 <li key={survivor.contestant_id} className="flex items-center gap-2 text-sm">
-                  <span className="relative flex shrink-0">
-                    <ContestantAvatar
-                      name={survivor.name}
-                      imageUrl={survivor.image_url}
-                      tribeColor={survivor.tribe_color}
-                      tribeName={survivor.tribe_name}
-                      size="sm"
-                    />
-                    {doubled > 0 && (
-                      <AdvantageStamp
-                        size={15}
+                  <ContestantAvatar
+                    name={survivor.name}
+                    imageUrl={survivor.image_url}
+                    tribeColor={survivor.tribe_color}
+                    tribeName={survivor.tribe_name}
+                    size="sm"
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
+                  {/* The seal carried no number when it sat on the portrait, so a
+                      week of heavy Power Votes stamped every row alike. It counts
+                      out loud here instead. */}
+                  {doubled > 0 && (
+                    <span
+                      className={`flex shrink-0 items-center gap-1 text-xs font-semibold tabular-nums ${sub}`}
+                    >
+                      <DoubleBadge
+                        size={14}
+                        stamp
                         title={`${doubled} ${doubled === 1 ? 'Power Vote' : 'Power Votes'} on this castaway`}
                       />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">{survivor.name}</span>
+                      {doubled}
+                    </span>
+                  )}
                   <span className={`shrink-0 text-xs font-semibold tabular-nums ${sub}`}>
                     {n} {n === 1 ? 'vote' : 'votes'}
                   </span>
