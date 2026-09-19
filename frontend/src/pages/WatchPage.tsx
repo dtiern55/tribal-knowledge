@@ -783,20 +783,29 @@ export function WatchPage() {
       pts: rule ? ptsOf(rule) * d.quantity : 0,
     }
   })
+  // Every vote cast, guesses included, as target <- voters (most votes first).
+  const votesByTarget = Object.entries(
+    Object.entries(watch.votes).reduce<Record<string, { voter: string; confirmed: boolean }[]>>((acc, [voter, v]) => {
+      ;(acc[v.target] ??= []).push({ voter, confirmed: v.confirmed })
+      return acc
+    }, {}),
+  ).sort((a, b) => b[1].length - a[1].length)
+  const countVotes = (voters: { confirmed: boolean }[]) => voters.filter((v) => v.confirmed).length
   const finaleIds = [...watch.finale.finalFour, ...watch.finale.finalThree, ...(watch.finale.winner ? [watch.finale.winner] : [])]
 
   const notesTab = (
     <>
       <div className="mb-4 rounded-xl border border-cream-200 bg-white p-3">
         <h3 className="font-display text-xs font-bold uppercase tracking-[0.14em] text-stone-500">Awarded this episode</h3>
-        {awarded.length === 0 && watch.boots.length === 0 && finaleIds.length === 0 ? (
+        {awarded.length === 0 && watch.boots.length === 0 && votesByTarget.length === 0 && finaleIds.length === 0 ? (
           <p className="mt-1 text-sm text-stone-400">Nothing yet.</p>
         ) : (
           tabs.map((t) => {
             const rows = awarded.filter((a) => a.tab === t.key)
             const boots = t.key === 'tribal' ? watch.boots : []
+            const votes = t.key === 'tribal' ? votesByTarget : []
             const finale = t.key === 'final' && finaleIds.length > 0
-            if (!rows.length && !boots.length && !finale) return null
+            if (!rows.length && !boots.length && !votes.length && !finale) return null
             return (
               <div key={t.key} className="mt-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-700">{t.label}</p>
@@ -815,6 +824,25 @@ export function WatchPage() {
                     <li key={`boot-${id}`} className="flex gap-2">
                       <span className="font-semibold text-forest-900">{nameOf(id)}</span>
                       <span className="text-stone-500">Voted out</span>
+                    </li>
+                  ))}
+                  {votes.map(([target, voters]) => (
+                    <li key={`votes-${target}`} className="flex gap-2">
+                      <span className="shrink-0 font-semibold text-forest-900">{nameOf(target)}</span>
+                      <span className="text-stone-500">
+                        ←{' '}
+                        {voters.map((v, i) => (
+                          <span key={v.voter} className={v.confirmed ? undefined : 'italic text-stone-400'}>
+                            {i > 0 && ', '}
+                            {nameOf(v.voter)}
+                            {!v.confirmed && ' (guess)'}
+                          </span>
+                        ))}
+                      </span>
+                      {/* Locked-in votes only, to match the tally on Tribal. */}
+                      <span className="ml-auto shrink-0 font-semibold text-forest-700">
+                        {countVotes(voters)} {countVotes(voters) === 1 ? 'vote' : 'votes'}
+                      </span>
                     </li>
                   ))}
                   {finale && (
