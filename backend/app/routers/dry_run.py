@@ -102,7 +102,8 @@ def jump(season_id: UUID, body: JumpRequest, admin: UUID = Depends(get_current_a
             # The merge tribe is the one fact that isn't episode-dated: its
             # members are the castaways alive going into the merge episode, so
             # it is rebuilt from the boots once that episode is scored and
-            # emptied before.
+            # emptied before. Anyone already placed at the merge episode (sent
+            # to Redemption Island that week) keeps that row.
             cur.execute(
                 "select id from tribes where season_id = %s and is_merge", [sid]
             )
@@ -123,6 +124,7 @@ def jump(season_id: UUID, body: JumpRequest, admin: UUID = Depends(get_current_a
                           join episodes ep on ep.id = e.episode_id
                           where e.contestant_id = c.id and e.is_final
                             and ep.episode_number < %(m)s)
+                        on conflict (contestant_id, from_episode) do nothing
                         """,
                         {"tribe": merge["id"], "m": m, "sid": sid},
                     )

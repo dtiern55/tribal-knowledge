@@ -18,12 +18,14 @@ from tests.helpers import (
 PAST = datetime.now(timezone.utc) - timedelta(days=1)
 
 
-def _seeded_season(conn, admin, episodes=4):
+def _seeded_season(conn, admin, episodes=4, merge_episode=None):
     """A finished season: every episode scored, one boot per episode. The
     caller is a real admin in the DB: the guard counts non-admin members."""
     with conn.cursor() as cur:
         cur.execute("update profiles set is_admin = true where id = %s", [admin["id"]])
-    season = insert_season(conn, roster_lock_episode=2, status="completed")
+    season = insert_season(
+        conn, roster_lock_episode=2, status="completed", merge_episode=merge_episode
+    )
     cast = [insert_contestant(conn, season["id"], name=f"C{i}") for i in range(6)]
     for n in range(1, episodes + 1):
         ep = insert_episode(
@@ -107,3 +109,38 @@ def test_jump_refuses_a_season_with_real_players(client, db_conn, current_user):
     enroll(db_conn, default_league(db_conn)["id"], player["id"])
     r = client.post(f"/seasons/{season['id']}/jump", json={"episode": 2})
     assert r.status_code == 403
+
+
+@pytest.mark.integration
+def test_jump_past_the_merge_keeps_a_merge_week_redemption_row(
+    client, db_conn, current_user
+):
+    """Blood vs. Water: someone sent to Redemption Island in the merge episode
+    already has a row there, so the merge rebuild must leave it alone."""
+    season, cast = _seeded_season(db_conn, current_user, merge_episode=3)
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "insert into tribes (season_id, name, color, is_merge)"
+            " values (%s, 'Merged', '#000', true),"
+            " (%s, 'Redemption', '#000', false) returning id",
+            [season["id"], season["id"]],
+        )
+        merge_id, ri_id = (r["id"] for r in cur.fetchall())
+        cur.execute(
+            "insert into contestant_tribes (contestant_id, tribe_id, from_episode)"
+            " values (%s, %s, 3)",
+            [cast[5]["id"], ri_id],
+        )
+    r = client.post(f"/seasons/{season['id']}/jump", json={"episode": 4})
+    assert r.status_code == 200, r.text
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "select tribe_id from contestant_tribes"
+            " where contestant_id = %s and from_episode = 3",
+            [cast[5]["id"]],
+        )
+        assert cur.fetchone()["tribe_id"] == ri_id
+        cur.execute(
+            "select count(*) from contestant_tribes where tribe_id = %s", [merge_id]
+        )
+        assert cur.fetchone()["count"] == 3  # C2..C4 alive, C5 on Redemption
