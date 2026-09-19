@@ -157,8 +157,10 @@ export function TeamPage() {
   }, [userId])
 
   const idx = siblings.findIndex((standing) => standing.user_id === userId)
-  const prevP = idx > 0 ? siblings[idx - 1] : undefined
-  const nextP = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
+  // Wraps at either end, so the last place swipes round to first.
+  const n = siblings.length
+  const prevP = idx >= 0 && n > 1 ? siblings[(idx - 1 + n) % n] : undefined
+  const nextP = idx >= 0 && n > 1 ? siblings[(idx + 1) % n] : undefined
   const href = (standing?: StandingEntry) => standing && `/league-seasons/${leagueSeasonId}/team/${standing.user_id}`
   useSwipeNav(href(prevP), href(nextP))
 

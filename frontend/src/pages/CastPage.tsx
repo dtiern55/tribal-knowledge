@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { ColdStart } from '../components/ColdStart'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
+import { ChevronRightIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
@@ -83,6 +84,8 @@ export function CastPage() {
                     >
                       {member.total_points > 0 ? '+' : ''}{member.total_points} pts
                     </span>
+                    {/* A row opens the bio; without the caret new players didn't know. */}
+                    <ChevronRightIcon className="-ml-1 size-[16px] text-stone-400" />
                   </span>
                 </Link>
               </li>
