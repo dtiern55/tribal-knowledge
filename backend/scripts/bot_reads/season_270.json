@@ -1,201 +1,372 @@
 {
- "_note": "Danny's read for Survivor: Blood vs. Water (2026-09-06): no consensus. Rosters random; nobody drafts Candice or Marissa (Redemption Island), a team or two takes Rupert. Votes spread out, six names only lightly favoured. `spread` floors every bot's follow so the strict bots stop moving in lockstep; the episode value overrides the season's.",
- "spread": 40,
- "draft": [
-  "Tyson Apostol",
-  "Monica Culpepper",
-  "Hayden Moss",
-  "Laura Morett",
-  "Ciera Eastin",
-  "Aras Baskauskas",
-  "Katie Collins",
-  "Gervase Peterson",
-  "Brad Culpepper",
-  "Rachel Foulger",
-  "Vytas Baskauskas",
-  "Rupert Boneham",
-  "Kat Edorsson",
-  "Caleb Bankston",
-  "Tina Wesson",
-  "John Cody",
-  "Colton Cumbie",
-  "Laura Boneham"
- ],
- "avoid": [
-  "Candice Cody",
-  "Marissa Peterson"
- ],
- "episodes": {
-  "2": {
-   "likely_boots": [
+  "_note": "Danny's read for Survivor: Blood vs. Water (2026-09-06): no consensus. Rosters random; nobody drafts Candice or Marissa (Redemption Island), a team or two takes Rupert. Votes spread out, six names only lightly favoured. `spread` floors every bot's follow so the strict bots stop moving in lockstep; the episode value overrides the season's.",
+  "spread": 40,
+  "draft": [
+    "Tyson Apostol",
+    "Monica Culpepper",
+    "Hayden Moss",
+    "Laura Morett",
+    "Ciera Eastin",
+    "Aras Baskauskas",
+    "Katie Collins",
+    "Gervase Peterson",
+    "Brad Culpepper",
+    "Rachel Foulger",
+    "Vytas Baskauskas",
+    "Rupert Boneham",
+    "Kat Edorsson",
+    "Caleb Bankston",
+    "Tina Wesson",
+    "John Cody",
     "Colton Cumbie",
-    "Gervase Peterson",
-    "Kat Edorsson",
-    "Laura Boneham",
-    "Ciera Eastin",
-    "Katie Collins"
-   ],
-   "double_targets": [],
-   "note": "Wide open. Six names slightly ahead, nothing more.",
-   "spread": 100
-  },
-  "3": {
-   "likely_boots": [],
-   "double_targets": [],
-   "note": "No read. Every ballot is a random draw from the live field.",
-   "spread": 100
-  },
-  "4": {
-   "likely_boots": [
-    ["Brad Culpepper", 11],
-    ["Ciera Eastin", 9],
-    ["Katie Collins", 4],
-    ["Kat Edorsson", 4],
-    ["Laura Morett", 4],
-    ["Tina Wesson", 4],
-    ["Laura Boneham", 4],
-    ["Monica Culpepper", 2],
-    ["Gervase Peterson", 2],
-    ["Caleb Bankston", 2]
-   ],
-   "double_targets": [
-    "Tyson Apostol",
-    "Aras Baskauskas",
-    "Gervase Peterson",
-    "Hayden Moss",
-    "Vytas Baskauskas",
-    "Caleb Bankston"
-   ],
-   "note": "Brad is the read, on three ballots in four, with Ciera close behind. Katie, Kat, Laura M., Tina and Laura B. peppered in, a few votes out to Monica, Gervase and Caleb. Roster doubles lean Galang - Tyson, Aras, Gervase - plus Hayden, Vytas and Caleb on Tadhana. First week with a real read, so no spread floor: each bot follows at its own persona's distance.",
-   "spread": 0
-  },
-  "5": {
-   "likely_boots": [
-    "Caleb Bankston",
-    "Ciera Eastin",
-    "Monica Culpepper",
-    "Laura Morett",
-    "Kat Edorsson",
-    "Katie Collins",
-    "Hayden Moss"
-   ],
-   "double_targets": [
-    "Aras Baskauskas",
-    "Tyson Apostol",
-    "Gervase Peterson",
-    "Kat Edorsson",
-    "Laura Boneham",
-    "Laura Morett",
-    "Monica Culpepper",
-    "Tina Wesson",
-    "Ciera Eastin",
-    "Hayden Moss",
-    "Vytas Baskauskas"
-   ],
-   "note": "Weak read. Votes and advantages spread fairly evenly, with a light lean to Caleb, Ciera, Monica, Laura M., Kat, Katie and Hayden. Roster doubles lean Galang (Aras and Tyson most-held), with a few landing on Tadhana.",
-   "spread": 70
-  },
-  "6": {
-   "likely_boots": [
-    "Aras Baskauskas",
-    "Kat Edorsson",
-    "Laura Boneham",
-    "Ciera Eastin",
-    "Katie Collins",
-    "Caleb Bankston"
-   ],
-   "double_targets": [
-    "Tina Wesson",
-    "Tyson Apostol",
-    "Gervase Peterson",
-    "Vytas Baskauskas"
-   ],
-   "note": "Basically no read (Danny, 2026-09-12). Six names lightly and equally favoured, no top name: Aras, Kat, Laura B., Ciera, Katie, Caleb. Roster doubles lean to Tina, Tyson, Gervase, Vytas.",
-   "spread": 70
-  },
-  "7": {
-   "likely_boots": [
-    ["Aras Baskauskas", 5],
-    ["Hayden Moss", 5],
-    ["Ciera Eastin", 5],
-    ["Monica Culpepper", 5],
-    ["Laura Boneham", 5],
-    ["Caleb Bankston", 3],
-    ["Laura Morett", 3],
-    ["John Cody", 3],
-    ["Katie Collins", 2],
-    ["Tina Wesson", 2],
-    ["Gervase Peterson", 2]
-   ],
-   "double_targets": [
-    "Vytas Baskauskas",
-    "Tyson Apostol",
-    "Tina Wesson",
-    "Katie Collins",
-    "Monica Culpepper",
-    "Gervase Peterson",
-    "Caleb Bankston",
-    "Hayden Moss"
-   ],
-   "note": "Weak, flat read (Danny, 2026-09-14). Slight lean to Aras, Hayden, Ciera, Monica, Laura B.; Tyson and Vytas get ~no votes; Katie, Tina, Gervase capped low. Power ballots follow the same lean. Roster doubles prefer Vytas and Tyson, then Tina/Katie/Monica/Gervase/Caleb/Hayden, never Ciera. spread 0 so the exclusions hold while the split stays flat.",
-   "spread": 0
-  },
-  "8": {
-   "likely_boots": [
-    ["Aras Baskauskas", 3],
-    ["Caleb Bankston", 2],
-    ["Ciera Eastin", 2],
-    ["Gervase Peterson", 2],
-    ["Hayden Moss", 2],
-    ["Katie Collins", 2],
-    ["Monica Culpepper", 2],
-    ["Tina Wesson", 2],
-    ["Tyson Apostol", 2],
-    ["Vytas Baskauskas", 2]
-   ],
-   "double_targets": [],
-   "note": "Crapshoot at the merge (Danny, 2026-09-15). No read: the ten in-game castaways sit roughly even, with a light lean to Aras. Redemption residents (John, Laura B., Laura M.) are off the ballot. Roster doubles unsteered. spread 0 so the near-flat caps give a spread field with Aras a touch ahead.",
-   "spread": 0
-  },
-  "9": {
-   "likely_boots": [
-    ["Caleb Bankston", 3],
-    ["Katie Collins", 3],
-    ["Laura Morett", 3],
-    ["Monica Culpepper", 3],
-    ["Tina Wesson", 3],
-    ["Vytas Baskauskas", 3],
-    ["Ciera Eastin", 1],
-    ["Hayden Moss", 1]
-   ],
-   "double_targets": [
-    "Tyson Apostol",
-    "Gervase Peterson"
-   ],
-   "note": "Crapshoot (Danny, 2026-09-16). Everyone but Tyson and Gervase roughly even, Ciera and Hayden a touch lighter; Tyson and Gervase cold and the roster-double targets.",
-   "spread": 70
-  },
-  "10": {
-   "likely_boots": [
-    ["Laura Morett", 8],
-    ["Monica Culpepper", 8],
-    ["Ciera Eastin", 4],
-    ["Katie Collins", 3],
-    ["Caleb Bankston", 2],
-    ["Hayden Moss", 1]
-   ],
-   "double_targets": [
-    "Gervase Peterson",
-    "Tyson Apostol",
-    "Hayden Moss"
-   ],
-   "double_backups": [
-    "Caleb Bankston",
-    "Ciera Eastin",
-    "Katie Collins"
-   ],
-   "note": "Real read, not a crapshoot (Danny, 2026-09-16). Laura M. and Monica most voted, then Ciera, Katie, Caleb, Hayden increasingly behind; Power Votes follow onto Laura M. and Monica. Roster doubles on Gervase, Tyson, Hayden; Caleb, Ciera or Katie only for a bot holding none of those that doesn't lean to the ballot.",
-   "spread": 0
+    "Laura Boneham"
+  ],
+  "avoid": [
+    "Candice Cody",
+    "Marissa Peterson"
+  ],
+  "episodes": {
+    "2": {
+      "likely_boots": [
+        "Colton Cumbie",
+        "Gervase Peterson",
+        "Kat Edorsson",
+        "Laura Boneham",
+        "Ciera Eastin",
+        "Katie Collins"
+      ],
+      "double_targets": [],
+      "note": "Wide open. Six names slightly ahead, nothing more.",
+      "spread": 100
+    },
+    "3": {
+      "likely_boots": [],
+      "double_targets": [],
+      "note": "No read. Every ballot is a random draw from the live field.",
+      "spread": 100
+    },
+    "4": {
+      "likely_boots": [
+        [
+          "Brad Culpepper",
+          11
+        ],
+        [
+          "Ciera Eastin",
+          9
+        ],
+        [
+          "Katie Collins",
+          4
+        ],
+        [
+          "Kat Edorsson",
+          4
+        ],
+        [
+          "Laura Morett",
+          4
+        ],
+        [
+          "Tina Wesson",
+          4
+        ],
+        [
+          "Laura Boneham",
+          4
+        ],
+        [
+          "Monica Culpepper",
+          2
+        ],
+        [
+          "Gervase Peterson",
+          2
+        ],
+        [
+          "Caleb Bankston",
+          2
+        ]
+      ],
+      "double_targets": [
+        "Tyson Apostol",
+        "Aras Baskauskas",
+        "Gervase Peterson",
+        "Hayden Moss",
+        "Vytas Baskauskas",
+        "Caleb Bankston"
+      ],
+      "note": "Brad is the read, on three ballots in four, with Ciera close behind. Katie, Kat, Laura M., Tina and Laura B. peppered in, a few votes out to Monica, Gervase and Caleb. Roster doubles lean Galang - Tyson, Aras, Gervase - plus Hayden, Vytas and Caleb on Tadhana. First week with a real read, so no spread floor: each bot follows at its own persona's distance.",
+      "spread": 0
+    },
+    "5": {
+      "likely_boots": [
+        "Caleb Bankston",
+        "Ciera Eastin",
+        "Monica Culpepper",
+        "Laura Morett",
+        "Kat Edorsson",
+        "Katie Collins",
+        "Hayden Moss"
+      ],
+      "double_targets": [
+        "Aras Baskauskas",
+        "Tyson Apostol",
+        "Gervase Peterson",
+        "Kat Edorsson",
+        "Laura Boneham",
+        "Laura Morett",
+        "Monica Culpepper",
+        "Tina Wesson",
+        "Ciera Eastin",
+        "Hayden Moss",
+        "Vytas Baskauskas"
+      ],
+      "note": "Weak read. Votes and advantages spread fairly evenly, with a light lean to Caleb, Ciera, Monica, Laura M., Kat, Katie and Hayden. Roster doubles lean Galang (Aras and Tyson most-held), with a few landing on Tadhana.",
+      "spread": 70
+    },
+    "6": {
+      "likely_boots": [
+        "Aras Baskauskas",
+        "Kat Edorsson",
+        "Laura Boneham",
+        "Ciera Eastin",
+        "Katie Collins",
+        "Caleb Bankston"
+      ],
+      "double_targets": [
+        "Tina Wesson",
+        "Tyson Apostol",
+        "Gervase Peterson",
+        "Vytas Baskauskas"
+      ],
+      "note": "Basically no read (Danny, 2026-09-12). Six names lightly and equally favoured, no top name: Aras, Kat, Laura B., Ciera, Katie, Caleb. Roster doubles lean to Tina, Tyson, Gervase, Vytas.",
+      "spread": 70
+    },
+    "7": {
+      "likely_boots": [
+        [
+          "Aras Baskauskas",
+          5
+        ],
+        [
+          "Hayden Moss",
+          5
+        ],
+        [
+          "Ciera Eastin",
+          5
+        ],
+        [
+          "Monica Culpepper",
+          5
+        ],
+        [
+          "Laura Boneham",
+          5
+        ],
+        [
+          "Caleb Bankston",
+          3
+        ],
+        [
+          "Laura Morett",
+          3
+        ],
+        [
+          "John Cody",
+          3
+        ],
+        [
+          "Katie Collins",
+          2
+        ],
+        [
+          "Tina Wesson",
+          2
+        ],
+        [
+          "Gervase Peterson",
+          2
+        ]
+      ],
+      "double_targets": [
+        "Vytas Baskauskas",
+        "Tyson Apostol",
+        "Tina Wesson",
+        "Katie Collins",
+        "Monica Culpepper",
+        "Gervase Peterson",
+        "Caleb Bankston",
+        "Hayden Moss"
+      ],
+      "note": "Weak, flat read (Danny, 2026-09-14). Slight lean to Aras, Hayden, Ciera, Monica, Laura B.; Tyson and Vytas get ~no votes; Katie, Tina, Gervase capped low. Power ballots follow the same lean. Roster doubles prefer Vytas and Tyson, then Tina/Katie/Monica/Gervase/Caleb/Hayden, never Ciera. spread 0 so the exclusions hold while the split stays flat.",
+      "spread": 0
+    },
+    "8": {
+      "likely_boots": [
+        [
+          "Aras Baskauskas",
+          3
+        ],
+        [
+          "Caleb Bankston",
+          2
+        ],
+        [
+          "Ciera Eastin",
+          2
+        ],
+        [
+          "Gervase Peterson",
+          2
+        ],
+        [
+          "Hayden Moss",
+          2
+        ],
+        [
+          "Katie Collins",
+          2
+        ],
+        [
+          "Monica Culpepper",
+          2
+        ],
+        [
+          "Tina Wesson",
+          2
+        ],
+        [
+          "Tyson Apostol",
+          2
+        ],
+        [
+          "Vytas Baskauskas",
+          2
+        ]
+      ],
+      "double_targets": [],
+      "note": "Crapshoot at the merge (Danny, 2026-09-15). No read: the ten in-game castaways sit roughly even, with a light lean to Aras. Redemption residents (John, Laura B., Laura M.) are off the ballot. Roster doubles unsteered. spread 0 so the near-flat caps give a spread field with Aras a touch ahead.",
+      "spread": 0
+    },
+    "9": {
+      "likely_boots": [
+        [
+          "Caleb Bankston",
+          3
+        ],
+        [
+          "Katie Collins",
+          3
+        ],
+        [
+          "Laura Morett",
+          3
+        ],
+        [
+          "Monica Culpepper",
+          3
+        ],
+        [
+          "Tina Wesson",
+          3
+        ],
+        [
+          "Vytas Baskauskas",
+          3
+        ],
+        [
+          "Ciera Eastin",
+          1
+        ],
+        [
+          "Hayden Moss",
+          1
+        ]
+      ],
+      "double_targets": [
+        "Tyson Apostol",
+        "Gervase Peterson"
+      ],
+      "note": "Crapshoot (Danny, 2026-09-16). Everyone but Tyson and Gervase roughly even, Ciera and Hayden a touch lighter; Tyson and Gervase cold and the roster-double targets.",
+      "spread": 70
+    },
+    "10": {
+      "likely_boots": [
+        [
+          "Laura Morett",
+          8
+        ],
+        [
+          "Monica Culpepper",
+          8
+        ],
+        [
+          "Ciera Eastin",
+          4
+        ],
+        [
+          "Katie Collins",
+          3
+        ],
+        [
+          "Caleb Bankston",
+          2
+        ],
+        [
+          "Hayden Moss",
+          1
+        ]
+      ],
+      "double_targets": [
+        "Gervase Peterson",
+        "Tyson Apostol",
+        "Hayden Moss"
+      ],
+      "double_backups": [
+        "Caleb Bankston",
+        "Ciera Eastin",
+        "Katie Collins"
+      ],
+      "note": "Real read, not a crapshoot (Danny, 2026-09-16). Laura M. and Monica most voted, then Ciera, Katie, Caleb, Hayden increasingly behind; Power Votes follow onto Laura M. and Monica. Roster doubles on Gervase, Tyson, Hayden; Caleb, Ciera or Katie only for a bot holding none of those that doesn't lean to the ballot.",
+      "spread": 0
+    },
+    "12": {
+      "likely_boots": [
+        [
+          "Tyson Apostol",
+          7
+        ],
+        [
+          "Ciera Eastin",
+          7
+        ],
+        [
+          "Katie Collins",
+          2
+        ],
+        [
+          "Hayden Moss",
+          2
+        ],
+        [
+          "Gervase Peterson",
+          1
+        ],
+        [
+          "Monica Culpepper",
+          1
+        ]
+      ],
+      "double_targets": [
+        "Monica Culpepper",
+        "Hayden Moss",
+        "Gervase Peterson",
+        "Tyson Apostol"
+      ],
+      "note": "strong read (Danny, 2026-09-19). favor: Tyson Apostol, Ciera Eastin; light: Katie Collins, Hayden Moss; cold: Gervase Peterson, Monica Culpepper (weighted 1 each so they still draw a ballot). Power ballots follow the votes.",
+      "spread": 0
+    }
   }
- }
 }
