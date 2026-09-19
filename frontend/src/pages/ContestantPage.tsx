@@ -106,8 +106,10 @@ export function ContestantPage() {
           )
       : cast
   const idx = siblings.findIndex((member) => member.id === contestantId)
-  const prevC = idx > 0 ? siblings[idx - 1] : undefined
-  const nextC = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : undefined
+  // Wraps at either end, so the last castaway swipes round to the first.
+  const n = siblings.length
+  const prevC = idx >= 0 && n > 1 ? siblings[(idx - 1 + n) % n] : undefined
+  const nextC = idx >= 0 && n > 1 ? siblings[(idx + 1) % n] : undefined
   const href = (member?: CastMember) => member && `/contestants/${member.id}${detailSuffix}`
   useSwipeNav(href(prevC), href(nextC))
 
