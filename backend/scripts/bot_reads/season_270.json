@@ -367,6 +367,38 @@
       ],
       "note": "strong read (Danny, 2026-09-19). favor: Tyson Apostol, Ciera Eastin; light: Katie Collins, Hayden Moss; cold: Gervase Peterson, Monica Culpepper (weighted 1 each so they still draw a ballot). Power ballots follow the votes.",
       "spread": 0
+    },
+    "13": {
+      "likely_boots": [
+        [
+          "Hayden Moss",
+          7
+        ],
+        [
+          "Ciera Eastin",
+          7
+        ],
+        [
+          "Monica Culpepper",
+          2
+        ],
+        [
+          "Gervase Peterson",
+          1
+        ],
+        [
+          "Tyson Apostol",
+          1
+        ]
+      ],
+      "double_targets": [
+        "Monica Culpepper",
+        "Gervase Peterson",
+        "Tyson Apostol",
+        "Laura Morett"
+      ],
+      "note": "strong read (Danny, 2026-09-19). Pile on Hayden Moss and Ciera Eastin; Monica Culpepper a couple, Gervase Peterson and Tyson Apostol one each (Tyson holds an idol). Power ballots follow the votes.",
+      "spread": 0
     }
   }
 }
