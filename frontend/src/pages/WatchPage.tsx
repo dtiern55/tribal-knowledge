@@ -339,6 +339,7 @@ export function WatchPage() {
 
   const jeff = chipEventsForGroup(rules?.scoring_events ?? [], 'jeff')[0]
   const redemption = chipEventsForGroup(rules?.scoring_events ?? [], 'redemption')
+  const takenOnReward = chipEventsForGroup(rules?.scoring_events ?? [], 'reward')
 
   const challengeTab = (
     <>
@@ -446,6 +447,7 @@ export function WatchPage() {
           </span>
         ),
       )}
+      {takenOnReward.length > 0 && tucked('Taken along on a reward', 'reward')}
       {redemption.length > 0 && tucked('Redemption', 'redemption')}
     </>
   )

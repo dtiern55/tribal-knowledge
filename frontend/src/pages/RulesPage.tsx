@@ -17,6 +17,7 @@ const EVENT_GROUPS: [string, string[]][] = [
   ['Challenges', [
     'win_individual_immunity',
     'win_individual_reward',
+    'taken_on_reward',
     'win_team_immunity',
     'win_team_reward',
     'win_fire_making_challenge',

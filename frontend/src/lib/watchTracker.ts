@@ -33,7 +33,7 @@ export const NON_CHIP = new Set<string>([
 
 /** Where a tappable event is entered: a tab's main chips, or a tucked-away
  *  section of one (Jeff's strip, Redemption, tribal advantages, the boot rows). */
-export type ChipGroup = 'camp' | 'jeff' | 'redemption' | 'tribal' | 'boot' | 'advantages' | 'final'
+export type ChipGroup = 'camp' | 'jeff' | 'reward' | 'redemption' | 'tribal' | 'boot' | 'advantages' | 'final'
 
 // Every-episode events sit up front; the rare ones are tucked into sections.
 // Chips show in list order. Anything unlisted falls to Camp, so a newly enabled
@@ -41,6 +41,7 @@ export type ChipGroup = 'camp' | 'jeff' | 'redemption' | 'tribal' | 'boot' | 'ad
 const GROUPS: Record<ChipGroup, string[]> = {
   camp: ['go_on_journey', 'episode_title_quote', 'read_treemail_or_instructions'],
   jeff: ['jeff_thats_how_you_do_it'],
+  reward: ['taken_on_reward'],
   redemption: ['win_redemption_duel', 'return_from_redemption', 'return_from_redemption_endgame'],
   tribal: [
     'play_idol',
@@ -68,6 +69,7 @@ const GROUPS: Record<ChipGroup, string[]> = {
 const TAB_OF_GROUP: Record<ChipGroup, TabKey> = {
   camp: 'camp',
   jeff: 'challenge',
+  reward: 'challenge',
   redemption: 'challenge',
   tribal: 'tribal',
   boot: 'tribal',
@@ -120,6 +122,7 @@ const SHORT_LABEL: Record<string, string> = {
   activate_inactive_idol: 'Activate inactive idol',
   idol_played_successfully: 'Immunity idol saves target',
   go_on_journey: 'Journey',
+  taken_on_reward: 'Taken along on a reward',
   votes_blocked_by_idol: 'Vote blocked by immunity idol',
 }
 

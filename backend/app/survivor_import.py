@@ -389,7 +389,7 @@ def build_proposal(
     warnings.append(
         "Judgment calls not proposed: blindside_with_active_idol, "
         "fake_idol_played, steal_immunity_idol, episode_title_quote, "
-        "read_treemail_or_instructions, jeff_thats_how_you_do_it"
+        "read_treemail_or_instructions, jeff_thats_how_you_do_it, taken_on_reward"
     )
     return {
         "eliminations": eliminations,
