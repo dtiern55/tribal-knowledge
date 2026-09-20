@@ -61,6 +61,7 @@ const EVENT_GROUPS: [string, string[]][] = [
   ]],
 ]
 
+// Listed in bracket order — the rung you fill first on top — not by value.
 const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
 // Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
@@ -203,7 +204,9 @@ export function RulesPage() {
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
   const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
   const tiers = pickTiers(season)
-  const finaleScores = prediction_scores.filter((score) => FINALE_KEYS.includes(score.key))
+  const finaleScores = FINALE_KEYS.map((key) => prediction_scores.find((score) => score.key === key)).filter(
+    (score): score is RulePredictionScore => score != null,
+  )
 
   return (
     <div className="max-w-3xl">
@@ -290,9 +293,6 @@ export function RulesPage() {
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
-          <p className="text-sm leading-6 text-gray-700">
-            The ballot is replaced by a prediction bracket. The weekly advantage is not played for the final episode.
-          </p>
           {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
         </RuleSection>
 
