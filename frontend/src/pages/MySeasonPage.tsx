@@ -4532,6 +4532,21 @@ function FinaleBallot({
 
   const locked = !isEpisodeOpen(finaleEp, season, episodes)
 
+  // Alive at the finale: never-eliminated OR eliminated in the finale itself —
+  // the ballot predicts the finale's bracket, so they stay listed even when
+  // results land before the window closes (matches the server).
+  const aliveAtFinale = useCallback(
+    (id: string) => {
+      const c = contestants.find((x) => x.id === id)
+      return (
+        !!c &&
+        (c.eliminated_in_episode == null ||
+          c.eliminated_in_episode === finaleEp.episode_number)
+      )
+    },
+    [contestants, finaleEp.episode_number],
+  )
+
   // The saved bracket, seeded once into the editable copy above: a refusal
   // (404, nothing submitted yet) starts the form empty, as its `.catch` did,
   // and the save below keeps this copy itself from then on.
@@ -4544,15 +4559,20 @@ function FinaleBallot({
     setSeeded(true)
     const pred = savedQ.data
     if (!pred) return
-    setFinalFour(pred.final_four_contestant_ids ?? [])
-    setFinalThree(pred.final_three_contestant_ids ?? [])
-    setWinner(pred.winner_contestant_id ?? '')
-    setHasSaved(
-      (pred.final_four_contestant_ids?.length ?? 0) > 0 ||
-        (pred.final_three_contestant_ids?.length ?? 0) > 0 ||
-        Boolean(pred.winner_contestant_id),
-    )
-  }, [seeded, savedQ.isPending, savedQ.data])
+    // Drop anyone booted since the ballot was saved: the rounds below only
+    // list the living, so a dead pick left in state is unremovable and the
+    // server rejects the whole ballot on submit.
+    const stillIn = (ids: string[] | null) => (ids ?? []).filter((id) => aliveAtFinale(id))
+    const f4 = stillIn(pred.final_four_contestant_ids)
+    const f3 = stillIn(pred.final_three_contestant_ids)
+    const w = pred.winner_contestant_id && aliveAtFinale(pred.winner_contestant_id)
+      ? pred.winner_contestant_id
+      : ''
+    setFinalFour(f4)
+    setFinalThree(f3)
+    setWinner(w)
+    setHasSaved(f4.length > 0 || f3.length > 0 || Boolean(w))
+  }, [seeded, savedQ.isPending, savedQ.data, aliveAtFinale])
 
   // Report bracket progress to the hero on every pick change. `saved` is true
   // only while showing a committed ballot, so the hero's "all set" waits on a
@@ -4564,14 +4584,7 @@ function FinaleBallot({
     })
   }, [finalFour, finalThree, winner, locked, hasSaved, editing, onProgress])
 
-  // Alive at the finale: never-eliminated OR eliminated in the finale itself —
-  // the ballot predicts the finale's bracket, so they stay listed even when
-  // results land before the window closes (matches the server).
-  const alive = contestants.filter(
-    (c) =>
-      c.eliminated_in_episode == null ||
-      c.eliminated_in_episode === finaleEp.episode_number,
-  )
+  const alive = contestants.filter((c) => aliveAtFinale(c.id))
   const byId = new Map(contestants.map((c) => [c.id, c]))
   // The bracket narrows: your Final 3 comes from your Final 4, the winner and
   // the immunity winner from within those. Toggling someone out of the wider
