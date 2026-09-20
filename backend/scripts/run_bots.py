@@ -940,6 +940,11 @@ def finale_slate(pool: list[str], ss, spread: float, uid: str):
     Winner is mostly the bot's Sole Survivor when it made the finale, else
     another finalist. The remaining seats are a biased-random fill, and the
     winner is nested into the Final 3/4 — a called winner also made those."""
+    # No read leans the finale, so the pool's order carries no signal — but
+    # biased_order races toward the front of whatever list it's handed, and
+    # finalists() returns database row order. Without a per-bot shuffle the
+    # first row wins most of the brackets and the last rows win none.
+    pool = sorted(pool, key=lambda c: rng(uid, "finale", "pool", c))
     if ss in pool and rng(uid, "finale", "winner") < WINNER_FROM_SS:
         winner = ss
     else:

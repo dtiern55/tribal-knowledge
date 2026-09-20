@@ -31,6 +31,14 @@ def test_most_but_not_all_crown_their_sole_survivor():
     assert 150 < crowned < 300
 
 
+def test_the_pool_order_does_not_decide_the_winner():
+    # The pool arrives in database row order, which means nothing here. Bots
+    # without a living designee must spread across it, not pile onto pool[0].
+    winners = [finale_slate(POOL, "z", 0.5, f"bot-{i}")[2] for i in range(300)]
+    assert winners.count(POOL[0]) < 120  # a third of 300, generously
+    assert all(winners.count(c) > 10 for c in POOL)
+
+
 def test_an_eliminated_designee_is_never_the_winner():
     # SS "z" isn't in the finalist pool (voted out earlier): the winner comes
     # from the pool instead, every time.
