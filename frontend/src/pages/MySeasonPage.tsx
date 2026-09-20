@@ -1464,6 +1464,7 @@ function LockedState({
         episodeId={episode.id}
         userId={userId}
         broadcast={broadcast}
+        showCount={!episode.is_finale}
       />
     </>
   )
@@ -1485,7 +1486,11 @@ function LeagueHub({
   episodeId: string
   userId: string
   broadcast: boolean
-  /** The Count tiles ride the locked screen; a recap wants only The Field. */
+  /**
+   * The Count tiles count weekly votes and advantage plays. A recap wants only
+   * The Field, and the finale has neither a boot vote nor an advantage, so both
+   * leave them off.
+   */
   showCount?: boolean
 }) {
   // Which player rows are open. Native <details> keeps its own state, so this
