@@ -886,7 +886,15 @@ export function MySeasonPage() {
             headline={week.headline}
             settled={week.settled}
             sub={<LockLine lockAt={state.episode.picks_lock_at} />}
-            right={<HeaderPoints standing={d.standing} rank={d.rank} count={d.playerCount} hero />}
+            right={
+              <HeaderPoints
+                standing={d.standing}
+                rank={d.rank}
+                count={d.playerCount}
+                hero
+                roomLit={roomLit}
+              />
+            }
           >
             <AdvantageLane
               season={d.season}
@@ -2256,6 +2264,7 @@ function HeaderPoints({
   rank,
   count,
   hero = false,
+  roomLit = false,
 }: {
   standing: StandingEntry | null
   rank: number | null
@@ -2263,8 +2272,14 @@ function HeaderPoints({
   /** In the This Week hero the chip drops its brush swatch — the swatch is a
    *  dark stroke and the hero is already dark. Same breakdown behind the tap. */
   hero?: boolean
+  /** The ballot room is dark. The open breakdown lifts the whole hero to z-40
+   *  to clear the lane tabs, which would also pop it out from under the room's
+   *  z-20 scrim and relight the hero mid-pick — so while the room is down the
+   *  chip is just the number. */
+  roomLit?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [wantOpen, setWantOpen] = useState(false)
+  const open = wantOpen && !roomLit
   const total = standing?.total_points ?? 0
   const components = [
     { label: 'Tribe', value: standing?.roster_points ?? 0 },
@@ -2278,13 +2293,13 @@ function HeaderPoints({
         <HeroPoints
           total={total}
           rankLabel={rank != null ? ordinal(rank) : null}
-          onClick={() => setOpen((v) => !v)}
+          onClick={roomLit ? undefined : () => setWantOpen((v) => !v)}
           expanded={open}
         />
       ) : (
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setWantOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="header-points-breakdown"
           className="header-points inline-flex min-h-[4.75rem] min-w-[7.5rem] flex-col items-center justify-center px-5 py-3 text-center text-cream-100"

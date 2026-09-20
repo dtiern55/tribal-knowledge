@@ -578,6 +578,29 @@ describe('MySeasonPage state shell', () => {
     )
   })
 
+  it('leaves the hero dark when you tap My pts in the lit room', async () => {
+    // The open breakdown lifts the whole hero to z-40 to clear the lane tabs,
+    // which is above the room's z-20 scrim — so a tap used to relight the hero
+    // mid-ballot. While the room is down the chip is just the number.
+    arrange([
+      episode(1, 'scored', '2026-08-20T00:00:00Z'),
+      episode(2, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    const user = userEvent.setup()
+    renderWithApp(<MySeasonPage />, { auth })
+
+    expect(await screen.findByRole('button', { name: /My pts/ })).toBeVisible()
+    await openBeat('Ballot')
+    expect(document.documentElement).toHaveClass('ballot-room')
+    expect(screen.queryByRole('button', { name: /My pts/ })).not.toBeInTheDocument()
+    expect(document.getElementById('header-points-breakdown')).toBeNull()
+
+    // Out of the room, the chip is back and still opens the breakdown.
+    await openBeat('Tribe')
+    await user.click(await screen.findByRole('button', { name: /My pts/ }))
+    expect(document.getElementById('header-points-breakdown')).not.toBeNull()
+  })
+
   it('leaves the room light alone when you were never on the Ballot beat', async () => {
     arrange([
       episode(1, 'scored', '2026-08-20T00:00:00Z'),
