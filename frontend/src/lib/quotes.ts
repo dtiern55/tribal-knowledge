@@ -305,7 +305,7 @@ export const QUOTES: Quote[] = [
   },
   {
     text: 'Chaos is my friend.',
-    who: 'Chaos Kass',
+    who: 'Kass',
     season: 'Season 28: Cagayan',
   },
   {
