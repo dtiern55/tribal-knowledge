@@ -255,3 +255,20 @@ def test_ballot_allows_finale_episode_boots(client, db_conn, current_user):
         json={"final_four_contestant_ids": [str(finalist["id"])]},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.integration
+def test_ballot_allows_redemption_island_resident(client, db_conn, current_user):
+    """A vote-out to Redemption Island is not a boot: they can win back in and
+    reach the Final 4, so the bracket keeps them pickable."""
+    season = insert_season(db_conn, status="active")
+    on_island = insert_contestant(db_conn, season["id"], "On Redemption")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    insert_elimination(db_conn, ep2["id"], on_island["id"], is_final=False)
+    _open_finale_episode(db_conn, season["id"])
+
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/finale-predictions",
+        json={"final_four_contestant_ids": [str(on_island["id"])]},
+    )
+    assert r.status_code == 200

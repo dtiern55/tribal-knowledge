@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database
 from app.auth import get_current_user
 from app.locking import EPISODE_LOCKED_SQL, episode_locked
+from app.routers.picks import already_eliminated_ids
 from app.schemas import FinalePrediction, FinalePredictionRequest
 
 router = APIRouter(tags=["finale_predictions"])
@@ -79,7 +80,7 @@ def submit_finale_prediction(
                 raise HTTPException(status_code=400, detail="Season is complete")
 
             cur.execute(
-                "select picks_lock_at, status from episodes"
+                "select episode_number, picks_lock_at, status from episodes"
                 " where season_id = %s and is_finale = true",
                 [season_id],
             )
@@ -109,9 +110,12 @@ def submit_finale_prediction(
             )
 
             # Validate every provided contestant id belongs to this season and
-            # is alive AT the finale (#158): pre-finale boots are invalid, but
-            # the finale episode's own eliminations are what the ballot predicts,
-            # so they stay pickable even if results were entered early.
+            # is alive AT the finale (#158): boots from earlier episodes are
+            # invalid, but the finale episode's own eliminations are what the
+            # ballot predicts, so they stay pickable even if results were
+            # entered early. "Boot" is the shared is_final rule — someone voted
+            # out to Redemption Island is still in the game and can win back in,
+            # so they stay on the bracket.
             ids = list({*final_four, *final_three, *([winner] if winner else [])})
             if ids:
                 cur.execute(
@@ -126,17 +130,11 @@ def submit_finale_prediction(
                         status_code=400,
                         detail=f"Contestants not in this season: {invalid}",
                     )
-                cur.execute(
-                    """
-                    select distinct e.contestant_id::text as id
-                    from eliminations e
-                    join episodes ep on ep.id = e.episode_id
-                    where ep.season_id = %s and e.contestant_id::text = any(%s)
-                      and ep.is_finale = false
-                    """,
-                    [season_id, ids],
+                gone = set(
+                    already_eliminated_ids(
+                        cur, season_id, finale_ep["episode_number"], ids
+                    )
                 )
-                gone = {row["id"] for row in cur.fetchall()}
                 dead = [i for i in ids if i in gone]
                 if dead:
                     raise HTTPException(
