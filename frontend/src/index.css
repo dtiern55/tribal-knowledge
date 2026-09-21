@@ -306,6 +306,19 @@ html.locked-night .app-shell .text-gold-900 {
   color: rgb(233 210 150 / 90%);
 }
 
+/* The Sole Survivor worked example (Rules page, and the naming popup). Its
+   gold wash and hairlines carry opacity modifiers, which Tailwind emits as
+   classes distinct from the gold rules above, so under lock it kept a pale
+   daylight fill behind the lifted gold ink and read light on light (#881).
+   Same trap as .bg-cream-100\/95 further up. */
+html.locked-night .app-shell .bg-gold-50\/70 {
+  background-color: rgb(44 39 22 / 70%);
+}
+html.locked-night .app-shell .border-gold-200,
+html.locked-night .app-shell .border-gold-300\/60 {
+  border-color: rgb(214 178 92 / 32%);
+}
+
 /* The "record paper" surface (Team, Contestant, and the season record) and its
    ink/edge tokens aren't cream utilities, so the rules above miss them and the
    page stays daylight under lock (#451). Repaint the whole paper palette to

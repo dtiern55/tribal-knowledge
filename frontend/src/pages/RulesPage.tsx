@@ -285,7 +285,7 @@ export function RulesPage() {
         <RuleSection id="sole-survivor" title="Sole Survivor">
           <RuleList>
             <li>In Episode {swapLockEpisodeNumber(season) - 1}, your last swap episode, name one castaway on your tribe as your Sole Survivor.</li>
-            <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
+            <li>At the finale, your Sole Survivor earns you a bonus: +50% of what they score that night.</li>
           </RuleList>
           <details className="mt-3">
             <summary className="cursor-pointer text-sm font-medium text-forest-700 underline underline-offset-2">See an example</summary>
