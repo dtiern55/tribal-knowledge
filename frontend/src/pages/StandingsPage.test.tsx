@@ -318,4 +318,53 @@ describe('StandingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
     expect(row).toHaveAttribute('aria-expanded', 'false')
   })
+
+  it('expands a finished season onto the finale and its bracket, not the week before', async () => {
+    const season = { id: 'season-1', season_id: 'show-1', name: 'Survivor 51', status: 'completed', roster_lock_episode: 1 } as Season
+    const locked = new Date(Date.now() - 86_400_000).toISOString()
+    const cast = (id: string, name: string) => ({ contestant_id: id, name, image_url: null, tribe_name: null, tribe_color: null, eliminated_episode: null })
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === '/league-seasons') return [season]
+      if (path.endsWith('/standings')) {
+        return [{
+          user_id: 'user-1', display_name: 'Danny',
+          roster_points: 40, elimination_points: 20, finale_points: 65, total_points: 125,
+          trend: null, trend_delta: 0, last_episode_points: 65,
+          active_survivors: [], recently_eliminated_survivors: [],
+        }]
+      }
+      if (path === '/seasons/show-1/episodes') {
+        return [
+          { id: 'ep-2', episode_number: 2, is_finale: false, status: 'scored', picks_lock_at: locked },
+          { id: 'ep-3', episode_number: 3, is_finale: true, status: 'scored', picks_lock_at: locked },
+        ]
+      }
+      if (path === '/league-seasons/season-1/episodes/ep-3/hub') {
+        return [{
+          user_id: 'user-1', display_name: 'Danny',
+          roster: [{ ...cast('cast-1', 'Charlie'), points: 20 }],
+          ballot: [],
+          advantage_type: null, advantage_target: null,
+          sole_survivor_contestant_id: 'cast-1',
+          finale: { final_four: [cast('cast-4', 'Tiff')], final_three: [cast('cast-3', 'Ben')], winner: cast('cast-1', 'Charlie') },
+          tribe_points: 20, ballot_points: 65,
+        }]
+      }
+      throw new Error(`Unexpected path: ${path}`)
+    })
+
+    renderWithApp(<StandingsPage />)
+    await userEvent.click(await screen.findByRole('button', { name: /Danny/ }))
+
+    expect(await screen.findByText('Ep 3')).toBeVisible()
+    expect(screen.queryByText('Ep 2')).not.toBeInTheDocument()
+    // The finale's ballot is the bracket, not vote marks.
+    expect(screen.getByText('Bracket')).toBeVisible()
+    expect(screen.queryByText('Ballot')).not.toBeInTheDocument()
+    expect(screen.queryByText('No votes')).not.toBeInTheDocument()
+    const [, bracket] = screen.getAllByRole('definition')
+    expect(bracket).toHaveTextContent('Tiff')
+    expect(bracket).toHaveTextContent('Ben')
+    expect(bracket).toHaveTextContent('Charlie')
+  })
 })

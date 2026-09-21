@@ -8,6 +8,7 @@ import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
 import { PageLoader } from '../components/PageLoader'
 import { AdvantageStamp, DoubleBadge } from '../components/DoubleBadge'
+import { FinaleBracket } from '../components/FinaleBracket'
 import { HubBallotMark } from '../components/HubPlayMarks'
 import { SoleSurvivorTorch } from '../components/SoleSurvivorTorch'
 import { Torch, TorchDefs } from '../components/Torch'
@@ -169,7 +170,7 @@ function HistoryPanel({
   name,
 }: {
   id: string
-  /** The most recent locked, non-finale episode. */
+  /** The most recent locked episode. */
   episode: Episode | undefined
   /** That player's week. Undefined once the Hub is in and they simply had no
    *  roster, ballot or play that episode. */
@@ -254,10 +255,28 @@ function HistoryPanel({
               )}
             </dd>
 
-            <dt className={label}>Ballot</dt>
+            <dt className={label}>{episode.is_finale ? 'Bracket' : 'Ballot'}</dt>
             <dd className="flex flex-wrap items-center gap-1.5 py-0.5">
-              {votes.length === 0 ? (
-                <span className="text-sm text-paper-ink-faded">No votes</span>
+              {/* The finale's ballot is the bracket, drawn the way the Hub and
+                  your own card draw it (#801). Marking it correct/missed is the
+                  Team page's pyramid, one tap below. */}
+              {entry.finale ? (
+                <FinaleBracket
+                  finalFour={entry.finale.final_four.map((s) => s.contestant_id)}
+                  finalThree={entry.finale.final_three.map((s) => s.contestant_id)}
+                  winner={entry.finale.winner?.contestant_id ?? ''}
+                  byId={
+                    new Map(
+                      [...entry.finale.final_four, ...entry.finale.final_three, entry.finale.winner]
+                        .filter((s) => s != null)
+                        .map((s) => [s.contestant_id, s]),
+                    )
+                  }
+                />
+              ) : votes.length === 0 ? (
+                <span className="text-sm text-paper-ink-faded">
+                  {episode.is_finale ? 'No bracket' : 'No votes'}
+                </span>
               ) : (
                 votes.map((vote) => {
                   // Two facts per vote, one channel each: the stamped idol is the
@@ -310,13 +329,12 @@ export function StandingsPage() {
   const episodes = useQuery(
     pathQuery<Episode[]>(season ? `/seasons/${season.season_id}/episodes` : null),
   )
-  // The latest locked episode from the roster lock on. The finale is left out —
-  // its ballot is a bracket, not votes, and it reads as the pyramid on the Team
-  // page (#82/#86, as on that page).
+  // The latest locked episode from the roster lock on, the finale included:
+  // once it airs it IS the league's latest week, and skipping it left a
+  // finished season expanding onto the penultimate episode. Its ballot is the
+  // bracket, drawn below the way the Hub draws it.
   const weekEpisode = (episodes.data ?? [])
-    .filter(
-      (e) => episodeClosed(e) && !e.is_finale && e.episode_number >= (season?.roster_lock_episode ?? 1),
-    )
+    .filter((e) => episodeClosed(e) && e.episode_number >= (season?.roster_lock_episode ?? 1))
     .sort((a, b) => b.episode_number - a.episode_number)[0]
   const hub = useQuery(
     pathQuery<HubEntry[]>(
