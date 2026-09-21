@@ -235,9 +235,9 @@ def test_roster_points_includes_placement(db_conn):
     winner = insert_contestant(db_conn, season["id"], "Winner", placement=1)
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
 
-    # Rostering the winner at the finale -> 30 MFT + 50 won_season (#87).
+    # Rostering the winner at the finale -> 25 MFT + 40 won_season (#881).
     assert scoring.roster_points(db_conn, season["league_season_id"]) == {
-        str(user["id"]): 80
+        str(user["id"]): 65
     }
 
 
@@ -298,10 +298,10 @@ def test_episode_points_finale_includes_outcomes(db_conn):
     )
     insert_roster_pick(db_conn, user["id"], season["id"], winner["id"])
 
-    # Rostering the placement-1 finisher pays made_final_tribal 30 and
-    # won_season 50.
+    # Rostering the placement-1 finisher pays made_final_tribal 25 and
+    # won_season 40.
     assert scoring.episode_points(db_conn, season["league_season_id"], 6) == {
-        str(user["id"]): 80
+        str(user["id"]): 65
     }
 
 

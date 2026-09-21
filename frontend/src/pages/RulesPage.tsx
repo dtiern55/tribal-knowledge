@@ -47,6 +47,7 @@ const EVENT_GROUPS: [string, string[]][] = [
   ['Making it far', [
     'join_jury',
     'made_final_tribal',
+    // Retired in #881. Seasons that scored it keep showing it here.
     'runner_up',
     'won_season',
     'win_redemption_duel',
@@ -284,7 +285,7 @@ export function RulesPage() {
         <RuleSection id="sole-survivor" title="Sole Survivor">
           <RuleList>
             <li>In Episode {swapLockEpisodeNumber(season) - 1}, your last swap episode, name one castaway on your tribe as your Sole Survivor.</li>
-            <li>At the finale, your Sole Survivor earns you a bonus worth half of what they score that night.</li>
+            <li>At the finale, your Sole Survivor earns you a bonus: +50% of what they score that night.</li>
           </RuleList>
           <details className="mt-3">
             <summary className="cursor-pointer text-sm font-medium text-forest-700 underline underline-offset-2">See an example</summary>
@@ -329,6 +330,7 @@ export function RulesPage() {
             <li><b>Correct vote:</b> the castaway voted for the person who went home.</li>
             <li><b>Blindside:</b> the castaway voted correctly and the person who went home had an active idol.</li>
             <li><b>Quit or removal:</b> a quit, medical removal, or disqualification counts as a boot.</li>
+            <li><b>Finale:</b> everyone who makes the final tribal scores for it. The winner scores for winning on top of that.</li>
             <li><b>Successful idol play:</b> the person the idol protected got votes and would have gone home without it.</li>
             <li><b>Idol nullifier voids a real idol:</b> the nullifier hit a castaway who played a real idol. Aimed at nothing, it scores the play alone.</li>
           </RuleList>

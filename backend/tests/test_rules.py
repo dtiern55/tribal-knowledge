@@ -18,8 +18,10 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     assert by_type["win_individual_immunity"]["point_value"] == 15
     assert by_type["votes_received"]["is_per_unit"] is True
     # Placement scores like any other contestant event now, not as a prediction.
-    assert by_type["won_season"]["point_value"] == 50
-    assert by_type["made_final_tribal"]["point_value"] == 30
+    assert by_type["won_season"]["point_value"] == 40
+    assert by_type["made_final_tribal"]["point_value"] == 25
+    # Runner-up was retired (#881); the Rules page must not offer it.
+    assert "runner_up" not in by_type
     assert by_type["go_on_journey"]["point_value"] == 4
     assert by_type["play_other_advantage"]["point_value"] == 8
     assert by_type["play_idol"]["point_value"] == 10
