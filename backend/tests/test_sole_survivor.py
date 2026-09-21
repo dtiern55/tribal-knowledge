@@ -47,18 +47,18 @@ def test_finale_double_and_additive_placements(client, db_conn, current_user):
 
     insert_scoring_event(db_conn, fin["id"], a["id"], "win_individual_immunity")
 
-    # Designee: 15 event + 30 MFT + 50 won_season = 95 base, +50% = 47.5 -> 48.
-    # Runner: 30 MFT + 20 runner-up = 50. Total 95 + 48 + 50 = 193.
+    # Designee: 15 event + 25 MFT + 40 won_season = 80 base, +50% = 40.
+    # Runner: 25 MFT alone — runner-up was retired (#881). 120 + 25 = 145.
     assert scoring.roster_points(db_conn, season["league_season_id"]) == {
-        str(current_user["id"]): 193
+        str(current_user["id"]): 145
     }
     by_c = scoring.roster_points_by_contestant(
         db_conn, season["league_season_id"], current_user["id"]
     )
-    assert by_c[str(a["id"])] == 143
-    assert by_c[str(b["id"])] == 50
+    assert by_c[str(a["id"])] == 120
+    assert by_c[str(b["id"])] == 25
     # Per-contestant always reconciles with the user total.
-    assert sum(by_c.values()) == 193
+    assert sum(by_c.values()) == 145
 
 
 @pytest.mark.integration

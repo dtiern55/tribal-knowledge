@@ -19,23 +19,23 @@ export function SoleSurvivorExample({ className = '' }: { className?: string }) 
         </div>
         <div className="flex justify-between gap-4">
           <dt>Makes final tribal</dt>
-          <dd>+30</dd>
+          <dd>+25</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt>Wins the season</dt>
-          <dd>+50</dd>
+          <dd>+40</dd>
         </div>
         <div className="mt-1 flex justify-between gap-4 border-t border-gold-300/60 pt-1 font-medium">
           <dt>Finale points</dt>
-          <dd>95</dd>
+          <dd>80</dd>
         </div>
         <div className="flex justify-between gap-4 text-gold-700">
           <dt>Sole Survivor +50%</dt>
-          <dd>+48</dd>
+          <dd>+40</dd>
         </div>
         <div className="mt-1 flex justify-between gap-4 border-t border-gold-300/60 pt-1 font-display font-bold text-gold-800">
           <dt>You score</dt>
-          <dd>143</dd>
+          <dd>120</dd>
         </div>
       </dl>
     </div>
