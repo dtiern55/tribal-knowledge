@@ -512,9 +512,10 @@ def test_finale_points_perfect_ballot(db_conn):
         winner=winner["id"],
     )
 
-    # 4*6 (final four) + 3*8 (final three) + 12 (perfect) + 40 (winner)
+    # The ladder (#884): 2+4+8+16 (final four) + 5+10+20 (final three)
+    # + 40 (winner). No separate perfect bonus — it is the 20-point top rung.
     assert scoring.finale_points(db_conn, season["league_season_id"]) == {
-        str(user["id"]): 100
+        str(user["id"]): 105
     }
 
 
@@ -533,9 +534,10 @@ def test_finale_points_partial_credit(db_conn):
         winner=winner["id"],
     )
 
-    # 3*6 + 2*8 + 0 + 40
+    # The par bracket, which is roughly what guessing returns: (2+4+8) +
+    # (5+10) + 40. Worth less than it was flat (74) — that is the point.
     assert scoring.finale_points(db_conn, season["league_season_id"]) == {
-        str(user["id"]): 74
+        str(user["id"]): 69
     }
 
 
@@ -581,7 +583,84 @@ def test_finale_final_four_from_placement_without_fire_making(db_conn):
         final_three=[winner["id"], runner_up["id"], third["id"]],
         winner=winner["id"],
     )
-    # 4*6 + 3*8 + 12 + 40 — the 4th-place vote-out counts in the Final 4.
+    # Full ladder + winner — the 4th-place vote-out counts in the Final 4.
+    assert scoring.finale_points(db_conn, season["league_season_id"]) == {
+        str(user["id"]): 105
+    }
+
+
+def _drop_finale_ladder(conn, season_id):
+    """Turn a test season's finale into a pre-ladder one (#170): the flat rates
+    and the exact-Final-3 bonus in place of the rungs."""
+    with conn.cursor() as cur:
+        rungs = [k for k in scoring.FINALE_VALUE_KEYS if k[-1].isdigit()]
+        cur.execute(
+            "delete from season_prediction_score_types"
+            " where season_id = %s and key = any(%s)",
+            [str(season_id), rungs],
+        )
+        cur.execute(
+            "insert into season_prediction_score_types"
+            " (season_id, key, label, point_value) values"
+            " (%(s)s, 'correct_final_four', 'Correct Final 4 pick', 6),"
+            " (%(s)s, 'correct_final_three', 'Correct Final 3 pick', 8),"
+            " (%(s)s, 'perfect_final_three', 'Perfect Final 3', 12)",
+            {"s": str(season_id)},
+        )
+
+
+@pytest.mark.integration
+def test_finale_ladder_beats_flat_for_reading_the_endgame(db_conn):
+    """The ordering the ladder exists to protect (#884).
+
+    The slates nest, so every correct Final 3 name is also a correct Final 4
+    name and the two ladders compound. Nailing the Final 3 while missing one of
+    the Final 4 must still beat naming all four and missing which one loses
+    fire-making — that is the harder read. It is why the Final 3 ladder restarts
+    at 5 instead of continuing from the Final 4's 16.
+    """
+    season, winner, runner_up, third, fire, boot = _finale_setup(db_conn)
+    # Nailed the Final 3, missed the fire-making loser: 2+4+8 then 5+10+20.
+    reader = insert_user(db_conn)
+    insert_finale_prediction(
+        db_conn,
+        reader["id"],
+        season["id"],
+        final_four=[winner["id"], runner_up["id"], third["id"], boot["id"]],
+        final_three=[winner["id"], runner_up["id"], third["id"]],
+    )
+    # All four right, but sent the wrong one out at 4: 2+4+8+16 then 5+10.
+    guesser = insert_user(db_conn)
+    insert_finale_prediction(
+        db_conn,
+        guesser["id"],
+        season["id"],
+        final_four=[winner["id"], runner_up["id"], third["id"], fire["id"]],
+        final_three=[winner["id"], runner_up["id"], fire["id"]],
+    )
+
+    points = scoring.finale_points(db_conn, season["league_season_id"])
+    assert points[str(reader["id"])] == 49
+    assert points[str(guesser["id"])] == 45
+
+
+@pytest.mark.integration
+def test_finale_points_pre_ladder_season_keeps_flat_scoring(db_conn):
+    """#170: a snapshot taken before the ladder pays the flat rate per name plus
+    the exact-Final-3 bonus, and never both a bonus and a rung."""
+    season, winner, runner_up, third, fire, boot = _finale_setup(db_conn)
+    _drop_finale_ladder(db_conn, season["id"])
+    user = insert_user(db_conn)
+    insert_finale_prediction(
+        db_conn,
+        user["id"],
+        season["id"],
+        final_four=[winner["id"], runner_up["id"], third["id"], fire["id"]],
+        final_three=[winner["id"], runner_up["id"], third["id"]],
+        winner=winner["id"],
+    )
+
+    # 4*6 + 3*8 + 12 + 40, exactly what it scored before #884.
     assert scoring.finale_points(db_conn, season["league_season_id"]) == {
         str(user["id"]): 100
     }

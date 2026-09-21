@@ -181,10 +181,8 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
             return []
         cur.execute(
             "select key, point_value from season_prediction_score_types"
-            " where season_id = %s and key in ('correct_final_four',"
-            " 'correct_final_three', 'perfect_final_three',"
-            " 'correct_winner_vote')",
-            [season_id],
+            " where season_id = %s and key = any(%s)",
+            [season_id, scoring.FINALE_VALUE_KEYS],
         )
         values = {row["key"]: row["point_value"] for row in cur.fetchall()}
         cur.execute(
@@ -207,28 +205,38 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
             "points": points if correct else 0,
         }
 
-    ballot = []
+    def slate(picks, actual, prediction_type, prefix):
+        """One line per pick on a slate, with the ladder paid out in the order
+        the names were submitted: the nth correct name takes the nth rung
+        (#884). Which correct name draws which rung is arbitrary — only the
+        count decides the total — so slate order keeps these lines summing to
+        what finale_points awards. A flat season gives every name the same
+        value, as before.
+        """
+        hits = 0
+        for cid in picks:
+            correct = str(cid) in actual
+            if correct:
+                hits += 1
+            yield line(
+                cid,
+                prediction_type,
+                correct,
+                scoring.finale_slate_rung(values, prefix, hits),
+            )
+
     # Each Final 4 / Final 3 pick is its own line, correct when it landed in the
     # actual bracket. The winner is a single call.
     f3_picks = [str(c) for c in (prediction["final_three"] or [])]
-    for cid in prediction["final_four"] or []:
-        ballot.append(
-            line(
-                cid,
-                "final_four",
-                str(cid) in final_four,
-                values.get("correct_final_four", 0),
-            )
-        )
-    for cid in f3_picks:
-        ballot.append(
-            line(
-                cid,
-                "final_three",
-                str(cid) in final_three,
-                values.get("correct_final_three", 0),
-            )
-        )
+    ballot = [
+        *slate(
+            prediction["final_four"] or [],
+            final_four,
+            "final_four",
+            "correct_final_four",
+        ),
+        *slate(f3_picks, final_three, "final_three", "correct_final_three"),
+    ]
     if prediction["winner"]:
         ballot.append(
             line(
@@ -241,7 +249,12 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
     # The all-three bonus rides on the first Final 3 pick's face — it has no
     # contestant of its own, and summing these lines must still equal the
     # finale total (the reveal derives the advantage lane from the remainder).
-    if len(f3_picks) == 3 and set(f3_picks) == final_three and final_three:
+    if (
+        "correct_final_three_1" not in values
+        and len(f3_picks) == 3
+        and set(f3_picks) == final_three
+        and final_three
+    ):
         ballot.append(
             line(
                 f3_picks[0],

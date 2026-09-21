@@ -62,8 +62,16 @@ const EVENT_GROUPS: [string, string[]][] = [
   ]],
 ]
 
-// Listed in bracket order — the rung you fill first on top — not by value.
-const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
+// Listed in bracket order — the rung you fill first on top — not by value
+// (#877). A season on the ladder (#884) shows its rungs, each correct name
+// worth double the one before it; one without them keeps the flat rates and
+// the exact-Final-3 bonus (#170).
+const FINALE_LADDER_KEYS = [
+  'correct_final_four_1', 'correct_final_four_2', 'correct_final_four_3', 'correct_final_four_4',
+  'correct_final_three_1', 'correct_final_three_2', 'correct_final_three_3',
+  'correct_winner_vote',
+]
+const FINALE_FLAT_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
 // Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
 // back to their backend label.
@@ -205,9 +213,14 @@ export function RulesPage() {
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
   const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
   const tiers = pickTiers(season)
-  const finaleScores = FINALE_KEYS.map((key) => prediction_scores.find((score) => score.key === key)).filter(
-    (score): score is RulePredictionScore => score != null,
-  )
+  const finaleRows = (keys: string[]) =>
+    keys.map((key) => prediction_scores.find((score) => score.key === key)).filter(
+      (score): score is RulePredictionScore => score != null,
+    )
+  // Same predicate the backend scores on: the first rung present means the
+  // season is on the ladder.
+  const onLadder = prediction_scores.some((score) => score.key === 'correct_final_four_1')
+  const finaleScores = finaleRows(onLadder ? FINALE_LADDER_KEYS : FINALE_FLAT_KEYS)
 
   return (
     <div className="max-w-3xl">

@@ -138,4 +138,50 @@ describe('RulesPage', () => {
     // Power Vote sits above the ranked picks.
     expect(powerVote.compareDocumentPosition(firstPick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+
+  it('lists the finale ladder in bracket order, climbing to the winner', async () => {
+    serve(response({
+        prediction_scores: [
+          { key: 'correct_winner_vote', label: 'Correct winner vote (finale)', point_value: 40, postmerge_point_value: null },
+          { key: 'correct_final_three_3', label: '3rd correct Final 3 name', point_value: 20, postmerge_point_value: null },
+          { key: 'correct_final_four_1', label: '1st correct Final 4 name', point_value: 2, postmerge_point_value: null },
+          { key: 'correct_final_four_2', label: '2nd correct Final 4 name', point_value: 4, postmerge_point_value: null },
+          { key: 'correct_final_four_3', label: '3rd correct Final 4 name', point_value: 8, postmerge_point_value: null },
+          { key: 'correct_final_four_4', label: '4th correct Final 4 name', point_value: 16, postmerge_point_value: null },
+          { key: 'correct_final_three_1', label: '1st correct Final 3 name', point_value: 5, postmerge_point_value: null },
+          { key: 'correct_final_three_2', label: '2nd correct Final 3 name', point_value: 10, postmerge_point_value: null },
+        ],
+      }))
+    renderWithApp(<RulesPage />)
+
+    // Bracket order, not the value order the API returns them in (#877): the
+    // Final 4 rungs, then the Final 3 rungs, then the winner.
+    const first = await screen.findByText('1st correct Final 4 name')
+    const section = first.closest('section')!
+    expect([...section.querySelectorAll('li')].map((row) => row.textContent)).toEqual([
+      '1st correct Final 4 name+2 pts',
+      '2nd correct Final 4 name+4 pts',
+      '3rd correct Final 4 name+8 pts',
+      '4th correct Final 4 name+16 pts',
+      '1st correct Final 3 name+5 pts',
+      '2nd correct Final 3 name+10 pts',
+      '3rd correct Final 3 name+20 pts',
+      'Correct winner vote (finale)+40 pts',
+    ])
+  })
+
+  it('keeps the flat finale rows for a season that predates the ladder', async () => {
+    serve(response({
+        prediction_scores: [
+          { key: 'correct_final_four', label: 'Correct Final 4 pick', point_value: 6, postmerge_point_value: null },
+          { key: 'correct_final_three', label: 'Correct Final 3 pick', point_value: 8, postmerge_point_value: null },
+          { key: 'perfect_final_three', label: 'Perfect Final 3 (all three)', point_value: 12, postmerge_point_value: null },
+          { key: 'correct_winner_vote', label: 'Correct winner vote (finale)', point_value: 40, postmerge_point_value: null },
+        ],
+      }))
+    renderWithApp(<RulesPage />)
+
+    expect(await screen.findByText('Correct Final 4 pick')).toBeVisible()
+    expect(screen.getByText('Perfect Final 3 (all three)')).toBeVisible()
+  })
 })

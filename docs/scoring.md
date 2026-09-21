@@ -101,11 +101,21 @@ bonus is `power_vote` less the base.
 
 ### Finale ballot points
 
-`finale_predictions` stores the three independent finale calls: early boot,
-fire-making loss, and winner. They resolve against finale `eliminations` and
-the winning contestant's placement using the season's prediction snapshot.
-Finale placement points earned by tribe members remain tribe points, not
-finale-ballot points.
+`finale_predictions` stores one nested bracket: your Final 4, your Final 3
+picked from those four, and the winner picked from those three. It resolves
+against placement through `scoring.finale_actuals` — placements 1-4 are the
+Final 4, 1-3 the Final 3, 1 the winner — so any endgame scores the same way.
+
+Each slate pays a ladder (#884): the nth correct name on it is worth double the
+(n-1)th, and the winner is the last double. Only the count of correct names
+decides a slate's total; which name drew which rung is arbitrary, so the
+per-name lines in the Reveal pay the rungs out in submitted order to keep them
+summing to the slate. `scoring.finale_slate_rung` is the single source of truth
+for one rung and `finale_slate_points` sums them; both fall back to a flat rate
+per name when the season's snapshot carries no rung keys, and the
+perfect-Final-3 bonus applies only in that flat case — the ladder builds it
+into its top rung. Finale placement points earned by tribe members remain tribe
+points, not finale-ballot points.
 
 ## Reconciliation and presentation
 
