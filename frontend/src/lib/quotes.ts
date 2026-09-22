@@ -63,6 +63,11 @@ export const QUOTES: Quote[] = [
     season: 'Season 16: Micronesia',
   },
   {
+    text: 'I think I might be the biggest idiot up here.',
+    who: 'Ozzy',
+    season: 'Season 16: Micronesia',
+  },
+  {
     text: 'Don’t wear feathers in your hair at Tribal. Don’t tell your stories… And do your Tai Chi in private where nobody can see you.',
     who: 'Tyson (to Coach)',
     season: 'Season 20: Heroes vs. Villains',
