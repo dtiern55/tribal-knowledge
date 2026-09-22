@@ -145,14 +145,16 @@ function FinaleLadder({ rows }: { rows: RulePredictionScore[] }) {
   // and there is no bonus — the climb is the whole mechanism.
   return (
     <>
-      {/* Most readers arrive here from the "How the bracket scores" link on
-          the finale ballot, so this says what the ballot they just filled in
-          is worth rather than assuming they know. "for that round" is load
-          bearing: without it the 30 and the 70 read as a sweep bonus. */}
+      {/* Most readers arrive from the "How the bracket scores" link on the
+          finale ballot, so this says what the ballot they just filled in is
+          worth. The winner comes first so "these categories" points forward at
+          the two that ladder, and "for that category" is load bearing: without
+          it the 30 and the 70 read as a bonus for a clean sweep. */}
       <p className="mt-1 text-sm leading-6 text-gray-700">
-        Your finale ballot scores in three parts: your Final 4, your Final 3, and the winner.
-        In each of the first two, every additional correct pick is worth double the one before
-        it. Two of your Final 3 right earns 30 for that round; all three earns 70.
+        In addition to picking the winner, also pick the Final 4 and the Final 3. Each
+        additional correct pick in these categories earns double points. E.g. correctly
+        picking 2 of the Final 3 would net 30 points for that category, whereas picking all 3
+        perfectly would earn 70 points.
       </p>
       <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
         {[...slates, ...(winner ? [{ label: 'Winner', rungs: [winner.point_value] }] : [])].map(

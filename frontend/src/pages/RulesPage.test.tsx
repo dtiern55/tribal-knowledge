@@ -159,12 +159,13 @@ describe('RulesPage', () => {
     // not by the order you picked them, so an ordinal per rung would mislead
     // (#884). No running total either — beside a points column it reads as a
     // bonus for a clean sweep, and there is no bonus.
-    const rule = await screen.findByText(/every additional correct pick is worth double the one before it/)
+    const rule = await screen.findByText(/Each additional correct pick in these categories earns double points/)
     const block = document.getElementById('finale')!
     expect(block).toContainElement(rule)
-    // The worked figures are a sum of the rungs, not a bonus for a sweep, so
-    // they have to stay tied to the round they belong to.
-    expect(rule).toHaveTextContent('Two of your Final 3 right earns 30 for that round; all three earns 70.')
+    // The worked figures are the rungs added up, not a bonus for a sweep, so
+    // they have to stay tied to the category they belong to.
+    expect(rule).toHaveTextContent('30 points for that category')
+    expect(rule).toHaveTextContent('picking all 3 perfectly would earn 70 points')
     expect([...block.querySelectorAll('li')].map((row) => row.textContent)).toEqual([
       'Final 42 · 4 · 8 · 16 pts',
       'Final 310 · 20 · 40 pts',
