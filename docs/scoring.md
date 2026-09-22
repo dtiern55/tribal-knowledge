@@ -102,20 +102,29 @@ bonus is `power_vote` less the base.
 ### Finale ballot points
 
 `finale_predictions` stores one nested bracket: your Final 4, your Final 3
-picked from those four, and the winner picked from those three. It resolves
-against placement through `scoring.finale_actuals` — placements 1-4 are the
-Final 4, 1-3 the Final 3, 1 the winner — so any endgame scores the same way.
+picked from those four, and the winner picked from those three. The nesting is
+enforced at submission, not only in the picker, because the rung values below
+assume it. It resolves against placement through `scoring.finale_actuals` —
+placements 1-4 are the Final 4, 1-3 the Final 3, 1 the winner — so any endgame
+scores the same way.
 
 Each slate pays a ladder (#884): the nth correct name on it is worth double the
-(n-1)th, and the winner is the last double. Only the count of correct names
-decides a slate's total; which name drew which rung is arbitrary, so the
-per-name lines in the Reveal pay the rungs out in submitted order to keep them
-summing to the slate. `scoring.finale_slate_rung` is the single source of truth
-for one rung and `finale_slate_points` sums them; both fall back to a flat rate
-per name when the season's snapshot carries no rung keys, and the
-perfect-Final-3 bonus applies only in that flat case — the ladder builds it
-into its top rung. Finale placement points earned by tribe members remain tribe
-points, not finale-ballot points.
+(n-1)th. The live template is 2/4/8/16 for the Final 4, 10/20/40 for the Final
+3 and 60 for the winner, which puts the ceiling at 160 and a par bracket at
+104. The weight sits on the two hardest calls, completing the Final 3 and
+naming the winner, so a player with no tribe left can still bank something
+worth having from a bracket they actually read.
+
+Only the count of correct names decides a slate's total; which name drew which
+rung is arbitrary, so the per-name lines in the Reveal pay the rungs out in
+submitted order to keep them summing to the slate. `scoring.finale_slate_rung`
+is the single source of truth for one rung and `finale_slate_points` sums them;
+both fall back to a flat rate per name when the season's snapshot carries no
+rung keys. `scoring.on_finale_ladder` is the one predicate for which era a
+season belongs to, shared by scoring, the Reveal and the Rules page, and the
+perfect-Final-3 bonus applies only when it is false — the ladder builds that
+bonus into its top rung. Finale placement points earned by tribe members remain
+tribe points, not finale-ballot points.
 
 ## Reconciliation and presentation
 

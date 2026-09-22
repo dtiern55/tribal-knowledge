@@ -62,15 +62,15 @@ const EVENT_GROUPS: [string, string[]][] = [
   ]],
 ]
 
-// Listed in bracket order — the rung you fill first on top — not by value
-// (#877). A season on the ladder (#884) shows its rungs, each correct name
-// worth double the one before it; one without them keeps the flat rates and
-// the exact-Final-3 bonus (#170).
-const FINALE_LADDER_KEYS = [
-  'correct_final_four_1', 'correct_final_four_2', 'correct_final_four_3', 'correct_final_four_4',
-  'correct_final_three_1', 'correct_final_three_2', 'correct_final_three_3',
-  'correct_winner_vote',
+// A ladder season (#884) shows one row per slate rather than one per rung.
+// Eight rows of "Nth correct Final 4 name" read like the order you picked in,
+// and the rungs pay by how many names you got right — which name draws which
+// rung is arbitrary. In bracket order, the round you fill first on top (#877).
+const FINALE_SLATES = [
+  { label: 'Final 4', prefix: 'correct_final_four_', whole: 'all four' },
+  { label: 'Final 3', prefix: 'correct_final_three_', whole: 'all three' },
 ]
+// A season without rungs keeps the flat rates and the exact-Final-3 bonus (#170).
 const FINALE_FLAT_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
 // Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
@@ -127,6 +127,44 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function FinaleLadder({ rows }: { rows: RulePredictionScore[] }) {
+  const slates = FINALE_SLATES.map(({ label, prefix, whole }) => {
+    const rungs = rows
+      .filter((row) => row.key.startsWith(prefix))
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map((row) => row.point_value)
+    return { label, whole, rungs, total: rungs.reduce((sum, n) => sum + n, 0) }
+  }).filter((slate) => slate.rungs.length > 0)
+  const winner = rows.find((row) => row.key === 'correct_winner_vote')
+
+  return (
+    <>
+      <p className="mt-3 text-sm leading-6 text-gray-700">
+        Each additional correct name is worth double the previous.
+      </p>
+      <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
+        {slates.map((slate) => (
+          <li key={slate.label} className="flex items-baseline justify-between gap-4 py-2.5">
+            <span className="text-sm text-gray-700">
+              <span className="font-medium text-gray-900">{slate.label}</span>
+              <span className="ml-2 text-gray-500">{slate.rungs.join(' · ')}</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold text-jade-700">
+              {slate.whole} {pts(slate.total)}
+            </span>
+          </li>
+        ))}
+        {winner && (
+          <li className="flex items-baseline justify-between gap-4 py-2.5">
+            <span className="text-sm font-medium text-gray-900">Winner</span>
+            <span className="shrink-0 text-sm font-semibold text-jade-700">{pts(winner.point_value)}</span>
+          </li>
+        )}
+      </ul>
+    </>
   )
 }
 
@@ -213,14 +251,14 @@ export function RulesPage() {
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
   const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
   const tiers = pickTiers(season)
-  const finaleRows = (keys: string[]) =>
-    keys.map((key) => prediction_scores.find((score) => score.key === key)).filter(
-      (score): score is RulePredictionScore => score != null,
-    )
-  // Same predicate the backend scores on: the first rung present means the
-  // season is on the ladder.
-  const onLadder = prediction_scores.some((score) => score.key === 'correct_final_four_1')
-  const finaleScores = finaleRows(onLadder ? FINALE_LADDER_KEYS : FINALE_FLAT_KEYS)
+  // Same predicate the backend scores on (scoring.on_finale_ladder): any rung
+  // present means the season is on the ladder.
+  const onLadder = prediction_scores.some(
+    (score) => score.key.startsWith('correct_final_four_') || score.key.startsWith('correct_final_three_'),
+  )
+  const finaleFlatScores = FINALE_FLAT_KEYS.map((key) =>
+    prediction_scores.find((score) => score.key === key),
+  ).filter((score): score is RulePredictionScore => score != null)
 
   return (
     <div className="max-w-3xl">
@@ -307,7 +345,11 @@ export function RulesPage() {
         </RuleSection>
 
         <RuleSection id="finale" title="Finale">
-          {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
+          {onLadder ? (
+            <FinaleLadder rows={prediction_scores} />
+          ) : (
+            finaleFlatScores.length > 0 && <PredictionList rows={finaleFlatScores} />
+          )}
         </RuleSection>
 
         <RuleSection id="scoring" title="Scoring">

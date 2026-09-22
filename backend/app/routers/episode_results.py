@@ -250,7 +250,7 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
     # contestant of its own, and summing these lines must still equal the
     # finale total (the reveal derives the advantage lane from the remainder).
     if (
-        "correct_final_three_1" not in values
+        not scoring.on_finale_ladder(values)
         and len(f3_picks) == 3
         and set(f3_picks) == final_three
         and final_three

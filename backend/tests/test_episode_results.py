@@ -337,11 +337,20 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         "winner",
     ]
     # The ladder pays out in slate order (#884), so a perfect bracket's lines
-    # are the rungs themselves: 2/4/8/16, then 5/10/20, then the winner's 40.
+    # are the rungs themselves: 2/4/8/16, then 10/20/40, then the winner's 60.
     # No perfect-Final-3 line — the ladder builds that into the top rung.
-    assert [pick["points"] for pick in result["ballot"]] == [2, 4, 8, 16, 5, 10, 20, 40]
-    assert result["ballot_points"] == 105
-    assert result["total_points"] == 105
+    assert [pick["points"] for pick in result["ballot"]] == [
+        2,
+        4,
+        8,
+        16,
+        10,
+        20,
+        40,
+        60,
+    ]
+    assert result["ballot_points"] == 160
+    assert result["total_points"] == 160
     assert result["current_rank"] == 1
     assert result["prior_rank"] == 2
     assert result["rank_delta"] == 1
