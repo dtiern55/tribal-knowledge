@@ -198,7 +198,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 15: China',
   },
   {
-    text: "At least our guys know they're useless. Except for Coach. He seems to think he's amazing… don't know where he got that idea.",
+    text: "At least our guys know they're useless. Except for Coach. He seems to think he's amazing.",
     who: 'Courtney',
     season: 'Season 20: Heroes vs. Villains',
   },
