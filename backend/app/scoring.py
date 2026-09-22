@@ -274,24 +274,71 @@ def finale_actuals(cur, season_id: UUID):
     return final_three, final_four, winner
 
 
+# The ladder rungs, one per seat on each slate (#884).
+FINALE_RUNG_KEYS = [
+    *(f"correct_final_four_{n}" for n in range(1, 5)),
+    *(f"correct_final_three_{n}" for n in range(1, 4)),
+]
+
+# Every prediction-snapshot key the finale bracket can be scored from: the
+# rungs, the pre-ladder flat rates and perfect-Final-3 bonus that older
+# snapshots still carry (#170), and the winner call.
+FINALE_VALUE_KEYS = [
+    "correct_final_four",
+    "correct_final_three",
+    "perfect_final_three",
+    "correct_winner_vote",
+    *FINALE_RUNG_KEYS,
+]
+
+
+def on_finale_ladder(values: dict[str, int]) -> bool:
+    """Whether a season's snapshot scores its finale bracket on the ladder.
+
+    One predicate, so scoring, the Reveal and the Rules page cannot disagree
+    about which era a season belongs to. Any rung counts: a snapshot carrying
+    only some of them pays the ladder where it can and the flat rate where it
+    can't, and either way the perfect-Final-3 bonus stays off — so no name is
+    ever paid under both rules at once.
+    """
+    return any(k in values for k in FINALE_RUNG_KEYS)
+
+
+def finale_slate_rung(values: dict[str, int], prefix: str, nth: int) -> int:
+    """What the `nth` correct name on one bracket slate pays (#884).
+
+    A ladder season pays rung `nth` — each correct name is worth double the one
+    before it, so partial credit stays cheap and reading the endgame pays. A
+    season whose snapshot has no rung keys pays its flat rate, the same for
+    every name, exactly as it did before the ladder (#170).
+    """
+    if f"{prefix}_1" in values:
+        return values.get(f"{prefix}_{nth}", 0)
+    return values.get(prefix, 0)
+
+
+def finale_slate_points(values: dict[str, int], prefix: str, hits: int) -> int:
+    """What `hits` correct names on one bracket slate pay: the rungs summed."""
+    return sum(finale_slate_rung(values, prefix, n) for n in range(1, hits + 1))
+
+
 def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
     """Points from each user's finale bracket ballot (#534).
 
-    Survivor-centric: your Final 4 (partial credit per correct name), your
-    Final 3 (partial credit, plus a bonus for nailing all three), and the
-    winner. Values come from the season's scoring snapshot — the live template
-    is 6 / 8 / 12 bonus / 40 winner.
+    Survivor-centric: your Final 4, your Final 3, and the winner. Each slate
+    pays a ladder — the nth correct name is worth double the (n-1)th — so
+    partial credit stays cheap and completing a slate is what pays. Values come
+    from the season's scoring snapshot; the live template is 2/4/8/16 for the
+    Final 4, 10/20/40 for the Final 3, and 60 for the winner (#884). A snapshot
+    predating the ladder pays its flat rate per name plus the perfect-Final-3
+    bonus instead (#170).
     """
     with conn.cursor() as cur:
         season_id = _season_id(cur, league_season_id)
         cur.execute(
-            """
-            select key, point_value from season_prediction_score_types
-            where season_id = %s
-              and key in ('correct_final_four', 'correct_final_three',
-                          'perfect_final_three', 'correct_winner_vote')
-            """,
-            [season_id],
+            "select key, point_value from season_prediction_score_types"
+            " where season_id = %s and key = any(%s)",
+            [season_id, FINALE_VALUE_KEYS],
         )
         v = {row["key"]: row["point_value"] for row in cur.fetchall()}
         if not v:
@@ -312,10 +359,12 @@ def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
         for row in cur.fetchall():
             f4 = {str(c) for c in (row["final_four"] or [])}
             f3 = {str(c) for c in (row["final_three"] or [])}
-            pts = v.get("correct_final_four", 0) * len(f4 & final_four)
-            pts += v.get("correct_final_three", 0) * len(f3 & final_three)
+            pts = finale_slate_points(v, "correct_final_four", len(f4 & final_four))
+            pts += finale_slate_points(v, "correct_final_three", len(f3 & final_three))
+            # The perfect-Final-3 bonus is a flat season's only convexity; the
+            # ladder builds it into the top rung, so the two never both apply.
             # Bonus only for an exact Final 3 — all three, no extras.
-            if len(f3) == 3 and f3 == final_three:
+            if not on_finale_ladder(v) and len(f3) == 3 and f3 == final_three:
                 pts += v.get("perfect_final_three", 0)
             if winner and row["winner"] == winner:
                 pts += v.get("correct_winner_vote", 0)

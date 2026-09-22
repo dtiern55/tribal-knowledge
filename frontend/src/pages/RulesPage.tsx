@@ -62,8 +62,16 @@ const EVENT_GROUPS: [string, string[]][] = [
   ]],
 ]
 
-// Listed in bracket order — the rung you fill first on top — not by value.
-const FINALE_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
+// A ladder season (#884) shows one row per slate rather than one per rung.
+// Eight rows of "Nth correct Final 4 name" read like the order you picked in,
+// and the rungs pay by how many names you got right — which name draws which
+// rung is arbitrary. In bracket order, the round you fill first on top (#877).
+const FINALE_SLATES = [
+  { label: 'Final 4', prefix: 'correct_final_four_' },
+  { label: 'Final 3', prefix: 'correct_final_three_' },
+]
+// A season without rungs keeps the flat rates and the exact-Final-3 bonus (#170).
+const FINALE_FLAT_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
 
 // Plain, consistent labels for the ballot-pick scoring rows. Finale rows fall
 // back to their backend label.
@@ -119,6 +127,48 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function FinaleLadder({ rows }: { rows: RulePredictionScore[] }) {
+  const slates = FINALE_SLATES.map(({ label, prefix }) => ({
+    label,
+    rungs: rows
+      .filter((row) => row.key.startsWith(prefix))
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map((row) => row.point_value),
+  })).filter((slate) => slate.rungs.length > 0)
+  const winner = rows.find((row) => row.key === 'correct_winner_vote')
+
+  // Each row lists what the names on that slate pay, in order. No running
+  // total: alongside a points column it reads as a bonus for a clean sweep,
+  // and there is no bonus — the climb is the whole mechanism.
+  return (
+    <>
+      {/* Most readers arrive from the "How the bracket scores" link on the
+          finale ballot, so this says what the ballot they just filled in is
+          worth. The winner comes first so "these categories" points forward at
+          the two that ladder, and "for that category" is load bearing: without
+          it the 30 and the 70 read as a bonus for a clean sweep. */}
+      <p className="mt-1 text-sm leading-6 text-gray-700">
+        In addition to picking the winner, also pick the Final 4 and the Final 3. Each
+        additional correct pick in these categories earns double points. E.g. correctly
+        picking 2 of the Final 3 would net 30 points (10 + 20) for that category, whereas
+        picking all 3 perfectly would earn 70 points (10 + 20 + 40).
+      </p>
+      <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
+        {[...slates, ...(winner ? [{ label: 'Winner', rungs: [winner.point_value] }] : [])].map(
+          (slate) => (
+            <li key={slate.label} className="flex items-baseline justify-between gap-4 py-2.5">
+              <span className="text-sm text-gray-700">{slate.label}</span>
+              <span className="shrink-0 text-sm font-semibold text-jade-700">
+                {slate.rungs.join(' · ')} pts
+              </span>
+            </li>
+          ),
+        )}
+      </ul>
+    </>
   )
 }
 
@@ -205,9 +255,14 @@ export function RulesPage() {
   const powerVoteScore = prediction_scores.find((score) => score.key === 'power_vote')
   const ballotRows = rungScores.length > 0 ? [...(powerVoteScore ? [powerVoteScore] : []), ...rungScores] : ballotScore ? [ballotScore] : []
   const tiers = pickTiers(season)
-  const finaleScores = FINALE_KEYS.map((key) => prediction_scores.find((score) => score.key === key)).filter(
-    (score): score is RulePredictionScore => score != null,
+  // Same predicate the backend scores on (scoring.on_finale_ladder): any rung
+  // present means the season is on the ladder.
+  const onLadder = prediction_scores.some(
+    (score) => score.key.startsWith('correct_final_four_') || score.key.startsWith('correct_final_three_'),
   )
+  const finaleFlatScores = FINALE_FLAT_KEYS.map((key) =>
+    prediction_scores.find((score) => score.key === key),
+  ).filter((score): score is RulePredictionScore => score != null)
 
   return (
     <div className="max-w-3xl">
@@ -293,10 +348,6 @@ export function RulesPage() {
           </details>
         </RuleSection>
 
-        <RuleSection id="finale" title="Finale">
-          {finaleScores.length > 0 && <PredictionList rows={finaleScores} />}
-        </RuleSection>
-
         <RuleSection id="scoring" title="Scoring">
           {tribeEvents.length === 0 ? (
             <p className="text-sm text-gray-500">No tribe scoring is set up for this season.</p>
@@ -320,6 +371,18 @@ export function RulesPage() {
             <div className="mt-6">
               <h3 className="font-semibold text-gray-900">Ballot picks</h3>
               <PredictionList rows={ballotRows} />
+            </div>
+          )}
+          {/* The bracket is scoring, not its own rule, so it sits with the
+              other score tables. Keeps the #finale anchor MySeasonPage links. */}
+          {(onLadder || finaleFlatScores.length > 0) && (
+            <div id="finale" className="mt-6 scroll-mt-24">
+              <h3 className="font-semibold text-gray-900">Finale bracket</h3>
+              {onLadder ? (
+                <FinaleLadder rows={prediction_scores} />
+              ) : (
+                <PredictionList rows={finaleFlatScores} />
+              )}
             </div>
           )}
         </RuleSection>

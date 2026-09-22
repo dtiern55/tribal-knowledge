@@ -142,6 +142,28 @@ def submit_finale_prediction(
                         detail=f"Contestant(s) already eliminated: {dead}",
                     )
 
+            # The bracket narrows: your Final 3 comes from your Final 4, and the
+            # winner from your Final 3. The picker builds each round's options
+            # out of the round above it, so a ballot from the app always nests —
+            # but the ladder's rung values assume it (#884): disjoint slates
+            # would let one ballot cover more of the field than a bracket is
+            # meant to. So the API enforces what the UI already does.
+            #
+            # Only against rounds that have actually been filled in, though. A
+            # part-filled ballot is a supported save (#534) — a winner on its
+            # own is a legitimate draft, and the winner is a flat call that pays
+            # the same wherever it sits, so there is no rung to farm there.
+            if not set(final_three) <= set(final_four):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Final 3 must be picked from your Final 4",
+                )
+            if winner and final_three and winner not in final_three:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Winner must be picked from your Final 3",
+                )
+
             cur.execute(
                 """
                 insert into finale_predictions

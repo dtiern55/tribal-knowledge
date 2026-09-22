@@ -272,3 +272,48 @@ def test_ballot_allows_redemption_island_resident(client, db_conn, current_user)
         json={"final_four_contestant_ids": [str(on_island["id"])]},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.integration
+def test_finale_prediction_slates_must_nest(client, db_conn, current_user):
+    """The API enforces the nesting the picker builds in (#884).
+
+    The ladder prices a rung by how far up a slate you got, which only means
+    anything if your Final 3 came out of your Final 4. Disjoint slates would
+    cover more of the field than a bracket is meant to.
+    """
+    season = insert_season(db_conn, status="active")
+    cs = [insert_contestant(db_conn, season["id"], f"Player {i}") for i in range(6)]
+    _open_finale_episode(db_conn, season["id"])
+    url = f"/league-seasons/{season['league_season_id']}/finale-predictions"
+    four = [str(cs[i]["id"]) for i in range(4)]
+
+    # A Final 3 name that is not on your Final 4.
+    r = client.post(
+        url,
+        json={
+            "final_four_contestant_ids": four,
+            "final_three_contestant_ids": [four[0], four[1], str(cs[4]["id"])],
+        },
+    )
+    assert r.status_code == 400
+    assert "Final 4" in r.json()["detail"]
+
+    # A winner who is not on your Final 3.
+    r = client.post(
+        url,
+        json={
+            "final_four_contestant_ids": four,
+            "final_three_contestant_ids": four[:3],
+            "winner_contestant_id": four[3],
+        },
+    )
+    assert r.status_code == 400
+    assert "Final 3" in r.json()["detail"]
+
+    # A part-filled ballot still saves: an empty slate nests trivially.
+    r = client.post(
+        url,
+        json={"final_four_contestant_ids": four[:2], "final_three_contestant_ids": []},
+    )
+    assert r.status_code == 200

@@ -70,7 +70,7 @@ describe('RulesPage', () => {
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'The basics' })).toBeVisible()
-    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings', 'Twists']) {
+    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Scoring', 'Rulings', 'Twists']) {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
@@ -137,5 +137,64 @@ describe('RulesPage', () => {
     expect(screen.getByText('3rd pick')).toBeVisible()
     // Power Vote sits above the ranked picks.
     expect(powerVote.compareDocumentPosition(firstPick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('groups the finale ladder one row per slate, in bracket order', async () => {
+    serve(response({
+        prediction_scores: [
+          { key: 'correct_winner_vote', label: 'Correct winner vote (finale)', point_value: 60, postmerge_point_value: null },
+          { key: 'correct_final_three_3', label: '3rd correct Final 3 name', point_value: 40, postmerge_point_value: null },
+          { key: 'correct_final_four_1', label: '1st correct Final 4 name', point_value: 2, postmerge_point_value: null },
+          { key: 'correct_final_four_2', label: '2nd correct Final 4 name', point_value: 4, postmerge_point_value: null },
+          { key: 'correct_final_four_3', label: '3rd correct Final 4 name', point_value: 8, postmerge_point_value: null },
+          { key: 'correct_final_four_4', label: '4th correct Final 4 name', point_value: 16, postmerge_point_value: null },
+          { key: 'correct_final_three_1', label: '1st correct Final 3 name', point_value: 10, postmerge_point_value: null },
+          { key: 'correct_final_three_2', label: '2nd correct Final 3 name', point_value: 20, postmerge_point_value: null },
+        ],
+      }))
+    renderWithApp(<RulesPage />)
+
+    // One row per slate, in bracket order and not the value order the API
+    // returns them in (#877): the rungs go by how many names you got right,
+    // not by the order you picked them, so an ordinal per rung would mislead
+    // (#884). No running total either — beside a points column it reads as a
+    // bonus for a clean sweep, and there is no bonus.
+    const rule = await screen.findByText(/Each additional correct pick in these categories earns double points/)
+    const block = document.getElementById('finale')!
+    expect(block).toContainElement(rule)
+    // The worked figures are the rungs added up, not a bonus for a sweep, so
+    // the sums stay spelled out and tied to the category they belong to.
+    expect(rule).toHaveTextContent('30 points (10 + 20) for that category')
+    expect(rule).toHaveTextContent('all 3 perfectly would earn 70 points (10 + 20 + 40)')
+    expect([...block.querySelectorAll('li')].map((row) => row.textContent)).toEqual([
+      'Final 42 · 4 · 8 · 16 pts',
+      'Final 310 · 20 · 40 pts',
+      'Winner60 pts',
+    ])
+  })
+
+  it('files the finale bracket under Scoring, keeping the #finale anchor', async () => {
+    serve(response())
+    renderWithApp(<RulesPage />)
+
+    const block = await screen.findByText('Finale bracket')
+    expect(block.parentElement).toHaveAttribute('id', 'finale')
+    // Last of the Scoring tables, below the tribe events and the ballot picks.
+    expect(block.closest('section')).toHaveAttribute('id', 'scoring')
+  })
+
+  it('keeps the flat finale rows for a season that predates the ladder', async () => {
+    serve(response({
+        prediction_scores: [
+          { key: 'correct_final_four', label: 'Correct Final 4 pick', point_value: 6, postmerge_point_value: null },
+          { key: 'correct_final_three', label: 'Correct Final 3 pick', point_value: 8, postmerge_point_value: null },
+          { key: 'perfect_final_three', label: 'Perfect Final 3 (all three)', point_value: 12, postmerge_point_value: null },
+          { key: 'correct_winner_vote', label: 'Correct winner vote (finale)', point_value: 40, postmerge_point_value: null },
+        ],
+      }))
+    renderWithApp(<RulesPage />)
+
+    expect(await screen.findByText('Correct Final 4 pick')).toBeVisible()
+    expect(screen.getByText('Perfect Final 3 (all three)')).toBeVisible()
   })
 })

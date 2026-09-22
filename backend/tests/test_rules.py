@@ -40,10 +40,18 @@ def test_rules_returns_current_rule_capability(client, db_conn, current_user):
     pred = {p["key"]: p for p in data["prediction_scores"]}
     assert pred["correct_elimination"]["point_value"] == 16
     assert pred["correct_elimination"]["postmerge_point_value"] == 20
-    assert pred["correct_winner_vote"]["point_value"] == 40
-    assert pred["correct_final_four"]["point_value"] == 6
-    assert pred["correct_final_three"]["point_value"] == 8
-    assert pred["perfect_final_three"]["point_value"] == 12
+    # The finale ladder (#884): each correct name doubles the one before it,
+    # with the weight on the two hardest calls — completing the Final 3 pays 40
+    # and the winner 60. The flat rates and the exact-Final-3 bonus it replaced
+    # are gone from the template.
+    assert pred["correct_winner_vote"]["point_value"] == 60
+    four = [pred[f"correct_final_four_{n}"]["point_value"] for n in (1, 2, 3, 4)]
+    three = [pred[f"correct_final_three_{n}"]["point_value"] for n in (1, 2, 3)]
+    assert four == [2, 4, 8, 16]
+    assert three == [10, 20, 40]
+    assert "correct_final_four" not in pred
+    assert "correct_final_three" not in pred
+    assert "perfect_final_three" not in pred
     assert "sole_survivor_win" not in pred
 
     adv = {a["advantage_type"] for a in data["advantages"]}
