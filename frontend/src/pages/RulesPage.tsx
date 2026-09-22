@@ -153,8 +153,8 @@ function FinaleLadder({ rows }: { rows: RulePredictionScore[] }) {
       <p className="mt-1 text-sm leading-6 text-gray-700">
         In addition to picking the winner, also pick the Final 4 and the Final 3. Each
         additional correct pick in these categories earns double points. E.g. correctly
-        picking 2 of the Final 3 would net 30 points for that category, whereas picking all 3
-        perfectly would earn 70 points.
+        picking 2 of the Final 3 would net 30 points (10 + 20) for that category, whereas
+        picking all 3 perfectly would earn 70 points (10 + 20 + 40).
       </p>
       <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
         {[...slates, ...(winner ? [{ label: 'Winner', rungs: [winner.point_value] }] : [])].map(

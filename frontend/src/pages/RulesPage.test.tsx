@@ -163,9 +163,9 @@ describe('RulesPage', () => {
     const block = document.getElementById('finale')!
     expect(block).toContainElement(rule)
     // The worked figures are the rungs added up, not a bonus for a sweep, so
-    // they have to stay tied to the category they belong to.
-    expect(rule).toHaveTextContent('30 points for that category')
-    expect(rule).toHaveTextContent('picking all 3 perfectly would earn 70 points')
+    // the sums stay spelled out and tied to the category they belong to.
+    expect(rule).toHaveTextContent('30 points (10 + 20) for that category')
+    expect(rule).toHaveTextContent('all 3 perfectly would earn 70 points (10 + 20 + 40)')
     expect([...block.querySelectorAll('li')].map((row) => row.textContent)).toEqual([
       'Final 42 · 4 · 8 · 16 pts',
       'Final 310 · 20 · 40 pts',
