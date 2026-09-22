@@ -70,7 +70,7 @@ describe('RulesPage', () => {
     renderWithApp(<RulesPage />)
 
     expect(await screen.findByRole('heading', { name: 'The basics' })).toBeVisible()
-    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Finale', 'Scoring', 'Rulings', 'Twists']) {
+    for (const name of ['Tribe', 'Swaps', 'Ballot', 'Weekly advantage', 'Sole Survivor', 'Scoring', 'Rulings', 'Twists']) {
       expect(screen.getByRole('heading', { name })).toBeVisible()
     }
     expect(screen.getByText(/-10, -15, -20, then -25/)).toBeVisible()
@@ -155,16 +155,28 @@ describe('RulesPage', () => {
     renderWithApp(<RulesPage />)
 
     // One row per slate, in bracket order and not the value order the API
-    // returns them in (#877). The rungs read as a sequence and each slate
-    // carries what completing it pays, because the rungs go by how many names
-    // you got right rather than by the order you picked them (#884).
+    // returns them in (#877): the rungs go by how many names you got right,
+    // not by the order you picked them, so an ordinal per rung would mislead
+    // (#884). No running total either — beside a points column it reads as a
+    // bonus for a clean sweep, and there is no bonus.
     const rule = await screen.findByText('Each additional correct name is worth double the previous.')
-    const section = rule.closest('section')!
-    expect([...section.querySelectorAll('li')].map((row) => row.textContent)).toEqual([
-      'Final 42 · 4 · 8 · 16all four +30',
-      'Final 310 · 20 · 40all three +70',
-      'Winner+60',
+    const block = document.getElementById('finale')!
+    expect(block).toContainElement(rule)
+    expect([...block.querySelectorAll('li')].map((row) => row.textContent)).toEqual([
+      'Final 42 · 4 · 8 · 16 pts',
+      'Final 310 · 20 · 40 pts',
+      'Winner60 pts',
     ])
+  })
+
+  it('files the finale bracket under Scoring, keeping the #finale anchor', async () => {
+    serve(response())
+    renderWithApp(<RulesPage />)
+
+    const block = await screen.findByText('Finale bracket')
+    expect(block.parentElement).toHaveAttribute('id', 'finale')
+    // Last of the Scoring tables, below the tribe events and the ballot picks.
+    expect(block.closest('section')).toHaveAttribute('id', 'scoring')
   })
 
   it('keeps the flat finale rows for a season that predates the ladder', async () => {

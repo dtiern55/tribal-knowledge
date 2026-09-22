@@ -67,8 +67,8 @@ const EVENT_GROUPS: [string, string[]][] = [
 // and the rungs pay by how many names you got right — which name draws which
 // rung is arbitrary. In bracket order, the round you fill first on top (#877).
 const FINALE_SLATES = [
-  { label: 'Final 4', prefix: 'correct_final_four_', whole: 'all four' },
-  { label: 'Final 3', prefix: 'correct_final_three_', whole: 'all three' },
+  { label: 'Final 4', prefix: 'correct_final_four_' },
+  { label: 'Final 3', prefix: 'correct_final_three_' },
 ]
 // A season without rungs keeps the flat rates and the exact-Final-3 bonus (#170).
 const FINALE_FLAT_KEYS = ['correct_final_four', 'correct_final_three', 'perfect_final_three', 'correct_winner_vote']
@@ -131,37 +131,33 @@ function PredictionList({ rows }: { rows: RulePredictionScore[] }) {
 }
 
 function FinaleLadder({ rows }: { rows: RulePredictionScore[] }) {
-  const slates = FINALE_SLATES.map(({ label, prefix, whole }) => {
-    const rungs = rows
+  const slates = FINALE_SLATES.map(({ label, prefix }) => ({
+    label,
+    rungs: rows
       .filter((row) => row.key.startsWith(prefix))
       .sort((a, b) => a.key.localeCompare(b.key))
-      .map((row) => row.point_value)
-    return { label, whole, rungs, total: rungs.reduce((sum, n) => sum + n, 0) }
-  }).filter((slate) => slate.rungs.length > 0)
+      .map((row) => row.point_value),
+  })).filter((slate) => slate.rungs.length > 0)
   const winner = rows.find((row) => row.key === 'correct_winner_vote')
 
+  // Each row lists what the names on that slate pay, in order. No running
+  // total: alongside a points column it reads as a bonus for a clean sweep,
+  // and there is no bonus — the climb is the whole mechanism.
   return (
     <>
-      <p className="mt-3 text-sm leading-6 text-gray-700">
+      <p className="mt-1 text-sm leading-6 text-gray-700">
         Each additional correct name is worth double the previous.
       </p>
       <ul className="mt-3 divide-y divide-cream-200 border-y border-cream-200">
-        {slates.map((slate) => (
-          <li key={slate.label} className="flex items-baseline justify-between gap-4 py-2.5">
-            <span className="text-sm text-gray-700">
-              <span className="font-medium text-gray-900">{slate.label}</span>
-              <span className="ml-2 text-gray-500">{slate.rungs.join(' · ')}</span>
-            </span>
-            <span className="shrink-0 text-sm font-semibold text-jade-700">
-              {slate.whole} {pts(slate.total)}
-            </span>
-          </li>
-        ))}
-        {winner && (
-          <li className="flex items-baseline justify-between gap-4 py-2.5">
-            <span className="text-sm font-medium text-gray-900">Winner</span>
-            <span className="shrink-0 text-sm font-semibold text-jade-700">{pts(winner.point_value)}</span>
-          </li>
+        {[...slates, ...(winner ? [{ label: 'Winner', rungs: [winner.point_value] }] : [])].map(
+          (slate) => (
+            <li key={slate.label} className="flex items-baseline justify-between gap-4 py-2.5">
+              <span className="text-sm text-gray-700">{slate.label}</span>
+              <span className="shrink-0 text-sm font-semibold text-jade-700">
+                {slate.rungs.join(' · ')} pts
+              </span>
+            </li>
+          ),
         )}
       </ul>
     </>
@@ -344,14 +340,6 @@ export function RulesPage() {
           </details>
         </RuleSection>
 
-        <RuleSection id="finale" title="Finale">
-          {onLadder ? (
-            <FinaleLadder rows={prediction_scores} />
-          ) : (
-            finaleFlatScores.length > 0 && <PredictionList rows={finaleFlatScores} />
-          )}
-        </RuleSection>
-
         <RuleSection id="scoring" title="Scoring">
           {tribeEvents.length === 0 ? (
             <p className="text-sm text-gray-500">No tribe scoring is set up for this season.</p>
@@ -375,6 +363,18 @@ export function RulesPage() {
             <div className="mt-6">
               <h3 className="font-semibold text-gray-900">Ballot picks</h3>
               <PredictionList rows={ballotRows} />
+            </div>
+          )}
+          {/* The bracket is scoring, not its own rule, so it sits with the
+              other score tables. Keeps the #finale anchor MySeasonPage links. */}
+          {(onLadder || finaleFlatScores.length > 0) && (
+            <div id="finale" className="mt-6 scroll-mt-24">
+              <h3 className="font-semibold text-gray-900">Finale bracket</h3>
+              {onLadder ? (
+                <FinaleLadder rows={prediction_scores} />
+              ) : (
+                <PredictionList rows={finaleFlatScores} />
+              )}
             </div>
           )}
         </RuleSection>
