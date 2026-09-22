@@ -158,16 +158,6 @@ export const QUOTES: Quote[] = [
     season: 'Season 46',
   },
   {
-    text: "My favorite thing to do on Survivor is just pick a person… Run them over with a bus, back up, run them over again.",
-    who: 'Kamilla',
-    season: 'Season 48',
-  },
-  {
-    text: 'Survivor is like going on The Oregon Trail. You have to ford every river. You have to caulk every wagon… and sometimes you get dysentery and die.',
-    who: 'Aubry',
-    season: 'Season 32: Kaôh Rōng',
-  },
-  {
     text: "I'll be straight up, I'm leaning sandwich.",
     who: 'Austin',
     season: 'Season 45',
@@ -319,7 +309,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 16: Micronesia',
   },
   {
-    text: 'And I will never EVER give up in a challenge... Except for the sweat test... And the journey.',
+    text: 'And I will never EVER give up in a challenge. Except for the sweat test... And the journey.',
     who: 'Jelinsky',
     season: 'Season 46',
   },
@@ -354,12 +344,17 @@ export const QUOTES: Quote[] = [
     season: 'Season 27: Blood vs. Water',
   },
   {
+    text: 'Have you all never met a neat lady?',
+    who: 'Monica',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
     text: "Lots of people like to watch adventure. It doesn't necessarily mean they should get up off the couch.",
     who: 'Jeff Probst',
     season: 'Season 27: Blood vs. Water',
   },
   {
-    text: "People actively seek out vanilla-flavored products. Children clamor to get a vanilla ice cream cone. No one's clamoring for anything Julia-flavored.",
+    text: "No one's clamoring for anything Julia-flavored.",
     who: 'Cochran',
     season: 'Season 26: Caramoan',
   },
@@ -379,7 +374,7 @@ export const QUOTES: Quote[] = [
     season: 'Season 29: San Juan del Sur',
   },
   {
-    text: 'I need somebody who has to pee. I need somebody who can pee on my hand!',
+    text: 'I need somebody who can pee on my hand!',
     who: 'John Carroll',
     season: 'Season 4: Marquesas',
   },
