@@ -48,6 +48,11 @@ export const QUOTES: Quote[] = [
     season: 'Season 27: Blood vs. Water',
   },
   {
+    text: 'Ruffle feathers. You said rustle frathers.',
+    who: 'Tyson',
+    season: 'Season 27: Blood vs. Water',
+  },
+  {
     text: "It's a puzzle. And I can't even spell.",
     who: 'Kat',
     season: 'Season 27: Blood vs. Water',
