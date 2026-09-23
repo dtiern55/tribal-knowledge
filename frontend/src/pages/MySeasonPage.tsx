@@ -1144,7 +1144,7 @@ function CompleteState({
     winner: contestants.find((c) => c.placement === 1)?.id ?? null,
   }
   const beats: Beat[] = [{ key: 'roster', label: 'Tribe', done: true, note: 'Your final tribe' }]
-  if (finaleEp) beats.push({ key: 'ballot', label: 'Ballot', done: true, note: 'Your finale ballot' })
+  if (finaleEp) beats.push({ key: 'ballot', label: 'Finale', done: true, note: 'Your finale ballot' })
 
   return (
     <div className="space-y-3.5">
@@ -4611,10 +4611,9 @@ function FinaleBallot({
 
   const alive = contestants.filter((c) => aliveAtFinale(c.id))
   const byId = new Map(contestants.map((c) => [c.id, c]))
-  // The bracket narrows: your Final 3 comes from your Final 4, the winner and
-  // the immunity winner from within those. Toggling someone out of the wider
-  // round drops them from the narrower ones too, so a ballot can't contradict
-  // itself.
+  // The bracket narrows: your Final 3 comes from your Final 4, the winner from
+  // your Final 3. Toggling someone out of the wider round drops them from the
+  // narrower ones too, so a ballot can't contradict itself.
   function toggleFinalFour(id: string) {
     setSaved(false)
     if (finalFour.includes(id)) {
@@ -4686,6 +4685,7 @@ function FinaleBallot({
             winner={winner}
             byId={byId}
             actuals={actuals}
+            points={actuals ? savedQ.data?.points : undefined}
           />
           {!locked && (
             <div className="text-center">
@@ -4812,7 +4812,7 @@ function BracketRound({
   )
 }
 
-/** A single-select bracket pick (winner, final immunity). */
+/** A single-select bracket pick: the winner. */
 function BracketPick({
   label,
   hint,

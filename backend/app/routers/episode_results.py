@@ -179,12 +179,7 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
         prediction = cur.fetchone()
         if not prediction:
             return []
-        cur.execute(
-            "select key, point_value from season_prediction_score_types"
-            " where season_id = %s and key = any(%s)",
-            [season_id, scoring.FINALE_VALUE_KEYS],
-        )
-        values = {row["key"]: row["point_value"] for row in cur.fetchall()}
+        values = scoring.finale_values(cur, season_id)
         cur.execute(
             "select id::text as contestant_id,"
             " coalesce(nickname, name) as name, image_url"
@@ -206,15 +201,16 @@ def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
         }
 
     def slate(picks, actual, prediction_type, prefix):
-        """One line per pick on a slate, with the ladder paid out in the order
-        the names were submitted: the nth correct name takes the nth rung
-        (#884). Which correct name draws which rung is arbitrary — only the
-        count decides the total — so slate order keeps these lines summing to
-        what finale_points awards. A flat season gives every name the same
-        value, as before.
+        """One line per pick on a slate: the correct names first, climbing the
+        ladder rung by rung, then the misses (#884). Which correct name draws
+        which rung is arbitrary — only the count decides the total — so listing
+        the hits first shows the climb instead of implying pick order mattered,
+        and the lines still sum to what finale_points awards. A flat season
+        gives every name the same value, as before.
         """
         hits = 0
-        for cid in picks:
+        # Stable: submitted order holds within the hits and within the misses.
+        for cid in sorted(picks, key=lambda c: str(c) not in actual):
             correct = str(cid) in actual
             if correct:
                 hits += 1

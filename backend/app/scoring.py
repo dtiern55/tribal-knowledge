@@ -322,6 +322,51 @@ def finale_slate_points(values: dict[str, int], prefix: str, hits: int) -> int:
     return sum(finale_slate_rung(values, prefix, n) for n in range(1, hits + 1))
 
 
+def finale_values(cur, season_id) -> dict[str, int]:
+    """A season's finale-bracket values from its scoring snapshot, by key."""
+    cur.execute(
+        "select key, point_value from season_prediction_score_types"
+        " where season_id = %s and key = any(%s)",
+        [str(season_id), FINALE_VALUE_KEYS],
+    )
+    return {row["key"]: row["point_value"] for row in cur.fetchall()}
+
+
+def finale_ballot_points(
+    values: dict[str, int],
+    actuals: tuple[set[str], set[str], str | None],
+    final_four: list,
+    final_three: list,
+    winner: str | None,
+) -> dict[str, int]:
+    """What one bracket ballot pays, per slate: final_four, final_three, winner.
+
+    The single source for a ballot's score — finale_points sums it, and the
+    bracket's marked view shows it slate by slate. A flat season's
+    perfect-Final-3 bonus counts toward the Final 3 slate.
+    """
+    actual_three, actual_four, actual_winner = actuals
+    f4 = {str(c) for c in (final_four or [])}
+    f3 = {str(c) for c in (final_three or [])}
+    three = finale_slate_points(values, "correct_final_three", len(f3 & actual_three))
+    # The perfect-Final-3 bonus is a flat season's only convexity; the ladder
+    # builds it into the top rung, so the two never both apply. Bonus only for
+    # an exact Final 3 — all three, no extras.
+    if not on_finale_ladder(values) and len(f3) == 3 and f3 == actual_three:
+        three += values.get("perfect_final_three", 0)
+    return {
+        "final_four": finale_slate_points(
+            values, "correct_final_four", len(f4 & actual_four)
+        ),
+        "final_three": three,
+        "winner": (
+            values.get("correct_winner_vote", 0)
+            if actual_winner and str(winner) == actual_winner
+            else 0
+        ),
+    }
+
+
 def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
     """Points from each user's finale bracket ballot (#534).
 
@@ -335,15 +380,10 @@ def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
     """
     with conn.cursor() as cur:
         season_id = _season_id(cur, league_season_id)
-        cur.execute(
-            "select key, point_value from season_prediction_score_types"
-            " where season_id = %s and key = any(%s)",
-            [season_id, FINALE_VALUE_KEYS],
-        )
-        v = {row["key"]: row["point_value"] for row in cur.fetchall()}
+        v = finale_values(cur, season_id)
         if not v:
             return {}
-        final_three, final_four, winner = finale_actuals(cur, season_id)
+        actuals = finale_actuals(cur, season_id)
 
         cur.execute(
             """
@@ -357,17 +397,11 @@ def finale_points(conn, league_season_id: UUID) -> dict[str, int]:
         )
         points: dict[str, int] = {}
         for row in cur.fetchall():
-            f4 = {str(c) for c in (row["final_four"] or [])}
-            f3 = {str(c) for c in (row["final_three"] or [])}
-            pts = finale_slate_points(v, "correct_final_four", len(f4 & final_four))
-            pts += finale_slate_points(v, "correct_final_three", len(f3 & final_three))
-            # The perfect-Final-3 bonus is a flat season's only convexity; the
-            # ladder builds it into the top rung, so the two never both apply.
-            # Bonus only for an exact Final 3 — all three, no extras.
-            if not on_finale_ladder(v) and len(f3) == 3 and f3 == final_three:
-                pts += v.get("perfect_final_three", 0)
-            if winner and row["winner"] == winner:
-                pts += v.get("correct_winner_vote", 0)
+            pts = sum(
+                finale_ballot_points(
+                    v, actuals, row["final_four"], row["final_three"], row["winner"]
+                ).values()
+            )
             if pts:
                 points[row["user_id"]] = pts
         return points
