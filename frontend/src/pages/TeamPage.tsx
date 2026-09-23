@@ -387,7 +387,7 @@ export function TeamPage() {
         </section>
 
         {finaleScored && (
-          <SectionShell title="Finale" prominent open={open.finale} onToggle={toggleSection('finale')}>
+          <SectionShell title="Finale" prominent open={open.finale} onToggle={toggleSection('finale')} right={<SectionPoints value={player.finale_points} />}>
             {finaleBallot ? (
               <div className="flex justify-center py-2">
                 <FinaleBracket
@@ -396,6 +396,7 @@ export function TeamPage() {
                   winner={finaleBallot.winner}
                   byId={contestantMap}
                   actuals={finaleActuals}
+                  points={bracket?.points}
                 />
               </div>
             ) : (

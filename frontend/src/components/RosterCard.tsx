@@ -82,7 +82,7 @@ export function RosterCard({
 }) {
   const name = contestant ? displayName(contestant) : '—'
   const outEp = contestant?.eliminated_in_episode ?? null
-  const ssTitle = 'Sole Survivor — finale points are worth an extra 50%'
+  const ssTitle = 'Sole Survivor: +50% of what they score at the finale'
   // The note under the name is tribe (with its colour dot) for anyone still in;
   // a boot shows when it happened instead. A swap-in is provenance, not a
   // replacement for the tribe — it rides as its own tag so the tribe stays

@@ -71,13 +71,14 @@ function Torch({ lit }: { lit: boolean }) {
   )
 }
 
-/** Finale ballots predict different things (winner, fire, first boot); a plain
- *  weekly elimination vote needs no label — the points already say it. */
+/** Finale ballot lines name their slate; a plain weekly elimination vote needs
+ *  no label — the points already say it. "Winner", not "Sole Survivor": that
+ *  name belongs to the roster designation and its +50%, on this same card. */
 function ballotTypeLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
   if (kind === 'final_four') return 'Final 4'
   if (kind === 'final_three') return 'Final 3'
   if (kind === 'perfect_final_three') return 'Perfect Final 3'
-  if (kind === 'winner') return 'Sole Survivor'
+  if (kind === 'winner') return 'Winner'
   return null
 }
 

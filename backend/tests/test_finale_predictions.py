@@ -317,3 +317,30 @@ def test_finale_prediction_slates_must_nest(client, db_conn, current_user):
         json={"final_four_contestant_ids": four[:2], "final_three_contestant_ids": []},
     )
     assert r.status_code == 200
+
+
+@pytest.mark.integration
+def test_scored_prediction_carries_points_per_slate(client, db_conn, current_user):
+    """Once placements land, the ballot says what each slate paid (#884)."""
+    from tests.helpers import insert_finale_prediction
+
+    season = insert_season(db_conn)
+    _locked_finale_episode(db_conn, season["id"])
+    miss = insert_contestant(db_conn, season["id"], "Miss", placement=5)
+    fourth = insert_contestant(db_conn, season["id"], "Fourth", placement=4)
+    third = insert_contestant(db_conn, season["id"], "Third", placement=3)
+    second = insert_contestant(db_conn, season["id"], "Second", placement=2)
+    insert_contestant(db_conn, season["id"], "First", placement=1)
+    insert_finale_prediction(
+        db_conn,
+        current_user["id"],
+        season["id"],
+        final_four=[miss["id"], fourth["id"], third["id"], second["id"]],
+        final_three=[fourth["id"], third["id"], second["id"]],
+        winner=second["id"],
+    )
+    r = client.get(
+        f"/league-seasons/{season['league_season_id']}/finale-predictions/{current_user['id']}"
+    )
+    # 3 of 4 = 2+4+8, 2 of 3 = 10+20, wrong winner.
+    assert r.json()["points"] == {"final_four": 14, "final_three": 30, "winner": 0}

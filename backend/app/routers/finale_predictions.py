@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app import database
+from app import database, scoring
 from app.auth import get_current_user
 from app.locking import EPISODE_LOCKED_SQL, episode_locked
 from app.routers.picks import already_eliminated_ids
@@ -58,6 +58,18 @@ def get_finale_prediction(
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Prediction not found")
+            # Once the finale has placements, what each slate paid — the ladder
+            # makes 2 of 3 and 3 of 3 very different numbers, so the marked
+            # bracket shows them rather than leaving you to add rungs (#884).
+            actuals = scoring.finale_actuals(cur, ls["season_id"])
+            if actuals[2]:
+                row["points"] = scoring.finale_ballot_points(
+                    scoring.finale_values(cur, ls["season_id"]),
+                    actuals,
+                    row["final_four_contestant_ids"],
+                    row["final_three_contestant_ids"],
+                    row["winner_contestant_id"],
+                )
             return row
 
 

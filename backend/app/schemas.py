@@ -702,6 +702,12 @@ class ProfileUpdateRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=40)
 
 
+class FinaleBallotPoints(BaseModel):
+    final_four: int
+    final_three: int
+    winner: int
+
+
 class FinalePrediction(BaseModel):
     id: UUID
     user_id: UUID
@@ -710,6 +716,8 @@ class FinalePrediction(BaseModel):
     final_three_contestant_ids: list[UUID] = Field(default_factory=list)
     winner_contestant_id: Optional[UUID]
     created_at: datetime
+    # Per slate, once the finale has placements; absent before (#884).
+    points: Optional[FinaleBallotPoints] = None
 
 
 class FinalePredictionRequest(BaseModel):

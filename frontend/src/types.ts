@@ -198,6 +198,14 @@ export interface FinalePrediction {
   final_three_contestant_ids: string[]
   winner_contestant_id: string | null
   created_at: string
+  /** What each slate paid, once the finale has placements (#884). */
+  points?: FinaleBallotPoints | null
+}
+
+export interface FinaleBallotPoints {
+  final_four: number
+  final_three: number
+  winner: number
 }
 
 export interface AdvantageType {
