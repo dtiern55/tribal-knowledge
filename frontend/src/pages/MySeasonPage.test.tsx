@@ -168,6 +168,8 @@ function arrangePlayWorld(initial: {
   preLock?: boolean
   /** Contestant id → the episode their Redemption Island stint began (#655). */
   island?: Record<string, number>
+  /** Contestant id → the episode they were voted out in. */
+  out?: Record<string, number>
 }) {
   const openNumber = initial.preLock ? 2 : 3
   const open = { ...episode(openNumber, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
@@ -191,7 +193,7 @@ function arrangePlayWorld(initial: {
       ].map((c) => ({
         ...c,
         image_url: null,
-        eliminated_in_episode: null,
+        eliminated_in_episode: initial.out?.[c.id] ?? null,
         on_redemption_from_episode: initial.island?.[c.id] ?? null,
       }))
     }
@@ -713,6 +715,13 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('One per episode, played on your Tribe or Ballot')).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
     expect(within(roster).getByRole('region', { name: 'Advantage' })).toBeVisible()
+  })
+
+  it('flags a premiere boot left on the tribe before it locks', async () => {
+    arrangePlayWorld({ preLock: true, out: { 'cast-1': 1 } })
+    renderWithApp(<MySeasonPage />, { auth })
+    // The ballot is empty too; without the boot this would read "Your ballot is empty".
+    expect(await screen.findByText('Your ballot and tribe both need you')).toBeVisible()
   })
 
   it('lists the biggest tribe first in the picker, so a side group lands at the bottom', async () => {
