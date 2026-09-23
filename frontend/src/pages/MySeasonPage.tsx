@@ -1072,10 +1072,11 @@ export function MySeasonPage() {
   )
 }
 
-/** The draft reads by tribe, the way the cast is introduced. Castaways without
- *  a tribe (the whole cast before the show assigns tribes) collect under a
- *  heading-less group at the end — a "No tribe" label just confuses a new
- *  player in the premiere week. */
+/** The draft reads by tribe, the way the cast is introduced, biggest tribe
+ *  first so a small side group (Exile, Redemption) lands at the bottom.
+ *  Castaways without a tribe (the whole cast before the show assigns tribes)
+ *  collect under a heading-less group at the end — a "No tribe" label just
+ *  confuses a new player in the premiere week. */
 function groupByTribe(
   cast: Contestant[],
 ): [{ name: string | null; color: string | null }, Contestant[]][] {
@@ -1087,7 +1088,11 @@ function groupByTribe(
     groups.set(key, g)
   }
   return [...groups.values()]
-    .sort((a, b) => (a.tribe.name == null ? 1 : b.tribe.name == null ? -1 : 0))
+    .sort((a, b) => {
+      if (a.tribe.name == null) return 1
+      if (b.tribe.name == null) return -1
+      return b.members.length - a.members.length || a.tribe.name.localeCompare(b.tribe.name)
+    })
     .map((g) => [g.tribe, g.members])
 }
 
