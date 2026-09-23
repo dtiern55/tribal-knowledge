@@ -715,6 +715,16 @@ describe('MySeasonPage state shell', () => {
     expect(within(roster).getByRole('region', { name: 'Advantage' })).toBeVisible()
   })
 
+  it('lists the biggest tribe first in the picker, so a side group lands at the bottom', async () => {
+    // Yanu's Kenzie comes first in the cast, but Siga has three to Yanu's two.
+    arrangePlayWorld({ preLock: true })
+    renderWithApp(<MySeasonPage />, { auth })
+    const roster = await openBeat('Tribe')
+    await userEvent.click(within(roster).getByRole('button', { name: /Edit tribe/ }))
+    const headings = within(roster).getAllByRole('heading').map((h) => h.textContent)
+    expect(headings.indexOf('Siga')).toBeLessThan(headings.indexOf('Yanu'))
+  })
+
   it('plays the advantage on the Tribe tab by tap, stamped on the portrait until Undo', async () => {
     arrangePlayWorld({})
     renderWithApp(<MySeasonPage />, { auth })
