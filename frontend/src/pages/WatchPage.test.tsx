@@ -70,7 +70,7 @@ describe('WatchPage', () => {
     try {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       // Opened before tonight's lock: nothing is airing yet, so the tracker
-      // falls back to the last row in the schedule, the finale.
+      // falls back to the latest locked episode, the finale.
       const tonight = { ...episode, picks_lock_at: new Date(Date.now() + 60 * 60_000).toISOString(), status: 'upcoming' } as Episode
       const finale = { id: 'ep-14', episode_number: 14, picks_lock_at: '2020-01-01T00:00:00Z', status: 'scored', is_finale: true } as Episode
       vi.mocked(api.get).mockImplementation((path: string) => {
@@ -105,6 +105,22 @@ describe('WatchPage', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('opens on the watch-only premiere, not the last episode', async () => {
+    const lateLock = { ...season, roster_lock_episode: 2 } as Season
+    const premiere = { id: 'ep-p', episode_number: 1, picks_lock_at: '2020-01-01T00:00:00Z', status: 'upcoming' } as Episode
+    const next = { id: 'ep-2', episode_number: 2, picks_lock_at: '2999-01-01T00:00:00Z', status: 'upcoming' } as Episode
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/league-seasons') return Promise.resolve([lateLock]) as never
+      if (path.endsWith('/watch')) return Promise.resolve({ data: {} }) as never
+      if (path.endsWith('/episodes')) return Promise.resolve([premiere, next]) as never
+      if (path.endsWith('/rules')) return Promise.resolve(rules) as never
+      return Promise.resolve(cast) as never
+    })
+
+    renderWithApp(<WatchPage />, admin)
+    expect(await screen.findByText('Episode 1')).toBeVisible()
   })
 
   it('gates non-commissioners out', async () => {
