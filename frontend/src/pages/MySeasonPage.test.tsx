@@ -879,7 +879,7 @@ describe('MySeasonPage state shell', () => {
     )
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeEnabled()
-    expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('Second Vote')
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('2nd')
 
     // The gold rung has the same arrows: down swaps the Power Vote with 1st,
     // in one picks request that saves the ladder as shown.
