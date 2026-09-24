@@ -698,9 +698,13 @@ export function MySeasonPage() {
     // never takes the headline and never keeps the hero warm. Nothing can be
     // done about it at all once swaps are spent or closed, and by then most
     // rosters have one, so the note drops it then.
+    //
+    // Before the tribe locks it is a chore after all: rearranging is free
+    // then, so a premiere boot left on the tribe is only ever missed.
     const deadSlots = held.length - active.length
     const heldDead = deadSlots > 0 && !swapsLocked(d.season!, d.episodes)
-    const rosterDone = held.length > 0
+    const bootBeforeLock = deadSlots > 0 && openEp.episode_number <= (d.season!.roster_lock_episode ?? 0)
+    const rosterDone = held.length > 0 && !bootBeforeLock
     // A finale ballot is only "done" when a full bracket has been locked in —
     // a complete-but-unsaved draft still owes a submit, same as the weekly one.
     const ballotDone = isFinale
@@ -732,7 +736,7 @@ export function MySeasonPage() {
     // Only two things are actually owed: a ballot, and a roster if you have
     // never set one.
     const noRoster = held.length === 0
-    const left = (noRoster ? 1 : 0) + (ballotDone ? 0 : 1)
+    const left = (noRoster || bootBeforeLock ? 1 : 0) + (ballotDone ? 0 : 1)
     const advantageUnplayed =
       !d.plays.some((p) => p.episode_id === openEp.id) &&
       !openEp.is_finale &&
@@ -762,7 +766,9 @@ export function MySeasonPage() {
                 : `${saved} of ${maxPicks} votes cast`
             : noRoster
               ? 'Pick your tribe'
-              : ssUnnamed
+              : bootBeforeLock
+                ? 'A castaway on your tribe is out'
+                : ssUnnamed
                 ? 'Name your Sole Survivor'
                 : advantageUnplayed
                   ? 'Your advantage is still unplayed'
