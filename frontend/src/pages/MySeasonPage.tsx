@@ -3851,6 +3851,8 @@ function PicksSection({
   // back — the saved ballot is re-read and the editable set follows it.
   const pendingRef = useRef(pending)
   pendingRef.current = pending
+  const workingRef = useRef(working)
+  workingRef.current = working
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
   const lastTarget = useRef<string | null>(null)
   // A replace shows its optimistic row before the server has moved anything.
@@ -3900,13 +3902,15 @@ function PicksSection({
             return p.contestant_id !== power && (out == null || out >= openEp.episode_number)
           })
           .map((p) => p.contestant_id)
-        // Names written but not yet saved survive the play changing under
-        // them, in the order they were written; only one that just became
-        // the Power Vote leaves the ladder. The sheet stays open if it was:
-        // "cast your votes" continues after the Power Vote lands, and only
-        // Save or Cancel closes it.
-        const was = pendingRef.current.get(epId) ?? []
-        const next = [...was, ...saved.filter((id) => !was.includes(id))].filter((id) => id !== power)
+        // An open sheet is the ballot as written, unsaved adds and removals
+        // alike, so it survives the play changing under it; only a name that
+        // just became the Power Vote leaves the ladder. Merging the saved
+        // names back in brought cleared votes back. The sheet stays open if
+        // it was: "cast your votes" continues after the Power Vote lands, and
+        // only Save or Cancel closes it. A ballot at rest follows the server.
+        const next = (workingRef.current ? (pendingRef.current.get(epId) ?? []) : saved).filter(
+          (id) => id !== power,
+        )
         setPending((prev) => new Map(prev).set(epId, next))
         onOpenPicks?.(picks)
       })
