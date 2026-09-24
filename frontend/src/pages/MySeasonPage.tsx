@@ -4033,8 +4033,11 @@ function PicksSection({
           const powerContestant = powerTarget ? contestantMap.get(powerTarget) : undefined
           const powerName = powerContestant ? displayName(powerContestant) : '—'
           // The top rung is named for what it is; the rest count down (#694 review).
-          const ordinal = (rank: number) =>
-            rank === 1 ? 'Top pick' : (['1st', '2nd', '3rd'][rank - 1] ?? `${rank}th`)
+          // With a Power Vote on top, the rest count on from it: 2nd, 3rd, 4th.
+          const ordinal = (rank: number) => {
+            const place = powerTarget ? rank + 1 : rank
+            return place === 1 ? 'Top pick' : (['1st', '2nd', '3rd'][place - 1] ?? `${place}th`)
+          }
           const pts = (value: number | null) => (value == null ? '' : ` · ${value} pts`)
           const stripLink =
             'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'
