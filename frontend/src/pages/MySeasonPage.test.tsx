@@ -927,6 +927,29 @@ describe('MySeasonPage state shell', () => {
     expect(within(ballot).getByRole('button', { name: 'Play it here' })).toBeVisible()
   })
 
+  it('keeps votes cleared in an open sheet off when the Power Vote lands', async () => {
+    // The re-read after the play used to merge the saved names back into the
+    // sheet, so a cleared ballot refilled the moment a Power Vote was named.
+    arrangePlayWorld({
+      picks: [
+        { id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' },
+        { id: 'pick-2', episode_id: 'episode-3', contestant_id: 'cast-2' },
+      ],
+    })
+    renderWithApp(<MySeasonPage />, { auth })
+    const ballot = await openBeat('Ballot')
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' }))
+
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Make Maria your Power Vote' }))
+    expect(await screen.findByText('Ballot · Maria · Power Vote')).toBeVisible()
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('/episodes/episode-3/picks/')))
+    expect(within(ballot).queryByRole('button', { name: /^Remove vote for/ })).not.toBeInTheDocument()
+  })
+
   it('takes the offer off both tabs once the advantage is played, until Undo', async () => {
     arrangePlayWorld({
       plays: [{ id: 'play-1', episode_id: 'episode-3', advantage_type: 'double_vote_points', target_contestant_id: 'cast-3' }],
