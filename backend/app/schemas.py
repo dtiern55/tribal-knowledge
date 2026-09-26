@@ -681,6 +681,24 @@ class LeagueMember(BaseModel):
     joined_at: datetime
 
 
+class WhosInMember(BaseModel):
+    user_id: UUID
+    display_name: str
+    is_bot: bool
+    tribe_missing: int
+    has_ballot: bool
+    played_advantage: bool
+
+
+class WhosIn(BaseModel):
+    """Who has done what for the open episode (#896). Done-or-not only: what a
+    player picked stays hidden until the lock, even from the commissioner."""
+
+    episode_number: Optional[int]
+    picks_lock_at: Optional[datetime]
+    members: list[WhosInMember]
+
+
 class LeagueMemberAddRequest(BaseModel):
     email: str = Field(min_length=3)
 

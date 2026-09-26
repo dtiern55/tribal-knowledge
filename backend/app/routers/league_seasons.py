@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import database
 from app.auth import get_current_admin, get_current_user
+from app.locking import next_open_episode
 from app.schemas import (
     LeagueSeason,
     LeagueSeasonCreateRequest,
     LeagueSeasonUpdateRequest,
+    WhosIn,
 )
 
 router = APIRouter(tags=["league_seasons"])
@@ -43,6 +45,59 @@ def get_league_season(
             ls = database.require_league_season(cur, league_season_id)
             database.require_member(cur, ls["league_id"], user_id)
             return ls
+
+
+@router.get("/league-seasons/{league_season_id}/whos-in", response_model=WhosIn)
+def whos_in(league_season_id: UUID, _: UUID = Depends(get_current_admin)):
+    """For each player, whether the open episode's picks are in: tribe slots
+    still empty (no roster yet, or a castaway already out), a ballot, an
+    advantage played. Nothing open (airing, or the season is over) → no rows.
+    """
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            ls = database.require_league_season(cur, league_season_id)
+            ep = next_open_episode(cur, ls)
+            if ep is None:
+                return {"episode_number": None, "picks_lock_at": None, "members": []}
+            cur.execute(
+                """
+                select p.id as user_id, p.display_name, p.is_bot,
+                  %(size)s - (
+                    select count(*) from roster_picks r
+                    where r.league_season_id = %(ls)s and r.user_id = p.id
+                      and r.active_from_episode <= %(n)s
+                      and (r.active_until_episode is null
+                           or r.active_until_episode >= %(n)s)
+                      and not exists (
+                        select 1 from eliminations x
+                        join episodes xe on xe.id = x.episode_id
+                        where x.contestant_id = r.contestant_id and x.is_final
+                          and xe.episode_number < %(n)s)
+                  ) as tribe_missing,
+                  exists (select 1 from elimination_picks b
+                          where b.league_season_id = %(ls)s and b.user_id = p.id
+                            and b.episode_id = %(ep)s) as has_ballot,
+                  exists (select 1 from advantage_plays a
+                          where a.league_season_id = %(ls)s and a.user_id = p.id
+                            and a.episode_id = %(ep)s) as played_advantage
+                from league_members m
+                join profiles p on p.id = m.user_id and p.is_player
+                where m.league_id = %(league)s
+                order by p.is_bot, p.display_name
+                """,
+                {
+                    "size": ls["roster_size"],
+                    "ls": str(ls["id"]),
+                    "n": ep["episode_number"],
+                    "ep": str(ep["id"]),
+                    "league": str(ls["league_id"]),
+                },
+            )
+            return {
+                "episode_number": ep["episode_number"],
+                "picks_lock_at": ep["picks_lock_at"],
+                "members": cur.fetchall(),
+            }
 
 
 @router.post(
