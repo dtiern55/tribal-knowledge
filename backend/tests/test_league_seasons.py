@@ -2,11 +2,16 @@ import pytest
 
 from tests.helpers import (
     enroll,
+    insert_advantage_play,
     insert_contestant,
+    insert_elimination,
+    insert_elimination_pick,
+    insert_episode,
     insert_league,
     insert_roster_pick,
     insert_season,
     insert_user,
+    league_season_id,
 )
 
 
@@ -113,3 +118,46 @@ def test_two_leagues_play_one_season_separately(client, db_conn, current_user):
         for e in client.get(f"/league-seasons/{other_ls['id']}/standings").json()
     }
     assert names == {current_user["display_name"]}
+
+
+@pytest.mark.integration
+def test_whos_in_reports_done_or_not(client, db_conn, current_user):
+    """Tribe gaps count a castaway already out; ballot and advantage are flags."""
+    season = insert_season(db_conn)
+    ls_id = league_season_id(db_conn, season["id"])
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update league_seasons set roster_size = 2, roster_lock_episode = 1"
+            " where id = %s",
+            [ls_id],
+        )
+    a = insert_contestant(db_conn, season["id"], name="A")
+    b = insert_contestant(db_conn, season["id"], name="B")
+    ep1 = insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2)
+    insert_elimination(db_conn, ep1["id"], a["id"])
+    insert_roster_pick(db_conn, current_user["id"], season["id"], a["id"])
+    insert_roster_pick(db_conn, current_user["id"], season["id"], b["id"])
+    insert_elimination_pick(db_conn, current_user["id"], ep2["id"], b["id"])
+    insert_advantage_play(
+        db_conn, current_user["id"], ep2["id"], "double_roster_points"
+    )
+    idle = insert_user(db_conn, display_name="Idle")
+
+    r = client.get(f"/league-seasons/{ls_id}/whos-in")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["episode_number"] == 2
+    rows = {m["user_id"]: m for m in body["members"]}
+    me = rows[str(current_user["id"])]
+    assert (me["tribe_missing"], me["has_ballot"], me["played_advantage"]) == (
+        1,
+        True,
+        True,
+    )
+    them = rows[str(idle["id"])]
+    assert (them["tribe_missing"], them["has_ballot"], them["played_advantage"]) == (
+        2,
+        False,
+        False,
+    )
