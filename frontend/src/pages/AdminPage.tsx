@@ -9,7 +9,7 @@ import { pathQuery, useApiMutation } from '../lib/queries'
 import { commissionerContext, commissionerEpisodeLabel } from '../lib/adminWorkflow'
 import { displayName } from '../lib/cast'
 import { ContestantAvatar } from '../components/ContestantAvatar'
-import { centralLocalToUtc, utcToCentralLocal } from '../lib/time'
+import { centralLocalToUtc, formatCentral, utcToCentralLocal } from '../lib/time'
 import { useAuth } from '../auth/useAuth'
 import type {
   Contestant,
@@ -20,6 +20,7 @@ import type {
   ShowSeason,
   ScoringEventType,
   Season,
+  WhosIn,
 } from '../types'
 
 // `value` is the select key; a Redemption Island boot is voted_out with
@@ -1815,6 +1816,7 @@ function LeagueOverview({
                 <span className="text-gray-500">
                   {' '}· {s.status} · {commissionerContext(s, episodesBySeason[s.season_id] ?? []).title}
                 </span>
+                <WhosInList leagueSeasonId={s.id} />
               </li>
             ))}
           </ul>
@@ -1862,6 +1864,50 @@ function LeagueOverview({
         <ErrorMsg msg={error} />
       </div>
     </div>
+  )
+}
+
+/** Who still owes picks for the open episode (#896): done-or-not only, never
+ * what anyone picked. Collapsed, with the headline counts on the summary. */
+function WhosInList({ leagueSeasonId }: { leagueSeasonId: string }) {
+  const data = useQuery(pathQuery<WhosIn>(`/league-seasons/${leagueSeasonId}/whos-in`)).data
+  if (!data || data.episode_number === null || !data.picks_lock_at) return null
+  const { members } = data
+  const count = (done: (m: WhosIn['members'][number]) => boolean) =>
+    `${members.filter(done).length}/${members.length}`
+  return (
+    <details className="mt-1 ml-3">
+      <summary className="cursor-pointer text-gray-500">
+        Who's in, episode {data.episode_number} (locks {formatCentral(data.picks_lock_at)}): tribes{' '}
+        {count((m) => m.tribe_missing === 0)}, ballots {count((m) => m.has_ballot)}, advantages{' '}
+        {count((m) => m.played_advantage)}
+      </summary>
+      <table className="mt-1 text-left">
+        <thead className="text-xs text-gray-500">
+          <tr>
+            <th className="pr-4 font-normal">Player</th>
+            <th className="pr-4 font-normal">Tribe</th>
+            <th className="pr-4 font-normal">Ballot</th>
+            <th className="font-normal">Advantage</th>
+          </tr>
+        </thead>
+        <tbody className="text-gray-800">
+          {members.map((m) => (
+            <tr key={m.user_id}>
+              <td className="pr-4">
+                {m.display_name}
+                {m.is_bot && <span className="text-gray-500"> (bot)</span>}
+              </td>
+              <td className={`pr-4 ${m.tribe_missing ? 'text-terracotta-600' : ''}`}>
+                {m.tribe_missing ? `${m.tribe_missing} empty` : 'Full'}
+              </td>
+              <td className={`pr-4 ${m.has_ballot ? '' : 'text-terracotta-600'}`}>{m.has_ballot ? 'In' : 'Not yet'}</td>
+              <td>{m.played_advantage ? 'Played' : 'Not yet'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
   )
 }
 

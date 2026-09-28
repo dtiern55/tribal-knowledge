@@ -207,6 +207,20 @@ def submit_roster(
                     detail=f"Contestants not in this season: {invalid}",
                 )
 
+            # A premiere boot can't be drafted onto a tribe that hasn't locked yet.
+            cur.execute(
+                "select e.id from eliminations e"
+                " join episodes ep on ep.id = e.episode_id"
+                " where e.contestant_id::text = any(%s) and e.is_final"
+                f" and {episode_locked_sql('ep')}",
+                [ids],
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Contestant has already been eliminated",
+                )
+
             # A Double Castaway Points play on someone no longer rostered would
             # read as played and score nothing. Drop it with them.
             cur.execute(

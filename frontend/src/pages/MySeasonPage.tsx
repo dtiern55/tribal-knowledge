@@ -698,9 +698,13 @@ export function MySeasonPage() {
     // never takes the headline and never keeps the hero warm. Nothing can be
     // done about it at all once swaps are spent or closed, and by then most
     // rosters have one, so the note drops it then.
+    //
+    // Before the tribe locks it is a chore after all: rearranging is free
+    // then, so a premiere boot left on the tribe is only ever missed.
     const deadSlots = held.length - active.length
     const heldDead = deadSlots > 0 && !swapsLocked(d.season!, d.episodes)
-    const rosterDone = held.length > 0
+    const bootBeforeLock = deadSlots > 0 && openEp.episode_number <= (d.season!.roster_lock_episode ?? 0)
+    const rosterDone = held.length > 0 && !bootBeforeLock
     // A finale ballot is only "done" when a full bracket has been locked in —
     // a complete-but-unsaved draft still owes a submit, same as the weekly one.
     const ballotDone = isFinale
@@ -732,7 +736,7 @@ export function MySeasonPage() {
     // Only two things are actually owed: a ballot, and a roster if you have
     // never set one.
     const noRoster = held.length === 0
-    const left = (noRoster ? 1 : 0) + (ballotDone ? 0 : 1)
+    const left = (noRoster || bootBeforeLock ? 1 : 0) + (ballotDone ? 0 : 1)
     const advantageUnplayed =
       !d.plays.some((p) => p.episode_id === openEp.id) &&
       !openEp.is_finale &&
@@ -762,7 +766,9 @@ export function MySeasonPage() {
                 : `${saved} of ${maxPicks} votes cast`
             : noRoster
               ? 'Pick your tribe'
-              : ssUnnamed
+              : bootBeforeLock
+                ? 'A castaway on your tribe is out'
+                : ssUnnamed
                 ? 'Name your Sole Survivor'
                 : advantageUnplayed
                   ? 'Your advantage is still unplayed'
@@ -1072,10 +1078,11 @@ export function MySeasonPage() {
   )
 }
 
-/** The draft reads by tribe, the way the cast is introduced. Castaways without
- *  a tribe (the whole cast before the show assigns tribes) collect under a
- *  heading-less group at the end — a "No tribe" label just confuses a new
- *  player in the premiere week. */
+/** The draft reads by tribe, the way the cast is introduced, biggest tribe
+ *  first so a small side group (Exile, Redemption) lands at the bottom.
+ *  Castaways without a tribe (the whole cast before the show assigns tribes)
+ *  collect under a heading-less group at the end — a "No tribe" label just
+ *  confuses a new player in the premiere week. */
 function groupByTribe(
   cast: Contestant[],
 ): [{ name: string | null; color: string | null }, Contestant[]][] {
@@ -1087,7 +1094,11 @@ function groupByTribe(
     groups.set(key, g)
   }
   return [...groups.values()]
-    .sort((a, b) => (a.tribe.name == null ? 1 : b.tribe.name == null ? -1 : 0))
+    .sort((a, b) => {
+      if (a.tribe.name == null) return 1
+      if (b.tribe.name == null) return -1
+      return b.members.length - a.members.length || a.tribe.name.localeCompare(b.tribe.name)
+    })
     .map((g) => [g.tribe, g.members])
 }
 
@@ -3846,6 +3857,8 @@ function PicksSection({
   // back — the saved ballot is re-read and the editable set follows it.
   const pendingRef = useRef(pending)
   pendingRef.current = pending
+  const workingRef = useRef(working)
+  workingRef.current = working
   const lastPlayId = useRef<string | undefined>(ballotPlay?.id)
   const lastTarget = useRef<string | null>(null)
   // A replace shows its optimistic row before the server has moved anything.
@@ -3895,13 +3908,15 @@ function PicksSection({
             return p.contestant_id !== power && (out == null || out >= openEp.episode_number)
           })
           .map((p) => p.contestant_id)
-        // Names written but not yet saved survive the play changing under
-        // them, in the order they were written; only one that just became
-        // the Power Vote leaves the ladder. The sheet stays open if it was:
-        // "cast your votes" continues after the Power Vote lands, and only
-        // Save or Cancel closes it.
-        const was = pendingRef.current.get(epId) ?? []
-        const next = [...was, ...saved.filter((id) => !was.includes(id))].filter((id) => id !== power)
+        // An open sheet is the ballot as written, unsaved adds and removals
+        // alike, so it survives the play changing under it; only a name that
+        // just became the Power Vote leaves the ladder. Merging the saved
+        // names back in brought cleared votes back. The sheet stays open if
+        // it was: "cast your votes" continues after the Power Vote lands, and
+        // only Save or Cancel closes it. A ballot at rest follows the server.
+        const next = (workingRef.current ? (pendingRef.current.get(epId) ?? []) : saved).filter(
+          (id) => id !== power,
+        )
         setPending((prev) => new Map(prev).set(epId, next))
         onOpenPicks?.(picks)
       })
@@ -4018,8 +4033,11 @@ function PicksSection({
           const powerContestant = powerTarget ? contestantMap.get(powerTarget) : undefined
           const powerName = powerContestant ? displayName(powerContestant) : '—'
           // The top rung is named for what it is; the rest count down (#694 review).
-          const ordinal = (rank: number) =>
-            rank === 1 ? 'Top pick' : (['1st', '2nd', '3rd'][rank - 1] ?? `${rank}th`)
+          // With a Power Vote on top, the rest count on from it: 2nd, 3rd, 4th.
+          const ordinal = (rank: number) => {
+            const place = powerTarget ? rank + 1 : rank
+            return place === 1 ? 'Top pick' : (['1st', '2nd', '3rd'][place - 1] ?? `${place}th`)
+          }
           const pts = (value: number | null) => (value == null ? '' : ` · ${value} pts`)
           const stripLink =
             'shrink-0 font-display text-[11px] font-bold uppercase tracking-wide text-forest-700 underline underline-offset-2 disabled:opacity-40'

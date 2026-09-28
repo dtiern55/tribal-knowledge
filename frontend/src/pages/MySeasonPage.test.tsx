@@ -168,6 +168,8 @@ function arrangePlayWorld(initial: {
   preLock?: boolean
   /** Contestant id → the episode their Redemption Island stint began (#655). */
   island?: Record<string, number>
+  /** Contestant id → the episode they were voted out in. */
+  out?: Record<string, number>
 }) {
   const openNumber = initial.preLock ? 2 : 3
   const open = { ...episode(openNumber, 'upcoming', '2099-08-27T00:00:00Z'), max_elimination_picks: 3 }
@@ -191,7 +193,7 @@ function arrangePlayWorld(initial: {
       ].map((c) => ({
         ...c,
         image_url: null,
-        eliminated_in_episode: null,
+        eliminated_in_episode: initial.out?.[c.id] ?? null,
         on_redemption_from_episode: initial.island?.[c.id] ?? null,
       }))
     }
@@ -715,6 +717,23 @@ describe('MySeasonPage state shell', () => {
     expect(within(roster).getByRole('region', { name: 'Advantage' })).toBeVisible()
   })
 
+  it('flags a premiere boot left on the tribe before it locks', async () => {
+    arrangePlayWorld({ preLock: true, out: { 'cast-1': 1 } })
+    renderWithApp(<MySeasonPage />, { auth })
+    // The ballot is empty too; without the boot this would read "Your ballot is empty".
+    expect(await screen.findByText('Your ballot and tribe both need you')).toBeVisible()
+  })
+
+  it('lists the biggest tribe first in the picker, so a side group lands at the bottom', async () => {
+    // Yanu's Kenzie comes first in the cast, but Siga has three to Yanu's two.
+    arrangePlayWorld({ preLock: true })
+    renderWithApp(<MySeasonPage />, { auth })
+    const roster = await openBeat('Tribe')
+    await userEvent.click(within(roster).getByRole('button', { name: /Edit tribe/ }))
+    const headings = within(roster).getAllByRole('heading').map((h) => h.textContent)
+    expect(headings.indexOf('Siga')).toBeLessThan(headings.indexOf('Yanu'))
+  })
+
   it('plays the advantage on the Tribe tab by tap, stamped on the portrait until Undo', async () => {
     arrangePlayWorld({})
     renderWithApp(<MySeasonPage />, { auth })
@@ -860,7 +879,7 @@ describe('MySeasonPage state shell', () => {
     )
     expect(await screen.findByText('Ballot · Kenzie · Power Vote')).toBeVisible()
     expect(within(ballot).getByRole('button', { name: 'Remove Power Vote from Kenzie' })).toBeEnabled()
-    expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('Top pick')
+    expect(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' })).toHaveTextContent('2nd')
 
     // The gold rung has the same arrows: down swaps the Power Vote with 1st,
     // in one picks request that saves the ladder as shown.
@@ -915,6 +934,29 @@ describe('MySeasonPage state shell', () => {
     await waitFor(() => expect(ballotTab).toHaveTextContent('2 of 3'))
     expect(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' })).toHaveTextContent('Top pick')
     expect(within(ballot).getByRole('button', { name: 'Play it here' })).toBeVisible()
+  })
+
+  it('keeps votes cleared in an open sheet off when the Power Vote lands', async () => {
+    // The re-read after the play used to merge the saved names back into the
+    // sheet, so a cleared ballot refilled the moment a Power Vote was named.
+    arrangePlayWorld({
+      picks: [
+        { id: 'pick-1', episode_id: 'episode-3', contestant_id: 'cast-1' },
+        { id: 'pick-2', episode_id: 'episode-3', contestant_id: 'cast-2' },
+      ],
+    })
+    renderWithApp(<MySeasonPage />, { auth })
+    const ballot = await openBeat('Ballot')
+    expect(await within(ballot).findByText('Submitted')).toBeVisible()
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Edit ballot' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Remove vote for Kenzie' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Remove vote for Charlie' }))
+
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Play it here' }))
+    await userEvent.click(within(ballot).getByRole('button', { name: 'Make Maria your Power Vote' }))
+    expect(await screen.findByText('Ballot · Maria · Power Vote')).toBeVisible()
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('/episodes/episode-3/picks/')))
+    expect(within(ballot).queryByRole('button', { name: /^Remove vote for/ })).not.toBeInTheDocument()
   })
 
   it('takes the offer off both tabs once the advantage is played, until Undo', async () => {

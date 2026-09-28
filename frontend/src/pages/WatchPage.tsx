@@ -91,7 +91,11 @@ export function WatchPage() {
   // episode it moved to.
   useEffect(() => {
     if (episodeId || !season || !episodesQ.data) return
-    setEpisodeId((airingEpisode(episodesQ.data, season) ?? episodesQ.data.at(-1))?.id ?? null)
+    // `airingEpisode` skips watch-only episodes, so the premiere falls through
+    // to the latest episode already locked, or the first one before it locks.
+    const byNumber = [...episodesQ.data].sort((a, b) => a.episode_number - b.episode_number)
+    const lastLocked = byNumber.filter((e) => new Date(e.picks_lock_at) <= new Date()).at(-1)
+    setEpisodeId((airingEpisode(episodesQ.data, season) ?? lastLocked ?? byNumber[0])?.id ?? null)
   }, [episodeId, season, episodesQ.data])
   const episode = episodesQ.data?.find((e) => e.id === episodeId) ?? null
 

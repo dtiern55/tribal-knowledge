@@ -19,6 +19,20 @@ export interface LeagueMember {
   joined_at: string
 }
 
+/** Done-or-not for the open episode, per player (#896). */
+export interface WhosIn {
+  episode_number: number | null
+  picks_lock_at: string | null
+  members: {
+    user_id: string
+    display_name: string
+    is_bot: boolean
+    tribe_missing: number
+    has_ballot: boolean
+    played_advantage: boolean
+  }[]
+}
+
 /** The show season: shared by every league playing it (#595). */
 export interface ShowSeason {
   id: string

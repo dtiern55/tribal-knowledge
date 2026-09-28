@@ -150,6 +150,22 @@ def test_resubmit_before_lock_replaces_free(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_submit_roster_rejects_premiere_boot(client, db_conn):
+    season, contestants = _make_season_with_roster(
+        db_conn, roster_size=3, lock_episode=2
+    )
+    ep1 = _locked_episode(db_conn, season["id"], 1)
+    insert_elimination(db_conn, ep1["id"], contestants[0]["id"])
+    insert_episode(db_conn, season["id"], episode_number=2)
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    assert r.status_code == 400
+    assert "eliminated" in r.json()["detail"]
+
+
+@pytest.mark.integration
 def test_submit_roster_duplicate_contestant_ids(client, db_conn):
     season, contestants = _make_season_with_roster(db_conn, roster_size=3)
     r = client.post(
