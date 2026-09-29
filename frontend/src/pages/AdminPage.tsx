@@ -1796,7 +1796,7 @@ function LeagueOverview({
 
   // ponytail: window.prompt, the same bar as remove's confirm; an inline form if this gets heavy use.
   function rename(m: LeagueMember) {
-    const name = window.prompt(`First and last name for ${m.display_name}`, m.real_name ?? '')?.trim()
+    const name = window.prompt(`Real name for ${m.display_name}`, m.real_name ?? '')?.trim()
     if (!name || name === m.real_name) return
     void run(setBusy, setError, async () => {
       await api.put<LeagueMember>(`/leagues/${league.id}/members/${m.id}/real-name`, { real_name: name })

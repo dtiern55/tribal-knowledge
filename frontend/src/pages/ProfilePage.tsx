@@ -51,7 +51,7 @@ function DisplayNameSection() {
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <div>
         <label htmlFor="profile-real-name" className="block text-sm font-medium text-gray-700 mb-1">
-          First and last name
+          Your real name
         </label>
         <input
           id="profile-real-name"
