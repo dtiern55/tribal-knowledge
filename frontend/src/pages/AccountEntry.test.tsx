@@ -158,7 +158,7 @@ describe('account entry flows', () => {
 
     expect(screen.getByText('danny@example.com')).toBeVisible()
     await user.type(screen.getByRole('textbox', { name: 'Your real name' }), ' Danny T ')
-    await user.type(screen.getByRole('textbox', { name: 'Team name' }), '  Danny  ')
+    await user.type(screen.getByRole('textbox', { name: 'Tribe name' }), '  Danny  ')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), '  tribe-51  ')
     expect(screen.getByRole('heading', { name: 'Join your league' })).toBeVisible()
     expect(screen.getByText('This is how you will appear in standings.')).toBeVisible()
@@ -189,7 +189,7 @@ describe('account entry flows', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Join another league' })).toBeVisible()
-    expect(screen.queryByRole('textbox', { name: 'Team name' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Tribe name' })).toBeNull()
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'camp-b')
     await user.click(screen.getByRole('button', { name: 'Join league' }))
 
@@ -205,7 +205,7 @@ describe('account entry flows', () => {
     })
 
     await user.type(screen.getByRole('textbox', { name: 'Your real name' }), 'Danny T')
-    await user.type(screen.getByRole('textbox', { name: 'Team name' }), 'Danny')
+    await user.type(screen.getByRole('textbox', { name: 'Tribe name' }), 'Danny')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'wrong-code')
     await user.click(screen.getByRole('button', { name: 'Join league' }))
 
