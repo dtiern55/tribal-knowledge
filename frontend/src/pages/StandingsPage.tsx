@@ -195,7 +195,7 @@ function HistoryPanel({
   return (
     // A recessed tray under its row, so a player's row and week read as one
     // unit and the next player's row is clearly someone else.
-    <div id={id} className="week-tray mx-2.5 mb-2.5 rounded-xl bg-paper-line px-3.5 py-2 shadow-[inset_0_1px_3px_rgb(60_40_20_/_0.18)]">
+    <div id={id} className="week-tray mx-2.5 mt-1 mb-2.5 rounded-xl bg-paper-line px-3.5 py-2 shadow-[inset_0_1px_3px_rgb(60_40_20_/_0.18)]">
       {waiting ? (
         <p className={note}>Loading…</p>
       ) : episode == null ? (
@@ -415,11 +415,13 @@ export function StandingsPage() {
                     {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
                     <div className="flex min-w-0 items-center gap-2">
+                      {/* The real name only shows once the row is open, so the
+                          closed list stays tribe names. */}
                       <span className="min-w-0">
                         <span className="block truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
                           {entry.display_name}
                         </span>
-                        {entry.real_name && (
+                        {isOpen && entry.real_name && (
                           <span className="block truncate text-[11px] leading-tight text-paper-ink-faded">{entry.real_name}</span>
                         )}
                       </span>

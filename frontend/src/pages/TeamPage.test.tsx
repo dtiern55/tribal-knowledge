@@ -20,6 +20,7 @@ describe('TeamPage', () => {
     const player: StandingEntry = {
       user_id: 'friend-1',
       display_name: 'Friend',
+      real_name: 'Patrick M.',
       roster_points: 12,
       elimination_points: 0,
       finale_points: 0,
@@ -90,6 +91,7 @@ describe('TeamPage', () => {
     )
 
     const name = await screen.findByText('Kenzie')
+    expect(screen.getByText('Patrick M.')).toBeVisible()
     expect(name.closest('a')).toBeNull()
 
     await userEvent.click(name)
