@@ -229,7 +229,7 @@ describe('account entry flows', () => {
     expect(screen.getByRole('heading', { name: 'Account identity' })).toBeVisible()
     expect(screen.getByText('danny@example.com')).toBeVisible()
 
-    const displayName = screen.getByRole('textbox', { name: 'Team name' })
+    const displayName = screen.getByRole('textbox', { name: 'Tribe name' })
     await user.clear(displayName)
     await user.type(displayName, '  Danny  ')
     await user.click(screen.getByRole('button', { name: 'Save' }))

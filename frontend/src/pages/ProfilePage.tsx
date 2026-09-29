@@ -50,6 +50,23 @@ function DisplayNameSection() {
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <div>
+        <label htmlFor="profile-display-name" className="block text-sm font-medium text-gray-700 mb-1">
+          Tribe name
+        </label>
+        <input
+          id="profile-display-name"
+          value={displayName}
+          onChange={(e) => {
+            setDisplayName(e.target.value)
+            setSaved(false)
+          }}
+          required
+          maxLength={40}
+          autoComplete="off"
+          className={inputCls}
+        />
+      </div>
+      <div>
         <label htmlFor="profile-real-name" className="block text-sm font-medium text-gray-700 mb-1">
           Your real name
         </label>
@@ -63,23 +80,6 @@ function DisplayNameSection() {
           required
           maxLength={60}
           autoComplete="name"
-          className={inputCls}
-        />
-      </div>
-      <div>
-        <label htmlFor="profile-display-name" className="block text-sm font-medium text-gray-700 mb-1">
-          Team name
-        </label>
-        <input
-          id="profile-display-name"
-          value={displayName}
-          onChange={(e) => {
-            setDisplayName(e.target.value)
-            setSaved(false)
-          }}
-          required
-          maxLength={40}
-          autoComplete="off"
           className={inputCls}
         />
       </div>
