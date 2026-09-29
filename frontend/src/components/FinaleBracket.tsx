@@ -1,5 +1,5 @@
 import { displayName } from '../lib/cast'
-import type { Contestant } from '../types'
+import type { Contestant, FinaleBallotPoints } from '../types'
 import { ContestantAvatar } from './ContestantAvatar'
 
 /** The actual finale outcome, for marking a scored bracket correct/incorrect.
@@ -19,7 +19,13 @@ export interface FinaleActuals {
  * (a scored finale, via `actuals`), each pick reads correct (jade) or missed
  * (dimmed), per tier — the same castaway can be a right Final 4 but a wrong
  * winner. A bare winner with empty slates degrades to a single apex, which is
- * how a Sole Survivor designation (no bracket) shows.
+ * how a Sole Survivor designation (no bracket) shows. `points` puts what each
+ * slate paid beside its label (#884): on the ladder, 2 of 3 and 3 of 3 are very
+ * different numbers, and the checkmarks alone don't say which.
+ *
+ * Every tier is drawn winner first, then the rest of the Final 3, then the
+ * Final 4 pick, so pyramids line up however the ballot was entered. `dark`
+ * repaints it for a dark surface (the recap and the locked Field).
  */
 export function FinaleBracket({
   finalFour,
@@ -27,14 +33,23 @@ export function FinaleBracket({
   winner,
   byId,
   actuals,
+  points,
+  dark = false,
 }: {
   finalFour: string[]
   finalThree: string[]
   winner: string
   byId: Map<string, Pick<Contestant, 'name' | 'image_url' | 'tribe_color' | 'tribe_name'> & { nickname?: string | null }>
   actuals?: FinaleActuals
+  points?: FinaleBallotPoints | null
+  dark?: boolean
 }) {
   const winnerId = winner || null
+  const rank = (id: string) => (id === winnerId ? 0 : finalThree.includes(id) ? 1 : 2)
+  const ordered = (ids: string[]) => [...ids].sort((a, b) => rank(a) - rank(b))
+  // A ring offset needs a solid colour to cut the gap; a dark surface is
+  // translucent, so the ring sits flush there instead.
+  const offset = dark ? '' : 'ring-offset-2 ring-offset-jade-50'
 
   const member = (id: string, apex = false, correct?: boolean) => {
     const c = byId.get(id)
@@ -42,20 +57,20 @@ export function FinaleBracket({
     const isWin = id === winnerId
     const ring =
       correct === true
-        ? 'ring-2 ring-jade-500 ring-offset-2 ring-offset-jade-50'
+        ? `ring-2 ring-jade-500 ${offset}`
         : correct === false
           ? ''
           : isWin
-            ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-jade-50'
+            ? `ring-2 ring-gold-500 ${offset}`
             : ''
     const nameColor =
       correct === true
-        ? 'text-jade-700'
+        ? dark ? 'text-jade-200' : 'text-jade-700'
         : correct === false
-          ? 'text-gray-400'
+          ? dark ? 'text-cream-100/40' : 'text-gray-400'
           : isWin
-            ? 'text-gold-800'
-            : 'text-forest-800'
+            ? dark ? 'text-gold-300' : 'text-gold-800'
+            : dark ? 'text-cream-100' : 'text-forest-800'
     return (
       <div key={id} className="flex w-14 flex-col items-center gap-1 text-center">
         <span className={`relative inline-flex rounded-full ${ring} ${correct === false ? 'opacity-40 grayscale' : ''}`}>
@@ -85,23 +100,32 @@ export function FinaleBracket({
     )
   }
 
-  const rule = <div className="mx-auto h-px w-4/5 bg-jade-200" />
-  const tierLabel = (text: string, gold = false) => (
+  const rule = <div className={`mx-auto h-px w-4/5 ${dark ? 'bg-white/15' : 'bg-jade-200'}`} />
+  const tierLabel = (text: string, gold = false, paid?: number) => (
     <span
       className={`font-display text-[10px] font-bold uppercase tracking-[0.16em] ${
-        gold ? 'text-gold-800' : 'text-gray-500'
+        gold ? (dark ? 'text-gold-300' : 'text-gold-800') : dark ? 'text-cream-100/55' : 'text-gray-500'
       }`}
     >
       {text}
+      {paid != null && (
+        <span
+          className={`ml-1.5 tabular-nums ${
+            paid > 0 ? (dark ? 'text-jade-200' : 'text-jade-700') : dark ? 'text-cream-100/40' : 'text-gray-400'
+          }`}
+        >
+          +{paid}
+        </span>
+      )}
     </span>
   )
-  const tier = (label: string, ids: string[], tierSet?: Set<string>) =>
+  const tier = (label: string, ids: string[], tierSet?: Set<string>, paid?: number) =>
     ids.length > 0 && (
       <div className="flex flex-col items-center gap-2">
+        {tierLabel(label, false, paid)}
         <div className="flex flex-wrap justify-center gap-2">
-          {ids.map((id) => member(id, false, actuals && tierSet ? tierSet.has(id) : undefined))}
+          {ordered(ids).map((id) => member(id, false, actuals && tierSet ? tierSet.has(id) : undefined))}
         </div>
-        {tierLabel(label)}
       </div>
     )
 
@@ -109,14 +133,14 @@ export function FinaleBracket({
     <div className="flex flex-col items-center gap-3 py-1">
       {winnerId && (
         <div className="flex flex-col items-center gap-2 pt-1">
-          {tierLabel('Winner', true)}
+          {tierLabel('Winner', true, points?.winner)}
           {member(winnerId, true, actuals ? actuals.winner === winnerId : undefined)}
         </div>
       )}
       {winnerId && finalThree.length > 0 && rule}
-      {tier('Final 3', finalThree, actuals?.finalThree)}
+      {tier('Final 3', finalThree, actuals?.finalThree, points?.final_three)}
       {(winnerId || finalThree.length > 0) && finalFour.length > 0 && rule}
-      {tier('Final 4', finalFour, actuals?.finalFour)}
+      {tier('Final 4', finalFour, actuals?.finalFour, points?.final_four)}
     </div>
   )
 }

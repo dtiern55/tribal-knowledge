@@ -1,4 +1,5 @@
-import type { CastMember } from '../types'
+import type { FinaleActuals } from '../components/FinaleBracket'
+import type { CastMember, Contestant } from '../types'
 
 /** Nickname stands in for the legal name wherever contestants come from the
  * raw `/seasons/{id}/contestants` list (other endpoints already coalesce
@@ -46,4 +47,13 @@ export function rankCast(cast: CastMember[]): CastMember[] {
     if (a.placement != null && b.placement != null) return a.placement - b.placement
     return bOut! - aOut! || a.name.localeCompare(b.name)
   })
+}
+
+/** Actuals from the cast's placements; null until the finale has a winner. */
+export function finaleActualsOf(contestants: Pick<Contestant, 'id' | 'placement'>[]): FinaleActuals | null {
+  const winner = contestants.find((c) => c.placement === 1)?.id ?? null
+  if (!winner) return null
+  const top = (n: number) =>
+    new Set(contestants.filter((c) => c.placement != null && c.placement <= n).map((c) => c.id))
+  return { finalFour: top(4), finalThree: top(3), winner }
 }

@@ -318,7 +318,8 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         db_conn,
         current_user["id"],
         season["id"],
-        final_four=[winner["id"], runner["id"], third["id"], fire["id"]],
+        # A miss submitted first: the Reveal still lists the hits first.
+        final_four=[early["id"], winner["id"], runner["id"], third["id"]],
         final_three=[winner["id"], runner["id"], third["id"]],
         winner=winner["id"],
     )
@@ -336,21 +337,27 @@ def test_finale_result_includes_three_part_ballot_and_rank_movement(
         "final_three",
         "winner",
     ]
-    # The ladder pays out in slate order (#884), so a perfect bracket's lines
-    # are the rungs themselves: 2/4/8/16, then 10/20/40, then the winner's 60.
-    # No perfect-Final-3 line — the ladder builds that into the top rung.
+    # Hits climb the ladder first and the miss trails (#884): 2/4/8 then 0,
+    # 10/20/40, then the winner's 60. No perfect-Final-3 line — the ladder
+    # builds that into the top rung.
+    assert [pick["name"] for pick in result["ballot"][:4]] == [
+        "Winner",
+        "Runner",
+        "Third",
+        "Early",
+    ]
     assert [pick["points"] for pick in result["ballot"]] == [
         2,
         4,
         8,
-        16,
+        0,
         10,
         20,
         40,
         60,
     ]
-    assert result["ballot_points"] == 160
-    assert result["total_points"] == 160
+    assert result["ballot_points"] == 144
+    assert result["total_points"] == 144
     assert result["current_rank"] == 1
     assert result["prior_rank"] == 2
     assert result["rank_delta"] == 1

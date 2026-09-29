@@ -144,7 +144,13 @@ export interface HubEntry {
   // Their Sole Survivor pick, when it is on the active roster.
   sole_survivor_contestant_id: string | null
   // The finale bracket, on the finale only.
-  finale: { final_four: StandingSurvivor[]; final_three: StandingSurvivor[]; winner: StandingSurvivor | null } | null
+  finale: {
+    final_four: StandingSurvivor[]
+    final_three: StandingSurvivor[]
+    winner: StandingSurvivor | null
+    /** What each slate paid, once the finale has placements (#884). */
+    points?: FinaleBallotPoints | null
+  } | null
   // This episode's tribe/ballot lane points, once it's scored; null before.
   tribe_points: number | null
   ballot_points: number | null
@@ -212,6 +218,14 @@ export interface FinalePrediction {
   final_three_contestant_ids: string[]
   winner_contestant_id: string | null
   created_at: string
+  /** What each slate paid, once the finale has placements (#884). */
+  points?: FinaleBallotPoints | null
+}
+
+export interface FinaleBallotPoints {
+  final_four: number
+  final_three: number
+  winner: number
 }
 
 export interface AdvantageType {

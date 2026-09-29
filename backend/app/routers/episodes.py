@@ -274,7 +274,12 @@ def get_episode_hub(
                 select rp.user_id::text as user_id, c.id::text as contestant_id,
                        coalesce(c.nickname, c.name) as name, c.image_url,
                        tribe.name as tribe_name, tribe.color as tribe_color,
-                       rp.is_sole_survivor, coalesce(scored.points, 0) as points,
+                       rp.is_sole_survivor,
+                       coalesce(scored.points, 0)
+                         + case when ep.is_finale and rp.is_sole_survivor
+                             then round(coalesce(scored.points, 0) * 0.5)::int
+                             else 0 end
+                         as points,
                        -- Set only for the castaway snuffed in THIS episode, so
                        -- a reader can strike them for the week they went home
                        -- without asking the cast list who is out (#812).
@@ -285,15 +290,18 @@ def get_episode_hub(
                 join seasons s on s.id = ep.season_id
                 join contestants c on c.id = rp.contestant_id
                 {_TRIBE_LATERAL}
-                -- What this castaway scored in this episode, base points: the
-                -- play that doubled them is on the entry beside this one, so a
-                -- reader applies the doubling once rather than us baking it in
-                -- per player (#812).
+                -- What this castaway earned this team this episode, the way
+                -- episode_points_split counts the tribe lane: doubled where the
+                -- team played Double Castaway Points on them, and a finale Sole
+                -- Survivor's half-again bonus above, so a tribe adds up to its lane.
                 left join lateral (
-                  select sum({scoring.EVENT_POINTS_SQL})::int as points
+                  select sum({scoring.EVENT_POINTS_SQL}
+                             * (case when dbl.id is not null then 2 else 1 end))::int
+                           as points
                   from scoring_events se
                   join season_scoring_event_types et
                     on et.event_type = se.event_type and et.season_id = s.id
+                  {scoring.DOUBLE_ROSTER_JOIN_SQL}
                   where se.episode_id = ep.id and se.contestant_id = c.id
                 ) scored on true
                 left join eliminations gone
@@ -388,11 +396,28 @@ def get_episode_hub(
                     """,
                     [lsid],
                 )
-                for row in cur.fetchall():
+                predictions = cur.fetchall()
+                # Once placements exist, what each slate paid (#884).
+                actuals = scoring.finale_actuals(cur, ls["season_id"])
+                values = (
+                    scoring.finale_values(cur, ls["season_id"]) if actuals[2] else {}
+                )
+                for row in predictions:
                     finales[row["user_id"]] = {
                         "final_four": [cast[i] for i in row["final_four"]],
                         "final_three": [cast[i] for i in row["final_three"]],
                         "winner": cast.get(row["winner"]),
+                        "points": (
+                            scoring.finale_ballot_points(
+                                values,
+                                actuals,
+                                row["final_four"],
+                                row["final_three"],
+                                row["winner"],
+                            )
+                            if actuals[2]
+                            else None
+                        ),
                     }
 
             # One row per participating player — anyone with a roster, a ballot,
