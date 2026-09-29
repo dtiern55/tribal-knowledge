@@ -415,8 +415,13 @@ export function StandingsPage() {
                     {isMe && <span className="absolute inset-y-0 left-0 w-[3px] bg-gold-500" aria-hidden />}
                     <Rank rank={rank} tied={tied} entry={entry} />
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
-                        {entry.display_name}
+                      <span className="min-w-0">
+                        <span className="block truncate font-display text-[17px] font-semibold text-paper-ink group-hover:text-forest-700">
+                          {entry.display_name}
+                        </span>
+                        {entry.real_name && (
+                          <span className="block truncate text-[11px] leading-tight text-paper-ink-faded">{entry.real_name}</span>
+                        )}
                       </span>
                       {isMe && (
                         <span className="flex-none rounded bg-jade-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">You</span>

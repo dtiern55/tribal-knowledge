@@ -10,6 +10,7 @@ from app.schemas import (
     LeagueMember,
     LeagueMemberAddRequest,
     LeagueUpdateRequest,
+    RealNameRequest,
 )
 
 router = APIRouter(prefix="/leagues", tags=["leagues"])
@@ -91,7 +92,7 @@ def list_members(league_id: UUID, _: UUID = Depends(get_current_admin)):
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="League not found")
             cur.execute(
-                "select p.id, p.display_name, m.joined_at"
+                "select p.id, p.display_name, p.real_name, m.joined_at"
                 " from league_members m join profiles p on p.id = m.user_id"
                 " where m.league_id = %s order by m.joined_at",
                 [str(league_id)],
@@ -127,12 +128,34 @@ def add_member(
             if not cur.fetchone():
                 raise HTTPException(status_code=409, detail="Already a member")
             cur.execute(
-                "select p.id, p.display_name, m.joined_at"
+                "select p.id, p.display_name, p.real_name, m.joined_at"
                 " from league_members m join profiles p on p.id = m.user_id"
                 " where m.league_id = %s and m.user_id = %s",
                 [str(league_id), str(user["id"])],
             )
             return cur.fetchone()
+
+
+@router.put("/{league_id}/members/{user_id}/real-name", response_model=LeagueMember)
+def set_member_real_name(
+    league_id: UUID,
+    user_id: UUID,
+    body: RealNameRequest,
+    _: UUID = Depends(get_current_admin),
+):
+    """Commissioner fills in or corrects a member's real name."""
+    with database.get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "update profiles p set real_name = %s from league_members m"
+                " where m.user_id = p.id and m.league_id = %s and p.id = %s"
+                " returning p.id, p.display_name, p.real_name, m.joined_at",
+                [body.real_name.strip(), str(league_id), str(user_id)],
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Not a member")
+            return row
 
 
 @router.delete("/{league_id}/members/{user_id}", status_code=204)

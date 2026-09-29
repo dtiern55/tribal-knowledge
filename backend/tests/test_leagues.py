@@ -66,6 +66,27 @@ def test_add_and_remove_member(client, db_conn):
 
 
 @pytest.mark.integration
+def test_commissioner_sets_member_real_name(client, db_conn):
+    league = insert_league(db_conn, join_code="rn")
+    member = insert_user(db_conn, display_name="Team Chaos")
+    outsider = insert_user(db_conn, display_name="Elsewhere")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "insert into league_members (league_id, user_id) values (%s, %s)",
+            [str(league["id"]), str(member["id"])],
+        )
+    base = f"/leagues/{league['id']}/members"
+
+    r = client.put(f"{base}/{member['id']}/real-name", json={"real_name": " Jo Q "})
+    assert r.status_code == 200
+    assert r.json()["real_name"] == "Jo Q"
+    assert client.get(base).json()[0]["real_name"] == "Jo Q"
+    # Only members of this league, so a commissioner can't rename strangers.
+    r = client.put(f"{base}/{outsider['id']}/real-name", json={"real_name": "X"})
+    assert r.status_code == 404
+
+
+@pytest.mark.integration
 def test_remove_member_with_roster_refused(client, db_conn):
     # insert_user enrolls in the default league; a roster there blocks removal.
     season = insert_season(db_conn)

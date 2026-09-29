@@ -14,7 +14,12 @@ def test_join_wrong_code(client, db_conn, current_user):
     insert_league(db_conn, join_code="correct-code")
 
     r = client.post(
-        "/join", json={"display_name": "New Player", "join_code": "wrong-code"}
+        "/join",
+        json={
+            "display_name": "New Player",
+            "real_name": "Jane Doe",
+            "join_code": "wrong-code",
+        },
     )
     assert r.status_code == 400
     assert "Invalid join code" in r.json()["detail"]
@@ -30,11 +35,17 @@ def test_join_creates_profile_and_membership(client, db_conn, current_user):
     league = insert_league(db_conn, name="Camp", join_code="correct-code")
 
     r = client.post(
-        "/join", json={"display_name": "  New Player  ", "join_code": " correct-code "}
+        "/join",
+        json={
+            "display_name": "  New Player  ",
+            "real_name": " Jane Doe ",
+            "join_code": " correct-code ",
+        },
     )
     assert r.status_code == 201
     data = r.json()
     assert data["display_name"] == "New Player"
+    assert data["real_name"] == "Jane Doe"
     assert data["is_admin"] is False
     assert data["leagues"] == [{"id": str(league["id"]), "name": "Camp"}]
 
@@ -65,10 +76,15 @@ def test_join_second_league_keeps_profile(client, db_conn, current_user):
 
 
 @pytest.mark.integration
-def test_join_first_time_requires_display_name(client, db_conn, current_user):
+def test_join_first_time_requires_both_names(client, db_conn, current_user):
     _remove_profile(db_conn, current_user["id"])
     insert_league(db_conn, join_code="correct-code")
-    r = client.post("/join", json={"display_name": "", "join_code": "correct-code"})
+    r = client.post(
+        "/join",
+        json={"display_name": "", "real_name": "Jane", "join_code": "correct-code"},
+    )
+    assert r.status_code == 422
+    r = client.post("/join", json={"display_name": "Team", "join_code": "correct-code"})
     assert r.status_code == 422
 
 

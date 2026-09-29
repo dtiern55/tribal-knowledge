@@ -157,14 +157,15 @@ describe('account entry flows', () => {
     )
 
     expect(screen.getByText('danny@example.com')).toBeVisible()
-    await user.type(screen.getByRole('textbox', { name: 'Display name' }), '  Danny  ')
+    await user.type(screen.getByRole('textbox', { name: 'First and last name' }), ' Danny T ')
+    await user.type(screen.getByRole('textbox', { name: 'Team name' }), '  Danny  ')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), '  tribe-51  ')
     expect(screen.getByRole('heading', { name: 'Join your league' })).toBeVisible()
     expect(screen.getByText('This is how you will appear in standings.')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Join league' }))
 
     expect(await screen.findByText('My Season destination')).toBeVisible()
-    expect(api.post).toHaveBeenCalledWith('/join', { display_name: 'Danny', join_code: 'tribe-51' })
+    expect(api.post).toHaveBeenCalledWith('/join', { display_name: 'Danny', real_name: 'Danny T', join_code: 'tribe-51' })
     expect(refreshProfile).toHaveBeenCalledOnce()
   })
 
@@ -188,7 +189,7 @@ describe('account entry flows', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Join another league' })).toBeVisible()
-    expect(screen.queryByRole('textbox', { name: 'Display name' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Team name' })).toBeNull()
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'camp-b')
     await user.click(screen.getByRole('button', { name: 'Join league' }))
 
@@ -203,7 +204,8 @@ describe('account entry flows', () => {
       auth: { session: memberSession, profile: null, refreshProfile: vi.fn() },
     })
 
-    await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'Danny')
+    await user.type(screen.getByRole('textbox', { name: 'First and last name' }), 'Danny T')
+    await user.type(screen.getByRole('textbox', { name: 'Team name' }), 'Danny')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'wrong-code')
     await user.click(screen.getByRole('button', { name: 'Join league' }))
 
@@ -218,7 +220,7 @@ describe('account entry flows', () => {
     renderWithApp(<ProfilePage />, {
       auth: {
         session: memberSession,
-        profile: { id: 'user-1', display_name: 'Test Player', is_admin: false, leagues: [] },
+        profile: { id: 'user-1', display_name: 'Test Player', real_name: 'Danny T', is_admin: false, leagues: [] },
         refreshProfile,
       },
     })
@@ -227,12 +229,12 @@ describe('account entry flows', () => {
     expect(screen.getByRole('heading', { name: 'Account identity' })).toBeVisible()
     expect(screen.getByText('danny@example.com')).toBeVisible()
 
-    const displayName = screen.getByRole('textbox', { name: 'Display name' })
+    const displayName = screen.getByRole('textbox', { name: 'Team name' })
     await user.clear(displayName)
     await user.type(displayName, '  Danny  ')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('League profile saved')
-    expect(api.patch).toHaveBeenCalledWith('/me', { display_name: 'Danny' })
+    expect(api.patch).toHaveBeenCalledWith('/me', { display_name: 'Danny', real_name: 'Danny T' })
   })
 })
