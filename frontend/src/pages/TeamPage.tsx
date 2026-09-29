@@ -288,7 +288,10 @@ export function TeamPage() {
         // Possessive against the nav's "My Season": the one cue that says whose
         // record this is (#646).
         title={`${player.display_name}'s Season`}
-        description={<span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>}
+        description={<>
+          {player.real_name && <p className="mb-1 text-base font-medium text-forest-900">{player.real_name}</p>}
+          <span className="text-forest-900"><strong className="text-lg">{player.total_points}</strong> season points{finaleScored && <span className="text-gray-500"> · Finale +{player.finale_points}</span>}</span>
+        </>}
       />
 
       {/* One column at every width, in My Season's order (#646): this is the
