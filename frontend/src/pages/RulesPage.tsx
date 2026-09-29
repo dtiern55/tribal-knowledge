@@ -290,6 +290,7 @@ export function RulesPage() {
         <RuleSection id="tribe" title="Tribe">
           <RuleList>
             <li>Your tribe of {season.roster_size} castaways. Select before the Episode {season.roster_lock_episode ?? 2} lock.</li>
+            <li>Missed it? You can still pick a tribe before the Episode {(season.roster_lock_episode ?? 2) + 1} lock. It scores from that episode on.</li>
             <li>Swaps available up until the Episode {swapLockEpisodeNumber(season) - 1} lock.</li>
             <li>Note: at the Episode {swapLockEpisodeNumber(season) - 1} lock, your Sole Survivor designation must be a castaway on your tribe.</li>
           </RuleList>

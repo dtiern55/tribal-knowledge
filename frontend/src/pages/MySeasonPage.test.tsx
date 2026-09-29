@@ -362,6 +362,28 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByRole('heading', { name: 'Episode Ballots' })).not.toBeInTheDocument()
   })
 
+  it('reopens the draft for a player with no tribe for one episode after the lock', async () => {
+    arrange([
+      episode(2, 'scored', '2026-08-20T00:00:00Z'),
+      episode(3, 'upcoming', '2099-08-27T00:00:00Z'),
+    ])
+    const { unmount } = renderWithApp(<MySeasonPage />, { auth })
+    const panel = await openBeat('Tribe')
+    expect(within(panel).getByText(/It scores from episode 3 on\./)).toBeVisible()
+    expect(within(panel).getByRole('button', { name: 'Lock In Tribe' })).toBeInTheDocument()
+    unmount()
+
+    arrange([
+      episode(2, 'scored', '2026-08-20T00:00:00Z'),
+      episode(3, 'scored', '2026-08-27T00:00:00Z'),
+      episode(4, 'upcoming', '2099-09-03T00:00:00Z'),
+    ])
+    renderWithApp(<MySeasonPage />, { auth })
+    const closed = await openBeat('Tribe')
+    expect(within(closed).getByText('Tribe selection has closed.')).toBeVisible()
+    expect(within(closed).queryByRole('button', { name: 'Lock In Tribe' })).not.toBeInTheDocument()
+  })
+
   it('does not offer the weekly advantage during the watch-only premiere', async () => {
     // Season 51 shape: roster locks at episode 2, so episode 1 is watch-only.
     // The tribe is draftable then, but RosterSection renders in both states

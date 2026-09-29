@@ -632,6 +632,59 @@ def test_submit_roster_blocked_after_lock(client, db_conn):
     assert "window" in r.json()["detail"]
 
 
+def _season_open_at(conn, open_episode):
+    """Lock episode 2, every episode before `open_episode` scored, it open."""
+    season, contestants = _make_season_with_roster(conn, roster_size=3, lock_episode=2)
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    for n in range(2, open_episode):
+        insert_episode(
+            conn, season["id"], episode_number=n, picks_lock_at=past, status="scored"
+        )
+    insert_episode(conn, season["id"], episode_number=open_episode)
+    return season, contestants
+
+
+@pytest.mark.integration
+def test_late_roster_starts_the_episode_after_the_lock(client, db_conn):
+    season, contestants = _season_open_at(db_conn, 3)
+    url = f"/league-seasons/{season['league_season_id']}/roster"
+    r = client.post(url, json={"contestant_ids": [str(c["id"]) for c in contestants]})
+    assert r.status_code == 200
+    assert all(p["active_from_episode"] == 3 for p in r.json())
+
+    # Still free to rearrange until episode 3 locks.
+    other = insert_contestant(db_conn, season["id"], "Late Pick")
+    ids = [str(c["id"]) for c in contestants[:2]] + [str(other["id"])]
+    r = client.post(url, json={"contestant_ids": ids})
+    assert r.status_code == 200
+    assert {p["contestant_id"] for p in r.json()} == set(ids)
+
+
+@pytest.mark.integration
+def test_late_roster_refused_with_a_roster_or_past_the_extra_episode(
+    client, db_conn, current_user
+):
+    season, contestants = _season_open_at(db_conn, 3)
+    for c in contestants:
+        insert_roster_pick(
+            db_conn, current_user["id"], season["id"], c["id"], active_from_episode=2
+        )
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    assert r.status_code == 400
+    assert "window" in r.json()["detail"]
+
+    season, contestants = _season_open_at(db_conn, 4)
+    r = client.post(
+        f"/league-seasons/{season['league_season_id']}/roster",
+        json={"contestant_ids": [str(c["id"]) for c in contestants]},
+    )
+    assert r.status_code == 400
+    assert "window" in r.json()["detail"]
+
+
 @pytest.mark.integration
 def test_swap_blocked_on_completed_season(client, db_conn):
     season, contestants = _make_season_with_roster(
