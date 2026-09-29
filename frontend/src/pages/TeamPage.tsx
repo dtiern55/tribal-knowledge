@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CorrectVote } from '../components/CorrectVote'
 import { AdvantageStamp, DoubleBadge } from '../components/DoubleBadge'
-import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
+import { FinaleBracket } from '../components/FinaleBracket'
 import { HeaderPager } from '../components/HeaderPager'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
@@ -11,7 +11,7 @@ import { PageLoader } from '../components/PageLoader'
 import { RosterBreakdown } from '../components/RosterBreakdown'
 import { RosterCard, RosterManifest } from '../components/RosterCard'
 import { SectionShell } from '../components/SectionShell'
-import { displayName, isMerged } from '../lib/cast'
+import { displayName, finaleActualsOf, isMerged } from '../lib/cast'
 import { episodeClosed, openEpisode } from '../lib/episodes'
 import { pathQuery } from '../lib/queries'
 import { doubledByContestantEpisode, EMPTY_EP_MAP, useRosterBreakdown } from '../lib/rosterBreakdown'
@@ -253,11 +253,7 @@ export function TeamPage() {
   // designation (which shows as a lone winner apex). It renders as a pyramid in
   // its own Finale section, marked correct/incorrect off the actual placements.
   const crown = active.find((pick) => pick.is_sole_survivor)
-  const finaleActuals: FinaleActuals = {
-    finalFour: new Set(contestants.filter((c) => c.placement != null && c.placement <= 4).map((c) => c.id)),
-    finalThree: new Set(contestants.filter((c) => c.placement != null && c.placement <= 3).map((c) => c.id)),
-    winner: contestants.find((c) => c.placement === 1)?.id ?? null,
-  }
+  const finaleActuals = finaleActualsOf(contestants) ?? undefined
   const finaleBallot = bracket
     ? {
         finalFour: bracket.final_four_contestant_ids,

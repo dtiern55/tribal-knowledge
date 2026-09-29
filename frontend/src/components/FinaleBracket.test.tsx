@@ -38,4 +38,12 @@ describe('FinaleBracket', () => {
     renderWithApp(<FinaleBracket finalFour={[]} finalThree={[]} winner="a" byId={byId} />)
     expect(screen.queryAllByText(/— (correct|incorrect)/)).toHaveLength(0)
   })
+
+  it('draws every tier winner first, then the Final 3, however the ballot was entered', () => {
+    const byId = new Map([c('a', 1), c('b', 2), c('c', 3), c('d', 4)].map((x) => [x.id, x]))
+    renderWithApp(<FinaleBracket finalFour={['d', 'b', 'c', 'a']} finalThree={['b', 'c', 'a']} winner="a" byId={byId} />)
+    const names = screen.getAllByText(/^[ABCD]$/, { selector: 'span.truncate' }).map((el) => el.textContent)
+    // Apex, then Final 3, then Final 4.
+    expect(names).toEqual(['A', 'A', 'B', 'C', 'A', 'B', 'C', 'D'])
+  })
 })

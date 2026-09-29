@@ -6,7 +6,7 @@ import { LOADER_DELAY_MS, PageLoader } from '../components/PageLoader'
 import { ADV_LABELS } from '../lib/advantages'
 import { activeSeason, api } from '../lib/api'
 import { pathQuery, useApiMutation } from '../lib/queries'
-import { displayName, isMerged } from '../lib/cast'
+import { displayName, finaleActualsOf, isMerged } from '../lib/cast'
 import { isBroadcastWindow, resolveMySeasonState } from '../lib/mySeasonState'
 import { ContestantAvatar, ELIMINATED_STRIKE } from '../components/ContestantAvatar'
 import { FinaleBracket, type FinaleActuals } from '../components/FinaleBracket'
@@ -1058,6 +1058,7 @@ export function MySeasonPage() {
           result={displayResult}
           mode={recapMode}
           soleSurvivorId={d.roster.find((pick) => pick.is_sole_survivor)?.contestant_id ?? null}
+          winner={displayResult.is_finale ? (d.contestants.find((c) => c.placement === 1) ?? null) : null}
           onContinue={recapMode === 'automatic' ? acknowledgeResult : undefined}
           onClose={recapMode === 'replay' ? () => setRecapParam(null) : undefined}
           onPrev={recapMode === 'replay' && prevRecapId ? () => setRecapParam(prevRecapId) : undefined}
@@ -1070,6 +1071,7 @@ export function MySeasonPage() {
               userId={d.userId}
               broadcast
               showCount={false}
+              finaleActuals={displayResult.is_finale ? (finaleActualsOf(d.contestants) ?? undefined) : undefined}
             />
           }
         />
@@ -1144,11 +1146,7 @@ function CompleteState({
   const [beat, setBeat] = useState<BeatKey>('roster')
   const finaleEp = episodes.find((e) => e.is_finale)
   // The finale bracket marks each pick against the real placements.
-  const finaleActuals: FinaleActuals = {
-    finalFour: new Set(contestants.filter((c) => c.placement != null && c.placement <= 4).map((c) => c.id)),
-    finalThree: new Set(contestants.filter((c) => c.placement != null && c.placement <= 3).map((c) => c.id)),
-    winner: contestants.find((c) => c.placement === 1)?.id ?? null,
-  }
+  const finaleActuals = finaleActualsOf(contestants) ?? undefined
   const beats: Beat[] = [{ key: 'roster', label: 'Tribe', done: true, note: 'Your final tribe' }]
   if (finaleEp) beats.push({ key: 'ballot', label: 'Finale', done: true, note: 'Your finale ballot' })
 
@@ -1492,6 +1490,7 @@ function LeagueHub({
   userId,
   broadcast,
   showCount = true,
+  finaleActuals,
 }: {
   leagueSeasonId: string
   episodeId: string
@@ -1503,6 +1502,8 @@ function LeagueHub({
    * leave them off.
    */
   showCount?: boolean
+  /** A scored finale's placements, to mark each bracket in the Field. */
+  finaleActuals?: FinaleActuals
 }) {
   // Which player rows are open. Native <details> keeps its own state, so this
   // mirrors it through onToggle and lets one control open or close them all.
@@ -1760,6 +1761,8 @@ function LeagueHub({
                                 .map((s) => [s.contestant_id, s]),
                             )
                           }
+                          actuals={finaleActuals}
+                          dark={broadcast}
                         />
                       </div>
                     </div>

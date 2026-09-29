@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { EpisodeResult, EpisodeResultBreakdownLine } from '../types'
+import { displayName } from '../lib/cast'
+import type { Contestant, EpisodeResult, EpisodeResultBreakdownLine } from '../types'
 import { ContestantAvatar, ELIMINATED_DIM, ELIMINATED_STRIKE } from './ContestantAvatar'
 import { AdvantageStamp, DoubleBadge } from './DoubleBadge'
+import { FinaleBracket } from './FinaleBracket'
 import { SoleSurvivorTorch } from './SoleSurvivorTorch'
 
 /** Compact signed score used all over the card — no "pts" noise (#477). */
@@ -71,15 +73,32 @@ function Torch({ lit }: { lit: boolean }) {
   )
 }
 
-/** Finale ballot lines name their slate; a plain weekly elimination vote needs
- *  no label — the points already say it. "Winner", not "Sole Survivor": that
- *  name belongs to the roster designation and its +50%, on this same card. */
-function ballotTypeLabel(kind: EpisodeResult['ballot'][number]['prediction_type']) {
-  if (kind === 'final_four') return 'Final 4'
-  if (kind === 'final_three') return 'Final 3'
-  if (kind === 'perfect_final_three') return 'Perfect Final 3'
-  if (kind === 'winner') return 'Winner'
-  return null
+/** The finale ballot lines, regrouped into the bracket the rest of the app
+ *  draws, marked and with each slate's points. The lines already say which
+ *  picks landed, so the marks come from them rather than the placements. */
+function ballotBracket(ballot: EpisodeResult['ballot']) {
+  const ids = (kind: string) => ballot.filter((p) => p.prediction_type === kind).map((p) => p.contestant_id)
+  const hits = (kind: string) =>
+    new Set(ballot.filter((p) => p.prediction_type === kind && p.correct).map((p) => p.contestant_id))
+  const paid = (...kinds: string[]) =>
+    ballot.filter((p) => kinds.includes(p.prediction_type)).reduce((sum, p) => sum + p.points, 0)
+  const winnerPick = ballot.find((p) => p.prediction_type === 'winner')
+  return {
+    finalFour: ids('final_four'),
+    finalThree: ids('final_three'),
+    winner: winnerPick?.contestant_id ?? '',
+    byId: new Map(ballot.map((p) => [p.contestant_id, { ...p, tribe_color: null, tribe_name: null }])),
+    actuals: {
+      finalFour: hits('final_four'),
+      finalThree: hits('final_three'),
+      winner: winnerPick?.correct ? winnerPick.contestant_id : null,
+    },
+    points: {
+      final_four: paid('final_four'),
+      final_three: paid('final_three', 'perfect_final_three'),
+      winner: paid('winner'),
+    },
+  }
 }
 
 export function EpisodeResultReveal({
@@ -91,6 +110,7 @@ export function EpisodeResultReveal({
   onNext,
   field,
   soleSurvivorId = null,
+  winner = null,
 }: EpisodeResultRevealProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -144,6 +164,8 @@ export function EpisodeResultReveal({
   const redemptionWeek = island.length > 0 || result.redemption.length > 0
   const insights = result.insights ?? []
   const delta = result.rank_delta
+  // The finale's story is who won, not the three torches snuffed on the way.
+  const winnerName = winner ? displayName(winner) : null
 
   return (
     <div
@@ -217,7 +239,7 @@ export function EpisodeResultReveal({
               tabIndex={-1}
               className="mt-5 whitespace-pre-line font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              {result.headline ?? defaultHeadline(result.eliminated)}
+              {result.headline ?? (winnerName ? `${winnerName} wins` : defaultHeadline(result.eliminated))}
             </h2>
 
             {result.title && (
@@ -227,8 +249,25 @@ export function EpisodeResultReveal({
             {/* On a Redemption Island week only the people who left get a
                 boot chip, with a snuffed torch; the island line below carries
                 everyone still playing there (#655). Otherwise the chips list
-                every boot once there is more than one. */}
-            {(redemptionWeek ? home.length > 0 : result.eliminated.length > 1) && (
+                every boot once there is more than one. A finale names only
+                its winner. */}
+            {winner && winnerName ? (
+              <div className="mt-3 flex">
+                <span className="flex min-w-0 items-center gap-2 rounded-full bg-black/25 py-1 pl-1 pr-3 text-sm ring-1 ring-gold-300/40">
+                  <ContestantAvatar
+                    name={winnerName}
+                    imageUrl={winner.image_url}
+                    tribeColor={null}
+                    tribeName={null}
+                    size="sm"
+                  />
+                  <span className="truncate">{winnerName}</span>
+                  <span className="font-display text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-gold-300">
+                    Winner
+                  </span>
+                </span>
+              </div>
+            ) : (redemptionWeek ? home.length > 0 : result.eliminated.length > 1) && (
               <ul className="mt-3 flex flex-wrap gap-2" aria-label="Eliminated castaways">
                 {(redemptionWeek ? home : result.eliminated).map((castaway) => (
                   <li
@@ -373,9 +412,12 @@ export function EpisodeResultReveal({
             >
               {result.ballot.length === 0 ? (
                 <LaneEmpty>No ballot was submitted, so there are no ballot points.</LaneEmpty>
+              ) : result.is_finale ? (
+                <div className="px-3.5 py-4">
+                  <FinaleBracket {...ballotBracket(result.ballot)} dark />
+                </div>
               ) : (
                 result.ballot.map((pick) => {
-                  const label = ballotTypeLabel(pick.prediction_type)
                   const doubled =
                     voteDouble != null &&
                     (voteDouble.target_contestant_id == null || voteDouble.target_contestant_id === pick.contestant_id)
@@ -400,7 +442,6 @@ export function EpisodeResultReveal({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-cream-100">{pick.name}</span>
-                        {label && <span className="block text-xs text-cream-100/45">{label}</span>}
                       </span>
                       <span
                         className={`shrink-0 font-display font-semibold tabular-nums ${
@@ -634,4 +675,6 @@ interface EpisodeResultRevealProps {
   field?: React.ReactNode
   /** Your Sole Survivor, marked with the torch in your Tribe lane. */
   soleSurvivorId?: string | null
+  /** The season's winner, on a finale: the headline names them alone. */
+  winner?: Pick<Contestant, 'name' | 'nickname' | 'image_url'> | null
 }
