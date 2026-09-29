@@ -157,7 +157,7 @@ describe('account entry flows', () => {
     )
 
     expect(screen.getByText('danny@example.com')).toBeVisible()
-    await user.type(screen.getByRole('textbox', { name: 'Your real name' }), ' Danny T ')
+    await user.type(screen.getByRole('textbox', { name: 'Your name' }), ' Danny T ')
     await user.type(screen.getByRole('textbox', { name: 'Tribe name' }), '  Danny  ')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), '  tribe-51  ')
     expect(screen.getByRole('heading', { name: 'Join your league' })).toBeVisible()
@@ -204,7 +204,7 @@ describe('account entry flows', () => {
       auth: { session: memberSession, profile: null, refreshProfile: vi.fn() },
     })
 
-    await user.type(screen.getByRole('textbox', { name: 'Your real name' }), 'Danny T')
+    await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'Danny T')
     await user.type(screen.getByRole('textbox', { name: 'Tribe name' }), 'Danny')
     await user.type(screen.getByRole('textbox', { name: 'Join code' }), 'wrong-code')
     await user.click(screen.getByRole('button', { name: 'Join league' }))

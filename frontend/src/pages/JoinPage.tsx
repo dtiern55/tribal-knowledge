@@ -62,7 +62,7 @@ export function JoinPage() {
         {!member && (
         <>
         <div>
-          <label htmlFor="join-real-name" className="mb-1 block text-sm font-medium text-gray-700">Your real name</label>
+          <label htmlFor="join-real-name" className="mb-1 block text-sm font-medium text-gray-700">Your name</label>
           <input
             id="join-real-name"
             value={realName}

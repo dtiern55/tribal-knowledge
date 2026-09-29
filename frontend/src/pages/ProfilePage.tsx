@@ -68,7 +68,7 @@ function DisplayNameSection() {
       </div>
       <div>
         <label htmlFor="profile-real-name" className="block text-sm font-medium text-gray-700 mb-1">
-          Your real name
+          Your name
         </label>
         <input
           id="profile-real-name"
