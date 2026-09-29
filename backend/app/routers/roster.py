@@ -165,11 +165,26 @@ def submit_roster(
                 """,
                 [str(ls["season_id"]), ls["roster_lock_episode"]],
             )
+            start_episode = ls["roster_lock_episode"]
             if cur.fetchone():
-                raise HTTPException(
-                    status_code=400,
-                    detail="Roster submission window has closed",
+                # One late chance: a player with no roster yet can still draft
+                # for the episode after the lock, scoring from that episode on.
+                start_episode = ls["roster_lock_episode"] + 1
+                episode = next_open_episode(cur, ls)
+                cur.execute(
+                    "select 1 from roster_picks where user_id = %s"
+                    " and league_season_id = %s and active_from_episode < %s",
+                    [str(user_id), str(league_season_id), start_episode],
                 )
+                if (
+                    episode is None
+                    or episode["episode_number"] != start_episode
+                    or cur.fetchone()
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Roster submission window has closed",
+                    )
 
             if len(body.contestant_ids) != ls["roster_size"]:
                 raise HTTPException(
@@ -248,7 +263,7 @@ def submit_roster(
                             str(user_id),
                             str(league_season_id),
                             str(cid),
-                            ls["roster_lock_episode"],
+                            start_episode,
                         ],
                     )
                     rows.append(cur.fetchone())

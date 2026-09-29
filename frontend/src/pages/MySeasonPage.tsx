@@ -2579,11 +2579,22 @@ function RosterSection({
     season.roster_lock_episode != null
       ? episodes.find((e) => e.episode_number === season.roster_lock_episode)
       : undefined
-  const windowOpen =
+  const onTimeOpen =
     season.roster_lock_episode != null &&
     season.status !== 'completed' &&
     (lockEpisode == null ||
       (lockEpisode.status !== 'scored' && new Date(lockEpisode.picks_lock_at) > new Date()))
+  // One late chance (roster.py): with no tribe from the lock episode, the
+  // draft reopens for the episode after it and scores from there.
+  const lateEpisode = season.roster_lock_episode != null ? season.roster_lock_episode + 1 : null
+  const lateOpen =
+    !onTimeOpen &&
+    lateEpisode != null &&
+    season.status !== 'completed' &&
+    openEpisode(episodes, season)?.episode_number === lateEpisode &&
+    !roster.some((r) => r.active_from_episode < lateEpisode)
+  const windowOpen = onTimeOpen || lateOpen
+  const draftEpisode = lateOpen ? lateEpisode : season.roster_lock_episode
 
   const hasRoster = roster.length > 0
   const activeRoster = roster.filter((r) => r.active_until_episode === null)
@@ -3136,8 +3147,10 @@ function RosterSection({
         <div className="p-4">
           <p ref={pickerIntroRef} tabIndex={-1} className="text-sm text-gray-600 mb-1 outline-none">
             {hasRoster
-              ? `Rearrange your tribe freely before episode ${season.roster_lock_episode}.`
-              : `Choose ${season.roster_size} castaways for your tribe.`}
+              ? `Rearrange your tribe freely before episode ${draftEpisode}.`
+              : lateOpen
+                ? `Choose ${season.roster_size} castaways for your tribe. It scores from episode ${lateEpisode} on.`
+                : `Choose ${season.roster_size} castaways for your tribe.`}
           </p>
           <p className="text-xs text-gray-500 mb-4">
             {selected.size} / {season.roster_size} selected
@@ -3237,7 +3250,7 @@ function RosterSection({
           }}
           className="lane-card__foot justify-center text-sm text-stone-500"
         >
-          Your tribe locks when episode {season.roster_lock_episode} starts.
+          Your tribe locks when episode {draftEpisode} starts.
           <span className="font-semibold text-jade-700 underline underline-offset-2">Edit tribe</span>
         </button>
         </div>
