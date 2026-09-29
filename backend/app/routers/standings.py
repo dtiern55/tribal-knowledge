@@ -24,7 +24,7 @@ def league_field(cur, ls: dict) -> list[dict]:
     """
     if ls["status"] == "completed":
         cur.execute(
-            "select p.id::text as id, p.display_name from profiles p"
+            "select p.id::text as id, p.display_name, p.real_name from profiles p"
             " where p.is_player and exists ("
             "   select 1 from roster_picks rp"
             "   where rp.user_id = p.id and rp.league_season_id = %s)",
@@ -32,7 +32,7 @@ def league_field(cur, ls: dict) -> list[dict]:
         )
     else:
         cur.execute(
-            "select p.id::text as id, p.display_name from profiles p"
+            "select p.id::text as id, p.display_name, p.real_name from profiles p"
             " join league_members m on m.user_id = p.id"
             " where p.is_player and m.league_id = %s",
             [str(ls["league_id"])],
@@ -235,6 +235,7 @@ def get_standings(league_season_id: UUID, user_id: UUID = Depends(get_current_us
             StandingEntry(
                 user_id=uid,
                 display_name=p["display_name"],
+                real_name=p["real_name"],
                 roster_points=r,
                 elimination_points=e,
                 finale_points=f,

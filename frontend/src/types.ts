@@ -1,6 +1,7 @@
 export interface UserProfile {
   id: string
   display_name: string
+  real_name?: string | null
   is_admin: boolean
   leagues: { id: string; name: string }[]
 }
@@ -16,6 +17,7 @@ export interface League {
 export interface LeagueMember {
   id: string
   display_name: string
+  real_name: string | null
   joined_at: string
 }
 
@@ -153,6 +155,8 @@ export interface HubEntry {
 export interface StandingEntry {
   user_id: string
   display_name: string
+  // Who is behind the team name; null until they or the commissioner set it.
+  real_name?: string | null
   roster_points: number
   elimination_points: number
   finale_points: number
