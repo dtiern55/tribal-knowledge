@@ -10,6 +10,7 @@ export function JoinPage() {
   const { session, profile, loading, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [displayName, setDisplayName] = useState('')
+  const [realName, setRealName] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -26,7 +27,7 @@ export function JoinPage() {
     setError(null)
     try {
       await api.post<UserProfile>('/join', {
-        ...(member ? {} : { display_name: displayName.trim() }),
+        ...(member ? {} : { display_name: displayName.trim(), real_name: realName.trim() }),
         join_code: joinCode.trim(),
       })
       await refreshProfile()
@@ -54,25 +55,40 @@ export function JoinPage() {
         {member ? (
           <>Playing as <span className="font-medium text-gray-800">{profile.display_name}</span>. Enter the join code for the new league.</>
         ) : (
-          <>Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Choose the name other players will see, then enter your join code.</>
+          <>Signed in as <span className="font-medium text-gray-800">{session.user.email}</span>. Tell us your name, pick a tribe name, then enter your join code.</>
         )}
       </p>
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" aria-describedby={error ? 'join-error' : undefined}>
         {!member && (
+        <>
         <div>
-          <label htmlFor="join-display-name" className="mb-1 block text-sm font-medium text-gray-700">Display name</label>
+          <label htmlFor="join-real-name" className="mb-1 block text-sm font-medium text-gray-700">Your name</label>
+          <input
+            id="join-real-name"
+            value={realName}
+            onChange={(e) => setRealName(e.target.value)}
+            required
+            maxLength={60}
+            autoComplete="name"
+            enterKeyHint="next"
+            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor="join-display-name" className="mb-1 block text-sm font-medium text-gray-700">Tribe name</label>
           <input
             id="join-display-name"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
             maxLength={40}
-            autoComplete="name"
+            autoComplete="off"
             enterKeyHint="next"
             className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">This is how you will appear in standings.</p>
         </div>
+        </>
         )}
         <div>
           <label htmlFor="join-code" className="mb-1 block text-sm font-medium text-gray-700">Join code</label>
@@ -91,7 +107,7 @@ export function JoinPage() {
         {error && <p id="join-error" role="alert" className="rounded-lg bg-terracotta-50 px-3 py-2 text-sm text-terracotta-700">{error}</p>}
         <button
           type="submit"
-          disabled={submitting || (!member && !displayName.trim()) || !joinCode.trim()}
+          disabled={submitting || (!member && (!displayName.trim() || !realName.trim())) || !joinCode.trim()}
           className="min-h-11 w-full cursor-pointer rounded-lg bg-jade-600 px-4 py-2 text-sm font-semibold text-white hover:bg-jade-700 disabled:opacity-50"
         >
           {submitting ? 'Joining league…' : 'Join league'}

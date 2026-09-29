@@ -177,6 +177,7 @@ class StandingSurvivor(BaseModel):
 class StandingEntry(BaseModel):
     user_id: UUID
     display_name: str
+    real_name: Optional[str] = None
     roster_points: int
     elimination_points: int
     finale_points: int
@@ -678,6 +679,7 @@ class LeagueUpdateRequest(BaseModel):
 class LeagueMember(BaseModel):
     id: UUID
     display_name: str
+    real_name: Optional[str]
     joined_at: datetime
 
 
@@ -703,9 +705,14 @@ class LeagueMemberAddRequest(BaseModel):
     email: str = Field(min_length=3)
 
 
+class RealNameRequest(BaseModel):
+    real_name: str = Field(min_length=1, max_length=60)
+
+
 class UserProfile(BaseModel):
     id: UUID
     display_name: str
+    real_name: Optional[str]
     is_admin: bool
     leagues: list[LeagueRef]
 
@@ -713,11 +720,13 @@ class UserProfile(BaseModel):
 class JoinRequest(BaseModel):
     # Required on the first join (it creates the profile), ignored after.
     display_name: Optional[str] = Field(default=None, max_length=40)
+    real_name: Optional[str] = Field(default=None, max_length=60)
     join_code: str = Field(min_length=1)
 
 
 class ProfileUpdateRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=40)
+    real_name: str = Field(min_length=1, max_length=60)
 
 
 class FinalePrediction(BaseModel):

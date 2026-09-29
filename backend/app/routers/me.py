@@ -12,7 +12,7 @@ router = APIRouter(tags=["me"])
 
 def profile_with_leagues(cur, user_id: UUID) -> Optional[dict]:
     cur.execute(
-        "select p.id, p.display_name, p.is_admin,"
+        "select p.id, p.display_name, p.real_name, p.is_admin,"
         " coalesce(("
         "   select json_agg(json_build_object('id', l.id, 'name', l.name)"
         "                   order by m.joined_at)"
@@ -36,12 +36,13 @@ def get_me(user_id: UUID = Depends(get_current_user)):
 
 @router.patch("/me", response_model=UserProfile)
 def update_me(body: ProfileUpdateRequest, user_id: UUID = Depends(get_current_user)):
-    """Let a member edit their own display name (issue #55)."""
+    """Let a member edit their own display name (issue #55) and real name."""
     with database.get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "update profiles set display_name = %s where id = %s returning 1",
-                [body.display_name.strip(), str(user_id)],
+                "update profiles set display_name = %s, real_name = %s"
+                " where id = %s returning 1",
+                [body.display_name.strip(), body.real_name.strip(), str(user_id)],
             )
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Profile not found")
@@ -54,8 +55,8 @@ def join_league(body: JoinRequest, user_id: UUID = Depends(get_current_user)):
 
     Gated by a per-league join code (decision 2026-07-07, issue #42) rather
     than an auth trigger or admin-only provisioning. The first join also
-    creates the profile, so a display name is required then and ignored on
-    later joins.
+    creates the profile, so a display name and real name are required then and
+    ignored on later joins.
     """
     with database.get_db() as conn:
         with conn.cursor() as cur:
@@ -69,14 +70,16 @@ def join_league(body: JoinRequest, user_id: UUID = Depends(get_current_user)):
             cur.execute("select 1 from profiles where id = %s", [str(user_id)])
             if not cur.fetchone():
                 name = (body.display_name or "").strip()
-                if not name:
+                real_name = (body.real_name or "").strip()
+                if not name or not real_name:
                     raise HTTPException(
-                        status_code=422, detail="display_name is required to join"
+                        status_code=422,
+                        detail="display_name and real_name are required to join",
                     )
                 cur.execute(
-                    "insert into profiles (id, display_name, is_admin)"
-                    " values (%s, %s, false)",
-                    [str(user_id), name],
+                    "insert into profiles (id, display_name, real_name, is_admin)"
+                    " values (%s, %s, %s, false)",
+                    [str(user_id), name, real_name],
                 )
 
             cur.execute(

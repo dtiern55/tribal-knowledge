@@ -23,11 +23,13 @@ const buttonCls =
 function DisplayNameSection() {
   const { profile, refreshProfile } = useAuth()
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
+  const [realName, setRealName] = useState(profile?.real_name ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const unchanged = displayName.trim() === profile?.display_name
+  const unchanged =
+    displayName.trim() === profile?.display_name && realName.trim() === (profile?.real_name ?? '')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,7 +37,7 @@ function DisplayNameSection() {
     setError(null)
     setSaved(false)
     try {
-      await api.patch<UserProfile>('/me', { display_name: displayName.trim() })
+      await api.patch<UserProfile>('/me', { display_name: displayName.trim(), real_name: realName.trim() })
       await refreshProfile()
       setSaved(true)
     } catch (e) {
@@ -49,7 +51,7 @@ function DisplayNameSection() {
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       <div>
         <label htmlFor="profile-display-name" className="block text-sm font-medium text-gray-700 mb-1">
-          Display name
+          Tribe name
         </label>
         <input
           id="profile-display-name"
@@ -60,6 +62,23 @@ function DisplayNameSection() {
           }}
           required
           maxLength={40}
+          autoComplete="off"
+          className={inputCls}
+        />
+      </div>
+      <div>
+        <label htmlFor="profile-real-name" className="block text-sm font-medium text-gray-700 mb-1">
+          Your name
+        </label>
+        <input
+          id="profile-real-name"
+          value={realName}
+          onChange={(e) => {
+            setRealName(e.target.value)
+            setSaved(false)
+          }}
+          required
+          maxLength={60}
           autoComplete="name"
           className={inputCls}
         />
@@ -68,7 +87,7 @@ function DisplayNameSection() {
       {saved && <Notice tone="success">League profile saved.</Notice>}
       <button
         type="submit"
-        disabled={saving || unchanged || !displayName.trim()}
+        disabled={saving || unchanged || !displayName.trim() || !realName.trim()}
         className={buttonCls}
       >
         {saving ? 'Saving…' : 'Save'}

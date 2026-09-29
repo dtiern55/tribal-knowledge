@@ -1794,6 +1794,15 @@ function LeagueOverview({
     })
   }
 
+  // ponytail: window.prompt, the same bar as remove's confirm; an inline form if this gets heavy use.
+  function rename(m: LeagueMember) {
+    const name = window.prompt(`Real name for ${m.display_name}`, m.real_name ?? '')?.trim()
+    if (!name || name === m.real_name) return
+    void run(setBusy, setError, async () => {
+      await api.put<LeagueMember>(`/leagues/${league.id}/members/${m.id}/real-name`, { real_name: name })
+    })
+  }
+
   function remove(m: LeagueMember) {
     if (!window.confirm(`Remove ${m.display_name} from ${league.name}?`)) return
     void run(setBusy, setError, async () => {
@@ -1835,6 +1844,15 @@ function LeagueOverview({
             {members.map((m) => (
               <li key={m.id} className="text-gray-800">
                 {m.display_name}
+                <button
+                  type="button"
+                  onClick={() => rename(m)}
+                  disabled={busy}
+                  aria-label={`Set real name for ${m.display_name}`}
+                  className={`ml-1 hover:underline disabled:opacity-50 ${m.real_name ? 'text-gray-500' : 'text-terracotta-600'}`}
+                >
+                  ({m.real_name ?? 'add name'})
+                </button>
                 <button
                   type="button"
                   onClick={() => remove(m)}
