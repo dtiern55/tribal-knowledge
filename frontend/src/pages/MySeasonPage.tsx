@@ -51,6 +51,7 @@ import type {
   ScoringBreakdown,
   Season,
   StandingEntry,
+  HubRosterMember,
   StandingSurvivor,
 } from '../types'
 
@@ -1743,6 +1744,7 @@ function LeagueHub({
                         : null
                     }
                     soleSurvivorId={entry.sole_survivor_contestant_id}
+                    showPoints={scored}
                   />
                   {/* The finale's ballot is the bracket, drawn the way your own
                       card draws it (#801). */}
@@ -1762,6 +1764,7 @@ function LeagueHub({
                             )
                           }
                           actuals={finaleActuals}
+                          points={entry.finale.points}
                           dark={broadcast}
                         />
                       </div>
@@ -1828,15 +1831,18 @@ function HubCastawayRow({
   empty,
   doubledContestantId = null,
   soleSurvivorId = null,
+  showPoints = false,
 }: {
   label: string
-  survivors: StandingSurvivor[]
+  survivors: HubRosterMember[]
   sub: string
   empty: string
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
   /** Their Sole Survivor pick: a small hand torch beside an otherwise plain name. */
   soleSurvivorId?: string | null
+  /** Scored (the recap Field): what each castaway earned this team. */
+  showPoints?: boolean
 }) {
   return (
     <div>
@@ -1867,6 +1873,11 @@ function HubCastawayRow({
                   {isSS && <SoleSurvivorTorch snuffed={s.eliminated_episode != null} />}
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
+                {showPoints && (
+                  <span className={`font-display font-semibold leading-none tabular-nums ${s.points > 0 ? '' : sub}`}>
+                    {s.points > 0 ? `+${s.points}` : s.points}
+                  </span>
+                )}
               </li>
             )
           })}

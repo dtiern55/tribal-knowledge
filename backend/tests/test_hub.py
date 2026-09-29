@@ -227,6 +227,29 @@ def test_hub_shows_the_finale_bracket(client, db_conn, current_user):
     assert [s["name"] for s in finale["final_four"]] == ["A", "B", "C", "D"]
     assert [s["name"] for s in finale["final_three"]] == ["A", "B", "C"]
     assert finale["winner"]["name"] == "A"
+    assert finale["points"] is None  # no placements yet
+
+    # Once placed, each slate carries what it paid, summing to the finale score.
+    with db_conn.cursor() as cur:
+        for place, contestant in enumerate((a, b, c, d), start=1):
+            cur.execute(
+                "update contestants set placement = %s where id = %s",
+                [place, contestant["id"]],
+            )
+    from app import scoring
+
+    row = {
+        r["display_name"]: r
+        for r in client.get(
+            f"/league-seasons/{season['league_season_id']}/episodes/{ep['id']}/hub"
+        ).json()
+    }["Bianca"]
+    points = row["finale"]["points"]
+    assert points["winner"] > 0
+    assert (
+        sum(points.values())
+        == scoring.finale_points(db_conn, season["league_season_id"])[str(bianca["id"])]
+    )
 
 
 @pytest.mark.integration
@@ -234,9 +257,9 @@ def test_hub_carries_per_castaway_points_and_vote_results(
     client, db_conn, current_user
 ):
     """What the standings row expands into (#812): each rostered castaway's own
-    points for the episode, and whether each vote actually hit. Points are base
-    values — the Hub names who played Double Castaway Points, so a reader
-    applies the doubling once rather than it being baked in per player."""
+    points for the episode, and whether each vote actually hit. Points are what
+    each castaway earned the team, doubling included, so the tribe adds up to
+    its lane."""
     season = insert_season(db_conn)
     ep = insert_episode(
         db_conn,
@@ -270,10 +293,9 @@ def test_hub_carries_per_castaway_points_and_vote_results(
     }["Bianca"]
 
     tribe = {member["name"]: member for member in row["roster"]}
-    # Base, not doubled: the play is named beside it, on advantage_target.
-    assert tribe["Star"]["points"] == 15
-    assert row["advantage_target"]["contestant_id"] == str(star["id"])
+    assert tribe["Star"]["points"] == 30  # 15, doubled by the play on them
     assert tribe["Quiet"]["points"] == 0
+    assert sum(m["points"] for m in row["roster"]) == row["tribe_points"]
     # The castaway voted out this episode stays on the week's tribe, marked.
     assert tribe["Boot"]["eliminated_episode"] == 1
     assert tribe["Star"]["eliminated_episode"] is None

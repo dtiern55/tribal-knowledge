@@ -202,21 +202,30 @@ class StandingEntry(BaseModel):
     sole_survivor_contestant_id: Optional[UUID] = None
 
 
+class FinaleBallotPoints(BaseModel):
+    final_four: int
+    final_three: int
+    winner: int
+
+
 class HubFinale(BaseModel):
     """One player's finale bracket, as the Hub shows it (#801)."""
 
     final_four: list[StandingSurvivor] = []
     final_three: list[StandingSurvivor] = []
     winner: Optional[StandingSurvivor] = None
+    # Per slate, once the finale has placements (#884).
+    points: Optional[FinaleBallotPoints] = None
 
 
 class HubRosterMember(StandingSurvivor):
     """A castaway on someone's tribe for one episode (#812).
 
-    `points` is what they scored that episode, base — the play that doubled
-    them is named on the entry that carries this list, so a reader applies the
-    doubling once. `eliminated_episode` is set only when they were snuffed in
-    this very episode, the one week a tribe line still shows them.
+    `points` is what they earned that team that episode: doubled where the
+    team played Double Castaway Points on them, plus the +50% on a finale
+    Sole Survivor, so a tribe's points add up to its lane. `eliminated_episode`
+    is set only when they were snuffed in this very episode, the one week a
+    tribe line still shows them.
     """
 
     points: int = 0
@@ -718,12 +727,6 @@ class JoinRequest(BaseModel):
 
 class ProfileUpdateRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=40)
-
-
-class FinaleBallotPoints(BaseModel):
-    final_four: int
-    final_three: int
-    winner: int
 
 
 class FinalePrediction(BaseModel):
