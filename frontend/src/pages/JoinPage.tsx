@@ -73,7 +73,6 @@ export function JoinPage() {
             enterKeyHint="next"
             className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-forest-500 sm:text-sm"
           />
-          <p className="mt-1 text-xs text-gray-500">Shown in small print under your tribe name.</p>
         </div>
         <div>
           <label htmlFor="join-display-name" className="mb-1 block text-sm font-medium text-gray-700">Tribe name</label>
