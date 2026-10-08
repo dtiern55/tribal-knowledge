@@ -166,7 +166,8 @@ A wrong final flag makes a wrong default, so B depends on A being right.
 (the automatic League Call lead was dropped 2026-10-07). Present each one
 **as it will render**: label / value / detail. **Bare counts: no percentages
 and no "of 17" totals** (the league is small enough that both read as
-noise), and plain words a league friend would use. No stock phrasing like
+noise). The count carries its noun ("11 players", not "11" with
+"players" in the detail line). Plain words a league friend would use. No stock phrasing like
 "caught a boot", "versus league median", "saw it coming". Nobody "doubles a
 ballot"; the play is the Power Vote.
 
@@ -194,16 +195,16 @@ Tile types:
   shows, not a number you made up:
   - `performance_vs_median` — renders "Average score / {median} / You
     scored {own}." **The one standing tile: propose it every week.**
-  - `multiple_correct_ballots` — "Both boots / 3 / ballots had Rob and
+  - `multiple_correct_ballots` — "Both boots / 3 ballots / had Rob and
     Patt." A candidate, not a default, and only on a **multi-boot week: two
     or more castaways voted out in one episode** (a double tribal). A
     Redemption week's vote-out + duel loss is a single-boot week (see "Boot
     means voted out" above), so skip it then.
-  - `pick_popularity` — "{Name} / 11 / ballots had them." Needs an
+  - `pick_popularity` — "{Name} / 11 ballots / had them." Needs an
     eliminated `contestant_id`. Not for finales.
   - `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
     `double_vote_points` / `roster_swap`). Renders flat ("Power Vote usage /
-    9 / players used Power Vote this episode."); pair a swing with a written
+    9 players / used Power Vote this episode."); pair a swing with a written
     tile instead.
 - *Written* tiles (`manual_note`: `label` + `value` + optional `detail`) —
   where most of the findings above land. Quote each candidate's exact label,
