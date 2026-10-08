@@ -165,6 +165,12 @@ def test_insight_configuration_rejects_misleading_selections(client, db_conn):
     assert response.status_code == 400
     assert "must be eliminated" in response.json()["detail"]
 
+    four = [
+        {"insight_type": "manual_note", "label": f"Note {n}", "value": str(n)}
+        for n in range(4)
+    ]
+    assert client.put(url, json=four).status_code == 200
+
     response = client.put(
         url,
         json=[{"insight_type": "performance_vs_median"}] * 5,
