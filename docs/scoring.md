@@ -142,7 +142,7 @@ second score.
 
 ## Episode Reveal insights
 
-After scoring, the commissioner may select up to three editorial facts for an
+After scoring, the commissioner may select up to four editorial facts for an
 episode's Reveal and history replay. No selection means no insight module. The
 supported facts are:
 

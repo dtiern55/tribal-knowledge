@@ -9,6 +9,9 @@ from app.schemas import EpisodeInsightConfig, EpisodeInsightConfigEntry
 
 router = APIRouter(tags=["episode insights"])
 
+# Four, not three: tiles sit two to a row on a phone, and three left one alone.
+MAX_INSIGHTS = 4
+
 PLAY_LABELS = {
     "double_roster_points": "Double Castaway Points",
     "double_vote_points": "Power Vote",
@@ -54,8 +57,8 @@ def set_episode_insights(
     body: list[EpisodeInsightConfigEntry],
     _: UUID = Depends(get_current_admin),
 ):
-    if len(body) > 3:
-        raise HTTPException(status_code=400, detail="Choose at most three insights")
+    if len(body) > MAX_INSIGHTS:
+        raise HTTPException(status_code=400, detail="Choose at most four insights")
     # Manual notes are distinct free text; only computed insights dedupe on target.
     selections = [
         (item.insight_type, str(item.contestant_id), item.advantage_type)

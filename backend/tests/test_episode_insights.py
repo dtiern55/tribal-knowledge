@@ -167,10 +167,10 @@ def test_insight_configuration_rejects_misleading_selections(client, db_conn):
 
     response = client.put(
         url,
-        json=[{"insight_type": "performance_vs_median"}] * 4,
+        json=[{"insight_type": "performance_vs_median"}] * 5,
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == "Choose at most three insights"
+    assert response.json()["detail"] == "Choose at most four insights"
 
 
 @pytest.mark.integration
