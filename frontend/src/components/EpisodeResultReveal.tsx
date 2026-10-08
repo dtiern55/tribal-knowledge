@@ -142,6 +142,9 @@ export function EpisodeResultReveal({
   const home = result.eliminated.filter((e) => e.is_final)
   const redemptionWeek = island.length > 0 || result.redemption.length > 0
   const insights = result.insights ?? []
+  // Anything after a blank line in the commissioner's headline is a smaller
+  // line under it: "Patt voted off\nRob quits\n\nCarter switches tribes".
+  const [headline, subline] = (result.headline ?? defaultHeadline(result.eliminated)).split(/\n\s*\n/, 2)
   const delta = result.rank_delta
 
   return (
@@ -216,7 +219,10 @@ export function EpisodeResultReveal({
               tabIndex={-1}
               className="mt-5 whitespace-pre-line font-display text-3xl tracking-wide outline-none focus-visible:!outline-none sm:text-4xl"
             >
-              {result.headline ?? defaultHeadline(result.eliminated)}
+              {headline}
+              {subline && (
+                <span className="mt-2 block text-xl text-cream-100/80 sm:text-2xl">{subline}</span>
+              )}
             </h2>
 
             {result.title && (

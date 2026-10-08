@@ -162,6 +162,11 @@ eliminations' final flag) is:
 
 A wrong final flag makes a wrong default, so B depends on A being right.
 
+A blank line in the headline starts a smaller line under it, still part of
+the headline: `"Patt voted off\nRob quits\n\nCarter accidentally switches
+tribes"`. Use it for a third storyline, not the note (the note sits below the
+boot chips, with a rule).
+
 **C. The tiles** — the results card shows up to four tiles, nothing else
 (the automatic League Call lead was dropped 2026-10-07). Present each one
 **as it will render**: label / value / detail. **Bare counts: no percentages
