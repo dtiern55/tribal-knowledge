@@ -569,13 +569,29 @@ html.ballot-room::after {
    an outer glow here would be clipped the moment the record's overflow closes,
    which is a snap you can see. */
 .stage-held {
-  background-color: rgb(215 232 222 / 48%);
+  position: relative;
+  background-color: rgb(247 232 199 / 55%);
   box-shadow:
-    inset 3px 0 0 var(--color-jade-600),
+    inset 0 0 0 0 rgb(46 107 82 / 0%),
     0 0 5px rgb(46 107 82 / 0%),
     0 0 20px rgb(46 107 82 / 0%),
     0 0 50px rgb(46 107 82 / 0%),
     0 0 100px rgb(46 107 82 / 0%);
+}
+
+/* The held row is the weekly play's pick, so its band is the advantage's
+   gold, and it fades in from the top: a jade band on the first row ran
+   straight into the jade tab header above it. */
+.stage-held::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--color-gold-100), var(--color-gold-500) 60%);
+  pointer-events: none;
+}
+html.locked-night .app-shell .stage-held {
+  background-color: rgb(230 182 87 / 12%);
 }
 
 /* A row that folds away instead of leaving in one frame (#826). Its only
