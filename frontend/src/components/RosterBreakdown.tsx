@@ -119,6 +119,7 @@ export function RosterBreakdown({
             </button>
             {open && (
               <ul className="mt-1 space-y-0.5 pl-3 text-gray-500">
+                {events.length === 0 && bonus === 0 && <li>No point-scoring events this episode.</li>}
                 {events.map((e, i) => (
                   <li key={i} className="flex justify-between gap-2">
                     <span>
