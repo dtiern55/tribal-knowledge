@@ -35,7 +35,9 @@ export function DoubleBadge({
 export function AdvantageStamp({ size, title }: { size: number; title: string }) {
   return (
     <span
-      className="pointer-events-none absolute z-10 flex -rotate-[8deg]"
+      // A warm glow lifts the coin's dark rim off dark ground: the tab header,
+      // a jade band, the locked theme's paper.
+      className="pointer-events-none absolute z-10 flex -rotate-[8deg] drop-shadow-[0_0_2.5px_rgb(230_182_87/0.95)]"
       style={{ top: -size * 0.28, right: -size * 0.32 }}
     >
       {/* The flat stamp art only where the full idol turns to mush: the 15-18 px

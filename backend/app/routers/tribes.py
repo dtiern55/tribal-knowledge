@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database
 from app.auth import get_current_admin
 from app.schemas import TribesPublish
+from app.survivor_import import cast_name_index
 from app.tribe_import import build_tribe_data
 
 router = APIRouter(tags=["tribes"])
@@ -74,7 +75,7 @@ def sync_tribes(
             if not season:
                 raise HTTPException(status_code=404, detail="Season not found")
             cur.execute(
-                "select id, name from contestants where season_id = %s",
+                "select id, name, nickname from contestants where season_id = %s",
                 [str(season_id)],
             )
             cast = cur.fetchall()
@@ -94,7 +95,7 @@ def sync_tribes(
 
             # castaway_id -> our contestant id, by name (short or full), as the
             # scoring import does; unmatched names are reported, never guessed.
-            by_name = {c["name"].lower(): str(c["id"]) for c in cast}
+            by_name = cast_name_index(cast)
             names = {
                 r["castaway_id"]: (r.get("castaway"), r.get("full_name"))
                 for r in data["castaways"]

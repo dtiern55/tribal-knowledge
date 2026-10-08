@@ -87,6 +87,28 @@ def test_contestant_performance(client, db_conn):
 
 
 @pytest.mark.integration
+def test_contestant_performance_shows_scoreless_episodes(client, db_conn):
+    """#905: a scored episode they were in reads +0, from the roster lock
+    (not the watch-only premiere) through their exit."""
+    season = insert_season(db_conn, merge_episode=7, roster_lock_episode=2)
+    eps = [
+        insert_episode(db_conn, season["id"], episode_number=n, status="scored")
+        for n in (1, 2, 3, 4)
+    ]
+    quiet = insert_contestant(db_conn, season["id"], "Quiet")
+    boot = insert_contestant(db_conn, season["id"], "Boot")
+    insert_scoring_event(db_conn, eps[2]["id"], quiet["id"], "win_individual_immunity")
+    insert_elimination(db_conn, eps[2]["id"], boot["id"])
+
+    def rows(contestant):
+        perf = client.get(f"/contestants/{contestant['id']}/performance").json()
+        return [(e["episode_number"], e["points"]) for e in perf["episodes"]]
+
+    assert rows(quiet) == [(2, 0), (3, 15), (4, 0)]
+    assert rows(boot) == [(2, 0), (3, 0)]
+
+
+@pytest.mark.integration
 def test_cast_lists_base_scores(client, db_conn):
     """Cast list returns every contestant with base points, sorted desc (#83)."""
     season = insert_season(db_conn, merge_episode=7)

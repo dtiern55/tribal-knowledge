@@ -1,6 +1,6 @@
 """Unit tests for the survivoR → proposal mapping (no DB, no network)."""
 
-from app.survivor_import import build_proposal, map_elimination_type
+from app.survivor_import import build_proposal, cast_name_index, map_elimination_type
 
 S = "US47"
 
@@ -530,3 +530,16 @@ def test_redemption_boot_takes_jury_and_placement_at_the_duel_loss():
     )
     assert duel["placements"] == [{"castaway_id": "a", "name": "Ann", "placement": 10}]
     assert [e["castaway_id"] for e in _events(duel, "join_jury")] == ["a"]
+
+
+def test_cast_name_index_matches_nickname():
+    """#906: survivoR has S51's Danny Kilby as "Kilby" / "Kilby Kilby"."""
+    index = cast_name_index(
+        [
+            {"id": "k", "name": "Danny Kilby", "nickname": "Kilby"},
+            {"id": "r", "name": "Rob Antonson", "nickname": None},
+        ]
+    )
+    assert index["kilby"] == "k"
+    assert index["danny kilby"] == "k"
+    assert index["rob antonson"] == "r"

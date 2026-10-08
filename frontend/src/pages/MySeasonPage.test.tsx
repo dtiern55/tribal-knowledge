@@ -1841,7 +1841,7 @@ describe('MySeasonPage state shell', () => {
     expect(within(dialog).getByRole('img', { name: 'Power Vote' })).toBeVisible()
     expect(dialog).toHaveTextContent(/Kenzie\+30/)
     expect(dialog).toHaveTextContent(/Up 3.*#2/)
-    expect(screen.getByRole('heading', { name: 'Episode insight' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Tribal notes' })).toBeVisible()
     expect(dialog).toHaveTextContent('72%')
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
     // Points buildup (Roster + Ballot = total) replaces the old sum line.
@@ -2038,7 +2038,7 @@ describe('MySeasonPage state shell', () => {
     expect(await screen.findByText('No one was voted out')).toBeVisible()
     expect(screen.getByText('No ballot was submitted, so there are no ballot points.')).toBeVisible()
     expect(screen.getByText('#1')).toBeVisible()
-    expect(screen.queryByRole('heading', { name: 'Episode insight' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Tribal notes' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByRole('heading', { name: 'Between episodes' })).toBeVisible()
   })
