@@ -362,8 +362,8 @@ def air(cur, n: int, boot_names: list[str], boots_k: int | None):
     if events:
         call(client, "POST", f"/episodes/{ep['id']}/scoring-events", json=events)
 
-    # The two standing tiles (air-episode skill, 2026-09-09); the League Call
-    # lead is automatic. Not on the premiere: it has no ballots and no reveal.
+    # The two standing tiles (air-episode skill, 2026-09-09).
+    # Not on the premiere: it has no ballots and no reveal.
     if n >= (ls["roster_lock_episode"] or 1):
         tiles = [{"insight_type": "performance_vs_median"}]
         if len(boots) > 1 and not ep["is_finale"]:

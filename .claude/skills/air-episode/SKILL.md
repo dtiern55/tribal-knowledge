@@ -162,41 +162,40 @@ eliminations' final flag) is:
 
 A wrong final flag makes a wrong default, so B depends on A being right.
 
-**C. The tiles** — the results card shows up to three tiles beside one
-automatic lead. Present each one **as it will render**: label / value /
-detail. Two kinds:
+**C. The tiles** — the results card shows up to three tiles, nothing else
+(the automatic League Call lead was dropped 2026-10-07). Present each one
+**as it will render**: label / value / detail. **Counts, never percentages**
+("11 of 17"), and plain words a league friend would use. No stock phrasing
+like "caught a boot", "versus league median", "saw it coming". Two kinds:
 
 - *Computed* tiles the app fills in per viewer at open time. Say what each
   shows, not a number you made up:
-  - Automatic lead, always there, no config: "League call: {boot} — {pct}%"
-    (share of ballots that caught the boot), unless a `pick_popularity` tile
-    takes that slot.
-  - `performance_vs_median` — the viewer's own episode score vs the league
-    median. **The recurring baseline; propose it every week.**
-  - `multiple_correct_ballots` — ballots that called two or more boots. Only
+  - `performance_vs_median` — renders "Average score / {median} / You
+    scored {own}." **The recurring baseline; propose it every week.**
+  - `multiple_correct_ballots` — "Both boots / 3 of 17 / ballots had Rob and
+    Patt." Only
     on a **multi-boot week: two or more castaways voted out in one episode** (a
     double tribal). A Redemption week's vote-out + duel loss is a single-boot
     week (see "Boot means voted out" above) — **skip this tile, and do not
     reason about whether it "would read 0."** The count already ignores the
     duel loss, so it is not a multi-boot week at all.
-  - `pick_popularity` — needs an eliminated `contestant_id`; owns the League
-    Call slot. Redundant in single-boot weeks. Not for finales.
+  - `pick_popularity` — "{Name} / 11 of 17 / ballots had them." Needs an
+    eliminated `contestant_id`. Not for finales.
   - `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
     `double_vote_points` / `roster_swap`). Renders flat ("Double Ballot Points
     usage: 9 of 21"); pair a swing with a written tile instead.
 - *Written* tiles (`manual_note`: `label` + `value` + optional `detail`) —
   the story. **Compute one or two candidates now, from reads only:** the
   approved batch from A plus the locked picks and plays already in the DB.
-  Advantage usage this week and its trend across recent episodes, boot-catch
-  rate vs last week, how many who doubled their ballot caught the boot,
+  Advantage usage this week and its trend across recent episodes, how many
+  ballots had the boot vs last week, how many who doubled their ballot caught the boot,
   roster ownership of the boot(s), the biggest point swing. A bare number is
   not a tile; a trend or a whiff-rate is. Quote each candidate's exact label,
   value, and detail.
 
   **One row per episode, shown on every league's card.** A written tile's
-  numbers must be true for every league on this backend, so no per-league
-  counts ("9 of 21 in the main league"); say it as a share, or as a fact
-  about the show. `docs/scoring.md` → Episode Reveal insights.
+  numbers must be true for every league playing the season. With one league
+  (S51 on prod) a count is fine; with more, say it as a fact about the show. `docs/scoring.md` → Episode Reveal insights.
 
 **The two computed tiles are standing defaults** (2026-09-09): the viewer's
 score against the league median every week, and multiple correct picks on any

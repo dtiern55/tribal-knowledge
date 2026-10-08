@@ -57,36 +57,16 @@ def test_curated_insights_compute_multiple_elimination_aggregates(
     ).json()
     insights = result["insights"]
     assert [item["label"] for item in insights] == [
-        "League call: First Boot",
-        "Multiple correct picks",
-        "Versus league median",
+        "First Boot",
+        "Both boots",
+        "Average score",
     ]
-    assert insights[0]["value"] == "100%"
-    assert insights[0]["detail"] == "2 of 2 submitted ballots included this castaway."
+    assert insights[0]["value"] == "2 of 2"
     assert insights[1]["value"] == "1 of 2"
+    assert insights[1]["detail"] == "ballots had First Boot and Second Boot."
     # Current user: 47; other: 16; median: 31.5.
-    assert insights[2]["value"] == "+15.5 pts"
-    assert insights[2]["detail"] == "You scored 47; the league median was 31.5."
-
-
-@pytest.mark.integration
-def test_auto_league_call_leads_without_configuration(client, db_conn, current_user):
-    season = insert_season(db_conn, status="active", roster_lock_episode=1)
-    episode = insert_episode(db_conn, season["id"], status="scored")
-    other = insert_user(db_conn, display_name="Other")
-    boot = insert_contestant(db_conn, season["id"], "Boot")
-    safe = insert_contestant(db_conn, season["id"], "Safe")
-    insert_elimination(db_conn, episode["id"], boot["id"])
-    insert_elimination_pick(db_conn, current_user["id"], episode["id"], boot["id"])
-    insert_elimination_pick(db_conn, other["id"], episode["id"], safe["id"])
-
-    insights = client.get(
-        f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
-    ).json()["insights"]
-    assert len(insights) == 1
-    assert insights[0]["label"] == "League call: Boot"
-    assert insights[0]["value"] == "50%"
-    assert insights[0]["detail"] == "1 of 2 ballots picked Boot."
+    assert insights[2]["value"] == "31.5"
+    assert insights[2]["detail"] == "You scored 47."
 
 
 @pytest.mark.integration
