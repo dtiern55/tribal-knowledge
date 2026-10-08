@@ -11,11 +11,18 @@ different emails. Open episodes lock in 2099 so the copy doesn't decay.
 only Danny, so a season nobody has drafted yet starts pre-draft; add the bots
 with `run_bots.py setup --league "Practice: ..."`.
 
+--bot-twins plays each prod player (other than Danny) as a staging bot named
+"BOT <their name>", made on first use with no password, so a real league's
+picks copy down without real accounts. --replace first deletes staging's copy
+of the season and the leagues playing only it, so the copy can be refreshed.
+
 Dry-runs by default; --apply commits. stage_staging.py leaves Practice: leagues alone.
 Usage (from backend/):
     uv run python scripts/copy_season_to_staging.py 27 --league secondary [--apply]
     uv run python scripts/copy_season_to_staging.py 51 --league "Snakes and Rats" \
         --name "Practice: Survivor 51" --fresh [--apply]
+    uv run python scripts/copy_season_to_staging.py 51 --league "Snakes and Rats" \
+        --name "Practice: Survivor 51" --bot-twins --replace [--apply]
 """
 
 import argparse
@@ -23,6 +30,7 @@ import os
 import sys
 from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import psycopg2
 from dotenv import dotenv_values
@@ -42,8 +50,35 @@ def columns(cur, table: str) -> set[str]:
     return {r["column_name"] for r in cur.fetchall()}
 
 
-def user_map(src, dst, user_ids: list[str]) -> dict[str, str]:
-    """prod user id -> staging user id: same email, or the same bot persona."""
+def bot_twin(dst, display_name: str) -> str:
+    """The staging bot that plays a prod player: "BOT Emma", made if missing."""
+    name = f"BOT {display_name}"
+    dst.execute("select id from profiles where is_bot and display_name = %s", (name,))
+    row = dst.fetchone()
+    if row:
+        return row["id"]
+    uid = str(uuid4())
+    # Same no-password placeholder as copy_prod_to_staging: nobody signs in.
+    dst.execute(
+        """insert into auth.users (instance_id, id, aud, role, email,
+               email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+               created_at, updated_at)
+           values ('00000000-0000-0000-0000-000000000000', %s,
+               'authenticated', 'authenticated', %s, now(),
+               '{"provider": "email", "providers": ["email"]}', '{}',
+               now(), now())""",
+        (uid, f"{uid[:8]}@staging.invalid"),
+    )
+    dst.execute(
+        "insert into profiles (id, display_name, is_bot) values (%s, %s, true)",
+        (uid, name),
+    )
+    return uid
+
+
+def user_map(src, dst, user_ids: list[str], twins: bool) -> dict[str, str]:
+    """prod user id -> staging user id: same email, the same bot persona, or
+    (with `twins`) the player's BOT twin."""
     src.execute(
         "select u.id, lower(u.email) email, p.display_name, p.is_bot from auth.users u"
         " join profiles p on p.id = u.id where u.id = any(%s::uuid[])",
@@ -64,6 +99,8 @@ def user_map(src, dst, user_ids: list[str]) -> dict[str, str]:
         )
         if hit:
             ids[r["id"]] = hit
+        elif twins and not r["is_bot"]:
+            ids[r["id"]] = bot_twin(dst, r["display_name"])
         else:
             missing.append(r["email"])
     if missing:
@@ -83,6 +120,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--fresh", action="store_true", help="show + knobs only; Danny alone, no play"
+    )
+    parser.add_argument(
+        "--bot-twins",
+        action="store_true",
+        help='play each prod player as a staging bot "BOT <name>"',
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="delete staging's copy of the season and its leagues first",
     )
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
@@ -123,6 +170,23 @@ def main() -> None:
             src.fetchone()["c"] == 0
         ), "source has token rows; this script doesn't copy them"
         name = args.name or f"Practice: {season['name'].removeprefix('Survivor: ')}"
+        if args.replace:
+            # Leagues go first: advantage_plays' contestant FK doesn't cascade,
+            # so the season delete fails while their plays still exist.
+            dst.execute(
+                "delete from leagues l where exists (select 1 from league_seasons ls"
+                " join seasons s on s.id = ls.season_id"
+                " where ls.league_id = l.id and s.season_number = %s)"
+                " and not exists (select 1 from league_seasons ls"
+                " join seasons s on s.id = ls.season_id"
+                " where ls.league_id = l.id and s.season_number <> %s)"
+                " returning name",
+                (args.season_number, args.season_number),
+            )
+            print("replaced leagues:", [r["name"] for r in dst.fetchall()])
+            dst.execute(
+                "delete from seasons where season_number = %s", (args.season_number,)
+            )
         dst.execute(
             "select 1 from seasons where season_number = %s", (args.season_number,)
         )
@@ -142,7 +206,9 @@ def main() -> None:
                 "select user_id from league_members where league_id = %s",
                 (ls["league_id"],),
             )
-            users = user_map(src, dst, [r["user_id"] for r in src.fetchall()])
+            users = user_map(
+                src, dst, [r["user_id"] for r in src.fetchall()], args.bot_twins
+            )
             members = list(users.values())
 
         def copy(table, where, params, remap, override=None):
