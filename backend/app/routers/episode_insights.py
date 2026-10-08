@@ -1,5 +1,4 @@
 from statistics import median
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -148,48 +147,6 @@ def set_episode_insights(
             return rows
 
 
-def _auto_league_call(conn, ls: dict, episode: dict) -> Optional[dict]:
-    """The guaranteed boot-caught insight: what share of ballots called the boot."""
-    with conn.cursor() as cur:
-        cur.execute(
-            "select coalesce(c.nickname, c.name) as name from eliminations el"
-            " join contestants c on c.id = el.contestant_id"
-            f" where el.episode_id = %s and {scoring.BALLOT_HIT_SQL}"
-            " order by el.created_at, c.name",
-            [str(episode["id"])],
-        )
-        boots = [row["name"] for row in cur.fetchall()]
-        if not boots:
-            return None
-        cur.execute(
-            f"""
-            select count(distinct pick.user_id)::int as total,
-                   count(distinct pick.user_id) filter (
-                     where el.contestant_id is not null)::int as caught
-            from elimination_picks pick
-            left join eliminations el
-              on el.episode_id = pick.episode_id
-             and el.contestant_id = pick.contestant_id
-             and {scoring.BALLOT_HIT_SQL}
-            where pick.league_season_id = %s and pick.episode_id = %s
-            """,
-            [str(ls["id"]), str(episode["id"])],
-        )
-        counts = cur.fetchone()
-    if counts["total"] == 0:
-        return None
-    pct = round(counts["caught"] * 100 / counts["total"])
-    if len(boots) == 1:
-        label = f"League call: {boots[0]}"
-        # "Laura M." already ends the sentence; don't print "Laura M..".
-        name = boots[0].removesuffix(".")
-        detail = f"{counts['caught']} of {counts['total']} ballots picked {name}."
-    else:
-        label = "League call"
-        detail = f"{counts['caught']} of {counts['total']} ballots caught a boot."
-    return {"id": episode["id"], "label": label, "value": f"{pct}%", "detail": detail}
-
-
 def compute_episode_insights(
     conn, ls: dict, episode: dict, user_id: UUID
 ) -> list[dict]:
@@ -210,15 +167,6 @@ def compute_episode_insights(
         configured = cur.fetchall()
 
     insights: list[dict] = []
-    # Always lead with the boot-caught League Call, unless an admin curated their
-    # own pick-popularity card (which owns that slot instead).
-    if not episode["is_finale"] and not any(
-        item["insight_type"] == "pick_popularity" for item in configured
-    ):
-        league_call = _auto_league_call(conn, ls, episode)
-        if league_call:
-            insights.append(league_call)
-
     if not configured:
         return insights
 
@@ -249,16 +197,12 @@ def compute_episode_insights(
                 counts = cur.fetchone()
             if counts["total"] == 0:
                 continue
-            pct = round(counts["picked"] * 100 / counts["total"])
             insights.append(
                 {
                     "id": item["id"],
-                    "label": f"League call: {item['contestant_name']}",
-                    "value": f"{pct}%",
-                    "detail": (
-                        f"{counts['picked']} of {counts['total']} submitted"
-                        " ballots included this castaway."
-                    ),
+                    "label": item["contestant_name"],
+                    "value": f"{counts['picked']} of {counts['total']}",
+                    "detail": "ballots had them.",
                 }
             )
         elif kind == "multiple_correct_ballots":
@@ -283,14 +227,27 @@ def compute_episode_insights(
                     [str(ls["id"]), str(episode["id"])],
                 )
                 counts = cur.fetchone()
+                cur.execute(
+                    "select coalesce(c.nickname, c.name) as name from eliminations el"
+                    " join contestants c on c.id = el.contestant_id"
+                    f" where el.episode_id = %s and {scoring.BALLOT_HIT_SQL}"
+                    " order by el.created_at, c.name",
+                    [str(episode["id"])],
+                )
+                boots = [row["name"] for row in cur.fetchall()]
             if counts["total"] == 0:
                 continue
+            if len(boots) == 2:
+                label, detail = "Both boots", f"ballots had {boots[0]} and {boots[1]}."
+            else:
+                label = "Two or more boots"
+                detail = f"ballots had at least two of {', '.join(boots)}."
             insights.append(
                 {
                     "id": item["id"],
-                    "label": "Multiple correct picks",
+                    "label": label,
                     "value": f"{counts['multiple']} of {counts['total']}",
-                    "detail": "submitted ballots called at least two eliminations.",
+                    "detail": detail,
                 }
             )
         elif kind == "performance_vs_median":
@@ -300,16 +257,13 @@ def compute_episode_insights(
                 episode_scores.get(player_id, 0) for player_id in participants
             )
             own = episode_scores.get(str(user_id), 0)
-            difference = own - league_median
-            formatted = f"{difference:+g} pts" if difference else "Even"
+            # The copy says average; the number is the median (2026-10-07).
             insights.append(
                 {
                     "id": item["id"],
-                    "label": "Versus league median",
-                    "value": formatted,
-                    "detail": (
-                        f"You scored {own}; the league median was {league_median:g}."
-                    ),
+                    "label": "Average score",
+                    "value": f"{league_median:g}",
+                    "detail": f"You scored {own}.",
                 }
             )
         elif kind == "weekly_play_usage":

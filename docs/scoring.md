@@ -147,9 +147,10 @@ episode's Reveal and history replay. No selection means no insight module. The
 supported facts are:
 
 - Pick popularity for a named castaway eliminated in that non-finale episode:
-  the share of submitted ballots that included them.
+  how many submitted ballots included them.
 - Submitted ballots with at least two correct elimination picks.
-- The viewer's episode score versus the median among season participants.
+- The league's average episode score (the median among season participants),
+  with the viewer's own score under it.
 - League usage of Double Castaway Points, Power Vote, or Tribe Swap.
 - A written tile: a label, a value, and an optional detail, typed by the
   commissioner.
@@ -157,7 +158,7 @@ supported facts are:
 A selection is one row per episode and renders on every league's Reveal for
 that season. Computed tiles evaluate per league and per viewer at read time,
 so they stay correct everywhere. A written tile is fixed text, so its numbers
-must hold for every league on the backend: a share or a fact about the show,
+must hold for every league on the backend: a fact about the show,
 never one league's count.
 
 Configuration contains no aggregate values. Facts are calculated only through

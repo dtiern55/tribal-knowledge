@@ -895,8 +895,7 @@ function EpisodeInsightEditor({
     <div className="pt-4 border-t border-gray-100">
       <p className="text-xs font-semibold text-gray-500">Reveal Insights</p>
       <p className="mt-1 text-xs text-gray-500">
-        Reveal always leads with the League Call (who caught the boot). Add up to three
-        more curated facts or commissioner notes below.
+        Add up to three curated facts or commissioner notes below.
       </p>
       {!loaded ? (
         <p className="mt-3 text-xs text-gray-500">Loading…</p>
