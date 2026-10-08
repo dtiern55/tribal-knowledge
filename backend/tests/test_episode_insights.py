@@ -61,9 +61,9 @@ def test_curated_insights_compute_multiple_elimination_aggregates(
         "Both boots",
         "Average score",
     ]
-    assert insights[0]["value"] == "2 of 2"
-    assert insights[1]["value"] == "1 of 2"
-    assert insights[1]["detail"] == "ballots had First Boot and Second Boot."
+    assert insights[0]["value"] == "2 ballots"
+    assert insights[1]["value"] == "1 ballot"
+    assert insights[1]["detail"] == "had First Boot and Second Boot."
     # Current user: 47; other: 16; median: 31.5.
     assert insights[2]["value"] == "31.5"
     assert insights[2]["detail"] == "You scored 47."
@@ -134,7 +134,7 @@ def test_weekly_play_usage_and_empty_configuration(client, db_conn, current_user
     insight = client.get(
         f"/league-seasons/{season['league_season_id']}/episode-results/{episode['id']}"
     ).json()["insights"][0]
-    assert insight["value"] == "1 of 2"
+    assert insight["value"] == "1 player"
     assert insight["label"] == "Power Vote usage"
 
     assert client.put(url, json=[]).status_code == 200

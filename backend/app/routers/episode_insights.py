@@ -16,6 +16,11 @@ PLAY_LABELS = {
 }
 
 
+def _count(n: int, noun: str) -> str:
+    """'1 ballot', '3 ballots': the noun rides with the number on the tile."""
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
 def _require_episode(cur, episode_id: UUID) -> dict:
     cur.execute("select * from episodes where id = %s", [str(episode_id)])
     episode = cur.fetchone()
@@ -201,8 +206,8 @@ def compute_episode_insights(
                 {
                     "id": item["id"],
                     "label": item["contestant_name"],
-                    "value": f"{counts['picked']} of {counts['total']}",
-                    "detail": "ballots had them.",
+                    "value": _count(counts["picked"], "ballot"),
+                    "detail": "had them.",
                 }
             )
         elif kind == "multiple_correct_ballots":
@@ -238,15 +243,15 @@ def compute_episode_insights(
             if counts["total"] == 0:
                 continue
             if len(boots) == 2:
-                label, detail = "Both boots", f"ballots had {boots[0]} and {boots[1]}."
+                label, detail = "Both boots", f"had {boots[0]} and {boots[1]}."
             else:
                 label = "Two or more boots"
-                detail = f"ballots had at least two of {', '.join(boots)}."
+                detail = f"had at least two of {', '.join(boots)}."
             insights.append(
                 {
                     "id": item["id"],
                     "label": label,
-                    "value": f"{counts['multiple']} of {counts['total']}",
+                    "value": _count(counts["multiple"], "ballot"),
                     "detail": detail,
                 }
             )
@@ -288,8 +293,8 @@ def compute_episode_insights(
                 {
                     "id": item["id"],
                     "label": f"{label} usage",
-                    "value": f"{used} of {len(participants)}",
-                    "detail": f"league players used {label} this episode.",
+                    "value": _count(used, "player"),
+                    "detail": f"used {label} this episode.",
                 }
             )
         elif kind == "manual_note":

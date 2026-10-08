@@ -147,7 +147,7 @@ episode's Reveal and history replay. No selection means no insight module. The
 supported facts are:
 
 - Pick popularity for a named castaway eliminated in that non-finale episode:
-  how many submitted ballots included them.
+  how many submitted ballots included them (a bare count, no total).
 - Submitted ballots with at least two correct elimination picks.
 - The league's average episode score (the median among season participants),
   with the viewer's own score under it.
