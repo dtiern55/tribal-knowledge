@@ -442,9 +442,17 @@ export function EpisodeResultReveal({
               </h3>
               <ul className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2">
                 {insights.map((insight) => (
-                  <li key={insight.id} className="rounded-xl border border-white/10 bg-[#18301f] px-3.5 py-3">
+                  // Torch-lit top edge (#908): a gold bar fading into a soft glow.
+                  <li
+                    key={insight.id}
+                    className="relative overflow-hidden rounded-xl border border-white/10 bg-[#18301f] bg-[linear-gradient(180deg,rgb(230_182_87/0.16),transparent_55%)] px-3.5 py-3"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-gold-500 via-gold-300 to-gold-100"
+                    />
                     <p className="text-[0.7rem] uppercase tracking-wide text-cream-100/45">{insight.label}</p>
-                    <p className="my-0.5 font-display text-lg font-bold leading-tight text-cream-100">
+                    <p className="my-0.5 font-display text-lg font-bold leading-tight text-gold-300">
                       {insight.value}
                     </p>
                     {insight.detail && <p className="text-xs text-cream-100/70">{insight.detail}</p>}
