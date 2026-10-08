@@ -164,26 +164,26 @@ A wrong final flag makes a wrong default, so B depends on A being right.
 
 **C. The tiles** — the results card shows up to three tiles, nothing else
 (the automatic League Call lead was dropped 2026-10-07). Present each one
-**as it will render**: label / value / detail. **Counts, never percentages**
-("11 of 17"), and plain words a league friend would use. No stock phrasing
+**as it will render**: label / value / detail. **Bare counts: no percentages and no
+"of 17" totals** (the league is small enough that both read as noise), and plain words a league friend would use. No stock phrasing
 like "caught a boot", "versus league median", "saw it coming". Two kinds:
 
 - *Computed* tiles the app fills in per viewer at open time. Say what each
   shows, not a number you made up:
   - `performance_vs_median` — renders "Average score / {median} / You
     scored {own}." **The recurring baseline; propose it every week.**
-  - `multiple_correct_ballots` — "Both boots / 3 of 17 / ballots had Rob and
+  - `multiple_correct_ballots` — "Both boots / 3 / ballots had Rob and
     Patt." Only
     on a **multi-boot week: two or more castaways voted out in one episode** (a
     double tribal). A Redemption week's vote-out + duel loss is a single-boot
     week (see "Boot means voted out" above) — **skip this tile, and do not
     reason about whether it "would read 0."** The count already ignores the
     duel loss, so it is not a multi-boot week at all.
-  - `pick_popularity` — "{Name} / 11 of 17 / ballots had them." Needs an
+  - `pick_popularity` — "{Name} / 11 / ballots had them." Needs an
     eliminated `contestant_id`. Not for finales.
   - `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
-    `double_vote_points` / `roster_swap`). Renders flat ("Double Ballot Points
-    usage: 9 of 21"); pair a swing with a written tile instead.
+    `double_vote_points` / `roster_swap`). Renders flat ("Power Vote usage / 9 /
+    players used Power Vote this episode."); pair a swing with a written tile instead.
 - *Written* tiles (`manual_note`: `label` + `value` + optional `detail`) —
   the story. **Compute one or two candidates now, from reads only:** the
   approved batch from A plus the locked picks and plays already in the DB.

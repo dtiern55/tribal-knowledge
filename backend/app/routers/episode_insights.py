@@ -201,7 +201,7 @@ def compute_episode_insights(
                 {
                     "id": item["id"],
                     "label": item["contestant_name"],
-                    "value": f"{counts['picked']} of {counts['total']}",
+                    "value": str(counts["picked"]),
                     "detail": "ballots had them.",
                 }
             )
@@ -246,7 +246,7 @@ def compute_episode_insights(
                 {
                     "id": item["id"],
                     "label": label,
-                    "value": f"{counts['multiple']} of {counts['total']}",
+                    "value": str(counts["multiple"]),
                     "detail": detail,
                 }
             )
@@ -288,8 +288,8 @@ def compute_episode_insights(
                 {
                     "id": item["id"],
                     "label": f"{label} usage",
-                    "value": f"{used} of {len(participants)}",
-                    "detail": f"league players used {label} this episode.",
+                    "value": str(used),
+                    "detail": f"players used {label} this episode.",
                 }
             )
         elif kind == "manual_note":
