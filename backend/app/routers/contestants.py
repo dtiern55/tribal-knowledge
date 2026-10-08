@@ -221,12 +221,40 @@ def get_contestant_performance(
             # the single-league era, so the season's first league-season is
             # exactly the one that paid them.
             cur.execute(
-                "select advantage_lock_episode from league_seasons"
+                "select advantage_lock_episode, roster_lock_episode"
+                " from league_seasons"
                 " where season_id = %s order by created_at limit 1",
                 [str(c["season_id"])],
             )
             row = cur.fetchone()
             adv_lock = row["advantage_lock_episode"] if row else None
+
+            # A scored episode they were in but scored nothing in still gets
+            # a +0 row (#905). Not the watch-only premiere: rows start at the
+            # roster lock. Scored, not just locked, so a row doesn't read +0
+            # while the episode is still being scored.
+            cur.execute(
+                "select episode_number, is_finale from episodes"
+                " where season_id = %s and status = 'scored'"
+                " and episode_number >= %s"
+                " and (%s::int is null or episode_number <= %s)",
+                [
+                    str(c["season_id"]),
+                    (row["roster_lock_episode"] if row else None) or 1,
+                    elim_ep,
+                    elim_ep,
+                ],
+            )
+            for ep in cur.fetchall():
+                by_ep.setdefault(
+                    ep["episode_number"],
+                    {
+                        "episode_number": ep["episode_number"],
+                        "points": 0,
+                        "events": [],
+                        "is_finale": ep["is_finale"],
+                    },
+                )
             for stat in by_ep.values():
                 stat["tokens_locked"] = advantages_locked(
                     stat["episode_number"], stat["is_finale"], adv_lock

@@ -17,6 +17,20 @@ _SAFE_OUTCOMES = {"safe", "saved", "won"}
 _IDOL_TYPES = {"Hidden Immunity Idol", "Hidden Immunity Idol Half"}
 
 
+def cast_name_index(cast: list[dict]) -> dict[str, str]:
+    """Lowercased name and nickname -> contestant id, for matching survivoR.
+
+    The nickname matters when survivoR's names miss ours: S51's Danny Kilby is
+    "Kilby" / "Kilby Kilby" there (#906).
+    """
+    index: dict[str, str] = {}
+    for c in cast:
+        for name in (c["name"], c.get("nickname")):
+            if name:
+                index.setdefault(name.lower(), str(c["id"]))
+    return index
+
+
 def _ep(rows: list[dict], season_key: str, episode: int) -> list[dict]:
     return [
         r

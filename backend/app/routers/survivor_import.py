@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import database
 from app.auth import get_current_admin
 from app.schemas import ImportProposal
-from app.survivor_import import build_proposal
+from app.survivor_import import build_proposal, cast_name_index
 
 router = APIRouter(tags=["survivor-import"])
 
@@ -90,7 +90,7 @@ def get_import_proposal(
             if not episode:
                 raise HTTPException(status_code=404, detail="Episode not found")
             cur.execute(
-                "select id, name from contestants where season_id = %s",
+                "select id, name, nickname from contestants where season_id = %s",
                 [str(episode["season_id"])],
             )
             cast = cur.fetchall()
@@ -121,7 +121,7 @@ def get_import_proposal(
     # castaway_id → contestant UUID by name, short OR full (as the CLI).
     # Items whose castaway has no league contestant are dropped from the
     # proposal and their names reported in `unmatched` — never guessed.
-    by_name = {c["name"].lower(): str(c["id"]) for c in cast}
+    by_name = cast_name_index(cast)
     names = {r["castaway_id"]: (r["castaway"], r["full_name"]) for r in castaway_rows}
     id_map: dict[str, str] = {}
     unmatched: set[str] = set()
