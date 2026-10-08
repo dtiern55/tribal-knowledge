@@ -440,7 +440,9 @@ export function EpisodeResultReveal({
               >
                 Tribal notes
               </h3>
-              <ul className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2">
+              {/* Always two across: auto-fit went 1x4 on 360px phones and 3+1 on
+                  anything wider than a phone held upright. */}
+              <ul className="grid grid-cols-2 gap-2">
                 {insights.map((insight) => (
                   // Torch-lit top edge (#908): a gold bar fading into a soft glow.
                   <li
