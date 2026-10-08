@@ -1499,7 +1499,7 @@ function LeagueHub({
   broadcast: boolean
   /**
    * The Count tiles count weekly votes and advantage plays. A recap wants only
-   * The Field, and the finale has neither a boot vote nor an advantage, so both
+   * The league, and the finale has neither a boot vote nor an advantage, so both
    * leave them off.
    */
   showCount?: boolean
@@ -1540,7 +1540,7 @@ function LeagueHub({
       <div className="mt-10">
         {panel(
           'league-field-title',
-          'The Field',
+          'The league',
           <p className={`mt-3 text-sm ${broadcast ? 'text-white/65' : 'text-gray-500'}`}>Loading the field…</p>,
         )}
       </div>
@@ -1661,7 +1661,7 @@ function LeagueHub({
 
       {panel(
         'league-field-title',
-        'The Field',
+        'The league',
         <>
       {/* One collapsible row per player. */}
       <div className="mt-4 flex justify-end">
@@ -1764,7 +1764,7 @@ function LeagueHub({
                       </div>
                     </div>
                   ) : (
-                  /* The Field follows Standings: the idol stamps the Power Vote,
+                  /* The league follows Standings: the idol stamps the Power Vote,
                       and a fill says the vote was correct after scoring. */
                   <div>
                     <div className="flex items-center gap-1.5">

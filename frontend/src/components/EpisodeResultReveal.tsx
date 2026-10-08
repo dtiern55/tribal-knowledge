@@ -438,7 +438,7 @@ export function EpisodeResultReveal({
                 id="episode-insights-title"
                 className="mb-2 font-display text-xs font-bold uppercase tracking-[0.18em] text-cream-100/55"
               >
-                Episode insight
+                Tribal notes
               </h3>
               <ul className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2">
                 {insights.map((insight) => (
