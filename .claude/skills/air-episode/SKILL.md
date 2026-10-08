@@ -164,45 +164,55 @@ A wrong final flag makes a wrong default, so B depends on A being right.
 
 **C. The tiles** — the results card shows up to three tiles, nothing else
 (the automatic League Call lead was dropped 2026-10-07). Present each one
-**as it will render**: label / value / detail. **Bare counts: no percentages and no
-"of 17" totals** (the league is small enough that both read as noise), and plain words a league friend would use. No stock phrasing
-like "caught a boot", "versus league median", "saw it coming". Two kinds:
+**as it will render**: label / value / detail. **Bare counts: no percentages
+and no "of 17" totals** (the league is small enough that both read as
+noise), and plain words a league friend would use. No stock phrasing like
+"caught a boot", "versus league median", "saw it coming". Nobody "doubles a
+ballot"; the play is the Power Vote.
 
+**How to pick them (2026-10-08).** Propose the average score every week.
+Every other slot has to be earned: go looking for what actually stood out
+this episode, from reads only (the approved batch from A plus the locked
+picks, plays, rosters and earlier episodes in the DB):
+- **Anomalies:** something unusual against the league or the season so far.
+  A boot almost nobody saw coming, or one nearly everyone did. A castaway
+  owned by most teams scoring nothing. One player far above or below the rest.
+- **Trends:** something moving across recent episodes. Advantage usage rising
+  or falling, ballots getting better or worse at calling the boot, a castaway
+  scoring big week after week.
+- **Big plays:** the largest single point swing, a Power Vote or Double
+  Castaway Points that landed (or whiffed) big, a well-timed roster swap.
+- **Advantages played:** who used what and how it paid off.
+- **Roster damage:** how many players lost a castaway this episode.
+
+Compute several, then bring Danny the best one or two. A bare number with
+no story is not a tile. **Never choose for him**: he picks, rewrites, or
+wants none.
+
+Tile types:
 - *Computed* tiles the app fills in per viewer at open time. Say what each
   shows, not a number you made up:
   - `performance_vs_median` — renders "Average score / {median} / You
-    scored {own}." **The recurring baseline; propose it every week.**
+    scored {own}." **The one standing tile: propose it every week.**
   - `multiple_correct_ballots` — "Both boots / 3 / ballots had Rob and
-    Patt." Only
-    on a **multi-boot week: two or more castaways voted out in one episode** (a
-    double tribal). A Redemption week's vote-out + duel loss is a single-boot
-    week (see "Boot means voted out" above) — **skip this tile, and do not
-    reason about whether it "would read 0."** The count already ignores the
-    duel loss, so it is not a multi-boot week at all.
+    Patt." A candidate, not a default, and only on a **multi-boot week: two
+    or more castaways voted out in one episode** (a double tribal). A
+    Redemption week's vote-out + duel loss is a single-boot week (see "Boot
+    means voted out" above), so skip it then.
   - `pick_popularity` — "{Name} / 11 / ballots had them." Needs an
     eliminated `contestant_id`. Not for finales.
   - `weekly_play_usage` — needs `advantage_type` (`double_roster_points` /
-    `double_vote_points` / `roster_swap`). Renders flat ("Power Vote usage / 9 /
-    players used Power Vote this episode."); pair a swing with a written tile instead.
+    `double_vote_points` / `roster_swap`). Renders flat ("Power Vote usage /
+    9 / players used Power Vote this episode."); pair a swing with a written
+    tile instead.
 - *Written* tiles (`manual_note`: `label` + `value` + optional `detail`) —
-  the story. **Compute one or two candidates now, from reads only:** the
-  approved batch from A plus the locked picks and plays already in the DB.
-  Advantage usage this week and its trend across recent episodes, how many
-  ballots had the boot vs last week, how many who doubled their ballot caught the boot,
-  roster ownership of the boot(s), the biggest point swing. A bare number is
-  not a tile; a trend or a whiff-rate is. Quote each candidate's exact label,
+  where most of the findings above land. Quote each candidate's exact label,
   value, and detail.
 
   **One row per episode, shown on every league's card.** A written tile's
   numbers must be true for every league playing the season. With one league
-  (S51 on prod) a count is fine; with more, say it as a fact about the show. `docs/scoring.md` → Episode Reveal insights.
-
-**The two computed tiles are standing defaults** (2026-09-09): the viewer's
-score against the league median every week, and multiple correct picks on any
-multi-boot week (two or more castaways *voted out* — never a Redemption week's
-vote-out + duel loss). Set them without asking. The **written** tile is the only
-tile question — Danny picks one, rewrites it, or wants none. **Never choose
-that one for him.**
+  (S51 on prod) a count is fine; with more, say it as a fact about the show.
+  `docs/scoring.md` → Episode Reveal insights.
 
 ## 4. Take Danny's rulings — go on all of it
 
