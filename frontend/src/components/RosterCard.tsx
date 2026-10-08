@@ -201,10 +201,7 @@ export function RosterCard({
   // what read as the row clicking back into place. The visual layer stays
   // put; only the interactive child inside it swaps.
   return (
-    // A little air above the first row: the Double Castaway Points stamp rides
-    // up off the portrait, and on the top row it otherwise meets the tab's dark
-    // green header and reads as part of it.
-    <li className="border-t border-paper-line first:border-t-0 first:pt-1.5">
+    <li className="border-t border-paper-line first:border-t-0">
       <div
         className={`stage-row flex items-center gap-3 transition-transform ${
           lit ? 'stage-pick' : selected ? 'stage-held' : ''
