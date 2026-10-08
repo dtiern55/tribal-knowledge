@@ -1952,7 +1952,7 @@ describe('MySeasonPage state shell', () => {
         current_rank: null,
         prior_rank: null,
         rank_delta: null,
-        headline: 'Rachel sent to Redemption. Rupert ends his Survivor career.',
+        headline: 'Rachel sent to Redemption.\n\nRupert ends his Survivor career.',
         note: "Tony's mystery paper is a deferred call — no points yet.",
       }),
     )
@@ -1966,7 +1966,11 @@ describe('MySeasonPage state shell', () => {
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Ep 2 replay')
     // The commissioner's headline replaces the torch count.
-    expect(dialog).toHaveTextContent('Rachel sent to Redemption. Rupert ends his Survivor career.')
+    expect(dialog).toHaveTextContent('Rachel sent to Redemption.')
+    // After a blank line it's a smaller line of its own, still in the heading.
+    const subline = within(dialog).getByText('Rupert ends his Survivor career.')
+    expect(subline.tagName).toBe('SPAN')
+    expect(subline.closest('h2')).not.toBeNull()
     // The commissioner's note rides along under it (#185).
     expect(dialog).toHaveTextContent("Tony's mystery paper is a deferred call — no points yet.")
     expect(dialog).not.toHaveTextContent('torches snuffed')
