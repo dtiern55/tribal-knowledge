@@ -767,6 +767,9 @@ function ImportSection({
   )
 }
 
+// Matches the API's cap: tiles sit two to a row on a phone.
+const MAX_INSIGHTS = 4
+
 function EpisodeInsightEditor({
   episode,
   contestants,
@@ -851,7 +854,7 @@ function EpisodeInsightEditor({
     setSaved(false)
     setSelected((current) => {
       if (current.includes(key)) return current.filter((item) => item !== key)
-      if (stored === 3) return current
+      if (stored === MAX_INSIGHTS) return current
       return [...current, key]
     })
   }
@@ -895,7 +898,7 @@ function EpisodeInsightEditor({
     <div className="pt-4 border-t border-gray-100">
       <p className="text-xs font-semibold text-gray-500">Reveal Insights</p>
       <p className="mt-1 text-xs text-gray-500">
-        Add up to three curated facts or commissioner notes below.
+        Add up to four curated facts or commissioner notes below.
       </p>
       {!loaded ? (
         <p className="mt-3 text-xs text-gray-500">Loading…</p>
@@ -909,7 +912,7 @@ function EpisodeInsightEditor({
                   <input
                     type="checkbox"
                     checked={checked}
-                    disabled={!checked && stored === 3}
+                    disabled={!checked && stored === MAX_INSIGHTS}
                     onChange={() => toggle(option.key)}
                     className="mt-0.5"
                   />
@@ -960,7 +963,7 @@ function EpisodeInsightEditor({
                 </button>
               </div>
             ))}
-            {stored < 3 && (
+            {stored < MAX_INSIGHTS && (
               <button
                 type="button"
                 onClick={() => {
@@ -982,7 +985,7 @@ function EpisodeInsightEditor({
           <ActionBtn onClick={save} disabled={saveInsights.isPending}>
             {saveInsights.isPending ? 'Saving…' : 'Save reveal insights'}
           </ActionBtn>
-          <span className="text-xs text-gray-500">{stored}/3 added</span>
+          <span className="text-xs text-gray-500">{stored}/{MAX_INSIGHTS} added</span>
         </div>
       )}
     </div>

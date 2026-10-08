@@ -162,7 +162,7 @@ eliminations' final flag) is:
 
 A wrong final flag makes a wrong default, so B depends on A being right.
 
-**C. The tiles** — the results card shows up to three tiles, nothing else
+**C. The tiles** — the results card shows up to four tiles, nothing else
 (the automatic League Call lead was dropped 2026-10-07). Present each one
 **as it will render**: label / value / detail. **Bare counts: no percentages
 and no "of 17" totals** (the league is small enough that both read as
@@ -186,7 +186,9 @@ picks, plays, rosters and earlier episodes in the DB):
 - **Advantages played:** who used what and how it paid off.
 - **Roster damage:** how many players lost a castaway this episode.
 
-Compute several, then bring Danny the best one or two. A bare number with
+Compute several, then bring Danny the best two or three. Aim for an even
+total, two or four tiles: they sit two to a row on a phone, and an odd count
+leaves one alone (Danny, 2026-10-08). A bare number with
 no story is not a tile. **Never choose for him**: he picks, rewrites, or
 wants none.
 
@@ -314,7 +316,7 @@ Both are invisible until close-out (the results endpoints gate on
 - Note (optional, #185): `PATCH {API}/episodes/{episode_id}` `{"note": "..."}`
   — the ruling narrative under the headline (revote calls, deferred paper,
   cry/cuss tokens). Newlines are kept. Leave null when there's nothing to say.
-- Tiles: `PUT {API}/episodes/{episode_id}/insights` (admin), up to 3,
+- Tiles: `PUT {API}/episodes/{episode_id}/insights` (admin), up to 4,
   deduped on target, `display_order` sets order:
 
 ```

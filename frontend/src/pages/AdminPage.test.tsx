@@ -158,7 +158,7 @@ describe('AdminPage current rules', () => {
     ])
   })
 
-  it('lets the commissioner curate up to three scored-episode insights', async () => {
+  it('lets the commissioner curate up to four scored-episode insights', async () => {
     const user = userEvent.setup()
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path === '/league-seasons') return [season]
@@ -198,14 +198,16 @@ describe('AdminPage current rules', () => {
     await user.click(screen.getByLabelText(/Vote popularity: Kenzie/))
     await user.click(screen.getByLabelText(/Player vs league median/))
     await user.click(screen.getByLabelText(/Power Vote usage/))
-    expect(screen.getByText('3/3 added')).toBeVisible()
-    expect(screen.getByLabelText(/Tribe Swap usage/)).toBeDisabled()
+    await user.click(screen.getByLabelText(/Tribe Swap usage/))
+    expect(screen.getByText('4/4 added')).toBeVisible()
+    expect(screen.getByLabelText(/Double Castaway Points usage/)).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Save reveal insights' }))
 
     expect(api.quiet.put).toHaveBeenCalledWith('/episodes/episode-1/insights', [
       { insight_type: 'pick_popularity', contestant_id: 'cast-1' },
       { insight_type: 'performance_vs_median' },
       { insight_type: 'weekly_play_usage', advantage_type: 'double_vote_points' },
+      { insight_type: 'weekly_play_usage', advantage_type: 'roster_swap' },
     ])
     expect(await screen.findByText('Reveal insights saved.')).toBeVisible()
   })
