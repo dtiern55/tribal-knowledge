@@ -1673,7 +1673,7 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByText('×2')).not.toBeInTheDocument()
   })
 
-  it("puts each castaway's episode points under their portrait once scored, doubled where played", async () => {
+  it("puts each castaway's and correct vote's episode points on the Field once scored", async () => {
     const user = userEvent.setup()
     const episodes = [
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1695,7 +1695,10 @@ describe('MySeasonPage state shell', () => {
           user_id: 'user-2',
           display_name: 'Rival',
           roster: [survivor('cast-1', 'Kenzie', 3), survivor('cast-2', 'Charlie', 2)],
-          ballot: [],
+          ballot: [
+            { ...survivor('cast-3', 'Alexis', 0), correct: true, points: 30 },
+            { ...survivor('cast-4', 'Lewis', 0), correct: false, points: 0 },
+          ],
           advantage_type: 'double_roster_points',
           advantage_target: survivor('cast-1', 'Kenzie', 3),
           sole_survivor_contestant_id: null,
@@ -1716,6 +1719,9 @@ describe('MySeasonPage state shell', () => {
     const row = rival.closest('details')!
     expect(within(row).getByText('Kenzie').closest('li')).toHaveTextContent('+6')
     expect(within(row).getByText('Charlie').closest('li')).toHaveTextContent('+2')
+    // A correct vote shows what it paid; a miss shows nothing.
+    expect(within(row).getByText('Alexis').closest('span')).toHaveTextContent('+30')
+    expect(within(row).getByText('Lewis').closest('span')).not.toHaveTextContent('+')
   })
 
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {

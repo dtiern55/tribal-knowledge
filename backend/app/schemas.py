@@ -224,9 +224,11 @@ class HubRosterMember(StandingSurvivor):
 
 
 class HubBallotPick(StandingSurvivor):
-    """One name on someone's ballot, and whether it went home (#812)."""
+    """One name on someone's ballot, whether it went home (#812), and what it
+    paid: Power Vote included, since that pays its own rung, not a doubling."""
 
     correct: bool = False
+    points: int = 0
 
 
 class HubEntry(BaseModel):

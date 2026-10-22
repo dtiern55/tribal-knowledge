@@ -1785,6 +1785,7 @@ function LeagueHub({
                             power={vote.contestant_id === powerVote}
                             correct={vote.correct}
                             dark={broadcast}
+                            points={scored ? vote.points : undefined}
                           />
                         ))}
                       </div>

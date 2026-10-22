@@ -281,6 +281,8 @@ def test_hub_carries_per_castaway_points_and_vote_results(
     votes = {vote["name"]: vote for vote in row["ballot"]}
     assert votes["Boot"]["correct"] is True
     assert votes["Star"]["correct"] is False
+    assert votes["Boot"]["points"] > 0
+    assert votes["Star"]["points"] == 0
 
 
 @pytest.mark.integration
