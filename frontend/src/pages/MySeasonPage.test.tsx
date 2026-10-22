@@ -1673,6 +1673,51 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByText('×2')).not.toBeInTheDocument()
   })
 
+  it("puts each castaway's episode points under their portrait once scored, doubled where played", async () => {
+    const user = userEvent.setup()
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
+    ]
+    const survivor = (id: string, name: string, points: number) => ({
+      contestant_id: id,
+      name,
+      image_url: null,
+      tribe_color: '#123456',
+      tribe_name: 'Yanu',
+      eliminated_episode: null,
+      points,
+    })
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/hub')) {
+        return [{
+          user_id: 'user-2',
+          display_name: 'Rival',
+          roster: [survivor('cast-1', 'Kenzie', 3), survivor('cast-2', 'Charlie', 2)],
+          ballot: [],
+          advantage_type: 'double_roster_points',
+          advantage_target: survivor('cast-1', 'Kenzie', 3),
+          sole_survivor_contestant_id: null,
+          finale: null,
+          tribe_points: 8,
+          ballot_points: 0,
+        }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const rival = await screen.findByText('Rival')
+    await user.click(rival)
+    const row = rival.closest('details')!
+    expect(within(row).getByText('Kenzie').closest('li')).toHaveTextContent('+6')
+    expect(within(row).getByText('Charlie').closest('li')).toHaveTextContent('+2')
+  })
+
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {
     const episodes = [
       episode(1, 'scored', '2026-08-01T00:00:00Z'),

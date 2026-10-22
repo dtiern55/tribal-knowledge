@@ -45,6 +45,7 @@ import type {
   EpisodeResult,
   FinalePrediction,
   HubEntry,
+  HubRosterMember,
   PickResult,
   RosterPick,
   RulesResponse,
@@ -1742,6 +1743,8 @@ function LeagueHub({
                         : null
                     }
                     soleSurvivorId={entry.sole_survivor_contestant_id}
+                    scored={scored}
+                    broadcast={broadcast}
                   />
                   {/* The finale's ballot is the bracket, drawn the way your own
                       card draws it (#801). */}
@@ -1825,15 +1828,20 @@ function HubCastawayRow({
   empty,
   doubledContestantId = null,
   soleSurvivorId = null,
+  scored = false,
+  broadcast = false,
 }: {
   label: string
-  survivors: StandingSurvivor[]
+  survivors: HubRosterMember[]
   sub: string
   empty: string
   /** Single-target double: the idol on this castaway's portrait. */
   doubledContestantId?: string | null
   /** Their Sole Survivor pick: a small hand torch beside an otherwise plain name. */
   soleSurvivorId?: string | null
+  /** Once the episode is scored, each castaway's points sit under their name. */
+  scored?: boolean
+  broadcast?: boolean
 }) {
   return (
     <div>
@@ -1864,6 +1872,14 @@ function HubCastawayRow({
                   {isSS && <SoleSurvivorTorch snuffed={s.eliminated_episode != null} />}
                   {isSS && <span className="sr-only"> · Sole Survivor</span>}
                 </span>
+                {/* Points arrive base; a Double Castaway Points doubles every
+                    event, so the doubled castaway shows twice theirs. */}
+                {scored && (
+                  <LanePoints
+                    value={s.contestant_id === doubledContestantId ? s.points * 2 : s.points}
+                    broadcast={broadcast}
+                  />
+                )}
               </li>
             )
           })}
