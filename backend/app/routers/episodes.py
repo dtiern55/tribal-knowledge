@@ -316,22 +316,31 @@ def get_episode_hub(
             # This episode's ballots.
             cur.execute(
                 f"""
-                select ep.user_id::text as user_id, c.id::text as contestant_id,
+                select pick.user_id::text as user_id,
+                       c.id::text as contestant_id,
                        coalesce(c.nickname, c.name) as name, c.image_url,
                        tribe.name as tribe_name, tribe.color as tribe_color,
-                       (el.id is not null) as correct
-                from elimination_picks ep
-                join contestants c on c.id = ep.contestant_id
+                       (el.id is not null) as correct,
+                       -- What the pick paid, Power Vote included: its value is
+                       -- its own rung, not a doubling a reader could apply.
+                       (case when el.id is null then 0
+                        else {scoring.PICK_TOTAL_SQL} end)::int as points
+                from elimination_picks pick
+                join episodes ep on ep.id = pick.episode_id
+                join seasons s on s.id = ep.season_id
+                join contestants c on c.id = pick.contestant_id
                 {_TRIBE_LATERAL}
                 -- Did the name they wrote actually go home? The scorer's own
                 -- rule, so a Redemption Island duel loss doesn't read as a hit
                 -- (#655): it is the second exit of a boot already scored.
                 left join eliminations el
-                  on el.episode_id = ep.episode_id
-                 and el.contestant_id = ep.contestant_id
+                  on el.episode_id = pick.episode_id
+                 and el.contestant_id = pick.contestant_id
                  and {scoring.BALLOT_HIT_SQL}
-                where ep.league_season_id = %s and ep.episode_id = %s
-                order by ep.rank nulls first, ep.created_at
+                {scoring.DOUBLE_VOTE_JOIN_SQL}
+                {scoring.PICK_VALUE_JOIN_SQL}
+                where pick.league_season_id = %s and pick.episode_id = %s
+                order by pick.rank nulls first, pick.created_at
                 """,
                 [lsid, str(episode_id)],
             )

@@ -132,6 +132,8 @@ export interface HubRosterMember extends StandingSurvivor {
 /** One name on someone's ballot, and whether it went home (#812). */
 export interface HubBallotPick extends StandingSurvivor {
   correct: boolean
+  // What the pick paid, Power Vote included; 0 for a miss.
+  points: number
 }
 
 // One player's locked choices for the airing episode — the locked-state Hub

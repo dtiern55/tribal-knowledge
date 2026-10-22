@@ -1673,6 +1673,57 @@ describe('MySeasonPage state shell', () => {
     expect(screen.queryByText('×2')).not.toBeInTheDocument()
   })
 
+  it("puts each castaway's and correct vote's episode points on the Field once scored", async () => {
+    const user = userEvent.setup()
+    const episodes = [
+      episode(1, 'scored', '2026-08-01T00:00:00Z'),
+      episode(2, 'upcoming', '2026-08-02T00:00:00Z'),
+    ]
+    const survivor = (id: string, name: string, points: number) => ({
+      contestant_id: id,
+      name,
+      image_url: null,
+      tribe_color: '#123456',
+      tribe_name: 'Yanu',
+      eliminated_episode: null,
+      points,
+    })
+    mockGet(season, async (path: string) => {
+      if (path.endsWith('/episodes')) return episodes
+      if (path.endsWith('/hub')) {
+        return [{
+          user_id: 'user-2',
+          display_name: 'Rival',
+          roster: [survivor('cast-1', 'Kenzie', 3), survivor('cast-2', 'Charlie', 2)],
+          ballot: [
+            { ...survivor('cast-3', 'Alexis', 0), correct: true, points: 30 },
+            { ...survivor('cast-4', 'Lewis', 0), correct: false, points: 0 },
+          ],
+          advantage_type: 'double_roster_points',
+          advantage_target: survivor('cast-1', 'Kenzie', 3),
+          sole_survivor_contestant_id: null,
+          finale: null,
+          tribe_points: 8,
+          ballot_points: 0,
+        }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const rival = await screen.findByText('Rival')
+    await user.click(rival)
+    const row = rival.closest('details')!
+    expect(within(row).getByText('Kenzie').closest('li')).toHaveTextContent('+6')
+    expect(within(row).getByText('Charlie').closest('li')).toHaveTextContent('+2')
+    // A correct vote shows what it paid; a miss shows nothing.
+    expect(within(row).getByText('Alexis').closest('span')).toHaveTextContent('+30')
+    expect(within(row).getByText('Lewis').closest('span')).not.toHaveTextContent('+')
+  })
+
   it('shows the locked finale bracket instead of a weekly boot vote', async () => {
     const episodes = [
       episode(1, 'scored', '2026-08-01T00:00:00Z'),
@@ -1844,8 +1895,8 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('heading', { name: 'Tribal notes' })).toBeVisible()
     expect(dialog).toHaveTextContent('72%')
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
-    // Points buildup (Roster + Ballot = total) replaces the old sum line.
-    expect(dialog).toHaveTextContent('+45Ballot')
+    // The header carries the total; no Roster + Ballot sum band below the lanes.
+    expect(dialog).not.toHaveTextContent('+45Ballot')
     expect(dialog).toHaveTextContent('+60')
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))

@@ -9,11 +9,14 @@ export function HubBallotMark({
   power = false,
   correct = false,
   dark = false,
+  points,
 }: {
   name: string
   power?: boolean
   correct?: boolean
   dark?: boolean
+  /** Once scored, a correct pick shows what it paid beside the name. */
+  points?: number
 }) {
   const tone = dark
     ? correct
@@ -26,6 +29,7 @@ export function HubBallotMark({
     <span className={`relative inline-flex items-center rounded-md border-[1.5px] px-2 py-0.5 text-sm ${tone}`}>
       {correct && <span className="sr-only">Correct — </span>}
       {name}
+      {correct && points != null && <span className="ml-1.5 font-display tabular-nums">+{points}</span>}
       {power && <AdvantageStamp size={16} title="Power Vote on this vote" />}
     </span>
   )
