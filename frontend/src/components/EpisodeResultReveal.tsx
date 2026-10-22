@@ -421,23 +421,6 @@ export function EpisodeResultReveal({
             </ResultLane>
           </div>
 
-          {/* ── Points buildup: Roster + Ballot = total ── */}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-white/10 bg-[#0d1c14] px-4 py-3">
-            <div className="flex flex-wrap items-center gap-2 font-display font-semibold text-cream-100/75">
-              <BuildTerm label="Roster" value={rosterLane} />
-              <span className="text-white/25">+</span>
-              <BuildTerm label="Ballot" value={ballotLane} />
-            </div>
-            <div className="ml-auto flex items-baseline gap-2">
-              <span className="font-display text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cream-100/55">
-                Episode
-              </span>
-              <span className="font-display text-2xl font-bold leading-none text-terracotta-200 tabular-nums">
-                {signed(result.total_points)}
-              </span>
-            </div>
-          </div>
-
           {insights.length > 0 && (
             <section aria-labelledby="episode-insights-title" className="mt-4">
               <h3
@@ -496,17 +479,6 @@ export function EpisodeResultReveal({
         </div>
       </article>
     </div>
-  )
-}
-
-function BuildTerm({ label, value }: { label: string; value: number }) {
-  return (
-    <span className="leading-none">
-      <span className="text-cream-100 tabular-nums">{signed(value)}</span>
-      <span className="ml-1 font-sans text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-cream-100/45">
-        {label}
-      </span>
-    </span>
   )
 }
 

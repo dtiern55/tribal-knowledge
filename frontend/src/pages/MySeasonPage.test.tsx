@@ -1889,8 +1889,8 @@ describe('MySeasonPage state shell', () => {
     expect(screen.getByRole('heading', { name: 'Tribal notes' })).toBeVisible()
     expect(dialog).toHaveTextContent('72%')
     expect(dialog.querySelector('article')).toHaveClass('max-w-2xl')
-    // Points buildup (Roster + Ballot = total) replaces the old sum line.
-    expect(dialog).toHaveTextContent('+45Ballot')
+    // The header carries the total; no Roster + Ballot sum band below the lanes.
+    expect(dialog).not.toHaveTextContent('+45Ballot')
     expect(dialog).toHaveTextContent('+60')
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
