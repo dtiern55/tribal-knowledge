@@ -271,6 +271,12 @@ export interface EpisodeResultBreakdownLine {
   points: number
 }
 
+export interface EpisodeResultRosterSwap {
+  out_name: string
+  in_name: string | null
+  points: number
+}
+
 export interface EpisodeResultRosterMember extends EpisodeResultContestant {
   points: number
   breakdown: EpisodeResultBreakdownLine[]
@@ -309,6 +315,8 @@ export interface EpisodeResult {
   roster: EpisodeResultRosterMember[]
   roster_points: number
   roster_adjustment_points: number
+  /** Paid swaps that took effect this episode; their points sum to the above. */
+  roster_swaps: EpisodeResultRosterSwap[]
   ballot_points: number
   weekly_plays: EpisodeResultWeeklyPlay[]
   weekly_play_bonus: number

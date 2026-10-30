@@ -586,6 +586,12 @@ class EpisodeResultInsight(BaseModel):
     detail: Optional[str] = None
 
 
+class EpisodeResultRosterSwap(BaseModel):
+    out_name: str
+    in_name: Optional[str] = None
+    points: int
+
+
 class EpisodeResult(BaseModel):
     episode_id: UUID
     episode_number: int
@@ -600,6 +606,8 @@ class EpisodeResult(BaseModel):
     roster: list[EpisodeResultRosterMember]
     roster_points: int
     roster_adjustment_points: int
+    # Paid swaps that took effect this episode; their points sum to the above.
+    roster_swaps: list[EpisodeResultRosterSwap] = []
     ballot_points: int
     weekly_plays: list[EpisodeResultWeeklyPlay]
     weekly_play_bonus: int
