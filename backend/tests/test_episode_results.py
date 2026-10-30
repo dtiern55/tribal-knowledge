@@ -190,6 +190,39 @@ def test_roster_breakdown_lists_base_events_only(client, db_conn, current_user):
 
 
 @pytest.mark.integration
+def test_paid_swap_names_who_went_out_and_in(client, db_conn, current_user):
+    season = insert_season(db_conn, status="active", roster_lock_episode=1)
+    insert_episode(db_conn, season["id"], episode_number=1, status="scored")
+    ep2 = insert_episode(db_conn, season["id"], episode_number=2, status="scored")
+    dropped = insert_contestant(db_conn, season["id"], "Alexis")
+    added = insert_contestant(db_conn, season["id"], "Maggie")
+    old = insert_roster_pick(
+        db_conn,
+        current_user["id"],
+        season["id"],
+        dropped["id"],
+        active_until_episode=1,
+        swap_penalty_points=-10,
+    )
+    new = insert_roster_pick(
+        db_conn, current_user["id"], season["id"], added["id"], active_from_episode=2
+    )
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "update roster_picks set replaced_pick_id = %s where id = %s",
+            [str(old["id"]), str(new["id"])],
+        )
+
+    result = client.get(
+        f"/league-seasons/{season['league_season_id']}/episode-results/{ep2['id']}"
+    ).json()
+    assert result["roster_swaps"] == [
+        {"out_name": "Alexis", "in_name": "Maggie", "points": -10}
+    ]
+    assert result["roster_adjustment_points"] == -10
+
+
+@pytest.mark.integration
 def test_acknowledgement_is_idempotent_and_replay_does_not_change_it(
     client, db_conn, current_user
 ):

@@ -125,14 +125,25 @@ def _roster_lane(conn, league_season_id: UUID, user_id: UUID, episode: dict):
                 ]
             member["breakdown"] = events
 
+        # A paid swap's price sits on the dropped pick, which ends the episode
+        # before the one its replacement starts.
         cur.execute(
-            "select coalesce(sum(swap_penalty_points), 0)::int as points"
-            " from roster_picks where league_season_id = %s and user_id = %s"
-            " and active_until_episode = %s",
+            """
+            select coalesce(cd.nickname, cd.name) as out_name,
+                   coalesce(ca.nickname, ca.name) as in_name,
+                   d.swap_penalty_points as points
+            from roster_picks d
+            join contestants cd on cd.id = d.contestant_id
+            left join roster_picks a on a.replaced_pick_id = d.id
+            left join contestants ca on ca.id = a.contestant_id
+            where d.league_season_id = %s and d.user_id = %s
+              and d.active_until_episode = %s and d.swap_penalty_points <> 0
+            order by d.created_at
+            """,
             [str(league_season_id), str(user_id), episode["episode_number"] - 1],
         )
-        adjustment = cur.fetchone()["points"]
-    return roster, adjustment
+        swaps = cur.fetchall()
+    return roster, swaps
 
 
 def _ballot_lane(conn, ls: dict, user_id: UUID, episode: dict):
@@ -399,7 +410,8 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         )
         plays = cur.fetchall()
 
-    roster, roster_adjustment = _roster_lane(conn, season["id"], user_id, episode)
+    roster, roster_swaps = _roster_lane(conn, season["id"], user_id, episode)
+    roster_adjustment = sum(row["points"] for row in roster_swaps)
     ballot = _ballot_lane(conn, season, user_id, episode)
     roster_points = sum(row["points"] for row in roster)
     ballot_points = sum(row["points"] for row in ballot)
@@ -430,6 +442,7 @@ def _build_result(conn, season: dict, episode: dict, user_id: UUID) -> dict:
         "roster": roster,
         "roster_points": roster_points,
         "roster_adjustment_points": roster_adjustment,
+        "roster_swaps": roster_swaps,
         "ballot_points": ballot_points,
         "weekly_plays": plays,
         "weekly_play_bonus": weekly_bonus,

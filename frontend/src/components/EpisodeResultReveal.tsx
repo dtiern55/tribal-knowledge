@@ -358,14 +358,19 @@ export function EpisodeResultReveal({
                       />
                     )
                   })}
-                  {result.roster_adjustment_points !== 0 && (
-                    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm">
-                      <span className="text-cream-100/70">Historical roster adjustment</span>
+                  {result.roster_swaps.map((swap) => (
+                    <div
+                      key={swap.out_name}
+                      className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm"
+                    >
+                      <span className="text-cream-100/70">
+                        {swap.in_name ? `Swapped ${swap.out_name} for ${swap.in_name}` : `Swapped out ${swap.out_name}`}
+                      </span>
                       <span className="shrink-0 font-display font-semibold text-cream-100 tabular-nums">
-                        {signed(result.roster_adjustment_points)}
+                        {signed(swap.points)}
                       </span>
                     </div>
-                  )}
+                  ))}
                 </>
               )}
             </ResultLane>

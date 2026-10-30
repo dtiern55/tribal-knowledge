@@ -101,6 +101,7 @@ function result(overrides: Partial<EpisodeResult> = {}): EpisodeResult {
     ],
     roster_points: 15,
     roster_adjustment_points: 0,
+    roster_swaps: [],
     ballot_points: 30,
     weekly_plays: [
       {
