@@ -916,7 +916,7 @@ export function MySeasonPage() {
           {/* Rides the swap lock (one dial, no merge): SoleSurvivorLine
               self-gates on the designation window. */}
           <SoleSurvivorLine
-            wait={displayResult != null || swapMomentPending}
+            wait={recapPending || swapMomentPending}
             season={d.season}
             contestants={d.contestants}
             episodes={d.episodes}
