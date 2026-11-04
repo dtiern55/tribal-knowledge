@@ -4937,7 +4937,9 @@ function SoleSurvivorLine({
   }
   const designee = roster.find((p) => p.is_sole_survivor)
 
-  const lockEp = swapLockEpisodeNumber(season)
+  // The pick closes when the last swappable episode (swap lock - 1) locks, not
+  // the swap-lock episode itself — that one is already a week too late.
+  const lockEp = swapLockEpisodeNumber(season) - 1
   const lockEpisode = episodes.find((e) => e.episode_number === lockEp)
   const windowOpen = ssDesignationOpen(season, episodes)
 
