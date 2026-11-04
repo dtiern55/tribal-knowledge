@@ -1390,6 +1390,30 @@ describe('MySeasonPage state shell', () => {
     )
   })
 
+  // The pick closes with the last swappable episode (swap lock - 1), so the
+  // chip shows that episode's lock, not the swap-lock episode a week later.
+  it('dates the Sole Survivor lock chip to the last swappable episode', async () => {
+    localStorage.setItem('mytribe.name-sole-survivor.season-1', '1')
+    mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
+      if (path.endsWith('/contestants')) return [{ id: 'cast-1', name: 'Kenzie', nickname: null, eliminated_in_episode: null }]
+      if (path.endsWith('/episodes')) {
+        return [episode(1, 'scored', '2026-08-01T00:00:00Z'), episode(2, 'upcoming', '2099-08-27T18:00:00Z'), episode(3, 'upcoming', '2099-09-03T18:00:00Z')]
+      }
+      if (path.includes('/roster/')) {
+        return [{ id: 'roster-1', contestant_id: 'cast-1', active_from_episode: 2, active_until_episode: null, swap_penalty_points: 0, is_sole_survivor: false }]
+      }
+      if (path.includes('/scoring-breakdown/')) return { roster: [], picks: [] }
+      if (path.endsWith('/reveal')) return undefined
+      return []
+    })
+
+    renderWithApp(<MySeasonPage />, { auth })
+
+    const ssBox = (await screen.findByRole('button', { name: /name your sole survivor/i })).closest('.rounded-xl')!
+    expect(ssBox).toHaveTextContent(/Aug 27/)
+    expect(ssBox).not.toHaveTextContent(/Sep 3/)
+  })
+
   it('pops the info card when the window opens with nobody named, then leaves the button pulsing (#164)', async () => {
     localStorage.removeItem('mytribe.name-sole-survivor.season-1')
     mockGet({ ...season, swap_lock_episode: 3 }, async (path: string) => {
